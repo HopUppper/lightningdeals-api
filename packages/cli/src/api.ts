@@ -18,8 +18,9 @@ export const getGatewayUrl = (): string => {
   if (process.env.LIGHTNINGDEALS_API_URL) {
     return process.env.LIGHTNINGDEALS_API_URL.replace(/\/$/, '');
   }
-  return 'https://lightningdeals-api.onrender.com';
+  return 'https://lightningapi.pro';
 };
+
 
 
 

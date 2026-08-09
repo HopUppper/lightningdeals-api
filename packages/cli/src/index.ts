@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 import readline from 'readline';
+import os from 'os';
 
 import { validateApiKey, fetchLiveModels, testApiRequest, getGatewayUrl } from './api.js';
 import { getClientTargets, configureClient, removeClientConfiguration, ClientTarget } from './clients.js';
 
 const BANNER = `
-⚡ LightningDeals CLI v1.0.0
-   The simple way to power your AI tools.
+  ██╗     ██╗██████╗ ██╗████████╗███╗   ██╗██╗███╗   ██╗██████╗ 
+  ██║     ██║██╔════╝ ██║╚══██╔══╝████╗  ██║██║████╗  ██║██╔════╝ 
+  ██║     ██║██║  ███╗██║   ██║   ██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
+  ██║     ██║██║   ██║██║   ██║   ██║╚██╗██║██║██║╚██╗██║██║   ██║
+  ███████╗██║╚██████╔╝██║   ██║   ██║ ╚████║██║██║ ╚████║╚██████╔╝
+  ╚══════╝╚═╝ ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+
+  ⚡ Setup Wizard ── The fastest way to connect every AI coding client.
 `;
 
 const askQuestion = (query: string): Promise<string> => {
@@ -46,11 +53,26 @@ const getApiKeyFromArgsOrEnv = (): string => {
   return (process.env.LIGHTNINGDEALS_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || '').trim();
 };
 
+function printSystemInfo() {
+  console.log(`\n  ✓ Operating system:     ${os.platform()}`);
+  console.log(`  ✓ Architecture:       ${os.arch()}`);
+  console.log(`  ✓ Node.js:            ${process.version}`);
+  console.log(`  ✓ Gateway Endpoint:   ${getGatewayUrl()}\n`);
+}
+
 async function runDoctor() {
   console.log(BANNER);
   console.log('🔍 Running LightningDeals Diagnostics Doctor...\n');
 
   let apiKey = getApiKeyFromArgsOrEnv();
+
+  if (!apiKey) {
+    const clients = getClientTargets();
+    const existing = clients.find(c => c.existingApiKey);
+    if (existing?.existingApiKey) {
+      apiKey = existing.existingApiKey;
+    }
+  }
 
   if (!apiKey) {
     console.log('! No active LightningDeals API key passed or found in environment.');
@@ -65,7 +87,6 @@ async function runDoctor() {
   const gatewayUrl = getGatewayUrl();
   console.log(`Endpoint:               ${gatewayUrl}`);
   console.log(`TLS Verification:       ENABLED`);
-  console.log(`Mock Guard:             ${process.env.NODE_ENV === 'production' ? 'ENABLED (Production Guard 503 Active)' : 'DEVELOPMENT ONLY'}`);
   console.log(`Testing API Key:        ${maskString(apiKey)}`);
 
   const status = await validateApiKey(apiKey);
@@ -75,23 +96,8 @@ async function runDoctor() {
     console.log(`✓ API Key:              Valid (${status.name || 'Prepaid Key'})`);
     console.log(`✓ 5-Hour Rolling Window: Available (${formatTokenCount(status.tokensRemaining)} Tokens Remaining in 5h Window)`);
     console.log(`✓ Account Status:       ${status.status?.toUpperCase()}`);
-
   } else {
     console.log(`✕ API Key Error:        ${status.error}`);
-  }
-
-  console.log('\nTesting Gateway & Provider Connection...');
-  const ping = await testApiRequest(apiKey);
-  if (ping.success) {
-    const isSimulated = ping.responseText?.includes('[Development Mode]');
-    console.log(`✓ Gateway Response:     Successful (${ping.latencyMs}ms latency)`);
-    if (isSimulated) {
-      console.log(`⚠ Supplier Provider:   NOT CONFIGURED (Development Simulated Mode Active)`);
-    } else {
-      console.log(`✓ Supplier Provider:   CONNECTED (Real Upstream Provider Active)`);
-    }
-  } else {
-    console.log(`! Model Request Status: ${ping.error}`);
   }
 
   console.log('\nInspecting Tool Client Configurations:');
@@ -134,6 +140,14 @@ async function runStatus() {
   console.log(BANNER);
   let apiKey = getApiKeyFromArgsOrEnv();
   if (!apiKey) {
+    const clients = getClientTargets();
+    const existing = clients.find(c => c.existingApiKey);
+    if (existing?.existingApiKey) {
+      apiKey = existing.existingApiKey;
+    }
+  }
+
+  if (!apiKey) {
     apiKey = await askQuestion('Enter LightningDeals API Key: ');
   }
   if (!apiKey) return;
@@ -159,7 +173,7 @@ async function runRemove() {
 
   const confirm = await askQuestion('Are you sure you want to remove LightningDeals configuration? (y/N): ');
   if (confirm.toLowerCase() !== 'y') {
-    console.log('Cancelled.');
+    console.log('Exiting without changes.');
     return;
   }
 
@@ -184,17 +198,54 @@ async function runRemove() {
 
 async function runSetup() {
   console.log(BANNER);
-  console.log('Connect your AI developer tools in under a minute.\n');
+  printSystemInfo();
+
+  const clients = getClientTargets();
+  const configuredClient = clients.find((c) => c.configured && c.existingApiKey);
 
   let apiKey = getApiKeyFromArgsOrEnv();
+
+  // If existing key detected and no explicit --key flag passed, show interactive menu
+  if (!apiKey && configuredClient?.existingApiKey) {
+    const existingKey = configuredClient.existingApiKey;
+    console.log(`  Existing LightningDeals configuration detected.`);
+    console.log(`  API key: ${maskString(existingKey)}\n`);
+    console.log('  What would you like to do?');
+    console.log('    1. Keep existing key');
+    console.log('    2. Replace with a new key');
+    console.log('    3. Remove configuration');
+    console.log('    4. Exit\n');
+
+    const choice = await askQuestion('Select an option (1-4): ');
+
+    if (choice === '1' || choice === '') {
+      apiKey = existingKey;
+      console.log('\nValidating existing key...');
+      const status = await validateApiKey(apiKey);
+      if (status.valid) {
+        console.log(`✓ Key Verified (${formatTokenCount(status.tokensRemaining)} Tokens Remaining)`);
+        console.log('\nExiting without changes.');
+        return;
+      } else {
+        console.log(`! Existing key validation failed: ${status.error}`);
+        apiKey = '';
+      }
+    } else if (choice === '3') {
+      await runRemove();
+      return;
+    } else if (choice === '4' || choice.toLowerCase() === 'exit') {
+      console.log('Exiting without changes.');
+      return;
+    }
+  }
 
   if (!apiKey) {
     apiKey = await askQuestion('Enter your LightningDeals API Key (ld_live_...): ');
   }
 
   if (!apiKey) {
-    console.log('✕ Setup cancelled: API key is required.');
-    process.exit(1);
+    console.log('\nExiting without changes.');
+    return;
   }
 
   console.log(`\nValidating key ${maskString(apiKey)} with LightningDeals Gateway (${getGatewayUrl()})...`);
@@ -207,7 +258,6 @@ async function runSetup() {
 
   console.log(`✓ API Key Verified! (${formatTokenCount(status.tokensRemaining)} Tokens Remaining)`);
 
-  const clients = getClientTargets();
   const installedClients = clients.filter((c) => c.installed);
 
   if (installedClients.length === 0) {
@@ -222,7 +272,28 @@ async function runSetup() {
   });
 
   const choice = await askQuestion('\nConfigure all detected tools? (Y/n): ');
-  const selectedClients = choice.toLowerCase() === 'n' ? [installedClients[0]] : installedClients;
+
+  let selectedClients: ClientTarget[] = [];
+
+  if (choice.toLowerCase() === 'n') {
+    console.log('\nSelect specific tool to configure:');
+    installedClients.forEach((c, idx) => {
+      console.log(`  [${idx + 1}] ${c.name}`);
+    });
+    console.log(`  [0] Exit without making changes\n`);
+
+    const toolChoice = await askQuestion('Select tool number (or 0 to exit): ');
+    const selectedIdx = parseInt(toolChoice, 10) - 1;
+
+    if (isNaN(selectedIdx) || selectedIdx < 0 || selectedIdx >= installedClients.length) {
+      console.log('Exiting without changes.');
+      return;
+    }
+
+    selectedClients = [installedClients[selectedIdx]];
+  } else {
+    selectedClients = installedClients;
+  }
 
   console.log('\nConfiguring selected tools:');
   const gatewayUrl = getGatewayUrl();
@@ -233,14 +304,6 @@ async function runSetup() {
     } else {
       console.log(`  ✕ Failed to configure ${client.name}: ${res.error}`);
     }
-  }
-
-  console.log('\nVerifying gateway connection...');
-  const ping = await testApiRequest(apiKey);
-  if (ping.success) {
-    console.log(`✓ Gateway Verification Success (${ping.latencyMs}ms)!`);
-  } else {
-    console.log(`! Warning: Gateway verification ping failed (${ping.error}).`);
   }
 
   console.log('\n🎉 LightningDeals configuration complete!');
@@ -302,4 +365,3 @@ main().catch((err) => {
   console.error('Fatal CLI Error:', err);
   process.exit(1);
 });
-

@@ -8,6 +8,7 @@ export interface ClientTarget {
   configPath: string;
   installed: boolean;
   configured: boolean;
+  existingApiKey?: string;
 }
 
 const getHomeDir = (): string => os.homedir();
@@ -60,11 +61,16 @@ export const getClientTargets = (): ClientTarget[] => {
     const parentDir = path.dirname(t.configPath);
     const installed = fs.existsSync(parentDir) || fs.existsSync(t.configPath);
     let configured = false;
+    let existingApiKey: string | undefined = undefined;
 
     if (fs.existsSync(t.configPath)) {
       try {
         const raw = fs.readFileSync(t.configPath, 'utf8');
-        configured = raw.includes('lightningdeals') || raw.includes('ANTHROPIC_BASE_URL') || raw.includes('ld_live_');
+        configured = raw.includes('lightningdeals') || raw.includes('ANTHROPIC_BASE_URL') || raw.includes('ld_live_') || raw.includes('lightningapi.pro');
+        const match = raw.match(/ld_(live|trial)_[a-zA-Z0-9]+/);
+        if (match) {
+          existingApiKey = match[0];
+        }
       } catch (e) {
         configured = false;
       }
@@ -74,9 +80,11 @@ export const getClientTargets = (): ClientTarget[] => {
       ...t,
       installed,
       configured,
+      existingApiKey,
     };
   });
 };
+
 
 export const configureClient = (
   client: ClientTarget,

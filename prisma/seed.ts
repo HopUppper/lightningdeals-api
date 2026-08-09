@@ -177,6 +177,28 @@ async function main() {
     },
   });
 
+  // Customer Key (Sagar)
+  const sagarKeyRaw = 'ld_live_e80778bbfb8b30776c17758b7ee957119267';
+  const sagarKeyHash = hashApiKey(sagarKeyRaw);
+  await prisma.apiKey.create({
+    data: {
+      userId: devUser.id,
+      keyPrefix: 'ld_live_',
+      keyHash: sagarKeyHash,
+      displayKey: 'ld_live_e807...9267',
+      name: 'Sagar Production Claude Key',
+      type: 'production',
+      status: 'active',
+      purchasedTokens: BigInt(20000000),
+      tokensUsed: BigInt(0),
+      tokensRemaining: BigInt(20000000),
+      rateLimitRpm: 120,
+      allowedModels: 'all',
+      plan: 'Claude Max 20x',
+    },
+  });
+
+
   await prisma.tokenLedger.create({
     data: {
       apiKeyId: liveApiKey.id,

@@ -81,8 +81,9 @@ export const getClientTargets = (): ClientTarget[] => {
 export const configureClient = (
   client: ClientTarget,
   apiKey: string,
-  gatewayUrl: string = 'https://api.lightningapi.pro'
+  gatewayUrl: string = 'https://lightningdeals-api.onrender.com'
 ): { success: boolean; backupPath?: string; error?: string } => {
+
 
 
   try {

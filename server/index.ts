@@ -1,6 +1,8 @@
 import express from 'express';
+import path from 'path';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+
 import { handleMessagesEndpoint } from './gateway';
 import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens } from './tools';
 import adminRouter from './admin';
@@ -94,6 +96,23 @@ Write-Host "Run 'claude' to start coding with LightningDeals."
 `);
 });
 
+// 5. Static Web Application & SPA Fallback Route
+const distPath = path.resolve(process.cwd(), 'dist');
+app.use(express.static(distPath));
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/v1')) {
+    return res.status(404).json({ error: { message: 'Endpoint not found.' } });
+  }
+  const indexPath = path.join(distPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      res.status(200).send('<!DOCTYPE html><html><body><h1>LightningDeals API Gateway Server Active</h1></body></html>');
+    }
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 LightningDeals Backend API Gateway running on http://localhost:${PORT}`);
 });
+

@@ -1,7 +1,8 @@
 {
   "name": "lightningdeals",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "LightningDeals CLI — One-command setup for Claude Code, Cursor, Windsurf, VS Code, Cline, and Roo Code with LightningDeals AI API Gateway",
+
 
 
 

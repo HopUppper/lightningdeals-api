@@ -6,15 +6,16 @@ import { validateApiKey, fetchLiveModels, testApiRequest, getGatewayUrl } from '
 import { getClientTargets, configureClient, removeClientConfiguration, ClientTarget } from './clients.js';
 
 const BANNER = `
-  ██╗     ██╗██████╗ ██╗████████╗███╗   ██╗██╗███╗   ██╗██████╗ 
-  ██║     ██║██╔════╝ ██║╚══██╔══╝████╗  ██║██║████╗  ██║██╔════╝ 
-  ██║     ██║██║  ███╗██║   ██║   ██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
-  ██║     ██║██║   ██║██║   ██║   ██║╚██╗██║██║██║╚██╗██║██║   ██║
-  ███████╗██║╚██████╔╝██║   ██║   ██║ ╚████║██║██║ ╚████║╚██████╔╝
-  ╚══════╝╚═╝ ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+  ██╗     ██╗██████╗ ██╗  ██╗████████╗███╗   ██╗██╗███╗   ██╗██████╗ 
+  ██║     ██║██╔════╝ ██║  ██║╚══██╔══╝████╗  ██║██║████╗  ██║██╔════╝ 
+  ██║     ██║██║  ███╗███████║   ██║   ██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
+  ██║     ██║██║   ██║██╔══██║   ██║   ██║╚██╗██║██║██║╚██╗██║██║   ██║
+  ███████╗██║╚██████╔╝██║  ██║   ██║   ██║ ╚████║██║██║ ╚████║╚██████╔╝
+  ╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝ 
 
-  ⚡ Setup Wizard ── The fastest way to connect every AI coding client.
+  ⚡ LIGHTNINGDEALS Setup Wizard ── Connect every AI coding client in seconds.
 `;
+
 
 const askQuestion = (query: string): Promise<string> => {
   const rl = readline.createInterface({

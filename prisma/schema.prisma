@@ -1,0 +1,244 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String       @id @default(uuid())
+  email         String       @unique
+  name          String
+  passwordHash  String
+  role          String       @default("user") // "admin" | "user"
+  emailVerified Boolean      @default(true)
+  status        String       @default("active") // "active" | "suspended"
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  lastLoginAt   DateTime?
+  apiKeys       ApiKey[]
+  apiRequests   ApiRequest[]
+  adminLogs     AdminLog[]
+  orders        Order[]
+  tokenLedgers    TokenLedger[]
+  trialClaims     TrialClaim[]
+  supportTickets  SupportTicket[]
+  ticketMessages  TicketMessage[]
+}
+
+
+model ApiKey {
+  id                String        @id @default(uuid())
+  userId            String?
+  user              User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keyPrefix         String        // "ld_live_" or "ld_trial_"
+  keyHash           String        @unique
+  displayKey        String
+  name              String
+  type              String        @default("production") // "production" | "trial"
+  status            String        @default("active") // "active" | "suspended" | "revoked"
+  purchasedTokens   BigInt        @default(1000000)
+  tokensUsed        BigInt        @default(0)
+  tokensRemaining   BigInt        @default(1000000)
+  expiresAt         DateTime?
+  rateLimitRpm      Int           @default(60)
+  maxConcurrency    Int           @default(5)
+  totalRequests     Int           @default(0)
+  totalInputTokens  BigInt        @default(0)
+  totalOutputTokens BigInt        @default(0)
+  allowedModels     String        @default("all")
+  plan              String        @default("Prepaid")
+  firstUsedAt       DateTime?
+  lastUsedAt        DateTime?
+  createdAt         DateTime      @default(now())
+
+  updatedAt         DateTime      @updatedAt
+  requests          ApiRequest[]
+  tokenLedgers      TokenLedger[]
+  trialClaims       TrialClaim[]
+}
+
+model ApiRequest {
+  id           String    @id @default(uuid())
+  apiKeyId     String?
+  apiKey       ApiKey?   @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  userId       String?
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  model        String
+  endpoint     String
+  requestId    String    @unique @default(uuid())
+  statusCode   Int       @default(200)
+  inputTokens  Int       @default(0)
+  outputTokens Int       @default(0)
+  totalTokens  Int       @default(0)
+  latencyMs    Int       @default(0)
+  streaming    Boolean   @default(false)
+  providerId   String?
+  errorCode    String?
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+}
+
+model VendorProvider {
+  id                   String     @id @default(uuid())
+  name                 String
+  providerType         String     @default("anthropic") // "anthropic" | "openai" | "custom_anthropic"
+  masterApiKeyEncrypted String     @default("")
+  baseUrl              String     @default("https://api.anthropic.com")
+  status               String     @default("connected") // "connected" | "invalid_credential" | "unavailable" | "disabled"
+  isPrimary            Boolean    @default(true)
+  lastTestedAt         DateTime?
+  lastError            String?
+  notes                String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
+
+model TokenPackage {
+  id          String   @id @default(uuid())
+  tokenAmount BigInt
+  priceInr    Float
+  displayName String
+  description String?
+  featured    Boolean  @default(false)
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+}
+
+model Order {
+  id               String        @id @default(uuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId        String?
+  package          TokenPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  tokenQuantity    BigInt
+  amountInr        Float
+  currency         String        @default("INR")
+  status           String        @default("PAID") // "PENDING" | "PAID" | "FAILED" | "CANCELLED"
+  paymentReference String?
+  paymentGateway   String        @default("RAZORPAY_UPI_MANUAL")
+  tokensCredited   Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model TokenLedger {
+  id           String   @id @default(uuid())
+  apiKeyId     String?
+  apiKey       ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount       BigInt
+  balanceAfter BigInt
+  type         String   // "PURCHASE" | "USAGE" | "ADMIN_ADJUSTMENT" | "TRIAL_GRANT"
+  reference    String?
+  notes        String?
+  createdAt    DateTime @default(now())
+}
+
+model TrialClaim {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email      String
+  ipAddress  String
+  deviceHash String?
+  riskScore  Float    @default(0.0)
+  decision   String   @default("APPROVED") // "APPROVED" | "REJECTED" | "NEEDS_VERIFICATION"
+  apiKeyId   String?
+  apiKey     ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+}
+
+model Plan {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  displayName     String
+  tokenAllowance  BigInt   @default(20000000)
+  windowHours     Int      @default(5)
+  validityDays    Int      @default(30)
+  rateLimitRpm    Int      @default(60)
+  status          String   @default("active") // "active" | "archived"
+  description     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Model {
+
+  id                String   @id @default(uuid())
+  modelId           String   @unique
+  displayName       String
+  provider          String   // "Anthropic" | "OpenAI" | "Google" | "xAI" | "DeepSeek"
+  description       String
+  contextWindow     Int      @default(1000000)
+  enabled           Boolean  @default(true)
+  inputPrice        Float    @default(3.0)
+  outputPrice       Float    @default(15.0)
+  supportsStreaming Boolean  @default(true)
+  supportsTools     Boolean  @default(true)
+  supportsVision    Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model AdminLog {
+  id          String   @id @default(uuid())
+  adminUserId String?
+  adminUser   User?    @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  action      String
+  targetType  String
+  targetId    String?
+  metadata    String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model Lead {
+  id          String   @id @default(uuid())
+  name        String
+  email       String
+  tokenAmount String
+  useCase     String?
+  message     String?
+  status      String   @default("NEW") // "NEW" | "CONTACTED" | "QUOTED" | "CONVERTED" | "CLOSED"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SupportTicket {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject     String
+  category    String          @default("Technical issue") // "API issue" | "Payment" | "API key" | "Account" | "Technical issue" | "Other"
+  status      String          @default("Open") // "Open" | "Awaiting Customer" | "Awaiting Support" | "Resolved" | "Closed"
+  messages    TicketMessage[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model TicketMessage {
+  id          String        @id @default(uuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderRole  String        @default("user") // "user" | "admin"
+  content     String
+  createdAt   DateTime      @default(now())
+}
+
+

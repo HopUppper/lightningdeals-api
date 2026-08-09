@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #fbfaff;
+  --color-card: #ffffff;
+  --color-fg: #0b1020;
+  --color-muted: #5c687d;
+  --color-accent: #5b21b6;
+  --color-accent-hover: #4c1d95;
+  --color-accent-secondary: #7c3aed;
+  --color-accent-light: #f5f3ff;
+  --color-border: #e4e0ee;
+  --color-subtle: #f7f5fc;
+
+  --max-width-page: 1200px;
+  --max-width-reading: 720px;
+
+  --radius-control: 10px;
+  --radius-panel: 14px;
+  --radius-card: 20px;
+  --radius-hero: 28px;
+
+  --shadow-e1: 0 1px 2px rgba(15, 16, 32, 0.05);
+  --shadow-e2: 0 1px 2px rgba(15, 16, 32, 0.05), 0 8px 20px -10px rgba(91, 33, 182, 0.16);
+  --shadow-e3: 0 2px 4px rgba(15, 16, 32, 0.04), 0 24px 56px -20px rgba(91, 33, 182, 0.22);
+
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+:root {
+  --ui-bg: #fbfaff;
+  --ui-surface: #ffffff;
+  --ui-surface-subtle: #f7f5fc;
+  --ui-text: #0b1020;
+  --ui-text-muted: #5c687d;
+  --ui-border: #e4e0ee;
+  --ui-accent: #5b21b6;
+  --ui-accent-hover: #4c1d95;
+  --ui-radius-control: 10px;
+  --ui-radius-panel: 14px;
+  --ui-radius-lg: 20px;
+  --ui-radius-xl: 28px;
+  --ui-page-width: 1200px;
+}
+
+html {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+}
+
+code, pre {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* LightningDeals Hero Grid Pattern */
+
+.hero-grid {
+  background-color: var(--ui-surface-subtle);
+  background-image: linear-gradient(90deg, rgba(91, 33, 182, 0.045) 1px, transparent 0),
+                    linear-gradient(180deg, rgba(91, 33, 182, 0.045) 1px, transparent 0);
+  background-size: 44px 44px;
+  background-position: top center;
+}
+
+.hero-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 50% 0, transparent 40%, var(--ui-bg) 100%);
+  pointer-events: none;
+}
+
+/* UI Utility Classes */
+.ui-panel {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface);
+}
+
+.ui-button-primary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-accent);
+  padding: 0 18px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.12s ease-out, transform 0.1s ease-out;
+}
+
+.ui-button-primary:hover {
+  background: var(--ui-accent-hover);
+}
+
+.ui-button-primary:active {
+  transform: scale(0.97);
+}
+
+.ui-button-secondary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border: 1px solid #cfc8dc;
+  border-radius: var(--ui-radius-control);
+  background: #ffffff;
+  padding: 0 18px;
+  color: #28344a;
+  font-size: 14px;
+  font-weight: 600;
+  transition: border-color 0.12s ease-out, color 0.12s ease-out, transform 0.1s ease-out;
+}
+
+.ui-button-secondary:hover {
+  border-color: #a899c4;
+  color: var(--ui-accent);
+}
+
+.ui-button-secondary:active {
+  transform: scale(0.97);
+}
+
+.ui-kicker {
+  color: var(--ui-accent);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Arrow CTA Interaction */
+.arrow-cta .arrow-cta__icon {
+  display: inline-block;
+  transition: transform 0.16s ease-out;
+}
+
+.arrow-cta:hover .arrow-cta__icon,
+.arrow-cta:focus-visible .arrow-cta__icon {
+  transform: translateX(4px);
+}
+
+/* Code block scrollbar */
+.landing-code::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.landing-code::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.landing-code::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

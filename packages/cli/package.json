@@ -1,0 +1,38 @@
+{
+  "name": "lightningdeals",
+  "version": "1.0.1",
+  "description": "LightningDeals CLI — One-command setup for Claude Code, Cursor, Windsurf, VS Code, Cline, and Roo Code with LightningDeals AI API Gateway",
+
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "lightningdeals": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "lightningdeals",
+    "ai",
+    "api",
+    "gateway",
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "cline",
+    "roo-code",
+    "anthropic"
+  ],
+  "author": "LightningDeals Engineering",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

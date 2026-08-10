@@ -88,16 +88,17 @@ export const ContextVisualizer: React.FC = () => {
               <div className="absolute inset-8 rounded-full border border-amber-500/10" />
 
               <div className="relative z-10 space-y-1">
-                <span className="font-mono text-4xl sm:text-5xl font-extrabold text-amber-500 tracking-tight">1,000,000</span>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-muted font-bold">Token Context Window</p>
+                <span className="font-mono text-3xl sm:text-4xl font-extrabold text-amber-500 tracking-tight">Up to 1M</span>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-muted font-bold">Model Context Window</p>
               </div>
             </div>
 
             <div className="pt-4 border-t border-border w-full flex items-center justify-between text-xs font-mono text-muted">
-              <span>Primary Model: <strong className="text-fg">Claude 3.5 Sonnet</strong></span>
-              <span className="text-emerald-500 font-bold">✓ Sub-50ms Latency</span>
+              <span>Primary Models: <strong className="text-fg">Claude 3.5 Sonnet / Sonnet 5</strong></span>
+              <span className="text-emerald-500 font-bold">✓ Live Gateway Routing</span>
             </div>
           </motion.div>
+
         </div>
 
         {/* 6 Control Pillars Grid */}

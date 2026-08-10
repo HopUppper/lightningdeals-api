@@ -5,21 +5,31 @@ import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock } fro
 export const AdminOverview: React.FC = () => {
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState(false);
+
+  const loadOverview = async (isInitial = false) => {
+    if (isInitial) setLoading(true);
+    setUpdateError(false);
+    try {
+      const res = await fetch('/api/admin/overview');
+      if (res.ok) {
+        setOverview(await res.json());
+        setLastUpdated(new Date().toLocaleTimeString());
+      } else {
+        setUpdateError(true);
+      }
+    } catch (e) {
+      setUpdateError(true);
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadOverview() {
-      try {
-        const res = await fetch('/api/admin/overview');
-        if (res.ok) {
-          setOverview(await res.json());
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadOverview();
+    loadOverview(true);
+    const interval = setInterval(() => loadOverview(false), 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const formatTokens = (val: string | number) => {
@@ -36,12 +46,23 @@ export const AdminOverview: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-fg">LightningDeals Control Center</h1>
-          <p className="text-xs text-muted mt-1">
-            Real-time analytics for revenue, active customers, API keys, prepaid token accounting, and vendor connectivity.
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs text-muted">
+              Real-time analytics for revenue, active customers, API keys, prepaid token accounting, and vendor connectivity.
+            </p>
+            {lastUpdated && (
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                updateError
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'
+              }`}>
+                {updateError ? `Update Failed (Data as of ${lastUpdated})` : `Last updated: ${lastUpdated} (Auto-refreshes 15s)`}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -54,6 +75,7 @@ export const AdminOverview: React.FC = () => {
           </Link>
         </div>
       </div>
+
 
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

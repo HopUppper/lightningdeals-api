@@ -6,17 +6,21 @@ import { Footer } from '../components/Footer';
 export const StatusPage: React.FC = () => {
   const [statusData, setStatusData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchSystemStatus = async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetch('/api/system/status');
       if (res.ok) {
         const data = await res.json();
         setStatusData(data);
+      } else {
+        setError(true);
       }
     } catch (e) {
-      console.error(e);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -46,17 +50,28 @@ export const StatusPage: React.FC = () => {
           <div className="flex items-center justify-between border-b border-border pb-4">
             <div className="flex items-center gap-3">
               <div className={`w-3.5 h-3.5 rounded-full ${
-                statusData?.status === 'OPERATIONAL' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping'
+                error
+                  ? 'bg-red-500'
+                  : statusData?.status === 'OPERATIONAL'
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-amber-500 animate-ping'
               }`} />
               <div>
                 <h3 className="text-lg font-bold text-fg">
-                  {statusData?.status === 'OPERATIONAL' ? 'All Systems Operational' : 'Degraded System Performance'}
+                  {error
+                    ? 'System Status Unavailable'
+                    : statusData?.status === 'OPERATIONAL'
+                    ? 'All Systems Operational'
+                    : statusData?.status === 'DEGRADED'
+                    ? 'Degraded System Performance'
+                    : 'System Status Offline'}
                 </h3>
                 <p className="text-xs text-muted font-mono mt-0.5">
-                  Last checked: {statusData?.timestamp ? new Date(statusData.timestamp).toLocaleTimeString() : 'Just now'}
+                  Last checked: {statusData?.timestamp ? new Date(statusData.timestamp).toLocaleTimeString() : 'Unavailable'}
                 </p>
               </div>
             </div>
+
 
             <button
               onClick={fetchSystemStatus}

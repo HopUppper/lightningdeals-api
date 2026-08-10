@@ -63,9 +63,12 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
       totalTokens: true,
       latencyMs: true,
       streaming: true,
+      isEstimated: true,
+      usageSource: true,
       createdAt: true,
     },
   });
+
 
   res.json({
     valid: true,

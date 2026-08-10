@@ -191,13 +191,23 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
         await updateTokensAndLog({ keyRecord, model, inputTokens, outputTokens, totalTokens, latencyMs: Date.now() - startTime, streaming: true, vendorId: vendor?.id });
         return;
-      } else {
-        const data: any = await upstreamRes.json();
+        const hasProviderUsage = Boolean(data.usage?.input_tokens);
         const inputTokens = data.usage?.input_tokens || Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
         const outputTokens = data.usage?.output_tokens || 50;
         const totalTokens = inputTokens + outputTokens;
 
-        await updateTokensAndLog({ keyRecord, model, inputTokens, outputTokens, totalTokens, latencyMs: Date.now() - startTime, streaming: false, vendorId: vendor?.id });
+        await updateTokensAndLog({
+          keyRecord,
+          model,
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          latencyMs: Date.now() - startTime,
+          streaming: false,
+          vendorId: vendor?.id,
+          isEstimated: !hasProviderUsage,
+          usageSource: hasProviderUsage ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
+        });
         return res.json(data);
       }
     } catch (err: any) {
@@ -205,13 +215,12 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     }
   }
 
-  // Fallback Gateway Response when no Master API key is set
+  // Fallback Simulated Response when no Master API key is set
   const responseText = `Hello! I am Claude connected through your LightningDeals AI Gateway. Your gateway is operational and ready to handle AI completions!`;
   const inputTokens = Math.max(10, Math.ceil(JSON.stringify({ messages, system, tools }).length / 4));
   const outputTokens = Math.max(20, Math.ceil(responseText.length / 4));
   const totalTokens = inputTokens + outputTokens;
   const requestId = `msg_simulated_${crypto.randomBytes(12).toString('hex')}`;
-
 
   if (stream) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -245,8 +254,20 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     });
   }
 
-  await updateTokensAndLog({ keyRecord, model, inputTokens, outputTokens, totalTokens, latencyMs: Date.now() - startTime, streaming: !!stream, vendorId: vendor?.id });
+  await updateTokensAndLog({
+    keyRecord,
+    model,
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    latencyMs: Date.now() - startTime,
+    streaming: !!stream,
+    vendorId: vendor?.id,
+    isEstimated: true,
+    usageSource: 'SIMULATED_ESTIMATE',
+  });
 }
+
 
 // Atomic Token Deduction & Immutable Ledger Logging
 async function updateTokensAndLog({
@@ -258,6 +279,8 @@ async function updateTokensAndLog({
   latencyMs,
   streaming,
   vendorId,
+  isEstimated = false,
+  usageSource = 'PROVIDER_REPORTED',
 }: {
   keyRecord: any;
   model: string;
@@ -267,6 +290,8 @@ async function updateTokensAndLog({
   latencyMs: number;
   streaming: boolean;
   vendorId?: string;
+  isEstimated?: boolean;
+  usageSource?: string;
 }) {
   try {
     const tokensUsedBig = BigInt(totalTokens);
@@ -285,7 +310,6 @@ async function updateTokensAndLog({
           lastUsedAt: new Date(),
           ...(keyRecord.firstUsedAt ? {} : { firstUsedAt: new Date() }),
         },
-
       }),
       prisma.tokenLedger.create({
         data: {
@@ -295,7 +319,7 @@ async function updateTokensAndLog({
           balanceAfter: newRemaining,
           type: 'USAGE',
           reference: `REQ-${model}`,
-          notes: `API Call (${inputTokens} in / ${outputTokens} out)`,
+          notes: `API Call (${inputTokens} in / ${outputTokens} out - ${usageSource})`,
         },
       }),
       prisma.apiRequest.create({
@@ -311,6 +335,8 @@ async function updateTokensAndLog({
           latencyMs,
           streaming,
           providerId: vendorId,
+          isEstimated,
+          usageSource,
         },
       }),
     ]);
@@ -318,3 +344,4 @@ async function updateTokensAndLog({
     console.error('Error recording token deduction:', err);
   }
 }
+

@@ -432,9 +432,12 @@ router.get('/keys/:id/usage', async (req: AuthRequest, res: Response) => {
         totalTokens: true,
         latencyMs: true,
         streaming: true,
+        isEstimated: true,
+        usageSource: true,
         createdAt: true,
       },
     });
+
 
     const windowMetrics = await calculateKeyRollingWindow(key);
 

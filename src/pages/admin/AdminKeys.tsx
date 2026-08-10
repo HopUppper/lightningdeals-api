@@ -450,7 +450,14 @@ export const AdminKeys: React.FC = () => {
                                 </td>
                                 <td className="py-2.5 px-3 text-muted">{req.inputTokens?.toLocaleString()}</td>
                                 <td className="py-2.5 px-3 text-muted">{req.outputTokens?.toLocaleString()}</td>
-                                <td className="py-2.5 px-3 font-bold text-fg">{req.totalTokens?.toLocaleString()}</td>
+                                <td className="py-2.5 px-3 font-bold text-fg">
+                                  <span>{req.totalTokens?.toLocaleString()}</span>
+                                  {req.isEstimated && (
+                                    <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 font-sans" title="Estimated via length heuristics">
+                                      ESTIMATED
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="py-2.5 px-3 text-muted">{req.latencyMs} ms</td>
                               </tr>
                             ))}

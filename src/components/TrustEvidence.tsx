@@ -4,31 +4,58 @@ import { motion } from 'framer-motion';
 
 export const TrustEvidence: React.FC = () => {
   const [systemStatus, setSystemStatus] = React.useState<any | null>(null);
+  const [statusLoading, setStatusLoading] = React.useState(true);
+  const [statusError, setStatusError] = React.useState(false);
 
   React.useEffect(() => {
     async function fetchLiveStatus() {
+      setStatusLoading(true);
+      setStatusError(false);
       try {
         const res = await fetch('/api/system/status');
         if (res.ok) {
           setSystemStatus(await res.json());
+        } else {
+          setStatusError(true);
         }
       } catch (e) {
-        // Fallback safely
+        setStatusError(true);
+      } finally {
+        setStatusLoading(false);
       }
     }
     fetchLiveStatus();
   }, []);
 
-  const dbLatency = systemStatus?.dbLatencyMs !== undefined ? `${systemStatus.dbLatencyMs}ms` : '<50ms';
-  const systemState = systemStatus?.status === 'OPERATIONAL' ? '100% Operational' : (systemStatus?.status || 'Operational');
-  const activeKeysCount = systemStatus?.activeKeys !== undefined ? `${systemStatus.activeKeys} Active` : 'Active Keys';
+  const dbLatency = statusLoading
+    ? 'Loading...'
+    : statusError || systemStatus?.dbLatencyMs === undefined
+    ? 'Unavailable'
+    : `${systemStatus.dbLatencyMs}ms`;
+
+  const systemState = statusLoading
+    ? 'Checking...'
+    : statusError || !systemStatus?.status
+    ? 'Status Unavailable'
+    : systemStatus.status === 'OPERATIONAL'
+    ? 'Operational'
+    : systemStatus.status === 'DEGRADED'
+    ? 'Degraded Performance'
+    : 'Offline';
+
+  const activeKeysCount = statusLoading
+    ? 'Loading...'
+    : statusError || systemStatus?.activeKeys === undefined
+    ? 'Unavailable'
+    : `${systemStatus.activeKeys} Active Keys`;
 
   const stats = [
-    { label: 'Gateway Status', value: systemState, subtext: 'Live Gateway SLA' },
-    { label: 'Routing Latency', value: dbLatency, subtext: 'Sub-second Response' },
-    { label: 'Active Keys', value: activeKeysCount, subtext: 'Live Token Allocation' },
+    { label: 'Gateway Status', value: systemState, subtext: 'Live Service SLA' },
+    { label: 'Database Latency', value: dbLatency, subtext: 'Real Query Time' },
+    { label: 'Active Allocation Keys', value: activeKeysCount, subtext: 'Live System Total' },
     { label: 'CLI Onboarding', value: '1 Command', subtext: 'npx lightningdeals' },
   ];
+
 
   const items = [
 

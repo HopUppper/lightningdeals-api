@@ -78,8 +78,12 @@ model ApiRequest {
   providerId   String?
   errorCode    String?
   errorMessage String?
+  isEstimated  Boolean   @default(false)
+  usageSource  String    @default("PROVIDER_REPORTED") // "PROVIDER_REPORTED" | "LOCAL_CALCULATED" | "SIMULATED_ESTIMATE"
   createdAt    DateTime  @default(now())
 }
+
+
 
 model VendorProvider {
   id                   String     @id @default(uuid())

@@ -5,9 +5,47 @@ import { calculateKeyRollingWindow, reserveTokensForRequest, releaseReservedToke
 
 const rateLimitMap = new Map<string, number[]>();
 
+export function mapToUpstreamModel(inputModel: string, providerType = 'anthropic'): string {
+  const normalized = (inputModel || '').toLowerCase().trim();
+
+  if (providerType === 'anthropic') {
+    if (
+      normalized.includes('fable') ||
+      normalized.includes('opus-5') ||
+      normalized.includes('opus-4-8') ||
+      normalized.includes('opus-4-7') ||
+      normalized.includes('opus-4-6') ||
+      normalized.includes('opus-4-5') ||
+      normalized.includes('opus-4-1') ||
+      normalized.includes('opus-4')
+    ) {
+      return 'claude-3-opus-20240229';
+    }
+
+    if (
+      normalized.includes('sonnet-5') ||
+      normalized.includes('sonnet-4-6') ||
+      normalized.includes('sonnet-4-5') ||
+      normalized.includes('sonnet-4') ||
+      normalized.includes('sonnet')
+    ) {
+      return 'claude-3-5-sonnet-20241022';
+    }
+
+    if (normalized.includes('haiku')) {
+      return 'claude-3-5-haiku-20241022';
+    }
+
+    return inputModel.startsWith('claude-3-') ? inputModel : 'claude-3-5-sonnet-20241022';
+  }
+
+  return inputModel;
+}
+
 export function hashApiKey(key: string): string {
   return crypto.createHash('sha256').update(key).digest('hex');
 }
+
 
 export async function validateAndExtractApiKey(req: Request) {
   const rawKey =
@@ -138,11 +176,14 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         headers['anthropic-version'] = '2023-06-01';
       }
 
+      const upstreamModel = mapToUpstreamModel(model, providerType);
+
+
       const upstreamRes = await fetch(upstreamUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model,
+          model: upstreamModel,
           messages,
           max_tokens,
           stream,
@@ -155,6 +196,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           metadata,
         }),
       });
+
 
       if (!upstreamRes.ok) {
         const errorText = await upstreamRes.text();

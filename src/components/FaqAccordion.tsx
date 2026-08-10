@@ -14,8 +14,9 @@ export const FaqAccordion: React.FC = () => {
     },
     {
       question: 'Do I need to install a custom SDK?',
-      answer: 'No. Use standard Anthropic or OpenAI SDKs with base URL set to your LightningDeals gateway (e.g. http://localhost:3001). The gateway handles drop-in message requests seamlessly.',
+      answer: 'No. Use standard Anthropic or OpenAI SDKs with base URL set to your LightningDeals gateway (e.g. https://lightningapi.pro). The gateway handles drop-in message requests seamlessly.',
     },
+
     {
       question: 'How are tokens counted?',
       answer: 'Token usage is recorded directly from the underlying model input and output token response metadata. Every request is recorded in your dashboard Token Ledger in real time.',

@@ -2,7 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 export const OneLineMigration: React.FC = () => {
-  const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : 'http://localhost:3001';
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://lightningapi.pro';
+
 
   return (
     <section className="py-16 md:py-24 bg-card/90 text-fg border-y border-border/80 relative overflow-hidden">

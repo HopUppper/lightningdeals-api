@@ -9,7 +9,7 @@ export const ApiQuickStart: React.FC = () => {
   const codeSnippets = {
     curl: `export LIGHTNINGDEALS_API_KEY="ld_live_your_key_here"
 
-curl http://localhost:3001/v1/messages \\
+curl https://lightningapi.pro/v1/messages \\
   -H "x-api-key: $LIGHTNINGDEALS_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -23,7 +23,7 @@ curl http://localhost:3001/v1/messages \\
 from anthropic import Anthropic
 
 client = Anthropic(
-    base_url="http://localhost:3001",
+    base_url="https://lightningapi.pro",
     api_key="ld_live_your_key_here"
 )
 
@@ -37,7 +37,7 @@ print(response.content[0].text)`,
     node: `import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
-  baseURL: 'http://localhost:3001',
+  baseURL: 'https://lightningapi.pro',
   apiKey: 'ld_live_your_key_here',
 });
 
@@ -77,9 +77,10 @@ console.log(message.content[0].text);`,
             <div>
               <dt className="font-semibold text-fg">API Gateway Base URL</dt>
               <dd className="mt-1 break-all text-xs text-amber-500 bg-bg px-3 py-1.5 rounded border border-border w-fit font-bold">
-                http://localhost:3001
+                https://lightningapi.pro
               </dd>
             </div>
+
             <div>
               <dt className="font-semibold text-fg">Authentication Header</dt>
               <dd className="mt-1 break-all text-xs text-muted bg-bg px-3 py-1.5 rounded border border-border w-fit">

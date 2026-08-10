@@ -14,7 +14,8 @@ export const HeroSection: React.FC = () => {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [terminalStep, setTerminalStep] = useState(0);
 
-  const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : 'http://localhost:3001';
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://lightningapi.pro';
+
   const whatsappUrl = `https://wa.me/917695956938?text=${encodeURIComponent('Hi LightningDeals Team! I would like to get a free trial API key for testing.')}`;
 
   useEffect(() => {

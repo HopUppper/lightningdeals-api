@@ -84,7 +84,7 @@ app.use('/api/admin', adminRouter);
 
 // 4. One-line Terminal Setup Scripts
 app.get('/setup.sh', (req, res) => {
-  const baseUrl = process.env.LIGHTNINGDEALS_API_URL || 'http://localhost:3001';
+  const baseUrl = process.env.LIGHTNINGDEALS_API_URL || 'https://lightningapi.pro';
   res.type('text/plain').send(`#!/bin/bash
 echo "⚡ Setting up LightningDeals AI API Gateway..."
 read -p "Enter your LightningDeals API key (ld_live_...): " LD_KEY
@@ -96,7 +96,7 @@ echo "Run 'claude' to start coding with LightningDeals."
 });
 
 app.get('/setup.ps1', (req, res) => {
-  const baseUrl = process.env.LIGHTNINGDEALS_API_URL || 'http://localhost:3001';
+  const baseUrl = process.env.LIGHTNINGDEALS_API_URL || 'https://lightningapi.pro';
   res.type('text/plain').send(`Write-Host "⚡ Setting up LightningDeals AI API Gateway..." -ForegroundColor Cyan
 $key = Read-Host "Enter your LightningDeals API key (ld_live_...)"
 [Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", "${baseUrl}", "User")
@@ -105,6 +105,7 @@ Write-Host "✅ Configuration saved to environment variables!" -ForegroundColor 
 Write-Host "Run 'claude' to start coding with LightningDeals."
 `);
 });
+
 
 // 5. Static Web Application & SPA Fallback Route
 const distPath = path.resolve(import.meta.dirname, '../dist');

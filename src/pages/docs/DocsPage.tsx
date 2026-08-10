@@ -339,8 +339,8 @@ export const DocsPage: React.FC = () => {
 
                 <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
                   <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">powershell (administrator)</div>
-                  <CopyButton text={`Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser\nirm http://localhost:3001/setup.ps1 | iex`} />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser{'\n'}irm http://localhost:3001/setup.ps1 | iex</code></pre>
+                  <CopyButton text={`Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser\nirm https://lightningapi.pro/setup.ps1 | iex`} />
+                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser{'\n'}irm https://lightningapi.pro/setup.ps1 | iex</code></pre>
                 </div>
               </section>
 
@@ -351,8 +351,8 @@ export const DocsPage: React.FC = () => {
 
                 <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
                   <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">terminal</div>
-                  <CopyButton text="curl -fsSL http://localhost:3001/setup.sh | bash" />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>curl -fsSL http://localhost:3001/setup.sh | bash</code></pre>
+                  <CopyButton text="curl -fsSL https://lightningapi.pro/setup.sh | bash" />
+                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>curl -fsSL https://lightningapi.pro/setup.sh | bash</code></pre>
                 </div>
               </section>
 
@@ -371,11 +371,11 @@ export const DocsPage: React.FC = () => {
 
                 <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
                   <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">~/.claude/settings.json</div>
-                  <CopyButton text={`{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY",\n    "ANTHROPIC_BASE_URL": "http://localhost:3001",\n    "ANTHROPIC_MODEL": "claude-fable-5[1m]",\n    "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5-20251001",\n    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",\n    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1m]",\n    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",\n    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"\n  },\n  "hasCompletedOnboarding": true\n}`} />
+                  <CopyButton text={`{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY",\n    "ANTHROPIC_BASE_URL": "https://lightningapi.pro",\n    "ANTHROPIC_MODEL": "claude-fable-5[1m]",\n    "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5-20251001",\n    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",\n    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1m]",\n    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",\n    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"\n  },\n  "hasCompletedOnboarding": true\n}`} />
                   <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>{`{
   "env": {
     "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY",
-    "ANTHROPIC_BASE_URL": "http://localhost:3001",
+    "ANTHROPIC_BASE_URL": "https://lightningapi.pro",
     "ANTHROPIC_MODEL": "claude-fable-5[1m]",
     "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5-20251001",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
@@ -415,7 +415,7 @@ export const DocsPage: React.FC = () => {
                 <p className="mb-2 text-sm leading-relaxed text-muted">Open Settings → Models → add a Claude-compatible model with:</p>
 
                 <ul className="ml-1 list-inside list-disc space-y-1.5 text-sm text-muted">
-                  <li>Base URL: <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">http://localhost:3001/v1</code></li>
+                  <li>Base URL: <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">https://lightningapi.pro/v1</code></li>
                   <li>API key: your LightningDeals key</li>
                   <li>Model: <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">claude-sonnet-5</code></li>
                 </ul>
@@ -431,8 +431,8 @@ export const DocsPage: React.FC = () => {
                 <p className="mb-2 text-sm leading-relaxed text-muted">Open Settings → AI Provider → set the base URL to:</p>
                 <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
                   <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Base URL</div>
-                  <CopyButton text="http://localhost:3001/v1" />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>http://localhost:3001/v1</code></pre>
+                  <CopyButton text="https://lightningapi.pro/v1" />
+                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>https://lightningapi.pro/v1</code></pre>
                 </div>
               </section>
 
@@ -446,8 +446,8 @@ export const DocsPage: React.FC = () => {
                 <p className="mb-2 text-sm leading-relaxed text-muted">Add to your VS Code <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">settings.json</code>:</p>
                 <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
                   <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">settings.json</div>
-                  <CopyButton text={`{\n  "cline.apiProvider": "anthropic",\n  "cline.anthropicBaseUrl": "http://localhost:3001",\n  "cline.apiKey": "YOUR_API_KEY"\n}`} />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>{`{\n  "cline.apiProvider": "anthropic",\n  "cline.anthropicBaseUrl": "http://localhost:3001",\n  "cline.apiKey": "YOUR_API_KEY"\n}`}</code></pre>
+                  <CopyButton text={`{\n  "cline.apiProvider": "anthropic",\n  "cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "cline.apiKey": "YOUR_API_KEY"\n}`} />
+                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>{`{\n  "cline.apiProvider": "anthropic",\n  "cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "cline.apiKey": "YOUR_API_KEY"\n}`}</code></pre>
                 </div>
               </section>
 
@@ -461,10 +461,11 @@ export const DocsPage: React.FC = () => {
                 <p className="mb-2 text-sm leading-relaxed text-muted">Add to your VS Code <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">settings.json</code>:</p>
                 <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
                   <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">settings.json</div>
-                  <CopyButton text={`{\n  "roo-cline.apiProvider": "anthropic",\n  "roo-cline.anthropicBaseUrl": "http://localhost:3001",\n  "roo-cline.apiKey": "YOUR_API_KEY"\n}`} />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>{`{\n  "roo-cline.apiProvider": "anthropic",\n  "roo-cline.anthropicBaseUrl": "http://localhost:3001",\n  "roo-cline.apiKey": "YOUR_API_KEY"\n}`}</code></pre>
+                  <CopyButton text={`{\n  "roo-cline.apiProvider": "anthropic",\n  "roo-cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "roo-cline.apiKey": "YOUR_API_KEY"\n}`} />
+                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>{`{\n  "roo-cline.apiProvider": "anthropic",\n  "roo-cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "roo-cline.apiKey": "YOUR_API_KEY"\n}`}</code></pre>
                 </div>
               </section>
+
 
               <div className="my-12 h-px bg-border"></div>
 

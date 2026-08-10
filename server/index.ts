@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 
 import { handleMessagesEndpoint } from './gateway';
-import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens } from './tools';
+import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
 import adminRouter from './admin';
 import userRouter from './user';
 import { prisma } from './db';
@@ -66,9 +66,14 @@ app.post('/v1/messages', handleMessagesEndpoint);
 app.get('/v1/models', handleGetModels);
 app.post('/v1/messages/count_tokens', handleCountTokens);
 
-// 2. Public System & Key Status Tools
+// 2. Built-in Tools Endpoints
+app.post('/tools/web_search', handleWebSearch);
+app.post('/tools/understand_image', handleUnderstandImage);
+
+// 3. Public System & Key Status Tools
 app.get('/api/key-status', handleCheckKeyStatus);
 app.get('/api/system/status', handleSystemStatus);
+
 
 // Public Pricing Packages for Frontend
 app.get('/api/pricing/packages', async (req, res) => {

@@ -32,13 +32,11 @@ export const LoginPage: React.FC = () => {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error?.message || 'Login failed.');
-      } else {
+      } else if (data.user.role === 'admin') {
         login(data.token, data.user);
-        if (data.user.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+        navigate('/admin');
+      } else {
+        setError('Access denied. Administrator credentials required.');
       }
     } catch (err: any) {
       setError('Network error. Failed to connect to server.');
@@ -55,12 +53,10 @@ export const LoginPage: React.FC = () => {
         <div className="w-full max-w-md bg-card border border-border rounded-panel p-6 sm:p-8 shadow-xl space-y-6">
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold text-fg">
-              {isAdminParam ? 'Admin Control Center Sign In' : 'Sign in to LightningDeals'}
+              Admin Control Center Sign In
             </h1>
             <p className="text-xs text-muted">
-              {isAdminParam
-                ? 'Sign in with administrator credentials to manage supplier keys, users, and tokens.'
-                : 'Access your assigned API keys, token balances, and usage statistics.'}
+              Sign in with administrator credentials to manage supplier keys, users, and tokens.
             </p>
           </div>
 
@@ -113,19 +109,9 @@ export const LoginPage: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-
-
-          <div className="pt-4 border-t border-border text-center text-xs text-muted flex justify-between items-center">
-            <Link to="/trial" className="text-amber-500 font-semibold hover:underline">
-              Get Trial Key on WhatsApp
-            </Link>
-            <Link to="/login?admin=true" className="text-muted hover:text-fg font-mono text-[11px]">
-              Admin Control Center →
-            </Link>
-          </div>
         </div>
       </main>
+
 
       <Footer />
     </div>

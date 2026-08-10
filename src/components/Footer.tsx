@@ -47,15 +47,15 @@ export const Footer: React.FC = () => {
           </div>
 
           <div>
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg mb-3">Account & Sales</h4>
+            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg mb-3">Support & Sales</h4>
             <ul className="space-y-2 font-medium">
-              <li><Link to="/login" className="hover:text-accent">Sign In</Link></li>
+              <li><Link to="/check-key" className="hover:text-accent">Check Key Usage</Link></li>
               <li><Link to="/request-quote" className="hover:text-accent">Request Quote</Link></li>
-              <li><a href="#" className="hover:text-accent">Terms of Service</a></li>
-              <li><a href="#" className="hover:text-accent">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-accent">Security & Risk</a></li>
+              <li><Link to="/trial" className="hover:text-accent">WhatsApp Trial</Link></li>
+              <li><a href="https://wa.me/917695956938" target="_blank" rel="noopener noreferrer" className="hover:text-accent">WhatsApp Help Desk</a></li>
             </ul>
           </div>
+
         </div>
 
         <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-muted">

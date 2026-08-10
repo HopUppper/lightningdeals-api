@@ -113,10 +113,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }
   return children;
 };
 
+// Protected Admin Guard
 const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen bg-bg text-muted flex items-center justify-center text-xs">Loading Control Center...</div>;
-  if (!user || user.role !== 'admin') return <Navigate to="/login" replace />;
+  if (!user || user.role !== 'admin') return <LoginPage />;
   return children;
 };
 
@@ -135,33 +136,15 @@ export function App() {
           <Route path="/docs/*" element={<DocsPage />} />
           <Route path="/status" element={<StatusPage />} />
           <Route path="/check-key" element={<CheckKeyPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/admin/login" element={<LoginPage />} />
-          <Route path="/admin-login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          
+          {/* Legacy redirects */}
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/register" element={<Navigate to="/" replace />} />
+          <Route path="/dashboard/*" element={<Navigate to="/" replace />} />
 
-
-          {/* Customer Dashboard */}
+          {/* Admin Control Center — Secret route accessible only via /admin */}
           <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <UserDashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<UserOverview />} />
-            <Route path="keys" element={<UserKeys />} />
-            <Route path="usage" element={<UserUsage />} />
-            <Route path="orders" element={<UserOrders />} />
-            <Route path="api-test" element={<UserApiTestConsole />} />
-            <Route path="support" element={<UserSupport />} />
-            <Route path="settings" element={<UserSettings />} />
-          </Route>
-
-          {/* Admin Control Center */}
-          <Route
-            path="/admin"
+            path="/admin/*"
             element={
               <AdminRoute>
                 <AdminLayout />
@@ -172,7 +155,6 @@ export function App() {
             <Route path="providers" element={<AdminProviders />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="customers" element={<AdminCustomers />} />
-
             <Route path="keys" element={<AdminKeys />} />
             <Route path="tokens" element={<AdminTokens />} />
             <Route path="orders" element={<AdminOrders />} />
@@ -196,5 +178,6 @@ export function App() {
     </AuthProvider>
   );
 }
+
 
 export default App;

@@ -68,47 +68,26 @@ export const Navbar: React.FC = () => {
 
         {/* Desktop CTAs */}
         <div className="hidden items-center gap-3 lg:flex">
-          {user && user.role === 'admin' ? (
-            <Link to="/admin" className="ui-button-primary">
-              <User className="w-4 h-4" />
-              <span>Admin Panel</span>
-            </Link>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="inline-flex min-h-[44px] items-center px-3 text-sm font-semibold text-fg transition-colors hover:text-accent"
-              >
-                Sign in
-              </Link>
-              <a
-                href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20would%20like%20to%20get%20a%20free%20trial%20API%20key."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ui-button-primary bg-emerald-600 hover:bg-emerald-500 border-emerald-600"
-              >
-                Get Free Trial
-              </a>
-            </>
-          )}
+          <a
+            href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20would%20like%20to%20get%20a%20free%20trial%20API%20key."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ui-button-primary bg-emerald-600 hover:bg-emerald-500 border-emerald-600"
+          >
+            Get Free Trial
+          </a>
         </div>
 
         {/* Mobile Menu Actions */}
         <div className="flex items-center gap-2 lg:hidden">
-          {user && user.role === 'admin' ? (
-            <Link to="/admin" className="ui-button-primary px-3 text-xs sm:text-sm">
-              Admin
-            </Link>
-          ) : (
-            <a
-              href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20would%20like%20to%20get%20a%20free%20trial%20API%20key."
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ui-button-primary px-3 text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 border-emerald-600"
-            >
-              Get Trial
-            </a>
-          )}
+          <a
+            href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20would%20like%20to%20get%20a%20free%20trial%20API%20key."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ui-button-primary px-3 text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 border-emerald-600"
+          >
+            Get Trial
+          </a>
 
           <button
             type="button"
@@ -152,36 +131,17 @@ export const Navbar: React.FC = () => {
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
-            {user && user.role === 'admin' ? (
-              <Link
-                to="/admin"
-                onClick={() => setMobileMenuOpen(false)}
-                className="ui-button-primary w-full justify-center text-center text-sm font-semibold"
-              >
-                Go to Admin Panel
-              </Link>
-            ) : (
-              <>
-                <Link
-                  to="/trial"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="ui-button-primary w-full justify-center text-center text-sm font-semibold"
-
-                >
-                  Get Free Trial Key (1M Tokens)
-                </Link>
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="ui-button-secondary w-full justify-center text-center text-sm font-semibold"
-                >
-                  Sign in
-                </Link>
-              </>
-            )}
+            <Link
+              to="/trial"
+              onClick={() => setMobileMenuOpen(false)}
+              className="ui-button-primary w-full justify-center text-center text-sm font-semibold"
+            >
+              Get Free Trial Key (1M Tokens)
+            </Link>
           </div>
         </div>
       )}
+
     </header>
   );
 };

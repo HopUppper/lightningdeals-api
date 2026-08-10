@@ -189,8 +189,21 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         const outputTokens = Math.max(25, Math.ceil(fullContent.length / 4));
         const totalTokens = inputTokens + outputTokens;
 
-        await updateTokensAndLog({ keyRecord, model, inputTokens, outputTokens, totalTokens, latencyMs: Date.now() - startTime, streaming: true, vendorId: vendor?.id });
+        await updateTokensAndLog({
+          keyRecord,
+          model,
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          latencyMs: Date.now() - startTime,
+          streaming: true,
+          vendorId: vendor?.id,
+          isEstimated: true,
+          usageSource: 'LOCAL_CALCULATED',
+        });
         return;
+      } else {
+        const data: any = await upstreamRes.json();
         const hasProviderUsage = Boolean(data.usage?.input_tokens);
         const inputTokens = data.usage?.input_tokens || Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
         const outputTokens = data.usage?.output_tokens || 50;
@@ -210,6 +223,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         });
         return res.json(data);
       }
+
     } catch (err: any) {
       console.error('Vendor API Gateway connection error:', err);
     }

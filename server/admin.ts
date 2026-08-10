@@ -934,7 +934,13 @@ router.post('/emergency/toggle-global-api', async (req: AuthRequest, res: Respon
     });
 
     res.json({ success: true, globalApiDisabled: !!disabled });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 router.put('/password', async (req: AuthRequest, res: Response) => {
+
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: { message: 'Current and new passwords are required.' } });

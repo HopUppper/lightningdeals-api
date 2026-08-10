@@ -75,9 +75,9 @@ const LandingPage: React.FC = () => {
         <ContextVisualizer />
         <OneCommandSetup />
 
-        <ApiArchitectureFlow />
         <TrustEvidence />
         <WhyChooseUs />
+
         <ApiQuickStart />
         <ModelCatalog />
         <PricingSection />

@@ -28,7 +28,7 @@ export const Footer: React.FC = () => {
             <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg mb-3">Product</h4>
             <ul className="space-y-2 font-medium">
               <li><Link to="/#api" className="hover:text-accent">API Gateway</Link></li>
-              <li><Link to="/#models" className="hover:text-accent">Models Catalog</Link></li>
+              <li><Link to="/models" className="hover:text-accent">Models Catalog</Link></li>
               <li><Link to="/pricing" className="hover:text-accent">Flexible Packages</Link></li>
               <li><Link to="/check-key" className="hover:text-accent">Check API Key</Link></li>
               <li><Link to="/trial" className="hover:text-accent">Get Free Trial</Link></li>
@@ -52,9 +52,10 @@ export const Footer: React.FC = () => {
               <li><Link to="/check-key" className="hover:text-accent">Check Key Usage</Link></li>
               <li><Link to="/request-quote" className="hover:text-accent">Request Quote</Link></li>
               <li><Link to="/trial" className="hover:text-accent">WhatsApp Trial</Link></li>
-              <li><a href="https://wa.me/917695956938" target="_blank" rel="noopener noreferrer" className="hover:text-accent">WhatsApp Help Desk</a></li>
+              <li><a href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20need%20support%20with%20my%20API%20key." target="_blank" rel="noopener noreferrer" className="hover:text-accent">WhatsApp Help Desk</a></li>
             </ul>
           </div>
+
 
         </div>
 

@@ -1,6 +1,27 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+
+const ScrollToHash: React.FC = () => {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    if (hash) {
+      setTimeout(() => {
+        const id = hash.replace('#', '');
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [pathname, hash]);
+
+  return null;
+};
+
 
 // Public Landing Components
 import { HeroSection } from './components/HeroSection';
@@ -125,7 +146,9 @@ export function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToHash />
         <Routes>
+
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/pricing" element={<PublicPricingPage />} />

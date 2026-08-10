@@ -87,7 +87,7 @@ import { AdminEmergencyControls } from './pages/admin/AdminEmergencyControls';
 
 // LightningDeals Homepage Component
 
-const LandingPage: React.FC = () => {
+export const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg text-fg selection:bg-amber-500/20 selection:text-amber-500 font-sans antialiased">
       <Navbar />
@@ -114,7 +114,7 @@ const LandingPage: React.FC = () => {
   );
 };
 
-const PublicPricingPage: React.FC = () => {
+export const PublicPricingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
       <Navbar />
@@ -125,6 +125,7 @@ const PublicPricingPage: React.FC = () => {
     </div>
   );
 };
+
 
 // Protected Guards
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {

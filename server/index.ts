@@ -112,7 +112,9 @@ Write-Host "Run 'claude' to start coding with LightningDeals."
 });
 
 
-// 5. Static Web Application & SPA Fallback Route
+import fs from 'fs';
+
+// 5. Static Web Application & SSG / SSR Pre-rendered Route Serving
 const distPath = path.resolve(import.meta.dirname, '../dist');
 console.log('⚡ Static web assets path:', distPath);
 
@@ -123,6 +125,16 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/v1')) {
     return res.status(404).json({ error: { message: 'Endpoint not found.' } });
   }
+
+  const cleanPath = req.path.replace(/^\//, '').replace(/\/$/, '');
+  const sectionName = cleanPath.split('/')[0];
+  const htmlFileName = sectionName ? `${sectionName}.html` : 'index.html';
+  const targetHtmlPath = path.join(distPath, htmlFileName);
+
+  if (fs.existsSync(targetHtmlPath)) {
+    return res.sendFile(targetHtmlPath);
+  }
+
   const indexPath = path.join(distPath, 'index.html');
   res.sendFile(indexPath, (err) => {
     if (err) {
@@ -130,6 +142,7 @@ app.get('*', (req, res) => {
     }
   });
 });
+
 
 
 

@@ -101,8 +101,8 @@ const distPath = path.resolve(process.cwd(), 'dist');
 app.use(express.static(distPath));
 
 app.get('*', (req, res) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/v1')) {
-    return res.status(404).json({ error: { message: 'Endpoint not found.' } });
+  if (req.path.startsWith('/api') || req.path.startsWith('/v1') || req.path.startsWith('/assets')) {
+    return res.status(404).send('Not Found');
   }
   const indexPath = path.join(distPath, 'index.html');
   res.sendFile(indexPath, (err) => {
@@ -111,6 +111,7 @@ app.get('*', (req, res) => {
     }
   });
 });
+
 
 app.listen(PORT, () => {
   console.log(`🚀 LightningDeals Backend API Gateway running on http://localhost:${PORT}`);

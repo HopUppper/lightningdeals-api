@@ -83,9 +83,12 @@ import { AdminSupport } from './pages/admin/AdminSupport';
 import { AdminStatus } from './pages/admin/AdminStatus';
 import { AdminSettings } from './pages/admin/AdminSettings';
 import { AdminApiTest } from './pages/admin/AdminApiTest';
+import { AdminUsage } from './pages/admin/AdminUsage';
 import { AdminEmergencyControls } from './pages/admin/AdminEmergencyControls';
 
 // LightningDeals Homepage Component
+
+
 
 export const LandingPage: React.FC = () => {
   return (
@@ -180,8 +183,10 @@ export function App() {
             <Route path="plans" element={<AdminPlans />} />
             <Route path="customers" element={<AdminCustomers />} />
             <Route path="keys" element={<AdminKeys />} />
+            <Route path="usage" element={<AdminUsage />} />
             <Route path="tokens" element={<AdminTokens />} />
             <Route path="orders" element={<AdminOrders />} />
+
             <Route path="pricing" element={<AdminPricing />} />
             <Route path="models" element={<AdminModels />} />
             <Route path="requests" element={<AdminRequests />} />

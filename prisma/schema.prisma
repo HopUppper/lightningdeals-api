@@ -88,17 +88,21 @@ model ApiRequest {
 model VendorProvider {
   id                   String     @id @default(uuid())
   name                 String
-  providerType         String     @default("anthropic") // "anthropic" | "openai" | "custom_anthropic"
+  providerType         String     @default("anthropic") // "anthropic" | "openai" | "custom_http"
+  protocol             String     @default("anthropic") // "anthropic" | "openai-compatible" | "custom_http"
   masterApiKeyEncrypted String     @default("")
   baseUrl              String     @default("https://api.anthropic.com")
-  status               String     @default("connected") // "connected" | "invalid_credential" | "unavailable" | "disabled"
+  status               String     @default("connected") // "connected" | "invalid_credential" | "ssrf_blocked" | "timeout" | "rate_limited" | "provider_error" | "disabled"
   isPrimary            Boolean    @default(true)
+  modelMappingsJson    String?    // JSON string for internal -> vendor model mappings
+  headersJson          String?    // JSON string for custom HTTP headers
   lastTestedAt         DateTime?
   lastError            String?
   notes                String?
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
 }
+
 
 model TokenPackage {
   id          String   @id @default(uuid())

@@ -55,11 +55,14 @@ export const AdminLayout: React.FC = () => {
 
   const primaryNavItems: NavItem[] = [
     { name: 'Overview', path: '/admin', icon: LayoutDashboard, end: true },
-    { name: 'Customer API Keys', path: '/admin/keys', icon: Key, badge: 'KEYS' },
-    { name: 'Master Supplier Keys', path: '/admin/providers', icon: Server, badge: 'VENDOR' },
-    { name: 'Customers & Leads', path: '/admin/customers', icon: Users },
+    { name: 'Customers', path: '/admin/customers', icon: Users },
+    { name: 'Orders', path: '/admin/orders', icon: ShoppingBag },
+    { name: 'Products / Keys', path: '/admin/keys', icon: Key, badge: 'KEYS' },
+    { name: 'Providers', path: '/admin/providers', icon: Server, badge: 'VENDOR' },
+    { name: 'Usage', path: '/admin/usage', icon: Activity },
     { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
+
 
   return (
     <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">

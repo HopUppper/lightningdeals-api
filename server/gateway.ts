@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma, decryptText } from './db';
 import { calculateKeyRollingWindow, reserveTokensForRequest, releaseReservedTokens, getActiveReservedTokens } from './window';
+import { buildProviderRequest, normalizeProviderResponse } from './providerAdapter';
+import { validateVendorBaseUrl } from './ssrf';
+
 
 const rateLimitMap = new Map<string, number[]>();
 
@@ -159,44 +162,33 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   const isMockModeAllowed = process.env.LIGHTNINGDEALS_MOCK_MODE === 'true' || (!isProduction && !decryptedMasterKey);
 
   // 1. REAL SUPPLIER PROXY PATH
+
   if (decryptedMasterKey && decryptedMasterKey.trim().length > 0) {
     try {
-      const providerType = vendor?.providerType || 'anthropic';
-      let upstreamUrl = 'https://api.anthropic.com/v1/messages';
-      let headers: Record<string, string> = { 'content-type': 'application/json' };
-
-      if (providerType === 'openai' || providerType === 'openai-compatible') {
-        const baseUrl = vendor ? vendor.baseUrl.replace(/\/$/, '') : 'https://api.openai.com/v1';
-        upstreamUrl = `${baseUrl}/chat/completions`;
-        headers['Authorization'] = `Bearer ${decryptedMasterKey}`;
-      } else {
-        const baseUrl = vendor ? vendor.baseUrl.replace(/\/$/, '') : 'https://api.anthropic.com';
-        upstreamUrl = baseUrl.endsWith('/v1/messages') ? baseUrl : `${baseUrl}/v1/messages`;
-        headers['x-api-key'] = decryptedMasterKey;
-        headers['anthropic-version'] = '2023-06-01';
+      // Validate Base URL against SSRF threats
+      const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://api.anthropic.com');
+      if (!ssrfCheck.safe) {
+        return res.status(400).json({ error: { type: 'ssrf_blocked', message: ssrfCheck.error || 'Blocked by SSRF security filter.' } });
       }
 
-      const upstreamModel = mapToUpstreamModel(model, providerType);
-
-
-      const upstreamRes = await fetch(upstreamUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: upstreamModel,
-          messages,
-          max_tokens,
-          stream,
-          system,
-          tools,
-          tool_choice,
-          temperature,
-          top_p,
-          stop_sequences,
-          metadata,
-        }),
+      const prepared = buildProviderRequest(vendor, decryptedMasterKey, model, {
+        messages,
+        max_tokens,
+        stream,
+        system,
+        tools,
+        tool_choice,
+        temperature,
+        top_p,
+        stop_sequences,
+        metadata,
       });
 
+      const upstreamRes = await fetch(prepared.url, {
+        method: 'POST',
+        headers: prepared.headers,
+        body: JSON.stringify(prepared.body),
+      });
 
       if (!upstreamRes.ok) {
         const errorText = await upstreamRes.text();
@@ -226,17 +218,15 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
         res.end();
 
-        // Exact upstream token accounting if provided, else length estimate
         const inputTokens = Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
         const outputTokens = Math.max(25, Math.ceil(fullContent.length / 4));
-        const totalTokens = inputTokens + outputTokens;
 
         await updateTokensAndLog({
           keyRecord,
           model,
           inputTokens,
           outputTokens,
-          totalTokens,
+          totalTokens: inputTokens + outputTokens,
           latencyMs: Date.now() - startTime,
           streaming: true,
           vendorId: vendor?.id,
@@ -246,22 +236,25 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         return;
       } else {
         const data: any = await upstreamRes.json();
-        const hasProviderUsage = Boolean(data.usage?.input_tokens);
-        const inputTokens = data.usage?.input_tokens || Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
-        const outputTokens = data.usage?.output_tokens || 50;
-        const totalTokens = inputTokens + outputTokens;
+        const normalized = normalizeProviderResponse(
+          vendor?.protocol || 'anthropic',
+          upstreamRes.status,
+          data,
+          Math.max(15, Math.ceil(JSON.stringify(messages).length / 4)),
+          50
+        );
 
         await updateTokensAndLog({
           keyRecord,
           model,
-          inputTokens,
-          outputTokens,
-          totalTokens,
+          inputTokens: normalized.usage.inputTokens,
+          outputTokens: normalized.usage.outputTokens,
+          totalTokens: normalized.usage.totalTokens,
           latencyMs: Date.now() - startTime,
           streaming: false,
           vendorId: vendor?.id,
-          isEstimated: !hasProviderUsage,
-          usageSource: hasProviderUsage ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
+          isEstimated: normalized.usage.isEstimated,
+          usageSource: normalized.usage.usageSource,
         });
         return res.json(data);
       }
@@ -270,6 +263,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       console.error('Vendor API Gateway connection error:', err);
     }
   }
+
 
   // Fallback Simulated Response when no Master API key is set
   const responseText = `Hello! I am Claude connected through your LightningDeals AI Gateway. Your gateway is operational and ready to handle AI completions!`;

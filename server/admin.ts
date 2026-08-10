@@ -66,6 +66,8 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
   }
 });
 
+import { validateVendorBaseUrl } from './ssrf';
+
 // 2. Vendor Provider Master Credentials Management & Connection Test (/admin/providers)
 router.get('/providers', async (req: AuthRequest, res: Response) => {
   try {
@@ -89,7 +91,14 @@ router.get('/providers', async (req: AuthRequest, res: Response) => {
 });
 
 router.post('/providers', async (req: AuthRequest, res: Response) => {
-  const { name, providerType, masterApiKey, baseUrl, isPrimary, notes } = req.body;
+  const { name, providerType, protocol, masterApiKey, baseUrl, isPrimary, notes, modelMappingsJson, headersJson } = req.body;
+
+  // Validate Base URL against SSRF threats
+  const ssrfCheck = validateVendorBaseUrl(baseUrl || 'https://api.anthropic.com');
+  if (!ssrfCheck.safe) {
+    return res.status(400).json({ error: { message: ssrfCheck.error || 'Invalid Base URL (SSRF Policy Failure)' } });
+  }
+
   try {
     const encryptedKey = encryptText(masterApiKey || '');
 
@@ -101,11 +110,14 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
       data: {
         name: name || 'Vendor Provider',
         providerType: providerType || 'anthropic',
+        protocol: protocol || providerType || 'anthropic',
         masterApiKeyEncrypted: encryptedKey,
-        baseUrl: baseUrl || 'https://api.anthropic.com',
+        baseUrl: ssrfCheck.normalizedUrl || 'https://api.anthropic.com',
         isPrimary: !!isPrimary,
         status: masterApiKey ? 'connected' : 'disabled',
         notes,
+        modelMappingsJson,
+        headersJson,
       },
     });
 
@@ -127,15 +139,26 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
 
 router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { name, providerType, masterApiKey, baseUrl, status, isPrimary, notes } = req.body;
+  const { name, providerType, protocol, masterApiKey, baseUrl, status, isPrimary, notes, modelMappingsJson, headersJson } = req.body;
+
   try {
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (providerType !== undefined) updateData.providerType = providerType;
-    if (baseUrl !== undefined) updateData.baseUrl = baseUrl;
+    if (protocol !== undefined) updateData.protocol = protocol;
     if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes;
+    if (modelMappingsJson !== undefined) updateData.modelMappingsJson = modelMappingsJson;
+    if (headersJson !== undefined) updateData.headersJson = headersJson;
     if (masterApiKey) updateData.masterApiKeyEncrypted = encryptText(masterApiKey);
+
+    if (baseUrl !== undefined) {
+      const ssrfCheck = validateVendorBaseUrl(baseUrl);
+      if (!ssrfCheck.safe) {
+        return res.status(400).json({ error: { message: ssrfCheck.error || 'Invalid Base URL (SSRF Policy Failure)' } });
+      }
+      updateData.baseUrl = ssrfCheck.normalizedUrl;
+    }
 
     if (isPrimary) {
       await prisma.vendorProvider.updateMany({ data: { isPrimary: false } });
@@ -147,6 +170,16 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
       data: updateData,
     });
 
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'UPDATE_VENDOR_PROVIDER',
+        targetType: 'VendorProvider',
+        targetId: provider.id,
+        metadata: `Updated vendor provider: ${provider.name}`,
+      },
+    });
+
     res.json({ success: true, provider });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -155,31 +188,50 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
 
 // REAL Backend Connection Health Check for Vendor Master Key
 router.post('/providers/test', async (req: AuthRequest, res: Response) => {
-  const { providerId, masterApiKey, baseUrl } = req.body;
+  const { providerId, masterApiKey, baseUrl, protocol } = req.body;
   try {
     let keyToTest = masterApiKey;
     let urlToTest = baseUrl;
+    let protoToTest = protocol || 'anthropic';
 
     if (providerId) {
       const provider = await prisma.vendorProvider.findUnique({ where: { id: providerId } });
       if (provider) {
         if (!keyToTest) keyToTest = decryptText(provider.masterApiKeyEncrypted);
         if (!urlToTest) urlToTest = provider.baseUrl;
+        if (!protocol) protoToTest = provider.protocol || provider.providerType;
       }
+    }
+
+    if (!urlToTest) urlToTest = 'https://api.anthropic.com';
+
+    // SSRF Check on Target URL
+    const ssrfCheck = validateVendorBaseUrl(urlToTest);
+    if (!ssrfCheck.safe) {
+      if (providerId) {
+        await prisma.vendorProvider.update({
+          where: { id: providerId },
+          data: { status: 'ssrf_blocked', lastTestedAt: new Date(), lastError: ssrfCheck.error },
+        });
+      }
+      return res.json({ status: 'ssrf_blocked', message: ssrfCheck.error || 'Blocked by SSRF Policy.' });
     }
 
     if (!keyToTest) {
       return res.status(400).json({ status: 'invalid_credential', message: 'No Master API key provided.' });
     }
 
-    const targetUrl = `${(urlToTest || 'https://api.anthropic.com').replace(/\/$/, '')}/v1/models`;
+    let targetUrl = `${ssrfCheck.normalizedUrl}/v1/models`;
+    let headers: Record<string, string> = { 'x-api-key': keyToTest, 'anthropic-version': '2023-06-01' };
+
+    if (protoToTest === 'openai-compatible' || protoToTest === 'openai') {
+      targetUrl = `${ssrfCheck.normalizedUrl}/models`;
+      headers = { Authorization: `Bearer ${keyToTest}` };
+    }
 
     const upstreamRes = await fetch(targetUrl, {
       method: 'GET',
-      headers: {
-        'x-api-key': keyToTest,
-        'anthropic-version': '2023-06-01',
-      },
+      headers,
     });
 
     if (upstreamRes.ok) {
@@ -199,12 +251,25 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
       }
       return res.json({ status: 'invalid_credential', message: `Authentication failed (HTTP ${upstreamRes.status}). Check master API key.` });
     } else {
-      return res.json({ status: 'provider_unavailable', message: `Provider returned HTTP ${upstreamRes.status}.` });
+      if (providerId) {
+        await prisma.vendorProvider.update({
+          where: { id: providerId },
+          data: { status: 'provider_error', lastTestedAt: new Date(), lastError: `HTTP ${upstreamRes.status}` },
+        });
+      }
+      return res.json({ status: 'provider_error', message: `Provider returned HTTP ${upstreamRes.status}.` });
     }
   } catch (err: any) {
-    return res.json({ status: 'configuration_error', message: `Could not reach vendor base URL: ${err.message}` });
+    if (providerId) {
+      await prisma.vendorProvider.update({
+        where: { id: providerId },
+        data: { status: 'unavailable', lastTestedAt: new Date(), lastError: err.message },
+      });
+    }
+    return res.json({ status: 'unavailable', message: `Could not reach vendor base URL: ${err.message}` });
   }
 });
+
 
 // 3. Token Package Pricing Configuration (/admin/pricing)
 router.get('/pricing', async (req: AuthRequest, res: Response) => {
@@ -905,6 +970,147 @@ router.get('/search', async (req: Request, res: Response) => {
       }),
     ]);
 
+// GET /api/admin/orders - Real order management ledger
+router.get('/orders', async (req: AuthRequest, res: Response) => {
+  const { status, search } = req.query;
+  try {
+    const whereClause: any = {};
+    if (status && status !== 'all') {
+      whereClause.status = String(status).toUpperCase();
+    }
+    if (search) {
+      const q = String(search).trim();
+      whereClause.OR = [
+        { id: { contains: q } },
+        { paymentReference: { contains: q } },
+        { user: { email: { contains: q } } },
+        { user: { name: { contains: q } } },
+      ];
+    }
+
+    const orders = await prisma.order.findMany({
+      where: whereClause,
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        package: { select: { displayName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    const formatted = orders.map((o) => ({
+      id: o.id,
+      customerName: o.user.name,
+      customerEmail: o.user.email,
+      packageName: o.package?.displayName || 'Custom Token Credit',
+      amountInr: o.amountInr,
+      tokenQuantity: o.tokenQuantity.toString(),
+      status: o.status,
+      paymentReference: o.paymentReference || 'N/A',
+      paymentGateway: o.paymentGateway,
+      createdAt: o.createdAt,
+    }));
+
+    res.json(formatted);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// PUT /api/admin/orders/:id/status - Update order status (PENDING, PAID, FAILED, REFUNDED)
+router.put('/orders/:id/status', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const validStatuses = ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'CANCELLED'];
+
+  if (!status || !validStatuses.includes(status.toUpperCase())) {
+    return res.status(400).json({ error: { message: 'Invalid order status provided.' } });
+  }
+
+  try {
+    const order = await prisma.order.findUnique({ where: { id } });
+    if (!order) {
+      return res.status(404).json({ error: { message: 'Order not found.' } });
+    }
+
+    const newStatus = status.toUpperCase();
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { status: newStatus },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'UPDATE_ORDER_STATUS',
+        targetType: 'Order',
+        targetId: id,
+        metadata: `Changed status from ${order.status} to ${newStatus}`,
+      },
+    });
+
+    res.json({ success: true, order: { ...updated, tokenQuantity: updated.tokenQuantity.toString() } });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/admin/usage - Platform & per-key token usage breakdown
+router.get('/usage', async (req: AuthRequest, res: Response) => {
+  try {
+    const nowMs = Date.now();
+    const rolling5hStart = new Date(nowMs - 5 * 3600 * 1000);
+
+    const [totalAgg, rollingAgg, recentRequests] = await Promise.all([
+      prisma.apiRequest.aggregate({
+        _sum: { inputTokens: true, outputTokens: true, totalTokens: true },
+        _count: { id: true },
+      }),
+      prisma.apiRequest.aggregate({
+        _sum: { totalTokens: true },
+        _count: { id: true },
+        where: { createdAt: { gte: rolling5hStart } },
+      }),
+      prisma.apiRequest.findMany({
+        include: {
+          apiKey: { select: { name: true, displayKey: true } },
+          user: { select: { name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
+
+    res.json({
+      totalTokensConsumed: (totalAgg._sum.totalTokens || 0).toString(),
+      totalInputTokens: (totalAgg._sum.inputTokens || 0).toString(),
+      totalOutputTokens: (totalAgg._sum.outputTokens || 0).toString(),
+      totalRequests: totalAgg._count.id || 0,
+      rolling5hTokens: (rollingAgg._sum.totalTokens || 0).toString(),
+      rolling5hRequests: rollingAgg._count.id || 0,
+      recentRequests: recentRequests.map((r) => ({
+        id: r.id,
+        requestId: r.requestId,
+        model: r.model,
+        endpoint: r.endpoint,
+        keyName: r.apiKey?.name || 'Deleted Key',
+        displayKey: r.apiKey?.displayKey || 'N/A',
+        customer: r.user ? `${r.user.name} (${r.user.email})` : 'Unassigned',
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        totalTokens: r.totalTokens,
+        latencyMs: r.latencyMs,
+        statusCode: r.statusCode,
+        isEstimated: r.isEstimated,
+        usageSource: r.usageSource,
+        createdAt: r.createdAt,
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
     const sanitizedKeys = keys.map((k) => ({ ...k, tokensRemaining: k.tokensRemaining.toString() }));
 
     res.json({ customers, keys: sanitizedKeys, orders, requests, tickets });
@@ -912,6 +1118,7 @@ router.get('/search', async (req: Request, res: Response) => {
     res.status(500).json({ error: { message: err.message } });
   }
 });
+
 
 
 

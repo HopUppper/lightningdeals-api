@@ -9,14 +9,8 @@ const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' 
   </svg>
 );
 
-export const HeroSection: React.FC = () => {
-  const [copiedCmd, setCopiedCmd] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
+const TerminalMockup: React.FC<{ copiedCmd: boolean; handleCopyCmd: () => void }> = React.memo(({ copiedCmd, handleCopyCmd }) => {
   const [terminalStep, setTerminalStep] = useState(0);
-
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://lightningapi.pro';
-
-  const whatsappUrl = `https://wa.me/917695956938?text=${encodeURIComponent('Hi LightningDeals Team! I would like to get a free trial API key for testing.')}`;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -24,6 +18,105 @@ export const HeroSection: React.FC = () => {
     }, 2200);
     return () => clearInterval(timer);
   }, []);
+
+  return (
+    <div className="bg-card border border-border/90 rounded-panel overflow-hidden shadow-2xl text-left relative group transform-gpu">
+      {/* Terminal Window Header Bar */}
+      <div className="bg-bg/90 px-4 py-3 border-b border-border/70 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block hover:opacity-80" />
+          <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block hover:opacity-80" />
+          <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block hover:opacity-80" />
+          <span className="text-[11px] font-mono text-muted ml-2">bash — npx lightningdeals</span>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleCopyCmd}
+          className="flex items-center gap-1.5 text-[11px] font-mono text-muted hover:text-fg bg-bg px-3 py-1 rounded border border-border/80 transition-colors"
+          title="Copy setup command"
+        >
+          {copiedCmd ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+          <span className="font-bold">{copiedCmd ? 'Copied!' : 'npx lightningdeals'}</span>
+        </motion.button>
+      </div>
+
+      {/* Terminal Body with Animated Step Typing Progress */}
+      <div className="p-6 font-mono text-xs leading-relaxed space-y-3 bg-bg/50 min-h-[220px]">
+        <p className="text-muted flex items-center gap-2">
+          <span className="text-amber-500">$</span> npx lightningdeals
+        </p>
+
+        <AnimatePresence mode="wait">
+          {terminalStep >= 1 && (
+            <motion.p
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-amber-500 font-bold"
+            >
+              ⚡ LIGHTNINGDEALS Setup Wizard v1.0.4
+            </motion.p>
+          )}
+        </AnimatePresence>
+
+        {terminalStep >= 2 && (
+          <motion.p
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-fg"
+          >
+            Enter your LightningDeals API key: <span className="text-muted">ld_live_••••••••••••••••</span>
+          </motion.p>
+        )}
+
+        {terminalStep >= 3 && (
+          <motion.p
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-emerald-400 font-semibold flex items-center gap-1.5"
+          >
+            <span>✓ API key verified (5-Hour Rolling Window Active)</span>
+          </motion.p>
+        )}
+
+        {terminalStep >= 4 && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-1 pt-1"
+          >
+            <p className="text-fg font-semibold">Detecting installed AI developer tools...</p>
+            <div className="pl-3 space-y-1 text-muted text-[11px]">
+              <p className="text-fg font-semibold">✓ Claude Code CLI — Configured (~/.claude/settings.json)</p>
+              <p className="text-fg font-semibold">✓ Cursor IDE — Configured</p>
+              <p className="text-fg font-semibold">✓ Windsurf Editor — Configured</p>
+            </div>
+          </motion.div>
+        )}
+
+        {terminalStep >= 5 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="pt-2 border-t border-border/40 space-y-1"
+          >
+            <p className="text-emerald-400 font-semibold">✓ Gateway Verification Success (39ms latency)</p>
+            <p className="text-amber-400 font-bold">🎉 LightningDeals configuration complete. Run "claude" to start coding!</p>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+export const HeroSection: React.FC = () => {
+
+  const [copiedCmd, setCopiedCmd] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://lightningapi.pro';
+  const whatsappUrl = `https://wa.me/917695956938?text=${encodeURIComponent('Hi LightningDeals Team! I would like to get a free trial API key for testing.')}`;
+
 
   const handleCopyCmd = () => {
     navigator.clipboard.writeText('npx lightningdeals');
@@ -59,16 +152,8 @@ export const HeroSection: React.FC = () => {
 
   return (
     <section className="relative overflow-hidden py-20 sm:py-28 border-b border-border bg-gradient-to-b from-card/80 via-bg to-bg selection:bg-amber-500/20">
-      {/* Dynamic Ambient Glow Spheres */}
-      <motion.div
-        animate={{
-          scale: [1, 1.15, 1],
-          opacity: [0.15, 0.25, 0.15],
-          rotate: [0, 90, 0],
-        }}
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[900px] h-[450px] bg-gradient-to-tr from-amber-500/20 via-purple-600/15 to-cyan-500/10 blur-[130px] pointer-events-none rounded-full"
-      />
+      {/* Static Lightweight Ambient Glow */}
+      <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-amber-500/10 opacity-30 blur-[100px] pointer-events-none rounded-full transform-gpu" />
 
       <div className="max-w-page mx-auto px-5 sm:px-6 text-center space-y-10 relative z-10">
         <motion.div
@@ -79,13 +164,13 @@ export const HeroSection: React.FC = () => {
         >
           {/* Eyebrow Badge */}
           <motion.div variants={itemVariants} className="inline-block">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs font-mono font-bold text-amber-500 uppercase tracking-widest shadow-lg shadow-amber-500/5 backdrop-blur-md">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs font-mono font-bold text-amber-500 uppercase tracking-widest shadow-lg shadow-amber-500/5">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
               </span>
               <span>Claude Fable 5 & Sonnet 5 Live</span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             </div>
           </motion.div>
 
@@ -100,18 +185,18 @@ export const HeroSection: React.FC = () => {
             </span>
           </motion.h1>
 
-          {/* Supporting Copy */}
+          {/* Subtitle */}
           <motion.p
             variants={itemVariants}
-            className="text-muted text-base sm:text-xl max-w-2xl mx-auto leading-relaxed font-sans"
+            className="text-base sm:text-xl text-muted max-w-2xl mx-auto font-normal leading-relaxed"
           >
-            Claude Fable 5 and Sonnet 5 are live here alongside every Opus, Sonnet, and Haiku release — same endpoint, same key, 5-hour rolling window.
+            Prepaid AI API Gateway for developers. Repoint your base URL to <code className="text-amber-500 font-mono font-bold bg-bg px-2 py-0.5 rounded border border-border">{baseUrl}</code> and get immediate access to top models with Claude Code, Cursor, Windsurf, and VS Code.
           </motion.p>
 
-          {/* CTAs */}
+          {/* Primary CTA Buttons */}
           <motion.div
             variants={itemVariants}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
+            className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto"
           >
             <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full sm:w-auto">
               <a
@@ -139,7 +224,7 @@ export const HeroSection: React.FC = () => {
 
           {/* Copyable Base URL Bar */}
           <motion.div variants={itemVariants} className="max-w-md mx-auto pt-2">
-            <div className="flex items-stretch border border-border bg-card/90 rounded-panel overflow-hidden shadow-lg backdrop-blur-md">
+            <div className="flex items-stretch border border-border bg-card/90 rounded-panel overflow-hidden shadow-lg">
               <span className="flex shrink-0 items-center border-r border-border px-3 font-mono text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10">
                 <Server className="w-3 h-3 mr-1" />
                 base url
@@ -167,92 +252,7 @@ export const HeroSection: React.FC = () => {
           transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] as const }}
           className="max-w-2xl mx-auto pt-4"
         >
-          <div className="bg-card/95 border border-border/90 rounded-panel overflow-hidden shadow-2xl text-left backdrop-blur-xl relative group">
-            {/* Terminal Window Header Bar */}
-            <div className="bg-bg/90 px-4 py-3 border-b border-border/70 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block hover:opacity-80" />
-                <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block hover:opacity-80" />
-                <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block hover:opacity-80" />
-                <span className="text-[11px] font-mono text-muted ml-2">bash — npx lightningdeals</span>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleCopyCmd}
-                className="flex items-center gap-1.5 text-[11px] font-mono text-muted hover:text-fg bg-bg px-3 py-1 rounded border border-border/80 transition-colors"
-                title="Copy setup command"
-              >
-                {copiedCmd ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                <span className="font-bold">{copiedCmd ? 'Copied!' : 'npx lightningdeals'}</span>
-              </motion.button>
-            </div>
-
-            {/* Terminal Body with Animated Step Typing Progress */}
-            <div className="p-6 font-mono text-xs leading-relaxed space-y-3 bg-bg/50 min-h-[220px]">
-              <p className="text-muted flex items-center gap-2">
-                <span className="text-amber-500">$</span> npx lightningdeals
-              </p>
-
-              <AnimatePresence mode="wait">
-                {terminalStep >= 1 && (
-                  <motion.p
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="text-amber-500 font-bold"
-                  >
-                    ⚡ LightningDeals CLI v1.0.0
-                  </motion.p>
-                )}
-              </AnimatePresence>
-
-              {terminalStep >= 2 && (
-                <motion.p
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="text-fg"
-                >
-                  Enter your LightningDeals API key: <span className="text-muted">ld_live_••••••••••••••••</span>
-                </motion.p>
-              )}
-
-              {terminalStep >= 3 && (
-                <motion.p
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="text-emerald-400 font-semibold flex items-center gap-1.5"
-                >
-                  <span>✓ API key verified (5-Hour Rolling Window Active)</span>
-                </motion.p>
-              )}
-
-              {terminalStep >= 4 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-1 pt-1"
-                >
-                  <p className="text-fg font-semibold">Detecting installed AI developer tools...</p>
-                  <div className="pl-3 space-y-1 text-muted text-[11px]">
-                    <p className="text-fg font-semibold">✓ Claude Code CLI — Configured (~/.claude/settings.json)</p>
-                    <p className="text-fg font-semibold">✓ Cursor IDE — Configured</p>
-                    <p className="text-fg font-semibold">✓ Windsurf Editor — Configured</p>
-                  </div>
-                </motion.div>
-              )}
-
-              {terminalStep >= 5 && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="pt-2 border-t border-border/40 space-y-1"
-                >
-                  <p className="text-emerald-400 font-semibold">✓ Gateway Verification Success (39ms latency)</p>
-                  <p className="text-amber-400 font-bold">🎉 LightningDeals configuration complete. Run "claude" to start coding!</p>
-                </motion.div>
-              )}
-            </div>
-          </div>
+          <TerminalMockup copiedCmd={copiedCmd} handleCopyCmd={handleCopyCmd} />
         </motion.div>
 
         {/* Animated Trust Badges */}

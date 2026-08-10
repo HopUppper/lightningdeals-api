@@ -107,12 +107,15 @@ Write-Host "Run 'claude' to start coding with LightningDeals."
 });
 
 // 5. Static Web Application & SPA Fallback Route
-const distPath = path.resolve(process.cwd(), 'dist');
+const distPath = path.resolve(import.meta.dirname, '../dist');
+console.log('⚡ Static web assets path:', distPath);
+
+app.use('/assets', express.static(path.join(distPath, 'assets')));
 app.use(express.static(distPath));
 
 app.get('*', (req, res) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/v1') || req.path.startsWith('/assets')) {
-    return res.status(404).send('Not Found');
+  if (req.path.startsWith('/api') || req.path.startsWith('/v1')) {
+    return res.status(404).json({ error: { message: 'Endpoint not found.' } });
   }
   const indexPath = path.join(distPath, 'index.html');
   res.sendFile(indexPath, (err) => {
@@ -121,6 +124,7 @@ app.get('*', (req, res) => {
     }
   });
 });
+
 
 
 app.listen(PORT, () => {

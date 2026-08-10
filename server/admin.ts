@@ -970,8 +970,17 @@ router.get('/search', async (req: Request, res: Response) => {
       }),
     ]);
 
+
+    const sanitizedKeys = keys.map((k) => ({ ...k, tokensRemaining: k.tokensRemaining.toString() }));
+    res.json({ customers, keys: sanitizedKeys, orders, requests, tickets });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // GET /api/admin/orders - Real order management ledger
 router.get('/orders', async (req: AuthRequest, res: Response) => {
+
   const { status, search } = req.query;
   try {
     const whereClause: any = {};
@@ -1111,18 +1120,9 @@ router.get('/usage', async (req: AuthRequest, res: Response) => {
   }
 });
 
-    const sanitizedKeys = keys.map((k) => ({ ...k, tokensRemaining: k.tokensRemaining.toString() }));
-
-    res.json({ customers, keys: sanitizedKeys, orders, requests, tickets });
-  } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
-  }
-});
-
-
-
-
 router.post('/emergency/toggle-global-api', async (req: AuthRequest, res: Response) => {
+
+
   const { disabled } = req.body;
   try {
     await prisma.systemSetting.upsert({

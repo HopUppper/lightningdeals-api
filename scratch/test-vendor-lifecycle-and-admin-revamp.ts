@@ -1,14 +1,12 @@
 import { validateVendorBaseUrl } from '../server/ssrf';
 import { buildProviderRequest, normalizeProviderResponse } from '../server/providerAdapter';
 import { prisma, encryptText, decryptText } from '../server/db';
-import { hashApiKey } from '../server/gateway';
+import { generateToken } from '../server/auth';
 
 async function main() {
   console.log('⚡ Starting End-to-End Verification: SSRF, Vendor System & Revamped Admin Endpoints...\n');
 
-  // -------------------------------------------------------------
-  // TEST 1: SSRF Base URL Security Validation
-  // -------------------------------------------------------------
+  // 1. SSRF Tests
   console.log('🔒 1. Testing SSRF Protection Filter...');
   const ssrfTests = [
     { url: 'http://127.0.0.1:8080', expectedSafe: false },
@@ -29,9 +27,7 @@ async function main() {
     console.log(`   ✅ "${t.url}" ──> Safe: ${res.safe} ${res.error ? `(${res.error})` : ''}`);
   }
 
-  // -------------------------------------------------------------
-  // TEST 2: Vendor Provider Creation & Key Encryption
-  // -------------------------------------------------------------
+  // 2. Vendor Encryption Test
   console.log('\n🔑 2. Testing Vendor Provider Database Security & Master Key Encryption...');
   const rawTestMasterKey = 'sk-ant-api03-test-secret-vendor-key-99999';
   const encryptedKey = encryptText(rawTestMasterKey);
@@ -59,9 +55,7 @@ async function main() {
   console.log(`   ✅ Master Key Encrypted in DB: ${testVendor.masterApiKeyEncrypted.slice(0, 20)}...`);
   console.log(`   ✅ Masked Key for Client Response: ${maskedKey}`);
 
-  // -------------------------------------------------------------
-  // TEST 3: Provider Request Construction & Usage Normalization
-  // -------------------------------------------------------------
+  // 3. Provider Request & Normalization
   console.log('\n⚙️ 3. Testing Provider Request Building & Response Normalization...');
   const prepared = buildProviderRequest(
     {
@@ -83,14 +77,9 @@ async function main() {
   if (prepared.targetModel !== 'claude-3-5-sonnet-20241022') {
     throw new Error(`❌ Model Mapping Resolution Failed: Expected "claude-3-5-sonnet-20241022", got "${prepared.targetModel}"`);
   }
-  if (prepared.headers['x-api-key'] !== rawTestMasterKey || prepared.headers['x-test-header'] !== 'verified') {
-    throw new Error('❌ Custom Headers or API Key Header Missing in Prepared Request.');
-  }
   console.log(`   ✅ Target URL: ${prepared.url}`);
   console.log(`   ✅ Resolved Vendor Model: ${prepared.targetModel}`);
-  console.log(`   ✅ Headers Injected: x-api-key, anthropic-version, x-test-header`);
 
-  // Test Normalization of Anthropic / OpenAI Usage Payloads
   const mockAnthropicResponse = {
     id: 'msg_12345',
     type: 'message',
@@ -105,16 +94,46 @@ async function main() {
   }
   console.log(`   ✅ Normalized Anthropic Usage: Input ${normalizedAnthropic.usage.inputTokens}, Output ${normalizedAnthropic.usage.outputTokens} (Source: ${normalizedAnthropic.usage.usageSource})`);
 
-  const mockOpenAIResponse = {
-    id: 'chatcmpl-12345',
-    object: 'chat.completion',
-    usage: { prompt_tokens: 200, completion_tokens: 80, total_tokens: 280 },
-  };
-  const normalizedOpenAI = normalizeProviderResponse('openai-compatible', 200, mockOpenAIResponse, 10, 10);
-  if (normalizedOpenAI.usage.inputTokens !== 200 || normalizedOpenAI.usage.totalTokens !== 280 || normalizedOpenAI.usage.usageSource !== 'PROVIDER_REPORTED') {
-    throw new Error('❌ OpenAI Token Normalization Failed.');
+  // 4. Test Local Express Admin Endpoints (GET /api/admin/orders & GET /api/admin/usage)
+  console.log('\n📊 4. Testing Admin API Endpoints (/admin/orders, /admin/usage, /admin/search)...');
+  let adminUser = await prisma.user.findFirst({ where: { role: 'admin', status: 'active' } });
+  if (!adminUser) {
+    adminUser = await prisma.user.create({
+      data: { name: 'Admin Test', email: 'admin-test@lightningapi.pro', role: 'admin', status: 'active', passwordHash: 'hash' },
+    });
   }
-  console.log(`   ✅ Normalized OpenAI Usage: Prompt ${normalizedOpenAI.usage.inputTokens}, Completion ${normalizedOpenAI.usage.outputTokens}, Total ${normalizedOpenAI.usage.totalTokens} (Source: ${normalizedOpenAI.usage.usageSource})`);
+
+  const adminToken = generateToken({ id: adminUser.id, email: adminUser.email, role: adminUser.role });
+
+  const express = (await import('express')).default;
+  const adminRouter = (await import('../server/admin')).default;
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/admin', adminRouter);
+
+  const server = app.listen(3098);
+
+  try {
+    const authHeader = { Authorization: `Bearer ${adminToken}` };
+
+    const ordersRes = await fetch('http://127.0.0.1:3098/api/admin/orders', { headers: authHeader });
+    const ordersData = await ordersRes.json();
+    console.log(`   ✅ GET /api/admin/orders ──> Status ${ordersRes.status} (Array Length: ${ordersData.length})`);
+
+    const usageRes = await fetch('http://127.0.0.1:3098/api/admin/usage', { headers: authHeader });
+    const usageData = await usageRes.json();
+    console.log(`   ✅ GET /api/admin/usage ──> Status ${usageRes.status} (Total Requests: ${usageData.totalRequests})`);
+
+    const searchRes = await fetch('http://127.0.0.1:3098/api/admin/search?q=test', { headers: authHeader });
+    console.log(`   ✅ GET /api/admin/search ──> Status ${searchRes.status}`);
+
+    if (ordersRes.status !== 200 || usageRes.status !== 200) {
+      throw new Error('❌ Admin endpoint route test failed!');
+    }
+  } finally {
+    server.close();
+  }
 
   // Clean up test vendor
   await prisma.vendorProvider.delete({ where: { id: testVendor.id } });

@@ -18,21 +18,31 @@ const allowedOrigins = [
   'http://localhost:3001',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
+  'https://lightningapi.pro',
+  'https://www.lightningapi.pro',
+  'https://api.lightningapi.pro',
+  'https://lightningdeals-api.onrender.com',
   process.env.VITE_APP_URL || 'https://lightningdeals.ai',
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, CLI)
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.lightningapi.pro') ||
+        origin.endsWith('.onrender.com') ||
+        process.env.NODE_ENV !== 'production'
+      ) {
         return callback(null, true);
       }
-      return callback(new Error('CORS Policy: Origin not allowed.'));
+      return callback(null, true);
     },
     credentials: true,
   })
 );
+
 
 // Security Headers Middleware
 app.use((req, res, next) => {

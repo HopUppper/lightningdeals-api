@@ -10,7 +10,9 @@ export const AdminSettings: React.FC = () => {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleUpdatePassword = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (newPassword !== confirmPassword) {
@@ -22,12 +24,35 @@ export const AdminSettings: React.FC = () => {
       return;
     }
 
-    setSaved(true);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setSaved(false), 3000);
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('apexscale_token');
+      const res = await fetch('/api/admin/password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error?.message || 'Failed to update admin password.');
+      } else {
+        setSaved(true);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setSaved(false), 4000);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Network error updating admin password.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
   return (
     <div className="space-y-6">

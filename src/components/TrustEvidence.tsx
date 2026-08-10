@@ -3,14 +3,35 @@ import { Activity, BookOpen, Layers, LifeBuoy, CheckCircle2, ShieldCheck, Zap, S
 import { motion } from 'framer-motion';
 
 export const TrustEvidence: React.FC = () => {
+  const [systemStatus, setSystemStatus] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    async function fetchLiveStatus() {
+      try {
+        const res = await fetch('/api/system/status');
+        if (res.ok) {
+          setSystemStatus(await res.json());
+        }
+      } catch (e) {
+        // Fallback safely
+      }
+    }
+    fetchLiveStatus();
+  }, []);
+
+  const dbLatency = systemStatus?.dbLatencyMs !== undefined ? `${systemStatus.dbLatencyMs}ms` : '<50ms';
+  const systemState = systemStatus?.status === 'OPERATIONAL' ? '100% Operational' : (systemStatus?.status || 'Operational');
+  const activeKeysCount = systemStatus?.activeKeys !== undefined ? `${systemStatus.activeKeys} Active` : 'Active Keys';
+
   const stats = [
-    { label: 'Gateway Uptime', value: '99.99%', subtext: 'Live SLA Monitor' },
-    { label: 'Routing Latency', value: '<50ms', subtext: 'Sub-second Response' },
-    { label: 'Supported Models', value: '12+ Active', subtext: 'Anthropic & OpenAI' },
+    { label: 'Gateway Status', value: systemState, subtext: 'Live Gateway SLA' },
+    { label: 'Routing Latency', value: dbLatency, subtext: 'Sub-second Response' },
+    { label: 'Active Keys', value: activeKeysCount, subtext: 'Live Token Allocation' },
     { label: 'CLI Onboarding', value: '1 Command', subtext: 'npx lightningdeals' },
   ];
 
   const items = [
+
     {
       title: 'Live Gateway Status',
       desc: 'Real-time database, API proxy, and vendor health checks',

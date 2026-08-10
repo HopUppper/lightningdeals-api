@@ -35,10 +35,11 @@ export const AdminCustomers: React.FC = () => {
   const formatTokens = (val: string | number) => {
     const num = Number(val || 0);
     if (num >= 1000000000) return `${(num / 1000000000).toFixed(2)}B`;
-    if (num >= 1000000) return `${(num / 1000).toFixed(2)}M`;
+    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
     return num.toLocaleString();
   };
+
 
   const filteredCustomers = customers.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase())

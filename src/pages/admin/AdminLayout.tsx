@@ -53,54 +53,20 @@ export const AdminLayout: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const navGroups: { title: string; items: NavItem[] }[] = [
-    {
-      title: 'BUSINESS',
-      items: [
-        { name: 'Overview', path: '/admin', icon: LayoutDashboard, end: true },
-        { name: 'Customers', path: '/admin/customers', icon: Users },
-        { name: 'Purchase Orders', path: '/admin/orders', icon: ShoppingBag },
-      ],
-    },
-    {
-      title: 'API GATEWAY',
-      items: [
-        { name: 'Supplier Providers', path: '/admin/providers', icon: Server, badge: 'KEY' },
-        { name: 'Plan Definitions', path: '/admin/plans', icon: FileText },
-        { name: 'API Key Center', path: '/admin/keys', icon: Key },
-        { name: 'Token Ledger', path: '/admin/tokens', icon: Zap },
-        { name: 'Models Catalog', path: '/admin/models', icon: Cpu },
-        { name: 'Pricing Packages', path: '/admin/pricing', icon: DollarSign },
-      ],
-    },
-
-    {
-      title: 'OPERATIONS',
-      items: [
-        { name: 'Support Help Desk', path: '/admin/support', icon: LifeBuoy },
-        { name: 'Quote Leads', path: '/admin/leads', icon: Mail },
-        { name: 'Request Logs', path: '/admin/requests', icon: Activity },
-        { name: 'Security & Risk', path: '/admin/security', icon: ShieldAlert },
-        { name: 'System Status', path: '/admin/status', icon: ShieldCheck },
-        { name: 'API Diagnostics', path: '/admin/api-test', icon: Terminal },
-      ],
-    },
-    {
-      title: 'SETTINGS',
-      items: [
-        { name: 'Admin Settings', path: '/admin/settings', icon: Settings },
-        { name: 'Emergency Controls', path: '/admin/emergency', icon: AlertTriangle, alert: true },
-      ],
-    },
+  const primaryNavItems: NavItem[] = [
+    { name: 'Overview', path: '/admin', icon: LayoutDashboard, end: true },
+    { name: 'Customer API Keys', path: '/admin/keys', icon: Key, badge: 'KEYS' },
+    { name: 'Master Supplier Keys', path: '/admin/providers', icon: Server, badge: 'VENDOR' },
+    { name: 'Customers & Leads', path: '/admin/customers', icon: Users },
+    { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
-
 
   return (
     <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
       {/* Top Bar */}
-      <header className="h-16 border-b border-border bg-card/95 backdrop-blur-md sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
+      <header className="h-16 border-b border-border bg-card sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/admin" className="flex items-center gap-2 group">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-black font-extrabold transition-transform group-hover:scale-105">
               <Zap className="w-4 h-4 fill-current" />
             </div>
@@ -120,7 +86,7 @@ export const AdminLayout: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => { if (searchResults) setShowSearchDropdown(true); }}
-              placeholder="Global Search (customer, email, key, order, ticket ID)..."
+              placeholder="Search keys, customers, emails..."
               className="w-full pl-10 pr-8 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono"
             />
             {searchQuery && (
@@ -170,23 +136,7 @@ export const AdminLayout: React.FC = () => {
                 </div>
               )}
 
-              {searchResults.tickets?.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-mono font-bold uppercase text-amber-500 mb-1">Support Tickets</p>
-                  {searchResults.tickets.map((t: any) => (
-                    <div
-                      key={t.id}
-                      onClick={() => { navigate('/admin/support'); setShowSearchDropdown(false); }}
-                      className="p-2 hover:bg-bg rounded cursor-pointer flex justify-between items-center"
-                    >
-                      <span className="font-semibold text-fg">{t.subject}</span>
-                      <span className="text-[10px] font-mono text-muted uppercase">{t.status}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!searchResults.customers?.length && !searchResults.keys?.length && !searchResults.tickets?.length && (
+              {!searchResults.customers?.length && !searchResults.keys?.length && (
                 <div className="py-4 text-center text-muted font-mono">No matching records found.</div>
               )}
             </div>
@@ -194,63 +144,53 @@ export const AdminLayout: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="ui-button-secondary text-xs py-1.5 px-3">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Customer Dashboard</span>
-          </Link>
-
-          <div className="flex items-center gap-3 border-l border-border pl-4">
+          <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold text-fg">{user?.name} (Admin)</p>
-              <p className="text-[10px] text-muted font-mono">{user?.email}</p>
+              <p className="text-xs font-semibold text-fg">{user?.name || 'Administrator'}</p>
+              <p className="text-[10px] text-muted font-mono">{user?.email || 'sidhjain9002@gmail.com'}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="p-2 rounded-control text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
-              title="Sign out"
+              className="p-2 rounded-control text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-1 text-xs font-semibold"
+              title="Sign out of Admin Panel"
             >
               <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-8 py-8 grid lg:grid-cols-[250px_1fr] gap-8">
-        {/* Sidebar */}
-        <aside className="space-y-6">
-          {navGroups.map((group) => (
-            <div key={group.title} className="space-y-1">
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted px-3 mb-1.5">
-                {group.title}
-              </p>
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    `flex items-center justify-between px-3.5 py-2 rounded-control text-xs font-semibold transition-colors ${
-                      isActive
-                        ? item.alert
-                          ? 'bg-red-600 text-white shadow-sm font-bold'
-                          : 'bg-amber-500 text-black shadow-sm font-bold'
-                        : 'text-muted hover:text-fg hover:bg-card border border-transparent'
-                    }`
-                  }
-                >
-                  <div className="flex items-center gap-2.5">
-                    <item.icon className="w-4 h-4 shrink-0" />
-                    <span>{item.name}</span>
-                  </div>
-                  {item.badge && (
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase bg-amber-500/20 text-amber-500 border border-amber-500/30">
-                      {item.badge}
-                    </span>
-                  )}
-                </NavLink>
-              ))}
-            </div>
+      <div className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-8 py-8 grid lg:grid-cols-[230px_1fr] gap-8">
+        {/* Simplified Sidebar */}
+        <aside className="space-y-2">
+          <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted px-3 mb-2">
+            ADMIN NAVIGATION
+          </p>
+          {primaryNavItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.end}
+              className={({ isActive }) =>
+                `flex items-center justify-between px-4 py-3 rounded-control text-xs font-semibold transition-all ${
+                  isActive
+                    ? 'bg-amber-500 text-black shadow-md font-bold'
+                    : 'text-muted hover:text-fg hover:bg-card border border-transparent'
+                }`
+              }
+            >
+              <div className="flex items-center gap-3">
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span>{item.name}</span>
+              </div>
+              {item.badge && (
+                <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                  {item.badge}
+                </span>
+              )}
+            </NavLink>
           ))}
         </aside>
 
@@ -262,3 +202,4 @@ export const AdminLayout: React.FC = () => {
     </div>
   );
 };
+

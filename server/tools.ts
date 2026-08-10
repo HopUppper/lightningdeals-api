@@ -49,6 +49,24 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     ? 'Trial Key'
     : (numM > 0 ? `Claude Max ${numM}x` : (keyRecord.plan || 'Claude Max 20x'));
 
+  const recentRequests = await prisma.apiRequest.findMany({
+    where: { apiKeyId: keyRecord.id },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+    select: {
+      id: true,
+      model: true,
+      endpoint: true,
+      statusCode: true,
+      inputTokens: true,
+      outputTokens: true,
+      totalTokens: true,
+      latencyMs: true,
+      streaming: true,
+      createdAt: true,
+    },
+  });
+
   res.json({
     valid: true,
     keyPrefix: keyRecord.keyPrefix,
@@ -75,8 +93,10 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     nextResetAt: windowMetrics.nextResetAt,
     windowResetSeconds: windowMetrics.windowResetSeconds,
     consumptionPercent: windowMetrics.consumptionPercent,
+    recentRequests,
   });
 }
+
 
 
 

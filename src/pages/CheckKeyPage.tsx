@@ -227,10 +227,68 @@ export const CheckKeyPage: React.FC = () => {
                     <p className="text-xl font-bold font-mono text-fg mt-1">{formatTokens(result.totalOutputTokens)}</p>
                   </div>
                 </div>
+
+                {/* Latest 20 Request Activity Breakdown */}
+                <div className="pt-4 border-t border-border space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-fg">Latest 20 API Requests Activity</h3>
+                      <p className="text-xs text-muted font-mono mt-0.5">Transparent token breakdown & latency audit log for this key</p>
+                    </div>
+                  </div>
+
+                  <div className="border border-border rounded-panel overflow-hidden bg-bg">
+                    {!result.recentRequests || result.recentRequests.length === 0 ? (
+                      <div className="py-8 text-center text-xs font-mono text-muted">
+                        No recent API requests logged for this key yet. Send a request with Claude Code CLI or Cursor to see live activity.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs font-mono">
+                          <thead>
+                            <tr className="border-b border-border text-muted uppercase bg-card/60">
+                              <th className="py-2.5 px-3">Date & Time</th>
+                              <th className="py-2.5 px-3">Model Used</th>
+                              <th className="py-2.5 px-3">Endpoint</th>
+                              <th className="py-2.5 px-3">Status</th>
+                              <th className="py-2.5 px-3">Input</th>
+                              <th className="py-2.5 px-3">Output</th>
+                              <th className="py-2.5 px-3">Total Tokens</th>
+                              <th className="py-2.5 px-3">Latency</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/50">
+                            {result.recentRequests.map((req: any) => (
+                              <tr key={req.id} className="hover:bg-card/50">
+                                <td className="py-2.5 px-3 text-muted text-[11px] whitespace-nowrap">
+                                  {new Date(req.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-amber-500">{req.model}</td>
+                                <td className="py-2.5 px-3 text-fg text-[11px]">{req.endpoint}</td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    req.statusCode === 200 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'
+                                  }`}>
+                                    {req.statusCode} OK
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-muted">{req.inputTokens?.toLocaleString()}</td>
+                                <td className="py-2.5 px-3 text-muted">{req.outputTokens?.toLocaleString()}</td>
+                                <td className="py-2.5 px-3 font-bold text-fg">{req.totalTokens?.toLocaleString()}</td>
+                                <td className="py-2.5 px-3 text-muted">{req.latencyMs} ms</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
         )}
+
       </main>
 
       <Footer />

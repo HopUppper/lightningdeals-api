@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Plus, Sparkles, Filter, Search, Copy, Check, Trash2, ShieldAlert, RefreshCw, Clock, ArrowRight } from 'lucide-react';
+import { Key, Plus, Sparkles, Filter, Search, Copy, Check, Trash2, ShieldAlert, RefreshCw, Clock, ArrowRight, Activity } from 'lucide-react';
 
 export const AdminKeys: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
@@ -7,6 +7,34 @@ export const AdminKeys: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+
+  // Usage Inspector State
+  const [showUsageModal, setShowUsageModal] = useState(false);
+  const [selectedUsageKey, setSelectedUsageKey] = useState<any | null>(null);
+  const [usageLogs, setUsageLogs] = useState<any[]>([]);
+  const [usageLoading, setUsageLoading] = useState(false);
+
+  const handleInspectUsage = async (key: any) => {
+    setSelectedUsageKey(key);
+    setShowUsageModal(true);
+    setUsageLoading(true);
+    setUsageLogs([]);
+
+    try {
+      const res = await fetch(`/api/admin/keys/${key.id}/usage`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setUsageLogs(data.usage || []);
+        if (data.key) setSelectedUsageKey((prev: any) => ({ ...prev, ...data.key }));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUsageLoading(false);
+    }
+  };
+
+
 
   // Create Key Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -297,6 +325,15 @@ export const AdminKeys: React.FC = () => {
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={() => handleInspectUsage(k)}
+                          className="px-2 py-1 rounded text-[10px] font-semibold border border-amber-500/40 text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 flex items-center gap-1"
+                          title="Inspect 20 latest requests and model token usage"
+                        >
+                          <Activity className="w-3 h-3" />
+                          <span>View Usage</span>
+                        </button>
+
+                        <button
                           onClick={() => handleUpdateKey(k.id, { resetWindow: true })}
                           className="px-2 py-1 rounded text-[10px] font-semibold border border-border bg-bg hover:bg-card text-muted hover:text-fg"
                           title="Reset 5-hour rolling usage window"
@@ -327,6 +364,108 @@ export const AdminKeys: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Usage Activity Modal */}
+      {showUsageModal && selectedUsageKey && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-panel max-w-4xl w-full p-6 shadow-2xl space-y-6 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-fg flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-amber-500" />
+                  <span>Key Usage Activity: {selectedUsageKey.name}</span>
+                </h3>
+                <p className="text-xs font-mono text-muted mt-1">
+                  Key: <span className="text-fg font-bold">{selectedUsageKey.displayKey}</span> | Customer: <span className="text-amber-500 font-semibold">{selectedUsageKey.customer}</span>
+                </p>
+              </div>
+              <button onClick={() => setShowUsageModal(false)} className="text-muted hover:text-fg text-sm font-bold">✕</button>
+            </div>
+
+            {usageLoading ? (
+              <div className="py-16 text-center text-xs text-muted font-mono">Loading recent 20 request logs...</div>
+            ) : (
+              <div className="space-y-6 overflow-y-auto pr-1">
+                {/* Summary Pill Bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-bg border border-border p-4 rounded-control text-xs font-mono">
+                  <div>
+                    <span className="text-muted uppercase text-[10px]">Total Requests</span>
+                    <p className="font-bold text-fg text-base mt-0.5">{selectedUsageKey.totalRequests?.toLocaleString() || '0'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted uppercase text-[10px]">Input Tokens</span>
+                    <p className="font-bold text-fg text-base mt-0.5">{formatTokens(Number(selectedUsageKey.totalInputTokens || 0))}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted uppercase text-[10px]">Output Tokens</span>
+                    <p className="font-bold text-fg text-base mt-0.5">{formatTokens(Number(selectedUsageKey.totalOutputTokens || 0))}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted uppercase text-[10px]">5h Window Remaining</span>
+                    <p className="font-bold text-emerald-500 text-base mt-0.5">{formatTokens(Number(selectedUsageKey.tokensRemaining || 0))}</p>
+                  </div>
+                </div>
+
+                {/* Latest 20 Requests Table */}
+                <div>
+                  <h4 className="text-xs font-mono font-bold uppercase text-fg mb-3 flex items-center justify-between">
+                    <span>Latest 20 API Requests</span>
+                    <span className="text-[11px] text-muted font-normal">Real-time gateway ledger</span>
+                  </h4>
+
+                  <div className="border border-border rounded-panel overflow-hidden bg-bg">
+                    {usageLogs.length === 0 ? (
+                      <div className="py-12 text-center text-xs text-muted font-mono">
+                        No request logs recorded for this key yet.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-border text-muted font-mono uppercase bg-card/60">
+                              <th className="py-2.5 px-3">Timestamp</th>
+                              <th className="py-2.5 px-3">Model</th>
+                              <th className="py-2.5 px-3">Endpoint</th>
+                              <th className="py-2.5 px-3">Status</th>
+                              <th className="py-2.5 px-3">Input</th>
+                              <th className="py-2.5 px-3">Output</th>
+                              <th className="py-2.5 px-3">Total Tokens</th>
+                              <th className="py-2.5 px-3">Latency</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/50 font-mono">
+                            {usageLogs.map((req: any) => (
+                              <tr key={req.id} className="hover:bg-card/50">
+                                <td className="py-2.5 px-3 text-muted text-[11px] whitespace-nowrap">
+                                  {new Date(req.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-amber-500">{req.model}</td>
+                                <td className="py-2.5 px-3 text-fg text-[11px]">{req.endpoint}</td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    req.statusCode === 200 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'
+                                  }`}>
+                                    {req.statusCode} OK
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-muted">{req.inputTokens?.toLocaleString()}</td>
+                                <td className="py-2.5 px-3 text-muted">{req.outputTokens?.toLocaleString()}</td>
+                                <td className="py-2.5 px-3 font-bold text-fg">{req.totalTokens?.toLocaleString()}</td>
+                                <td className="py-2.5 px-3 text-muted">{req.latencyMs} ms</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {/* Modal 1: Create Standard API Key */}
       {showCreateModal && (

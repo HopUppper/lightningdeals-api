@@ -409,6 +409,57 @@ router.get('/keys', async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/keys/:id/usage', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const key = await prisma.apiKey.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+    if (!key) return res.status(404).json({ error: { message: 'API Key not found.' } });
+
+    const requests = await prisma.apiRequest.findMany({
+      where: { apiKeyId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        model: true,
+        endpoint: true,
+        statusCode: true,
+        inputTokens: true,
+        outputTokens: true,
+        totalTokens: true,
+        latencyMs: true,
+        streaming: true,
+        createdAt: true,
+      },
+    });
+
+    const windowMetrics = await calculateKeyRollingWindow(key);
+
+    res.json({
+      key: {
+        id: key.id,
+        name: key.name,
+        displayKey: key.displayKey,
+        customer: key.user ? `${key.user.name} (${key.user.email})` : 'Unassigned',
+        status: key.status,
+        purchasedTokens: windowMetrics.purchasedNum.toString(),
+        tokensUsed: windowMetrics.windowTokensUsed.toString(),
+        tokensRemaining: windowMetrics.remainingNum.toString(),
+        totalRequests: key.totalRequests,
+        totalInputTokens: key.totalInputTokens.toString(),
+        totalOutputTokens: key.totalOutputTokens.toString(),
+      },
+      usage: requests,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+
 
 router.post('/keys', async (req: AuthRequest, res: Response) => {
   const { name, userId, tokenLimit, rateLimitRpm, expiryDays, plan, isTrial } = req.body;

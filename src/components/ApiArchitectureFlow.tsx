@@ -13,11 +13,12 @@ export const ApiArchitectureFlow: React.FC = () => {
     },
     {
       title: 'LightningDeals Gateway',
-      subtitle: 'Anthropic Drop-In API Gateway (Port 3001)',
+      subtitle: 'Anthropic Drop-In API Gateway (https://lightningapi.pro)',
       icon: Zap,
       accent: 'text-amber-500',
       border: 'border-amber-500/40',
     },
+
     {
       title: 'Token Validation',
       subtitle: 'Key Hash Check & 5-Hour Rolling Window Ledger',

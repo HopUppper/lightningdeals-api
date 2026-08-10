@@ -68,13 +68,12 @@ export const Navbar: React.FC = () => {
 
         {/* Desktop CTAs */}
         <div className="hidden items-center gap-3 lg:flex">
-          {user ? (
-            <Link to="/dashboard" className="ui-button-primary">
+          {user && user.role === 'admin' ? (
+            <Link to="/admin" className="ui-button-primary">
               <User className="w-4 h-4" />
-              <span>Dashboard</span>
+              <span>Admin Panel</span>
             </Link>
           ) : (
-
             <>
               <Link
                 to="/login"
@@ -96,9 +95,9 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile Menu Actions */}
         <div className="flex items-center gap-2 lg:hidden">
-          {user ? (
-            <Link to="/dashboard" className="ui-button-primary px-3 text-xs sm:text-sm">
-              Dashboard
+          {user && user.role === 'admin' ? (
+            <Link to="/admin" className="ui-button-primary px-3 text-xs sm:text-sm">
+              Admin
             </Link>
           ) : (
             <a
@@ -110,7 +109,6 @@ export const Navbar: React.FC = () => {
               Get Trial
             </a>
           )}
-
 
           <button
             type="button"
@@ -154,13 +152,13 @@ export const Navbar: React.FC = () => {
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
-            {user ? (
+            {user && user.role === 'admin' ? (
               <Link
-                to="/dashboard"
+                to="/admin"
                 onClick={() => setMobileMenuOpen(false)}
                 className="ui-button-primary w-full justify-center text-center text-sm font-semibold"
               >
-                Go to Dashboard
+                Go to Admin Panel
               </Link>
             ) : (
               <>
@@ -168,6 +166,7 @@ export const Navbar: React.FC = () => {
                   to="/trial"
                   onClick={() => setMobileMenuOpen(false)}
                   className="ui-button-primary w-full justify-center text-center text-sm font-semibold"
+
                 >
                   Get Free Trial Key (1M Tokens)
                 </Link>

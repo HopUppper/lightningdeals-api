@@ -129,6 +129,7 @@ app.get('*', (req, res) => {
 
 
 app.listen(PORT, () => {
-  console.log(`🚀 LightningDeals Backend API Gateway running on http://localhost:${PORT}`);
+  console.log(`🚀 LightningDeals Backend API Gateway running on https://lightningapi.pro`);
 });
+
 

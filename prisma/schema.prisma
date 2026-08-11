@@ -86,22 +86,45 @@ model ApiRequest {
 
 
 model VendorProvider {
-  id                   String     @id @default(uuid())
-  name                 String
-  providerType         String     @default("anthropic") // "anthropic" | "openai" | "custom_http"
-  protocol             String     @default("anthropic") // "anthropic" | "openai-compatible" | "custom_http"
-  masterApiKeyEncrypted String     @default("")
-  baseUrl              String     @default("https://api.anthropic.com")
-  status               String     @default("connected") // "connected" | "invalid_credential" | "ssrf_blocked" | "timeout" | "rate_limited" | "provider_error" | "disabled"
-  isPrimary            Boolean    @default(true)
-  modelMappingsJson    String?    // JSON string for internal -> vendor model mappings
-  headersJson          String?    // JSON string for custom HTTP headers
-  lastTestedAt         DateTime?
-  lastError            String?
-  notes                String?
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
+  id                     String              @id @default(uuid())
+  name                   String
+  providerType           String              @default("anthropic") // "anthropic" | "openai" | "custom_http"
+  protocol               String              @default("anthropic") // "anthropic" | "openai-compatible" | "custom_http"
+  masterApiKeyEncrypted   String              @default("")
+  baseUrl                String              @default("https://api.anthropic.com")
+  status                 String              @default("connected") // "connected" | "invalid_credential" | "ssrf_blocked" | "timeout" | "rate_limited" | "provider_error" | "disabled"
+  isPrimary              Boolean             @default(true)
+  availableTokens        BigInt              @default(100000000)
+  purchasedTokens        BigInt              @default(100000000)
+  consumedTokens         BigInt              @default(0)
+  reservedTokens         BigInt              @default(0)
+  warningThresholdTokens BigInt              @default(20000000)
+  criticalThresholdTokens BigInt             @default(5000000)
+  modelMappingsJson      String?             // JSON string for internal -> vendor model mappings
+  headersJson            String?             // JSON string for custom HTTP headers
+  lastTestedAt           DateTime?
+  lastError              String?
+  notes                  String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  masterTokenLedgers     MasterTokenLedger[]
 }
+
+model MasterTokenLedger {
+  id           String         @id @default(uuid())
+  providerId   String
+  provider     VendorProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  type         String         // "INITIAL_ALLOCATION" | "TOP_UP" | "CUSTOMER_USAGE" | "ADJUSTMENT" | "REFUND" | "REVERSAL"
+  amount       BigInt
+  balanceAfter BigInt
+  reference    String?
+  notes        String?
+  adminUserId  String?
+  apiKeyId     String?
+  userId       String?
+  createdAt    DateTime       @default(now())
+}
+
 
 
 model TokenPackage {

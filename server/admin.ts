@@ -3,8 +3,10 @@ import crypto from 'crypto';
 import { prisma, encryptText, decryptText } from './db';
 import { AuthRequest, authenticateJwt, requireAdmin } from './auth';
 import { calculateKeyRollingWindow } from './window';
+import { checkMasterCapacity, topUpMasterBalance, reconcileMasterLedger, calculateActiveEntitlementExposure } from './masterLedger';
 
 const router = Router();
+
 
 // Protect all admin routes with JWT and Admin Role
 router.use(authenticateJwt, requireAdmin);
@@ -76,6 +78,9 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
 
     const errorRate = requestsCount > 0 ? ((failedRequestsCount / requestsCount) * 100).toFixed(1) + '%' : '0.0%';
 
+    const masterCapacity = await checkMasterCapacity(primaryVendor?.id);
+    const entitlementExposure = await calculateActiveEntitlementExposure();
+
     res.json({
       totalUsers,
       activeUsers,
@@ -98,11 +103,21 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       openSupportTickets,
       avgLatencyMs: Math.round(avgLatencyResult._avg.latencyMs || 0),
       vendorStatus: primaryVendor ? primaryVendor.status : 'not_configured',
+      masterVendorCapacity: {
+        availableTokens: masterCapacity.availableTokens,
+        rawAvailableTokens: masterCapacity.rawAvailableTokens,
+        reservedTokens: masterCapacity.reservedTokens,
+        status: masterCapacity.status,
+        providerName: primaryVendor?.name || 'Default Vendor',
+        providerId: primaryVendor?.id || null,
+      },
+      activeEntitlementExposure: entitlementExposure,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message, code: 'DB_UNAVAILABLE' } });
   }
 });
+
 
 
 import { validateVendorBaseUrl } from './ssrf';
@@ -308,6 +323,118 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
     return res.json({ status: 'unavailable', message: `Could not reach vendor base URL: ${err.message}` });
   }
 });
+
+// GET /admin/providers/:id/balance — Master Vendor Balance & Capacity Exposure Metrics
+router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const provider = await prisma.vendorProvider.findUnique({ where: { id } });
+    if (!provider) return res.status(404).json({ error: { message: 'Vendor provider not found.' } });
+
+    const capacity = await checkMasterCapacity(id, 0);
+    const exposure = await calculateActiveEntitlementExposure();
+
+    const topUpCount = await prisma.masterTokenLedger.count({
+      where: { providerId: id, type: 'TOP_UP' },
+    });
+
+    const lastTopUp = await prisma.masterTokenLedger.findFirst({
+      where: { providerId: id, type: 'TOP_UP' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const lastUsage = await prisma.masterTokenLedger.findFirst({
+      where: { providerId: id, type: 'CUSTOMER_USAGE' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      providerId: provider.id,
+      providerName: provider.name,
+      status: capacity.status,
+      isPrimary: provider.isPrimary,
+      availableTokens: provider.availableTokens.toString(),
+      purchasedTokens: provider.purchasedTokens.toString(),
+      consumedTokens: provider.consumedTokens.toString(),
+      reservedTokens: capacity.reservedTokens,
+      warningThresholdTokens: provider.warningThresholdTokens.toString(),
+      criticalThresholdTokens: provider.criticalThresholdTokens.toString(),
+      exposure,
+      topUpCount,
+      lastTopUpAt: lastTopUp?.createdAt || null,
+      lastUsageAt: lastUsage?.createdAt || null,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /admin/providers/:id/topup — Add Master Token Top-Up
+router.post('/providers/:id/topup', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { amountTokens, reference, notes } = req.body;
+
+  if (!amountTokens || !reference) {
+    return res.status(400).json({ error: { message: 'Top-up amount and payment reference are required.' } });
+  }
+
+  try {
+    const result = await topUpMasterBalance({
+      providerId: id,
+      amountTokens,
+      reference,
+      notes,
+      adminUserId: req.user?.id,
+    });
+
+    res.json({
+      success: true,
+      newAvailableBalance: result.updatedProvider.availableTokens.toString(),
+      newPurchasedTokens: result.updatedProvider.purchasedTokens.toString(),
+      ledgerEntryId: result.ledgerEntry.id,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /admin/providers/:id/ledger — Master Token Accounting Ledger
+router.get('/providers/:id/ledger', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const entries = await prisma.masterTokenLedger.findMany({
+      where: { providerId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    const formatted = entries.map((e) => ({
+      id: e.id,
+      type: e.type,
+      amount: e.amount.toString(),
+      balanceAfter: e.balanceAfter.toString(),
+      reference: e.reference,
+      notes: e.notes,
+      createdAt: e.createdAt,
+    }));
+
+    res.json(formatted);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /admin/providers/:id/reconcile — Master Token Ledger Audit Reconciliation
+router.post('/providers/:id/reconcile', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const reconciliation = await reconcileMasterLedger(id);
+    res.json(reconciliation);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 
 
 // 3. Token Package Pricing Configuration (/admin/pricing)

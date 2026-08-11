@@ -4,7 +4,7 @@ import { prisma, decryptText } from './db';
 import { calculateKeyRollingWindow, reserveTokensForRequest, releaseReservedTokens, getActiveReservedTokens } from './window';
 import { buildProviderRequest, normalizeProviderResponse } from './providerAdapter';
 import { validateVendorBaseUrl } from './ssrf';
-
+import { checkMasterCapacity, reserveMasterTokens, releaseMasterReservation, settleMasterUsage } from './masterLedger';
 
 const rateLimitMap = new Map<string, number[]>();
 
@@ -114,6 +114,7 @@ export async function validateAndExtractApiKey(req: Request) {
 
 export async function handleMessagesEndpoint(req: Request, res: Response) {
   const startTime = Date.now();
+  const requestId = `msg_${crypto.randomBytes(12).toString('hex')}`;
   const validation = await validateAndExtractApiKey(req);
 
   if ('errorStatus' in validation) {
@@ -129,7 +130,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   const {
     model,
     messages,
-    max_tokens,
+    max_tokens = 4096,
     stream,
     system,
     tools,
@@ -153,21 +154,36 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     where: { isPrimary: true, status: 'connected' },
   });
 
+  const estimatedRequiredTokens = Math.max(100, Math.ceil(JSON.stringify({ messages, system }).length / 4)) + Math.min(2048, Number(max_tokens || 1024));
+
+  // MASTER VENDOR CAPACITY CHECK
+  const masterCheck = await checkMasterCapacity(vendor?.id, estimatedRequiredTokens);
+  if (!masterCheck.available) {
+    return res.status(503).json({
+      error: {
+        type: 'service_unavailable',
+        message: 'LightningDeals is temporarily unable to process this request. Please contact support.',
+      },
+    });
+  }
+
+  // Reserve capacity
+  reserveTokensForRequest(keyRecord.id, estimatedRequiredTokens);
+  if (vendor) reserveMasterTokens(vendor.id, requestId, estimatedRequiredTokens);
+
   let decryptedMasterKey = vendor ? decryptText(vendor.masterApiKeyEncrypted) : '';
   if (!decryptedMasterKey) {
     decryptedMasterKey = process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
   }
 
-  const isProduction = process.env.NODE_ENV === 'production';
-  const isMockModeAllowed = process.env.LIGHTNINGDEALS_MOCK_MODE === 'true' || (!isProduction && !decryptedMasterKey);
-
   // 1. REAL SUPPLIER PROXY PATH
-
   if (decryptedMasterKey && decryptedMasterKey.trim().length > 0) {
     try {
       // Validate Base URL against SSRF threats
       const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://api.anthropic.com');
       if (!ssrfCheck.safe) {
+        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+        releaseMasterReservation(requestId);
         return res.status(400).json({ error: { type: 'ssrf_blocked', message: ssrfCheck.error || 'Blocked by SSRF security filter.' } });
       }
 
@@ -191,6 +207,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       });
 
       if (!upstreamRes.ok) {
+        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+        releaseMasterReservation(requestId);
+
         const errorText = await upstreamRes.text();
         let parsedError = { message: 'Upstream vendor error.' };
         try { parsedError = JSON.parse(errorText); } catch (e) {}
@@ -220,13 +239,17 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
         const inputTokens = Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
         const outputTokens = Math.max(25, Math.ceil(fullContent.length / 4));
+        const totalTokens = inputTokens + outputTokens;
+
+        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+        releaseMasterReservation(requestId);
 
         await updateTokensAndLog({
           keyRecord,
           model,
           inputTokens,
           outputTokens,
-          totalTokens: inputTokens + outputTokens,
+          totalTokens,
           latencyMs: Date.now() - startTime,
           streaming: true,
           vendorId: vendor?.id,
@@ -244,6 +267,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           50
         );
 
+        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+        releaseMasterReservation(requestId);
+
         await updateTokensAndLog({
           keyRecord,
           model,
@@ -260,9 +286,12 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       }
 
     } catch (err: any) {
+      releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+      releaseMasterReservation(requestId);
       console.error('Vendor API Gateway connection error:', err);
     }
   }
+
 
 
   // Fallback Simulated Response when no Master API key is set
@@ -390,6 +419,18 @@ async function updateTokensAndLog({
         },
       }),
     ]);
+
+    if (vendorId) {
+      await settleMasterUsage({
+        providerId: vendorId,
+        apiKeyId: keyRecord.id,
+        userId: keyRecord.userId,
+        actualTokens: totalTokens,
+        reference: `REQ-${model}`,
+        notes: `Customer API Request Completion (${inputTokens} in / ${outputTokens} out)`,
+      });
+    }
+
   } catch (err) {
     console.error('Error recording token deduction:', err);
   }

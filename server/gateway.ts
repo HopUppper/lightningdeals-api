@@ -299,14 +299,15 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   const inputTokens = Math.max(10, Math.ceil(JSON.stringify({ messages, system, tools }).length / 4));
   const outputTokens = Math.max(20, Math.ceil(responseText.length / 4));
   const totalTokens = inputTokens + outputTokens;
-  const requestId = `msg_simulated_${crypto.randomBytes(12).toString('hex')}`;
+  const simulatedId = `msg_simulated_${crypto.randomBytes(12).toString('hex')}`;
 
   if (stream) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: requestId, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: inputTokens, output_tokens: 0 } } })}\n\n`);
+    res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: simulatedId, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: inputTokens, output_tokens: 0 } } })}\n\n`);
+
     res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`);
 
     const words = responseText.split(' ');
@@ -322,10 +323,11 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     res.end();
   } else {
     res.json({
-      id: requestId,
+      id: simulatedId,
       type: 'message',
       role: 'assistant',
       model,
+
       content: [{ type: 'text', text: responseText }],
       stop_reason: 'end_turn',
       stop_sequence: null,

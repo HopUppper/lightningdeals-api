@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Search, Filter, AlertCircle, CheckCircle2, Clock, XCircle, RefreshCw } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 interface OrderItem {
   id: string;
@@ -25,7 +26,7 @@ export const AdminOrders: React.FC = () => {
     setLoading(true);
     try {
       const url = `/api/admin/orders?status=${statusFilter}&search=${encodeURIComponent(searchQuery)}`;
-      const res = await fetch(url);
+      const res = await adminFetch(url);
       if (res.ok) {
         setOrders(await res.json());
       }
@@ -48,9 +49,8 @@ export const AdminOrders: React.FC = () => {
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+      const res = await adminFetch(`/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
@@ -62,6 +62,7 @@ export const AdminOrders: React.FC = () => {
       setUpdatingId(null);
     }
   };
+
 
   const formatTokens = (val: string | number) => {
     const num = Number(val || 0);

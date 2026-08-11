@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, Plus, Edit2, Trash2, Check, Clock, Zap, Shield, Sparkles } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 interface Plan {
   id: string;
@@ -31,10 +32,7 @@ export const AdminPlans: React.FC = () => {
 
   const fetchPlans = async () => {
     try {
-      const token = localStorage.getItem('apexscale_token');
-      const res = await fetch('/api/admin/plans', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch('/api/admin/plans');
       if (res.ok) {
         setPlans(await res.json());
       }
@@ -77,14 +75,9 @@ export const AdminPlans: React.FC = () => {
     try {
       const endpoint = editingPlan ? `/api/admin/plans/${editingPlan.id}` : '/api/admin/plans';
       const method = editingPlan ? 'PUT' : 'POST';
-      const token = localStorage.getItem('apexscale_token');
 
-      const res = await fetch(endpoint, {
+      const res = await adminFetch(endpoint, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           name,
           displayName: `${name} (${(Number(tokenAllowance) / 1000000).toFixed(0)}M / ${windowHours}h)`,
@@ -98,7 +91,7 @@ export const AdminPlans: React.FC = () => {
 
       if (res.ok) {
         setShowModal(false);
-        fetchPlans();
+        await fetchPlans();
       }
     } catch (e) {
       console.error(e);
@@ -110,16 +103,15 @@ export const AdminPlans: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this plan?')) return;
     try {
-      const token = localStorage.getItem('apexscale_token');
-      await fetch(`/api/admin/plans/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchPlans();
+      const res = await adminFetch(`/api/admin/plans/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        await fetchPlans();
+      }
     } catch (e) {
       console.error(e);
     }
   };
+
 
 
   const formatTokens = (tokensStr: string) => {

@@ -1,7 +1,21 @@
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import path from 'path';
 
-export const prisma = new PrismaClient();
+const dbPath = process.env.DATABASE_URL || `file:${path.join(process.cwd(), 'prisma', 'dev.db')}`;
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = dbPath;
+}
+
+export const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: dbPath,
+    },
+  },
+});
+
+
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'lightningdeals_secure_encryption_key_32_bytes_long!!'; // Must be 32 chars
 const IV_LENGTH = 16;

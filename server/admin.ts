@@ -851,6 +851,144 @@ router.get('/customers', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST /admin/customers — Create persistent Customer Account
+router.post('/customers', async (req: AuthRequest, res: Response) => {
+  const { name, email, password, role = 'user', status = 'active' } = req.body;
+  if (!name || !email) {
+    return res.status(400).json({ error: { message: 'Customer name and email are required.' } });
+  }
+
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (existing) {
+      return res.status(400).json({ error: { message: 'A customer account with this email already exists.' } });
+    }
+
+    const defaultPass = password || 'lightningdev2026';
+    const passwordHash = crypto.createHash('sha256').update(defaultPass).digest('hex');
+
+    const result = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name: name.trim(),
+          email: cleanEmail,
+          passwordHash,
+          role,
+          status,
+        },
+      });
+
+      await tx.adminLog.create({
+        data: {
+          adminUserId: req.user?.id,
+          action: 'CREATE_CUSTOMER',
+          targetType: 'User',
+          targetId: newUser.id,
+          metadata: `Created customer account ${newUser.name} (${newUser.email})`,
+        },
+      });
+
+      return newUser;
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: result.id,
+        name: result.name,
+        email: result.email,
+        role: result.role,
+        status: result.status,
+        createdAt: result.createdAt,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// PUT /admin/customers/:id — Update Customer Account
+router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { name, email, role, status, password } = req.body;
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Customer account not found.' } });
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (email !== undefined) updateData.email = email.trim().toLowerCase();
+    if (role !== undefined) updateData.role = role;
+    if (status !== undefined) updateData.status = status;
+    if (password) {
+      updateData.passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id },
+        data: updateData,
+      });
+
+      await tx.adminLog.create({
+        data: {
+          adminUserId: req.user?.id,
+          action: 'UPDATE_CUSTOMER',
+          targetType: 'User',
+          targetId: user.id,
+          metadata: `Updated customer account ${user.name} (${user.email}) - status: ${user.status}, role: ${user.role}`,
+        },
+      });
+
+      return user;
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
+        status: updated.status,
+        updatedAt: updated.updatedAt,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// DELETE /admin/customers/:id — Delete Customer Account
+router.delete('/customers/:id', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Customer account not found.' } });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.adminLog.create({
+        data: {
+          adminUserId: req.user?.id,
+          action: 'DELETE_CUSTOMER',
+          targetType: 'User',
+          targetId: existing.id,
+          metadata: `Deleted customer account ${existing.name} (${existing.email})`,
+        },
+      });
+
+      await tx.user.delete({ where: { id } });
+    });
+
+    res.json({ success: true, message: `Customer ${existing.name} deleted.` });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+
 // 6. Security & Audit Logs (/admin/security, /admin/logs)
 router.get('/logs', async (req: AuthRequest, res: Response) => {
   try {

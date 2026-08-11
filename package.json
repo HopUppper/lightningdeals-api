@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"tsx server/index.ts\" \"vite\"",
     "server": "tsx server/index.ts",
-    "start": "npx prisma db push && tsx server/index.ts",
+    "start": "tsx server/index.ts",
+
     "build": "tsc && vite build && npx tsx scripts/prerender.ts",
 
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Plus, Sparkles, Filter, Search, Copy, Check, Trash2, ShieldAlert, RefreshCw, Clock, ArrowRight, Activity } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminKeys: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
@@ -21,7 +22,7 @@ export const AdminKeys: React.FC = () => {
     setUsageLogs([]);
 
     try {
-      const res = await fetch(`/api/admin/keys/${key.id}/usage`, { headers: getAuthHeaders() });
+      const res = await adminFetch(`/api/admin/keys/${key.id}/usage`);
       if (res.ok) {
         const data = await res.json();
         setUsageLogs(data.usage || []);
@@ -34,8 +35,6 @@ export const AdminKeys: React.FC = () => {
     }
   };
 
-
-
   // Create Key Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [keyName, setKeyName] = useState('');
@@ -45,7 +44,6 @@ export const AdminKeys: React.FC = () => {
   const [expiryDays, setExpiryDays] = useState('');
   const [plan, setPlan] = useState('Claude Max 20x');
   const [isTrial, setIsTrial] = useState(false);
-
 
   // Create Trial Key Dedicated Workflow State
   const [showTrialModal, setShowTrialModal] = useState(false);
@@ -61,19 +59,11 @@ export const AdminKeys: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('apexscale_token');
-    return {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    };
-  };
-
   const fetchKeys = async () => {
     try {
       let url = `/api/admin/keys?filter=${filter}`;
       if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
-      const res = await fetch(url, { headers: getAuthHeaders() });
+      const res = await adminFetch(url);
       if (res.ok) {
         const data = await res.json();
         setKeys(data);
@@ -87,7 +77,7 @@ export const AdminKeys: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
+      const res = await adminFetch('/api/admin/users');
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
@@ -102,6 +92,7 @@ export const AdminKeys: React.FC = () => {
     fetchUsers();
   }, [filter, search]);
 
+
   const handleCreateApiKey = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -109,9 +100,8 @@ export const AdminKeys: React.FC = () => {
     setModalError(null);
 
     try {
-      const res = await fetch('/api/admin/keys', {
+      const res = await adminFetch('/api/admin/keys', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: keyName,
           userId: selectedUser || null,
@@ -126,7 +116,7 @@ export const AdminKeys: React.FC = () => {
       const data = await res.json();
       if (res.ok && data.rawKey) {
         setCreatedRawKey(data.rawKey);
-        fetchKeys();
+        await fetchKeys();
       } else {
         setModalError(data.error?.message || 'Failed to generate API key.');
       }
@@ -144,9 +134,8 @@ export const AdminKeys: React.FC = () => {
     setModalError(null);
 
     try {
-      const res = await fetch('/api/admin/keys/trial', {
+      const res = await adminFetch('/api/admin/keys/trial', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           customerName: trialCustomerName,
           customerEmail: trialCustomerEmail,
@@ -159,7 +148,7 @@ export const AdminKeys: React.FC = () => {
       const data = await res.json();
       if (res.ok && data.rawKey) {
         setCreatedRawKey(data.rawKey);
-        fetchKeys();
+        await fetchKeys();
       } else {
         setModalError(data.error?.message || 'Failed to generate trial key.');
       }
@@ -170,15 +159,15 @@ export const AdminKeys: React.FC = () => {
     }
   };
 
-
   const handleUpdateKey = async (id: string, payload: any) => {
     try {
-      await fetch(`/api/admin/keys/${id}`, {
+      const res = await adminFetch(`/api/admin/keys/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      fetchKeys();
+      if (res.ok) {
+        await fetchKeys();
+      }
     } catch (e) {
       console.error(e);
     }
@@ -187,8 +176,10 @@ export const AdminKeys: React.FC = () => {
   const handleDeleteKey = async (id: string) => {
     if (!confirm('Are you sure you want to permanently delete this API key?')) return;
     try {
-      await fetch(`/api/admin/keys/${id}`, { method: 'DELETE' });
-      fetchKeys();
+      const res = await adminFetch(`/api/admin/keys/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        await fetchKeys();
+      }
     } catch (e) {
       console.error(e);
     }
@@ -201,15 +192,14 @@ export const AdminKeys: React.FC = () => {
     setModalError(null);
 
     try {
-      const res = await fetch(`/api/admin/keys/${key.id}/rotate`, {
+      const res = await adminFetch(`/api/admin/keys/${key.id}/rotate`, {
         method: 'POST',
-        headers: getAuthHeaders(),
       });
       const data = await res.json();
       if (res.ok && data.rawKey) {
         setCreatedRawKey(data.rawKey);
         setShowCreateModal(true);
-        fetchKeys();
+        await fetchKeys();
       } else {
         alert(data.error?.message || 'Failed to rotate API key.');
       }
@@ -219,6 +209,7 @@ export const AdminKeys: React.FC = () => {
       setSubmitting(false);
     }
   };
+
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);

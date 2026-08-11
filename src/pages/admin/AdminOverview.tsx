@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock, HelpCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { ThreeDCard } from '../../components/ThreeDCard';
+import { adminFetch } from '../../utils/api';
 
 export const AdminOverview: React.FC = () => {
   const [overview, setOverview] = useState<any>(null);
@@ -13,7 +14,7 @@ export const AdminOverview: React.FC = () => {
     if (isInitial) setLoading(true);
     setUpdateError(null);
     try {
-      const res = await fetch('/api/admin/overview');
+      const res = await adminFetch('/api/admin/overview');
       if (res.ok) {
         setOverview(await res.json());
         setLastUpdated(new Date().toLocaleTimeString());
@@ -27,6 +28,8 @@ export const AdminOverview: React.FC = () => {
       if (isInitial) setLoading(false);
     }
   };
+
+
 
   useEffect(() => {
     loadOverview(true);

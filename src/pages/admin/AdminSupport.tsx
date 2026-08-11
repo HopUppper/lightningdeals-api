@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LifeBuoy, MessageSquare, Send, ArrowLeft, CheckCircle2, Clock } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminSupport: React.FC = () => {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -13,7 +14,7 @@ export const AdminSupport: React.FC = () => {
 
   const fetchTickets = async () => {
     try {
-      const res = await fetch('/api/admin/tickets');
+      const res = await adminFetch('/api/admin/tickets');
       if (res.ok) {
         setTickets(await res.json());
       }
@@ -26,7 +27,7 @@ export const AdminSupport: React.FC = () => {
 
   const fetchTicketDetails = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/tickets/${id}`);
+      const res = await adminFetch(`/api/admin/tickets/${id}`);
       if (res.ok) {
         setActiveTicket(await res.json());
       }
@@ -53,16 +54,14 @@ export const AdminSupport: React.FC = () => {
 
     setSendingReply(true);
     try {
-      const res = await fetch(`/api/admin/tickets/${activeTicketId}/messages`, {
+      const res = await adminFetch(`/api/admin/tickets/${activeTicketId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: replyText }),
       });
-
       if (res.ok) {
         setReplyText('');
-        fetchTicketDetails(activeTicketId);
-        fetchTickets();
+        await fetchTicketDetails(activeTicketId);
+        await fetchTickets();
       }
     } catch (e) {
       console.error(e);
@@ -71,21 +70,22 @@ export const AdminSupport: React.FC = () => {
     }
   };
 
+
   const handleUpdateStatus = async (id: string, status: string) => {
     try {
-      const res = await fetch(`/api/admin/tickets/${id}/status`, {
+      const res = await adminFetch(`/api/admin/tickets/${id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        fetchTickets();
-        if (activeTicketId === id) fetchTicketDetails(id);
+        await fetchTickets();
+        if (activeTicketId === id) await fetchTicketDetails(id);
       }
     } catch (e) {
       console.error(e);
     }
   };
+
 
   return (
     <div className="space-y-6">

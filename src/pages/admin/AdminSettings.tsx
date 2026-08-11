@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Settings, ShieldCheck, Key, Lock, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { adminFetch } from '../../utils/api';
 
 export const AdminSettings: React.FC = () => {
   const { user } = useAuth();
@@ -26,16 +27,10 @@ export const AdminSettings: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('apexscale_token');
-      const res = await fetch('/api/admin/password', {
+      const res = await adminFetch('/api/admin/password', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
-
       const data = await res.json();
       if (!res.ok) {
         setError(data.error?.message || 'Failed to update admin password.');
@@ -52,6 +47,7 @@ export const AdminSettings: React.FC = () => {
       setSubmitting(false);
     }
   };
+
 
 
   return (

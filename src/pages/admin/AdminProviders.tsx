@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Server, Plus, RefreshCw, CheckCircle2, XCircle, ShieldAlert, Edit2, Code } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 interface VendorProviderItem {
   id: string;
@@ -42,7 +43,7 @@ export const AdminProviders: React.FC = () => {
 
   const fetchProviders = async () => {
     try {
-      const res = await fetch('/api/admin/providers');
+      const res = await adminFetch('/api/admin/providers');
       if (res.ok) {
         setProviders(await res.json());
       }
@@ -95,9 +96,8 @@ export const AdminProviders: React.FC = () => {
     const method = editingProvider ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
           providerType,
@@ -114,7 +114,7 @@ export const AdminProviders: React.FC = () => {
       const resData = await res.json();
       if (res.ok) {
         setShowModal(false);
-        fetchProviders();
+        await fetchProviders();
       } else {
         setFormError(resData?.error?.message || 'Failed to save vendor configuration.');
       }
@@ -128,9 +128,8 @@ export const AdminProviders: React.FC = () => {
   const handleTestConnection = async (providerId: string, masterKey?: string, url?: string, proto?: string) => {
     setTestingId(providerId);
     try {
-      const res = await fetch('/api/admin/providers/test', {
+      const res = await adminFetch('/api/admin/providers/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           providerId,
           masterApiKey: masterKey,
@@ -141,13 +140,14 @@ export const AdminProviders: React.FC = () => {
 
       const data = await res.json();
       setTestResults((prev) => ({ ...prev, [providerId]: data }));
-      fetchProviders();
+      await fetchProviders();
     } catch (e: any) {
       setTestResults((prev) => ({ ...prev, [providerId]: { status: 'unavailable', message: e.message } }));
     } finally {
       setTestingId(null);
     }
   };
+
 
   const getStatusBadge = (status: string) => {
     const s = (status || '').toLowerCase();

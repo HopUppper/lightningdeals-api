@@ -119,11 +119,30 @@ export const UserUsage: React.FC = () => {
                       <td className="py-2.5 px-3 font-mono font-semibold text-fg">{r.totalTokens}</td>
                       <td className="py-2.5 px-3 font-mono text-muted">{r.latencyMs} ms</td>
                       <td className="py-2.5 px-3 font-mono">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          r.statusCode < 400 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'
-                        }`}>
-                          {r.statusCode}
-                        </span>
+                        {r.statusCode < 400 ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span>Success</span>
+                          </span>
+                        ) : (
+                          <div className="flex flex-col font-sans" title={r.errorMessage || r.errorCode || 'Failed'}>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30 inline-flex items-center gap-1 w-fit font-mono">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                              <span>
+                                {r.statusCode === 503
+                                  ? '503 (Upstream Outage)'
+                                  : r.statusCode === 429
+                                  ? '429 (Rate Limit)'
+                                  : `${r.statusCode} (${r.errorCode || 'Failed'})`}
+                              </span>
+                            </span>
+                            {r.errorMessage && (
+                              <span className="text-[9px] text-red-400 truncate max-w-[180px] mt-0.5 font-normal">
+                                {r.errorMessage}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 font-mono text-muted whitespace-nowrap">
                         {new Date(r.createdAt).toLocaleString()}

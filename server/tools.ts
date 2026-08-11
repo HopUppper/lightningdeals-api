@@ -58,6 +58,8 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
       model: true,
       endpoint: true,
       statusCode: true,
+      errorCode: true,
+      errorMessage: true,
       inputTokens: true,
       outputTokens: true,
       totalTokens: true,

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { prisma } from './db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
@@ -37,6 +38,36 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
     next();
   } catch (err) {
     return res.status(401).json({ error: { type: 'authentication_error', message: 'Invalid or expired session token.' } });
+  }
+}
+
+export function hashPasswordScrypt(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto.scryptSync(password, salt, 64);
+  return `scrypt$${salt}$${derivedKey.toString('hex')}`;
+}
+
+export function verifyPasswordScrypt(password: string, storedHash: string): boolean {
+  if (!storedHash) return false;
+
+  if (!storedHash.startsWith('scrypt$')) {
+    const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
+    try {
+      return crypto.timingSafeEqual(Buffer.from(legacyHash), Buffer.from(storedHash));
+    } catch {
+      return false;
+    }
+  }
+
+  const parts = storedHash.split('$');
+  if (parts.length !== 3) return false;
+  const [, salt, hash] = parts;
+
+  try {
+    const derivedKey = crypto.scryptSync(password, salt, 64);
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), derivedKey);
+  } catch {
+    return false;
   }
 }
 

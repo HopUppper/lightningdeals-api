@@ -1,40 +1,37 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from './db';
-import { generateToken, authenticateJwt, AuthRequest } from './auth';
+import { generateToken, authenticateJwt, AuthRequest, hashPasswordScrypt, verifyPasswordScrypt } from './auth';
 import { calculateKeyRollingWindow } from './window';
+import { authLimiter, trialLimiter } from './rateLimit';
 
 const router = Router();
 
-
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
-
 // 1. Authentication
-router.post('/auth/register', async (req: Request, res: Response) => {
+router.post('/auth/register', authLimiter, async (req: Request, res: Response) => {
   const { name, email, password } = req.body;
   if (!email || !password || !name) {
     return res.status(400).json({ error: { message: 'Name, email, and password are required.' } });
   }
 
   try {
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) {
       return res.status(400).json({ error: { message: 'An account with this email already exists.' } });
     }
 
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
-        passwordHash: hashPassword(password),
+        name: name.trim(),
+        email: cleanEmail,
+        passwordHash: hashPasswordScrypt(password),
         role: 'user',
       },
     });
 
     const token = generateToken({ id: user.id, email: user.email, role: user.role });
-    res.cookie('ld_token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 3600 * 1000 });
+    res.cookie('ld_token', token, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000 });
 
     res.json({
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
@@ -45,7 +42,7 @@ router.post('/auth/register', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/auth/login', async (req: Request, res: Response) => {
+router.post('/auth/login', authLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: { message: 'Email and password are required.' } });
@@ -60,20 +57,25 @@ router.post('/auth/login', async (req: Request, res: Response) => {
         data: {
           name: 'LightningDeals Owner',
           email: cleanEmail,
-          passwordHash: hashPassword('9002'),
+          passwordHash: hashPasswordScrypt(password),
           role: 'admin',
           status: 'active',
         },
       });
     }
 
-    const isPasswordValid =
-      user &&
-      (user.passwordHash === hashPassword(password) ||
-        (user.email.toLowerCase() === 'sidhjain9002@gmail.com' && (password === 'love9002' || password === '9002')));
+    const isPasswordValid = user && verifyPasswordScrypt(password, user.passwordHash);
 
     if (!user || !isPasswordValid) {
       return res.status(401).json({ error: { message: 'Invalid email or password.' } });
+    }
+
+    // Auto-upgrade legacy SHA-256 hash to scrypt
+    if (!user.passwordHash.startsWith('scrypt$')) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: hashPasswordScrypt(password) },
+      });
     }
 
 
@@ -83,7 +85,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
     }
 
     const token = generateToken({ id: user.id, email: user.email, role: user.role });
-    res.cookie('ld_token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 3600 * 1000 });
+    res.cookie('ld_token', token, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000 });
 
     const ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
     const userAgent = (req.headers['user-agent'] || 'Unknown Device').substring(0, 80);
@@ -123,7 +125,7 @@ router.get('/auth/me', authenticateJwt, async (req: AuthRequest, res: Response) 
 });
 
 // 2. Risk-Scored Trial Anti-Abuse Key Claim (/api/trial/claim)
-router.post('/trial/claim', async (req: Request, res: Response) => {
+router.post('/trial/claim', trialLimiter, async (req: Request, res: Response) => {
   const { email, name, deviceHash } = req.body;
   const ipAddress = req.ip || req.socket.remoteAddress || '127.0.0.1';
   const existingCookie = req.cookies?.ld_trial_id;

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, Sparkles, MessageSquare, Table, LayoutGrid, HelpCircle } from 'lucide-react';
+import { Check, Sparkles, MessageSquare, Table, LayoutGrid } from 'lucide-react';
+import { ThreeDCard } from './ThreeDCard';
 
 export const PricingSection: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -47,7 +48,7 @@ export const PricingSection: React.FC = () => {
         {/* Section Header & View Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div className="max-w-2xl space-y-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-200">
               Prepaid Token Packages
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
@@ -84,66 +85,67 @@ export const PricingSection: React.FC = () => {
         {viewMode === 'grid' && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {tokenPackages.map((pkg, idx) => (
-              <div
-                key={idx}
-                className={`relative rounded-panel p-6 bg-white border flex flex-col justify-between transition-all ${
-                  pkg.featured
-                    ? 'border-amber-500 shadow-md ring-1 ring-amber-500'
-                    : 'border-border hover:border-amber-500/50 shadow-xs'
-                }`}
-              >
-                {pkg.featured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-black font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <Sparkles className="w-3 h-3 fill-current" />
-                    <span>Most Popular</span>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <div className="border-b border-border pb-4">
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200">
-                      {pkg.planName}
-                    </span>
-                    <div className="mt-3 flex items-baseline gap-1">
-                      <span className="text-3xl font-extrabold text-fg font-mono">{pkg.priceInr}</span>
-                      <span className="text-xs text-muted font-sans">one-time</span>
+              <ThreeDCard key={idx} intensity={pkg.featured ? 15 : 8} className="h-full">
+                <div
+                  className={`glass-3d-card relative rounded-panel p-6 flex flex-col justify-between h-full transition-all ${
+                    pkg.featured
+                      ? 'border-violet-500 shadow-xl ring-2 ring-violet-500/20'
+                      : ''
+                  }`}
+                >
+                  {pkg.featured && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 text-white font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-md">
+                      <Sparkles className="w-3 h-3 fill-current" />
+                      <span>Most Popular</span>
                     </div>
-                    <p className="text-xs text-muted mt-1.5 min-h-[32px]">{pkg.tagline}</p>
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="border-b border-border/80 pb-4">
+                      <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200">
+                        {pkg.planName}
+                      </span>
+                      <div className="mt-3 flex items-baseline gap-1">
+                        <span className="text-3xl font-extrabold text-fg font-mono">{pkg.priceInr}</span>
+                        <span className="text-xs text-muted font-sans">one-time</span>
+                      </div>
+                      <p className="text-xs text-muted mt-1.5 min-h-[32px]">{pkg.tagline}</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-lg font-extrabold font-mono text-fg">{pkg.allocation}</span>
+                      <p className="text-[11px] text-emerald-600 font-semibold">✓ 5-Hour Rolling Window</p>
+                    </div>
+
+                    <ul className="space-y-2 text-xs text-muted pt-2 border-t border-border/80">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+                        <span>Full 13 Claude Model Family</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+                        <span>Claude Code, Cursor & Windsurf</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+                        <span>Dedicated Rate Limit Pool</span>
+                      </li>
+                    </ul>
                   </div>
 
-                  <div className="space-y-1">
-                    <span className="text-lg font-extrabold font-mono text-fg">{pkg.allocation}</span>
-                    <p className="text-[11px] text-emerald-600 font-semibold">✓ 5-Hour Rolling Window</p>
+                  <div className="pt-6">
+                    <Link
+                      to="/request-quote"
+                      className={`w-full justify-center text-xs py-2.5 font-bold gap-1.5 ${
+                        pkg.featured ? 'ui-button-primary' : 'ui-button-secondary'
+                      }`}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Get Package Key</span>
+                    </Link>
                   </div>
-
-                  <ul className="space-y-2 text-xs text-muted pt-2 border-t border-border/80">
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Full 13 Claude Model Family</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Claude Code, Cursor & Windsurf</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Dedicated Rate Limit Pool</span>
-                    </li>
-                  </ul>
                 </div>
-
-                <div className="pt-6">
-                  <Link
-                    to="/request-quote"
-                    className={`w-full justify-center text-xs py-2.5 font-bold gap-1.5 ${
-                      pkg.featured ? 'ui-button-primary' : 'ui-button-secondary'
-                    }`}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>Get Package Key</span>
-                  </Link>
-                </div>
-              </div>
+              </ThreeDCard>
             ))}
           </div>
         )}
@@ -167,7 +169,7 @@ export const PricingSection: React.FC = () => {
                   {tokenPackages.map((pkg) => (
                     <tr key={pkg.planName} className="hover:bg-subtle">
                       <td className="py-3.5 px-4 font-bold text-fg font-sans">{pkg.planName}</td>
-                      <td className="py-3.5 px-4 font-bold text-amber-600">{pkg.priceInr}</td>
+                      <td className="py-3.5 px-4 font-bold text-violet-700">{pkg.priceInr}</td>
                       <td className="py-3.5 px-4 font-bold text-fg">{pkg.allocation}</td>
                       <td className="py-3.5 px-4 text-emerald-600 font-bold">1,000,000 Tokens</td>
                       <td className="py-3.5 px-4 text-muted font-sans">Claude Code, Cursor, Windsurf</td>

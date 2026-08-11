@@ -1,6 +1,7 @@
 import React from 'react';
 import { Wallet, RefreshCw, Search, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { ThreeDCard } from './ThreeDCard';
 
 export const WhyChooseUs: React.FC = () => {
   const benefits = [
@@ -36,7 +37,7 @@ export const WhyChooseUs: React.FC = () => {
         
         {/* Header */}
         <div className="max-w-xl space-y-3">
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-200">
             Why LightningDeals
           </span>
           <h2 id="why-us-title" className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
@@ -47,28 +48,33 @@ export const WhyChooseUs: React.FC = () => {
           </p>
         </div>
 
-        {/* 4 Feature Cards Grid */}
+        {/* 4 Feature 3D Cards Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {benefits.map((b, idx) => {
             const IconComp = b.icon;
             return (
-              <motion.article
+              <motion.div
                 key={b.num}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 25 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: idx * 0.1 }}
-                className="bg-white border border-border p-6 rounded-panel space-y-3 hover:border-amber-500/60 transition-all shadow-xs group"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-muted">{b.num}</span>
-                  <div className="p-2 rounded-lg bg-amber-50 border border-amber-100 text-amber-600">
-                    <IconComp className="h-4 w-4" />
+                <ThreeDCard intensity={12} className="h-full">
+                  <div className="glass-3d-card p-6 rounded-panel space-y-3 h-full flex flex-col justify-between group">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-muted">{b.num}</span>
+                        <div className="p-2 rounded-lg bg-gradient-to-tr from-violet-600 to-cyan-500 text-white shadow-xs">
+                          <IconComp className="h-4 w-4" />
+                        </div>
+                      </div>
+                      <h3 className="text-base font-bold text-fg group-hover:text-violet-600 transition-colors">{b.title}</h3>
+                      <p className="text-xs leading-relaxed text-muted font-normal">{b.desc}</p>
+                    </div>
                   </div>
-                </div>
-                <h3 className="text-base font-bold text-fg group-hover:text-amber-600 transition-colors">{b.title}</h3>
-                <p className="text-xs leading-relaxed text-muted font-normal">{b.desc}</p>
-              </motion.article>
+                </ThreeDCard>
+              </motion.div>
             );
           })}
         </div>

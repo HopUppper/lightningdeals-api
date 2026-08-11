@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Cpu, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ThreeDCard } from './ThreeDCard';
 
 export const ModelCatalog: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'flagship' | 'fast'>('all');
@@ -83,8 +84,8 @@ export const ModelCatalog: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="max-w-2xl space-y-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1.5 w-fit">
-              <Sparkles className="w-3.5 h-3.5 fill-current" />
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-200 flex items-center gap-1.5 w-fit">
+              <Sparkles className="w-3.5 h-3.5 fill-current text-violet-600" />
               <span>Dedicated Claude Gateway</span>
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
@@ -107,7 +108,7 @@ export const ModelCatalog: React.FC = () => {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-3.5 py-1.5 rounded-control text-xs font-bold transition-all whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-amber-500 text-black shadow-xs'
+                    ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs'
                     : 'text-muted hover:text-fg hover:bg-subtle'
                 }`}
               >
@@ -128,36 +129,39 @@ export const ModelCatalog: React.FC = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className="bg-white border border-border rounded-panel p-6 space-y-4 hover:border-amber-500/60 transition-all shadow-xs flex flex-col justify-between group"
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-base font-bold text-fg group-hover:text-amber-600 transition-colors">{m.name}</h3>
-                      <code className="text-xs font-mono text-amber-600 font-bold block mt-0.5">{m.id}</code>
+                <ThreeDCard intensity={10} className="h-full">
+                  <div className="glass-3d-card rounded-panel p-6 space-y-4 h-full flex flex-col justify-between group">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-base font-bold text-fg group-hover:text-violet-600 transition-colors">{m.name}</h3>
+                          <code className="text-xs font-mono animated-gradient-text font-bold block mt-0.5">{m.id}</code>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-violet-50 text-violet-700 border border-violet-200 shrink-0">
+                          {m.badge}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-muted leading-relaxed">{m.description}</p>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                      {m.badge}
-                    </span>
-                  </div>
 
-                  <p className="text-xs text-muted leading-relaxed">{m.description}</p>
-                </div>
-
-                <div className="pt-4 border-t border-border/80 space-y-2 font-mono text-xs text-muted">
-                  <div className="flex justify-between items-center">
-                    <span>Protocol:</span>
-                    <span className="text-fg font-semibold">{m.protocol}</span>
+                    <div className="pt-4 border-t border-border/80 space-y-2 font-mono text-xs text-muted">
+                      <div className="flex justify-between items-center">
+                        <span>Protocol:</span>
+                        <span className="text-fg font-semibold">{m.protocol}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Context Window:</span>
+                        <span className="text-emerald-600 font-bold">{m.contextWindow}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Availability:</span>
+                        <span className="text-fg font-bold">{m.availability}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span>Context Window:</span>
-                    <span className="text-emerald-600 font-bold">{m.contextWindow}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Availability:</span>
-                    <span className="text-fg font-bold">{m.availability}</span>
-                  </div>
-                </div>
+                </ThreeDCard>
               </motion.div>
             ))}
           </AnimatePresence>

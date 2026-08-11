@@ -1,47 +1,47 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #f7f7f8;
+  --color-bg: #f8fafc;
   --color-card: #ffffff;
-  --color-fg: #111114;
-  --color-muted: #5b5b63;
-  --color-accent: #e8b300;
-  --color-accent-hover: #d4a300;
-  --color-accent-secondary: #f5b700;
-  --color-accent-light: #fffbeb;
-  --color-border: #e5e5e5;
-  --color-subtle: #f0f0f2;
+  --color-fg: #0f172a;
+  --color-muted: #64748b;
+  --color-accent: #7c3aed;
+  --color-accent-hover: #6d28d9;
+  --color-accent-secondary: #06b6d4;
+  --color-accent-light: #f5f3ff;
+  --color-border: #e2e8f0;
+  --color-subtle: #f1f5f9;
 
-  --max-width-page: 1200px;
+  --max-width-page: 1240px;
   --max-width-reading: 720px;
 
-  --radius-control: 8px;
-  --radius-panel: 12px;
-  --radius-card: 16px;
-  --radius-hero: 24px;
+  --radius-control: 10px;
+  --radius-panel: 16px;
+  --radius-card: 20px;
+  --radius-hero: 28px;
 
-  --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.03);
-  --shadow-e2: 0 4px 16px -4px rgba(0, 0, 0, 0.05);
-  --shadow-e3: 0 12px 32px -8px rgba(0, 0, 0, 0.08);
+  --shadow-e1: 0 2px 4px rgba(124, 58, 237, 0.04);
+  --shadow-e2: 0 10px 30px -5px rgba(124, 58, 237, 0.08);
+  --shadow-e3: 0 20px 50px -10px rgba(124, 58, 237, 0.15);
 
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 :root {
-  --ui-bg: #f7f7f8;
+  --ui-bg: #f8fafc;
   --ui-surface: #ffffff;
-  --ui-surface-subtle: #f0f0f2;
-  --ui-text: #111114;
-  --ui-text-muted: #5b5b63;
-  --ui-border: #e5e5e5;
-  --ui-accent: #e8b300;
-  --ui-accent-hover: #d4a300;
-  --ui-radius-control: 8px;
-  --ui-radius-panel: 12px;
-  --ui-radius-lg: 16px;
-  --ui-radius-xl: 24px;
-  --ui-page-width: 1200px;
+  --ui-surface-subtle: #f1f5f9;
+  --ui-text: #0f172a;
+  --ui-text-muted: #64748b;
+  --ui-border: #e2e8f0;
+  --ui-accent: #7c3aed;
+  --ui-accent-gradient: linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #06b6d4 100%);
+  --ui-radius-control: 10px;
+  --ui-radius-panel: 16px;
+  --ui-radius-lg: 20px;
+  --ui-radius-xl: 28px;
+  --ui-page-width: 1240px;
 }
 
 html {
@@ -63,95 +63,126 @@ code, pre {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Light Off-White Grid Pattern */
-.hero-grid {
+/* 3D Perspective Container */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+/* Dynamic Animated Gradient Text */
+.animated-gradient-text {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 40%, #06b6d4 80%, #7c3aed 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-text 6s linear infinite;
+}
+
+@keyframes shimmer-text {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* 3D Dynamic Ambient Beam Grid */
+.hero-grid-3d {
   background-color: var(--ui-bg);
-  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 0),
-                    linear-gradient(180deg, rgba(0, 0, 0, 0.03) 1px, transparent 0);
-  background-size: 32px 32px;
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.12) 0%, transparent 60%),
+    linear-gradient(90deg, rgba(124, 58, 237, 0.04) 1px, transparent 0),
+    linear-gradient(180deg, rgba(124, 58, 237, 0.04) 1px, transparent 0);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
   background-position: top center;
 }
 
-.hero-grid::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(120% 80% at 50% 0, transparent 50%, var(--ui-bg) 100%);
-  pointer-events: none;
+/* 3D Dynamic Glass Card */
+.glass-3d-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 
+    0 10px 30px -5px rgba(124, 58, 237, 0.08),
+    0 20px 40px -15px rgba(6, 182, 212, 0.06),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease-out, border-color 0.3s ease-out;
 }
 
-/* UI Utility Classes */
-.ui-panel {
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-panel);
-  background: var(--ui-surface);
-  box-shadow: var(--shadow-e1);
+.glass-3d-card:hover {
+  border-color: rgba(124, 58, 237, 0.4);
+  box-shadow: 
+    0 20px 40px -5px rgba(124, 58, 237, 0.18),
+    0 30px 60px -15px rgba(6, 182, 212, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 1);
 }
 
+/* Shimmer 3D CTA Button */
 .ui-button-primary {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   border-radius: var(--ui-radius-control);
-  background: var(--ui-accent);
-  padding: 0 20px;
-  color: #111114;
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #06b6d4 100%);
+  background-size: 200% auto;
+  padding: 0 22px;
+  color: #ffffff;
   font-size: 14px;
   font-weight: 700;
-  transition: background-color 0.15s ease-out, transform 0.1s ease-out, box-shadow 0.15s ease-out;
+  box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.4);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .ui-button-primary:hover {
-  background: var(--ui-accent-hover);
-  box-shadow: 0 4px 12px rgba(232, 179, 0, 0.25);
+  background-position: right center;
+  box-shadow: 0 15px 35px -5px rgba(124, 58, 237, 0.6);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .ui-button-primary:active {
-  transform: scale(0.98);
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 5px 15px -3px rgba(124, 58, 237, 0.5);
 }
 
 .ui-button-secondary {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-control);
-  background: #ffffff;
-  padding: 0 20px;
-  color: #111114;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  padding: 0 22px;
+  color: #0f172a;
   font-size: 14px;
   font-weight: 600;
-  transition: border-color 0.15s ease-out, color 0.15s ease-out, background-color 0.15s ease-out, transform 0.1s ease-out;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease-out;
 }
 
 .ui-button-secondary:hover {
-  border-color: #111114;
-  background-color: #f7f7f8;
+  border-color: #7c3aed;
+  background-color: #ffffff;
+  color: #7c3aed;
+  box-shadow: 0 6px 20px -4px rgba(124, 58, 237, 0.15);
+  transform: translateY(-2px);
 }
 
 .ui-button-secondary:active {
-  transform: scale(0.98);
+  transform: translateY(0);
 }
 
 .ui-kicker {
-  color: #b48500;
+  background: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-/* Arrow CTA Interaction */
-.arrow-cta .arrow-cta__icon {
-  display: inline-block;
-  transition: transform 0.16s ease-out;
-}
-
-.arrow-cta:hover .arrow-cta__icon,
-.arrow-cta:focus-visible .arrow-cta__icon {
-  transform: translateX(4px);
 }
 
 /* Monospace Code Custom Scrollbars */
@@ -161,10 +192,10 @@ code, pre {
 }
 
 .landing-code::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(124, 58, 237, 0.2);
   border-radius: 3px;
 }
 
 .landing-code::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(124, 58, 237, 0.4);
 }

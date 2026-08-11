@@ -9,8 +9,9 @@ async function configureSupabase() {
   const envPath = path.join(process.cwd(), '.env');
   let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : '';
 
-  // Extract DATABASE_URL from environment or .env
-  let dbUrl = process.env.DATABASE_URL || '';
+  // Command line argument takes top priority
+  let dbUrl = process.argv[2] || process.env.DATABASE_URL || '';
+
   if (!dbUrl || dbUrl.includes('file:')) {
     const match = envContent.match(/DATABASE_URL=["']?([^"'\r\n]+)["']?/);
     if (match && (match[1].startsWith('postgres://') || match[1].startsWith('postgresql://'))) {
@@ -20,32 +21,19 @@ async function configureSupabase() {
 
   if (!dbUrl || (!dbUrl.startsWith('postgres://') && !dbUrl.startsWith('postgresql://'))) {
     console.log('⚠️ No Supabase PostgreSQL URL detected in DATABASE_URL.');
-    console.log('\n👉 Instructions to get your Supabase Connection String:');
-    console.log('1. Open your Supabase Dashboard -> Project Settings -> Database');
-    console.log('2. Copy the "URI" connection string (Transaction Pooler port 6543 or Session Pooler 5432)');
-    console.log('3. Set DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres" in Render Environment Variables or .env');
-    console.log('\nRun: npx tsx scripts/configure-supabase.ts "<YOUR_SUPABASE_POSTGRES_URL>"');
-    
-    // Check if passed via command line argument
-    const argUrl = process.argv[2];
-    if (argUrl && (argUrl.startsWith('postgres://') || argUrl.startsWith('postgresql://'))) {
-      dbUrl = argUrl;
-    } else {
-      process.exit(1);
-    }
+    process.exit(1);
   }
 
-  console.log('✅ Supabase PostgreSQL URL verified!');
+  console.log('✅ Target Supabase URL verified:', dbUrl.replace(/:[^:@]+@/, ':****@'));
 
   // 1. Update prisma/schema.prisma provider to "postgresql"
   const schemaPath = path.join(process.cwd(), 'prisma', 'schema.prisma');
   let schemaContent = fs.readFileSync(schemaPath, 'utf-8');
 
-  if (schemaContent.includes('provider = "sqlite"')) {
-    schemaContent = schemaContent.replace('provider = "sqlite"', 'provider = "postgresql"');
-    fs.writeFileSync(schemaPath, schemaContent, 'utf-8');
-    console.log('✅ Updated prisma/schema.prisma provider to "postgresql".');
-  }
+  schemaContent = schemaContent.replace(/provider = "sqlite"/g, 'provider = "postgresql"');
+  schemaContent = schemaContent.replace(/url = "file:[^"]+"/g, 'url = env("DATABASE_URL")');
+  fs.writeFileSync(schemaPath, schemaContent, 'utf-8');
+  console.log('✅ Updated prisma/schema.prisma provider to "postgresql".');
 
   // 2. Update .env file
   if (envContent.includes('DATABASE_URL=')) {

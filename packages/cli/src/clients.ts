@@ -142,13 +142,12 @@ export const configureClient = (
       fs.copyFileSync(client.configPath, backupPath);
     }
 
-    // Merge LightningDeals settings safely without deleting existing fields
     let updatedData: Record<string, any> = { ...existingData };
 
     if (client.id === 'claude-code') {
       const cleanEnv = { ...(existingData.env || {}) };
       
-      // CRITICAL: Remove Bedrock / Vertex overrides so Claude Code uses LightningDeals Anthropic API Gateway
+      // Remove Bedrock / Vertex overrides
       delete cleanEnv.CLAUDE_CODE_USE_BEDROCK;
       delete cleanEnv.CLAUDE_CODE_USE_VERTEX;
       delete cleanEnv.AWS_BEARER_TOKEN_BEDROCK;
@@ -156,7 +155,7 @@ export const configureClient = (
       delete cleanEnv.AWS_SECRET_ACCESS_KEY;
       delete cleanEnv.AWS_ACCESS_KEY_ID;
 
-      // CRITICAL: Delete legacy apiKeyHelper & helper settings to prevent Claude Code v2.1+ Auth conflict warnings
+      // Delete legacy apiKeyHelper & helper settings to prevent Claude Code v2.1+ Auth conflict warnings
       delete updatedData.apiKeyHelper;
       delete updatedData.scalemax;
 
@@ -165,11 +164,67 @@ export const configureClient = (
       cleanEnv.ANTHROPIC_API_KEY = apiKey;
 
       updatedData.env = cleanEnv;
-    } else {
+
+    } else if (client.id === 'cursor') {
+      updatedData['cursor.cpp.overrideAnthropicApiKey'] = apiKey;
+      updatedData['cursor.cpp.anthropicBaseUrl'] = gatewayUrl;
+      updatedData['anthropic.apiKey'] = apiKey;
+      updatedData['anthropic.baseUrl'] = gatewayUrl;
       updatedData['lightningdeals.apiKey'] = apiKey;
       updatedData['lightningdeals.baseUrl'] = gatewayUrl;
-      updatedData['anthropic.baseUrl'] = gatewayUrl;
+
+    } else if (client.id === 'roo-code' || client.id === 'cline') {
+      updatedData['cline.apiKey'] = apiKey;
+      updatedData['cline.baseUrl'] = gatewayUrl;
+      updatedData['roo.apiKey'] = apiKey;
+      updatedData['roo.baseUrl'] = gatewayUrl;
       updatedData['anthropic.apiKey'] = apiKey;
+      updatedData['anthropic.baseUrl'] = gatewayUrl;
+      updatedData['lightningdeals.apiKey'] = apiKey;
+      updatedData['lightningdeals.baseUrl'] = gatewayUrl;
+
+    } else if (client.id === 'continue') {
+      const models = Array.isArray(existingData.models) ? [...existingData.models] : [];
+      const modelIndex = models.findIndex((m: any) => m.title?.includes('LightningDeals') || m.apiBase?.includes('lightningapi.pro'));
+      const ldModel = {
+        title: 'Claude 3.5 Sonnet (LightningDeals)',
+        provider: 'anthropic',
+        model: 'claude-3-5-sonnet-20241022',
+        apiKey: apiKey,
+        apiBase: gatewayUrl,
+      };
+
+      if (modelIndex !== -1) {
+        models[modelIndex] = ldModel;
+      } else {
+        models.unshift(ldModel);
+      }
+      updatedData.models = models;
+      updatedData.tabAutocompleteModel = {
+        title: 'Claude 3.5 Haiku Autocomplete (LightningDeals)',
+        provider: 'anthropic',
+        model: 'claude-3-5-haiku-20241022',
+        apiKey: apiKey,
+        apiBase: gatewayUrl,
+      };
+
+    } else if (client.id === 'trae-solo') {
+      updatedData['trae.anthropicApiKey'] = apiKey;
+      updatedData['trae.anthropicBaseUrl'] = gatewayUrl;
+      updatedData['anthropic.apiKey'] = apiKey;
+      updatedData['anthropic.baseUrl'] = gatewayUrl;
+      updatedData['lightningdeals.apiKey'] = apiKey;
+      updatedData['lightningdeals.baseUrl'] = gatewayUrl;
+
+    } else {
+      // General tools (Codex, OpenCode, OpenClaw, Hermes, Cherry Studio, API Code)
+      updatedData['apiKey'] = apiKey;
+      updatedData['baseUrl'] = gatewayUrl;
+      updatedData['apiProvider'] = 'anthropic';
+      updatedData['lightningdeals.apiKey'] = apiKey;
+      updatedData['lightningdeals.baseUrl'] = gatewayUrl;
+      updatedData['anthropic.apiKey'] = apiKey;
+      updatedData['anthropic.baseUrl'] = gatewayUrl;
     }
 
     fs.writeFileSync(client.configPath, JSON.stringify(updatedData, null, 2), 'utf8');
@@ -196,6 +251,14 @@ export const removeClientConfiguration = (client: ClientTarget): { success: bool
       delete data['lightningdeals.baseUrl'];
       delete data['anthropic.baseUrl'];
       delete data['anthropic.apiKey'];
+      delete data['cursor.cpp.overrideAnthropicApiKey'];
+      delete data['cursor.cpp.anthropicBaseUrl'];
+      delete data['cline.apiKey'];
+      delete data['cline.baseUrl'];
+      delete data['roo.apiKey'];
+      delete data['roo.baseUrl'];
+      delete data['trae.anthropicApiKey'];
+      delete data['trae.anthropicBaseUrl'];
 
       if (data.env) {
         delete data.env.ANTHROPIC_BASE_URL;

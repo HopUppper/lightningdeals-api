@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X } from 'lucide-react';
+import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
@@ -59,6 +59,7 @@ export const AdminLayout: React.FC = () => {
     { name: 'Products / Keys', path: '/admin/keys', icon: Key, badge: 'KEYS' },
     { name: 'Providers', path: '/admin/providers', icon: Server, badge: 'VENDOR' },
     { name: 'Usage', path: '/admin/usage', icon: Activity },
+    { name: 'Audit Logs', path: '/admin/logs', icon: FileText, badge: 'LOGS' },
     { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
 

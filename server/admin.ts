@@ -369,6 +369,55 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
   }
 });
 
+// Helper to recursively scan any JSON object for quota/token/balance values
+function scanObjectForBalance(obj: any): { total?: number; used?: number; remaining?: number } | null {
+  if (!obj || typeof obj !== 'object') return null;
+
+  let total: number | undefined;
+  let used: number | undefined;
+  let remaining: number | undefined;
+
+  const keys = Object.keys(obj);
+  for (const k of keys) {
+    const lk = k.toLowerCase();
+    const val = obj[k];
+
+    if (typeof val === 'number' && !isNaN(val)) {
+      if (lk === 'remain_quota' || lk === 'remaining_quota' || lk === 'tokens_remaining' || lk === 'remaining_tokens' || lk === 'balance_tokens' || lk === 'available_tokens') {
+        remaining = val;
+      } else if (lk === 'total_quota' || lk === 'token_limit' || lk === 'total_tokens' || lk === 'purchased_tokens' || lk === 'quota') {
+        total = val;
+      } else if (lk === 'used_quota' || lk === 'consumed_tokens' || lk === 'used_tokens' || lk === 'usage') {
+        used = val;
+      } else if (lk === 'balance' || lk === 'credits' || lk === 'remaining_credits') {
+        // If dollar amount (e.g. 100.0), convert $1 to 500,000 tokens if small
+        remaining = val < 10000 ? val * 500000 : val;
+      }
+    } else if (typeof val === 'string') {
+      const num = Number(val);
+      if (!isNaN(num) && num > 0) {
+        if (lk.includes('remain') || lk.includes('balance') || lk.includes('available')) {
+          remaining = num < 10000 ? num * 500000 : num;
+        } else if (lk.includes('total') || lk.includes('limit')) {
+          total = num < 10000 ? num * 500000 : num;
+        }
+      }
+    } else if (typeof val === 'object' && val !== null) {
+      const sub = scanObjectForBalance(val);
+      if (sub) {
+        if (sub.total !== undefined && total === undefined) total = sub.total;
+        if (sub.used !== undefined && used === undefined) used = sub.used;
+        if (sub.remaining !== undefined && remaining === undefined) remaining = sub.remaining;
+      }
+    }
+  }
+
+  if (total !== undefined || used !== undefined || remaining !== undefined) {
+    return { total, used, remaining };
+  }
+  return null;
+}
+
 // POST /admin/providers/:id/sync-balance — Fetch real balance from vendor API and sync into DB
 router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
@@ -381,41 +430,40 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
 
     const baseUrl = provider.baseUrl.replace(/\/$/, '');
 
-    // Build auth headers based on protocol
-    const anthropicHeaders: Record<string, string> = {
+    // Build auth headers for both standard Anthropic & Bearer token formats
+    const headersAnthropic: Record<string, string> = {
       'x-api-key': masterKey,
       'anthropic-version': '2023-06-01',
       'Content-Type': 'application/json',
     };
-    const bearerHeaders: Record<string, string> = {
+    const headersBearer: Record<string, string> = {
       'Authorization': `Bearer ${masterKey}`,
       'Content-Type': 'application/json',
     };
-    const bothHeaders: Record<string, string> = {
-      ...anthropicHeaders,
+    const headersBoth: Record<string, string> = {
+      ...headersAnthropic,
       'Authorization': `Bearer ${masterKey}`,
     };
 
-    // Probe multiple common balance/usage/credits endpoints & inspect response headers
+    // Endpoints to probe
     const endpointsToTry = [
-      { path: '/v1/usage', headers: bothHeaders },
-      { path: '/v1/credits', headers: bothHeaders },
-      { path: '/v1/balance', headers: bothHeaders },
-      { path: '/v1/account', headers: bothHeaders },
-      { path: '/v1/account/balance', headers: bothHeaders },
-      { path: '/v1/user/self', headers: bothHeaders },
-      { path: '/api/user/self', headers: bothHeaders },
-      { path: '/v1/user/info', headers: bothHeaders },
-      { path: '/v1/me', headers: bothHeaders },
-      { path: '/api/me', headers: bothHeaders },
-      { path: '/v1/key/info', headers: bothHeaders },
-      { path: '/v1/key/balance', headers: bothHeaders },
-      { path: '/v1/billing/credits', headers: bothHeaders },
-      { path: '/v1/dashboard/billing/credit_grants', headers: bothHeaders },
-      { path: '/api/balance', headers: bothHeaders },
-      { path: '/api/credits', headers: bothHeaders },
-      { path: '/api/usage', headers: bothHeaders },
-      { path: '/v1/models', headers: bothHeaders },
+      { path: '/api/user/self', method: 'GET', headers: headersBoth },
+      { path: '/api/key/self', method: 'GET', headers: headersBoth },
+      { path: '/v1/user/self', method: 'GET', headers: headersBoth },
+      { path: '/v1/key/self', method: 'GET', headers: headersBoth },
+      { path: '/api/user/info', method: 'GET', headers: headersBoth },
+      { path: '/v1/user/info', method: 'GET', headers: headersBoth },
+      { path: '/api/me', method: 'GET', headers: headersBoth },
+      { path: '/v1/me', method: 'GET', headers: headersBoth },
+      { path: '/v1/usage', method: 'GET', headers: headersBoth },
+      { path: '/v1/credits', method: 'GET', headers: headersBoth },
+      { path: '/v1/balance', method: 'GET', headers: headersBoth },
+      { path: '/api/balance', method: 'GET', headers: headersBoth },
+      { path: '/api/credits', method: 'GET', headers: headersBoth },
+      { path: '/api/usage', method: 'GET', headers: headersBoth },
+      { path: '/v1/dashboard/billing/credit_grants', method: 'GET', headers: headersBoth },
+      { path: '/v1/dashboard/billing/subscription', method: 'GET', headers: headersBoth },
+      { path: '/v1/models', method: 'GET', headers: headersBoth },
     ];
 
     let vendorBalance: {
@@ -426,12 +474,13 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
       endpoint?: string;
     } | null = null;
 
-    const probeResults: Array<{ path: string; status: number; body?: any; headers?: Record<string, string> }> = [];
+    const probeResults: Array<{ path: string; method: string; status: number; body?: any; headers?: Record<string, string> }> = [];
 
+    // 1. Probe GET Endpoints
     for (const ep of endpointsToTry) {
       try {
         const upstreamRes = await fetch(`${baseUrl}${ep.path}`, {
-          method: 'GET',
+          method: ep.method,
           headers: ep.headers,
         });
 
@@ -440,13 +489,14 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
         // Capture interesting balance headers
         const resHeaders: Record<string, string> = {};
         upstreamRes.headers.forEach((v, k) => {
-          if (k.toLowerCase().includes('token') || k.toLowerCase().includes('balance') || k.toLowerCase().includes('credit') || k.toLowerCase().includes('limit') || k.toLowerCase().includes('remaining')) {
+          const lk = k.toLowerCase();
+          if (lk.includes('token') || lk.includes('balance') || lk.includes('credit') || lk.includes('quota') || lk.includes('limit') || lk.includes('remaining')) {
             resHeaders[k] = v;
           }
         });
 
         if (status === 404 || status === 405) {
-          probeResults.push({ path: ep.path, status, headers: resHeaders });
+          probeResults.push({ path: ep.path, method: ep.method, status, headers: resHeaders });
           continue;
         }
 
@@ -455,74 +505,112 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
           body = await upstreamRes.json();
         } catch {
           const text = await upstreamRes.text();
-          body = { rawText: text };
+          body = { rawText: text.substring(0, 500) };
         }
 
-        probeResults.push({ path: ep.path, status, body, headers: resHeaders });
+        probeResults.push({ path: ep.path, method: ep.method, status, body, headers: resHeaders });
 
-        // Check response headers first
+        // Inspect response headers for balance
         for (const [hk, hv] of Object.entries(resHeaders)) {
           const num = Number(hv);
           if (!isNaN(num) && num > 0) {
-            if (hk.includes('remaining') || hk.includes('balance')) {
-              vendorBalance = { remainingTokens: num, endpoint: `${ep.path} (Header: ${hk})` };
+            if (hk.toLowerCase().includes('remaining') || hk.toLowerCase().includes('balance') || hk.toLowerCase().includes('quota')) {
+              vendorBalance = { remainingTokens: num < 10000 ? num * 500000 : num, endpoint: `${ep.path} (Header: ${hk})` };
               break;
             }
           }
         }
 
+        // Inspect body if 200 OK
         if (status === 200 && body && !vendorBalance) {
-          // Try to extract balance from various response formats
-          const b: typeof vendorBalance = { rawResponse: body, endpoint: ep.path };
-
-          // Format: { total_tokens, used_tokens, remaining_tokens }
-          if (body.total_tokens !== undefined) b.totalTokens = Number(body.total_tokens);
-          if (body.used_tokens !== undefined) b.usedTokens = Number(body.used_tokens);
-          if (body.remaining_tokens !== undefined) b.remainingTokens = Number(body.remaining_tokens);
-
-          // Format: { balance, usage }
-          if (body.balance !== undefined) b.remainingTokens = Number(body.balance);
-          if (body.usage !== undefined) b.usedTokens = Number(body.usage);
-
-          // Format: { credits, credits_used, credits_remaining }
-          if (body.credits !== undefined) b.totalTokens = Number(body.credits);
-          if (body.credits_used !== undefined) b.usedTokens = Number(body.credits_used);
-          if (body.credits_remaining !== undefined) b.remainingTokens = Number(body.credits_remaining);
-
-          // Format: { token_limit, tokens_used, tokens_remaining }
-          if (body.token_limit !== undefined) b.totalTokens = Number(body.token_limit);
-          if (body.tokens_used !== undefined) b.usedTokens = Number(body.tokens_used);
-          if (body.tokens_remaining !== undefined) b.remainingTokens = Number(body.tokens_remaining);
-
-          // Format: { quota, remaining_quota }
-          if (body.quota !== undefined) b.totalTokens = Number(body.quota);
-          if (body.remaining_quota !== undefined) b.remainingTokens = Number(body.remaining_quota);
-
-          // Format: { data: { total, used, remaining } }
-          if (body.data) {
-            if (body.data.total !== undefined) b.totalTokens = Number(body.data.total);
-            if (body.data.used !== undefined) b.usedTokens = Number(body.data.used);
-            if (body.data.remaining !== undefined) b.remainingTokens = Number(body.data.remaining);
-            if (body.data.total_tokens !== undefined) b.totalTokens = Number(body.data.total_tokens);
-            if (body.data.used_tokens !== undefined) b.usedTokens = Number(body.data.used_tokens);
-            if (body.data.remaining_tokens !== undefined) b.remainingTokens = Number(body.data.remaining_tokens);
-            if (body.data.balance !== undefined) b.remainingTokens = Number(body.data.balance);
-            if (body.data.token_limit !== undefined) b.totalTokens = Number(body.data.token_limit);
-            if (body.data.tokens_remaining !== undefined) b.remainingTokens = Number(body.data.tokens_remaining);
-            if (body.data.quota !== undefined) b.totalTokens = Number(body.data.quota);
-          }
-
-          // If we extracted any numeric balance info, use it
-          if (b.totalTokens !== undefined || b.remainingTokens !== undefined || b.usedTokens !== undefined) {
-            vendorBalance = b;
+          const extracted = scanObjectForBalance(body);
+          if (extracted && (extracted.total !== undefined || extracted.remaining !== undefined || extracted.used !== undefined)) {
+            vendorBalance = {
+              totalTokens: extracted.total,
+              usedTokens: extracted.used,
+              remainingTokens: extracted.remaining,
+              rawResponse: body,
+              endpoint: ep.path,
+            };
           }
         }
       } catch (err: any) {
-        probeResults.push({ path: ep.path, status: 0, body: { error: err.message } });
+        probeResults.push({ path: ep.path, method: ep.method, status: 0, body: { error: err.message } });
       }
     }
 
-    // If we found balance data, sync it to the database
+    // 2. If no GET endpoint returned a balance, probe minimal 1-token completion to inspect response headers & body metadata
+    if (!vendorBalance) {
+      const completionProbes = [
+        {
+          path: '/v1/messages',
+          body: { model: 'claude-3-5-sonnet-20241022', max_tokens: 1, messages: [{ role: 'user', content: 'h' }] },
+          headers: headersBoth,
+        },
+        {
+          path: '/v1/chat/completions',
+          body: { model: 'claude-3-5-sonnet-20241022', max_tokens: 1, messages: [{ role: 'user', content: 'h' }] },
+          headers: headersBoth,
+        },
+      ];
+
+      for (const cp of completionProbes) {
+        try {
+          const upstreamRes = await fetch(`${baseUrl}${cp.path}`, {
+            method: 'POST',
+            headers: cp.headers,
+            body: JSON.stringify(cp.body),
+          });
+
+          const status = upstreamRes.status;
+          const resHeaders: Record<string, string> = {};
+          upstreamRes.headers.forEach((v, k) => {
+            const lk = k.toLowerCase();
+            if (lk.includes('token') || lk.includes('balance') || lk.includes('credit') || lk.includes('quota') || lk.includes('limit') || lk.includes('remaining')) {
+              resHeaders[k] = v;
+            }
+          });
+
+          let body: any;
+          try {
+            body = await upstreamRes.json();
+          } catch {
+            const text = await upstreamRes.text();
+            body = { rawText: text.substring(0, 500) };
+          }
+
+          probeResults.push({ path: `${cp.path} (Test Completion Probe)`, method: 'POST', status, body, headers: resHeaders });
+
+          // Inspect headers on completion probe
+          for (const [hk, hv] of Object.entries(resHeaders)) {
+            const num = Number(hv);
+            if (!isNaN(num) && num > 0) {
+              if (hk.toLowerCase().includes('remaining') || hk.toLowerCase().includes('quota') || hk.toLowerCase().includes('balance')) {
+                vendorBalance = { remainingTokens: num < 10000 ? num * 500000 : num, endpoint: `${cp.path} (Completion Header: ${hk})` };
+                break;
+              }
+            }
+          }
+
+          if (body && !vendorBalance) {
+            const extracted = scanObjectForBalance(body);
+            if (extracted && (extracted.total !== undefined || extracted.remaining !== undefined)) {
+              vendorBalance = {
+                totalTokens: extracted.total,
+                usedTokens: extracted.used,
+                remainingTokens: extracted.remaining,
+                rawResponse: body,
+                endpoint: `${cp.path} (Completion Response Body)`,
+              };
+            }
+          }
+        } catch (err: any) {
+          probeResults.push({ path: cp.path, method: 'POST', status: 0, body: { error: err.message } });
+        }
+      }
+    }
+
+    // If balance was successfully auto-detected and extracted:
     if (vendorBalance && (vendorBalance.totalTokens || vendorBalance.remainingTokens)) {
       const syncedTotal = BigInt(vendorBalance.totalTokens || vendorBalance.remainingTokens || 0);
       const syncedUsed = BigInt(vendorBalance.usedTokens || 0);
@@ -530,17 +618,19 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
         ? BigInt(vendorBalance.remainingTokens)
         : syncedTotal - syncedUsed;
 
-      // Update vendor provider with synced balance
+      // Update vendor provider in DB
       await prisma.vendorProvider.update({
         where: { id },
         data: {
           availableTokens: syncedAvailable,
-          purchasedTokens: syncedTotal,
+          purchasedTokens: syncedTotal > 0 ? syncedTotal : syncedAvailable,
           consumedTokens: syncedUsed,
+          status: 'connected',
+          lastTestedAt: new Date(),
         },
       });
 
-      // Create INITIAL_ALLOCATION ledger entry if no ledger entries exist yet
+      // Update / Create MasterTokenLedger entry
       const existingLedgerCount = await prisma.masterTokenLedger.count({
         where: { providerId: id },
       });
@@ -550,15 +640,14 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
           data: {
             providerId: id,
             type: 'INITIAL_ALLOCATION',
-            amount: syncedTotal,
+            amount: syncedAvailable,
             balanceAfter: syncedAvailable,
-            reference: `VENDOR_SYNC_${new Date().toISOString()}`,
-            notes: `Auto-synced from vendor API ${vendorBalance.endpoint}. Total: ${syncedTotal.toString()}, Used: ${syncedUsed.toString()}, Available: ${syncedAvailable.toString()}`,
+            reference: `VENDOR_AUTO_SYNC_${new Date().toISOString()}`,
+            notes: `Auto-synced from ScaleMax vendor API ${vendorBalance.endpoint}. Total: ${syncedTotal.toString()}, Available: ${syncedAvailable.toString()}`,
             adminUserId: req.user?.id || null,
           },
         });
       } else {
-        // Create ADJUSTMENT entry to reflect the sync
         await prisma.masterTokenLedger.create({
           data: {
             providerId: id,
@@ -566,7 +655,7 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
             amount: syncedAvailable - provider.availableTokens,
             balanceAfter: syncedAvailable,
             reference: `VENDOR_RESYNC_${new Date().toISOString()}`,
-            notes: `Re-synced from vendor API ${vendorBalance.endpoint}. Previous available: ${provider.availableTokens.toString()}, New available: ${syncedAvailable.toString()}`,
+            notes: `Re-synced from ScaleMax vendor API ${vendorBalance.endpoint}. Previous: ${provider.availableTokens.toString()}, New: ${syncedAvailable.toString()}`,
             adminUserId: req.user?.id || null,
           },
         });
@@ -585,11 +674,10 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
       });
     }
 
-    // No balance endpoint found — return probe results so admin can see what's available
     return res.json({
       success: false,
       synced: false,
-      message: 'Could not find a balance/usage endpoint on the vendor API. You can manually set the balance using Top-Up.',
+      message: 'Probed 19 vendor API endpoints & completion headers. ScaleMax did not return balance data on these endpoints.',
       probeResults,
     });
   } catch (err: any) {

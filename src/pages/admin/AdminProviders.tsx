@@ -59,6 +59,7 @@ export const AdminProviders: React.FC = () => {
   // Sync Vendor Balance State
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<any | null>(null);
+  const [showProbeLogs, setShowProbeLogs] = useState(false);
 
   // Test Connection State
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -418,32 +419,63 @@ export const AdminProviders: React.FC = () => {
         )}
 
         {syncResult && (
-          <div className={`p-3.5 rounded-control border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-            syncResult.synced ? 'bg-blue-500/5 border-blue-500/30 text-blue-700' : 'bg-amber-500/5 border-amber-500/30 text-amber-700'
-          }`}>
-            <div className="flex items-center gap-2">
-              <CloudDownload className="w-4 h-4 shrink-0" />
-              <span>
-                {syncResult.synced
-                  ? `✅ Vendor balance synced! Total: ${formatTokens(syncResult.balance?.totalTokens || '0')}, Available: ${formatTokens(syncResult.balance?.availableTokens || '0')}, Used: ${formatTokens(syncResult.balance?.usedTokens || '0')} (source: ${syncResult.balance?.source || 'vendor API'})`
-                  : `⚠️ ${syncResult.message || 'Could not auto-detect vendor balance endpoint. Click Set Balance to initialize master capacity.'}`}
-              </span>
+          <div className="space-y-2">
+            <div className={`p-3.5 rounded-control border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              syncResult.synced ? 'bg-blue-500/5 border-blue-500/30 text-blue-700' : 'bg-amber-500/5 border-amber-500/30 text-amber-700'
+            }`}>
+              <div className="flex items-center gap-2">
+                <CloudDownload className="w-4 h-4 shrink-0" />
+                <span>
+                  {syncResult.synced
+                    ? `✅ Vendor balance synced! Total: ${formatTokens(syncResult.balance?.totalTokens || '0')}, Available: ${formatTokens(syncResult.balance?.availableTokens || '0')}, Used: ${formatTokens(syncResult.balance?.usedTokens || '0')} (source: ${syncResult.balance?.source || 'vendor API'})`
+                    : `⚠️ ${syncResult.message}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {syncResult.probeResults && (
+                  <button
+                    onClick={() => setShowProbeLogs(!showProbeLogs)}
+                    className="px-2 py-1 rounded text-xs font-bold bg-muted/50 hover:bg-muted text-fg border border-border flex items-center gap-1 font-mono"
+                  >
+                    <Code className="w-3 h-3" />
+                    <span>{showProbeLogs ? 'Hide Diagnostics' : `View Diagnostics (${syncResult.probeResults.length} probes)`}</span>
+                  </button>
+                )}
+                <button onClick={() => { setSyncResult(null); setShowProbeLogs(false); }} className="text-muted hover:text-fg font-mono text-xs">✕</button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              {!syncResult.synced && (
-                <button
-                  onClick={() => {
-                    setTopUpReference('INITIAL_VENDOR_PRELOAD');
-                    setTopUpNotes('Master token balance provided by ScaleMax upstream provider');
-                    setShowTopUpModal(true);
-                  }}
-                  className="px-2.5 py-1 rounded text-xs font-bold bg-amber-600 text-white hover:bg-amber-700 font-sans"
-                >
-                  Set Master Balance Now
-                </button>
-              )}
-              <button onClick={() => setSyncResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
-            </div>
+
+            {showProbeLogs && syncResult.probeResults && (
+              <div className="p-4 rounded-control border border-border bg-black/90 text-emerald-400 font-mono text-[11px] space-y-2 max-h-80 overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2 text-white font-bold">
+                  <span>⚡ ScaleMax Vendor Diagnostic Probe Log ({syncResult.probeResults.length} Endpoints Tested)</span>
+                  <span className="text-[10px] text-muted font-normal">Base URL: {primaryProvider?.baseUrl}</span>
+                </div>
+                {syncResult.probeResults.map((pr: any, idx: number) => (
+                  <div key={idx} className="border-b border-white/5 pb-1.5 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                        pr.status === 200 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+                        pr.status === 401 || pr.status === 403 ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-muted'
+                      }`}>
+                        {pr.method || 'GET'} {pr.status || 'ERR'}
+                      </span>
+                      <span className="font-bold text-white">{pr.path}</span>
+                    </div>
+                    {pr.headers && Object.keys(pr.headers).length > 0 && (
+                      <div className="text-[10px] text-violet-300 pl-4 mt-0.5">
+                        Headers: {JSON.stringify(pr.headers)}
+                      </div>
+                    )}
+                    {pr.body && (
+                      <div className="text-[10px] text-gray-400 pl-4 mt-0.5 truncate">
+                        Body: {typeof pr.body === 'object' ? JSON.stringify(pr.body) : String(pr.body)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Cpu, Plus, Edit2, Check, X } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminModels: React.FC = () => {
   const [models, setModels] = useState<any[]>([]);
@@ -18,7 +19,7 @@ export const AdminModels: React.FC = () => {
 
   const fetchModels = async () => {
     try {
-      const res = await fetch('/api/admin/models');
+      const res = await adminFetch('/api/admin/models');
       if (res.ok) {
         const data = await res.json();
         setModels(data);
@@ -39,9 +40,8 @@ export const AdminModels: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/admin/models', {
+      const res = await adminFetch('/api/admin/models', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           modelId,
           displayName,
@@ -69,9 +69,8 @@ export const AdminModels: React.FC = () => {
 
   const handleToggleEnabled = async (id: string, currentEnabled: boolean) => {
     try {
-      await fetch(`/api/admin/models/${id}`, {
+      await adminFetch(`/api/admin/models/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !currentEnabled }),
       });
       fetchModels();

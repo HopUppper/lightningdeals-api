@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, Plus, Edit2, Trash2, Check, Sparkles } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminPricing: React.FC = () => {
   const [packages, setPackages] = useState<any[]>([]);
@@ -16,7 +17,7 @@ export const AdminPricing: React.FC = () => {
 
   const fetchPackages = async () => {
     try {
-      const res = await fetch('/api/admin/pricing');
+      const res = await adminFetch('/api/admin/pricing');
       if (res.ok) {
         setPackages(await res.json());
       }
@@ -36,9 +37,8 @@ export const AdminPricing: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/admin/pricing', {
+      const res = await adminFetch('/api/admin/pricing', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tokenAmount,
           priceInr,
@@ -66,7 +66,7 @@ export const AdminPricing: React.FC = () => {
   const handleDeletePackage = async (id: string) => {
     if (!confirm('Are you sure you want to delete this pricing package?')) return;
     try {
-      await fetch(`/api/admin/pricing/${id}`, { method: 'DELETE' });
+      await adminFetch(`/api/admin/pricing/${id}`, { method: 'DELETE' });
       fetchPackages();
     } catch (e) {
       console.error(e);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, ShieldAlert, Power, Lock, Check } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminEmergencyControls: React.FC = () => {
   const [globalApiDisabled, setGlobalApiDisabled] = useState(false);
@@ -9,7 +10,7 @@ export const AdminEmergencyControls: React.FC = () => {
 
   const fetchEmergencyStatus = async () => {
     try {
-      const res = await fetch('/api/admin/emergency/status');
+      const res = await adminFetch('/api/admin/emergency/status');
       if (res.ok) {
         const data = await res.json();
         setGlobalApiDisabled(data.globalApiDisabled);
@@ -34,9 +35,8 @@ export const AdminEmergencyControls: React.FC = () => {
 
     setToggling(true);
     try {
-      const res = await fetch('/api/admin/emergency/toggle-global-api', {
+      const res = await adminFetch('/api/admin/emergency/toggle-global-api', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ disabled: newState }),
       });
 

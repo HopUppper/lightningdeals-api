@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Search, Filter } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminRequests: React.FC = () => {
   const [requests, setRequests] = useState<any[]>([]);
@@ -9,7 +10,7 @@ export const AdminRequests: React.FC = () => {
   useEffect(() => {
     async function loadRequests() {
       try {
-        const res = await fetch('/api/admin/requests');
+        const res = await adminFetch('/api/admin/requests');
         if (res.ok) {
           const data = await res.json();
           setRequests(data);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { adminFetch } from '../../utils/api';
 
 interface NavItem {
   name: string;
@@ -36,7 +37,7 @@ export const AdminLayout: React.FC = () => {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(`/api/admin/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        const res = await adminFetch(`/api/admin/search?q=${encodeURIComponent(searchQuery.trim())}`);
         if (res.ok) {
           setSearchResults(await res.json());
           setShowSearchDropdown(true);

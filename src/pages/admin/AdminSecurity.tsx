@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminSecurity: React.FC = () => {
   const [trials, setTrials] = useState<any[]>([]);
@@ -8,7 +9,7 @@ export const AdminSecurity: React.FC = () => {
   useEffect(() => {
     async function loadSecurity() {
       try {
-        const res = await fetch('/api/admin/logs');
+        const res = await adminFetch('/api/admin/logs');
         if (res.ok) {
           setTrials(await res.json());
         }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, ShieldCheck, UserCheck, UserX, Key, Search } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -14,7 +15,7 @@ export const AdminUsers: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await adminFetch('/api/admin/users');
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
@@ -35,9 +36,8 @@ export const AdminUsers: React.FC = () => {
     setCreating(true);
 
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await adminFetch('/api/admin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, role }),
       });
 
@@ -58,9 +58,8 @@ export const AdminUsers: React.FC = () => {
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     try {
-      await fetch(`/api/admin/users/${id}`, {
+      await adminFetch(`/api/admin/users/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
       fetchUsers();

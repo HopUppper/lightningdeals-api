@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Plus, ArrowRight } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminTokens: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
@@ -11,7 +12,7 @@ export const AdminTokens: React.FC = () => {
 
   const fetchKeys = async () => {
     try {
-      const res = await fetch('/api/admin/keys');
+      const res = await adminFetch('/api/admin/keys');
       if (res.ok) {
         const data = await res.json();
         setKeys(data);
@@ -32,9 +33,8 @@ export const AdminTokens: React.FC = () => {
     setSuccess(null);
 
     try {
-      const res = await fetch(`/api/admin/keys/${selectedKeyId}`, {
+      const res = await adminFetch(`/api/admin/keys/${selectedKeyId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addTokens }),
       });
 

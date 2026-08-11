@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminLogs: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
@@ -8,7 +9,7 @@ export const AdminLogs: React.FC = () => {
   useEffect(() => {
     async function loadLogs() {
       try {
-        const res = await fetch('/api/admin/logs');
+        const res = await adminFetch('/api/admin/logs');
         if (res.ok) {
           const data = await res.json();
           setLogs(data);

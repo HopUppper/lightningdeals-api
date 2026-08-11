@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, CheckCircle2, Clock, Filter, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { adminFetch } from '../../utils/api';
 
 export const AdminLeads: React.FC = () => {
   const [leads, setLeads] = useState<any[]>([]);
@@ -8,7 +9,7 @@ export const AdminLeads: React.FC = () => {
 
   const fetchLeads = async () => {
     try {
-      const res = await fetch('/api/admin/leads');
+      const res = await adminFetch('/api/admin/leads');
       if (res.ok) {
         setLeads(await res.json());
       }
@@ -25,9 +26,8 @@ export const AdminLeads: React.FC = () => {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/admin/leads/${id}`, {
+      const res = await adminFetch(`/api/admin/leads/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) fetchLeads();

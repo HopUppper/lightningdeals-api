@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, ShieldAlert, CheckCircle2, Clock, Zap, RefreshCw } from 'lucide-react';
 import { ThreeDCard } from '../../components/ThreeDCard';
+import { adminFetch } from '../../utils/api';
 
 interface RequestItem {
   id: string;
@@ -40,7 +41,7 @@ export const AdminUsage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/usage');
+      const res = await adminFetch('/api/admin/usage');
       if (res.ok) {
         setData(await res.json());
         setLastUpdated(new Date().toLocaleTimeString());
@@ -74,7 +75,7 @@ export const AdminUsage: React.FC = () => {
   const handleReconcileUsage = async () => {
     setReconciling(true);
     try {
-      const res = await fetch('/api/admin/usage/reconcile');
+      const res = await adminFetch('/api/admin/usage/reconcile');
       if (res.ok) {
         setReconciliationResult(await res.json());
       }

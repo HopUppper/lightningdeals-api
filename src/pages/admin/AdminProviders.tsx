@@ -168,7 +168,7 @@ export const AdminProviders: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
-            <Server className="w-6 h-6 text-amber-500" />
+            <Server className="w-6 h-6 text-violet-600" />
             <span>Multi-Vendor Provider System</span>
           </h1>
           <p className="text-xs text-muted mt-1">
@@ -183,7 +183,7 @@ export const AdminProviders: React.FC = () => {
       </div>
 
       {/* Providers Grid / Cards */}
-      <div className="bg-card border border-border rounded-panel overflow-hidden">
+      <div className="bg-white border border-border rounded-panel overflow-hidden shadow-xs">
         {loading ? (
           <div className="py-12 text-center text-xs text-muted font-mono">Loading vendor providers...</div>
         ) : providers.length === 0 ? (
@@ -192,12 +192,13 @@ export const AdminProviders: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-border text-muted font-mono uppercase bg-bg/50">
-                  <th className="py-3 px-4">Vendor Name</th>
-                  <th className="py-3 px-4">Protocol</th>
-                  <th className="py-3 px-4">Base URL</th>
-                  <th className="py-3 px-4">Master Key</th>
-                  <th className="py-3 px-4">Primary</th>
+                <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
+                  <th className="py-3 px-4 font-bold">Vendor Name</th>
+                  <th className="py-3 px-4 font-bold">Protocol</th>
+                  <th className="py-3 px-4 font-bold">Base URL</th>
+                  <th className="py-3 px-4 font-bold">Master Key</th>
+                  <th className="py-3 px-4 font-bold">Primary</th>
+
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Last Tested</th>
                   <th className="py-3 px-4 text-right">Actions</th>

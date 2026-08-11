@@ -64,14 +64,16 @@ export const AdminLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
       {/* Top Bar */}
-      <header className="h-16 border-b border-border bg-white sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
+      <header className="h-16 border-b border-border/80 bg-white/90 backdrop-blur-xl sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link to="/admin" className="flex items-center gap-2.5 group">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-black font-extrabold shadow-sm transition-transform group-hover:scale-105">
-              <Zap className="w-5 h-5 fill-current" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 text-white font-extrabold shadow-md shadow-violet-500/20 transition-transform group-hover:scale-105">
+              <Zap className="w-4 h-4 fill-current" />
             </div>
-            <span className="text-base font-bold text-fg tracking-tight">LightningDeals</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold font-mono uppercase tracking-wider border border-amber-200">
+            <span className="text-base font-extrabold text-fg tracking-tight">
+              Lightning<span className="animated-gradient-text">Deals</span>
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-bold font-mono uppercase tracking-wider border border-violet-200">
               Control Center
             </span>
           </Link>
@@ -87,7 +89,7 @@ export const AdminLayout: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => { if (searchResults) setShowSearchDropdown(true); }}
               placeholder="Search keys, customers, orders... (⌘K)"
-              className="w-full pl-10 pr-8 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-amber-500 text-fg font-mono"
+              className="w-full pl-10 pr-8 py-2 text-xs bg-white border border-violet-200 rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono shadow-xs"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-fg">
@@ -98,7 +100,7 @@ export const AdminLayout: React.FC = () => {
 
           {/* Search Dropdown Overlay */}
           {showSearchDropdown && searchResults && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-panel shadow-lg p-4 z-50 space-y-4 max-h-[400px] overflow-y-auto text-xs font-sans">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl border border-violet-200 rounded-panel shadow-2xl p-4 z-50 space-y-4 max-h-[400px] overflow-y-auto text-xs font-sans">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <span className="font-mono text-[10px] uppercase font-bold text-muted">Search Results</span>
                 <button onClick={() => setShowSearchDropdown(false)} className="text-muted hover:text-fg text-xs font-mono">Close</button>
@@ -106,12 +108,12 @@ export const AdminLayout: React.FC = () => {
 
               {searchResults.customers?.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-mono font-bold uppercase text-amber-600 mb-1">Customers</p>
+                  <p className="text-[10px] font-mono font-bold uppercase text-violet-700 mb-1">Customers</p>
                   {searchResults.customers.map((c: any) => (
                     <div
                       key={c.id}
                       onClick={() => { navigate('/admin/customers'); setShowSearchDropdown(false); }}
-                      className="p-2 hover:bg-subtle rounded cursor-pointer flex justify-between items-center"
+                      className="p-2 hover:bg-violet-50/60 rounded cursor-pointer flex justify-between items-center"
                     >
                       <span className="font-semibold text-fg">{c.name} ({c.email})</span>
                       <span className="text-[10px] font-mono text-muted uppercase">{c.role}</span>
@@ -122,12 +124,12 @@ export const AdminLayout: React.FC = () => {
 
               {searchResults.keys?.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-mono font-bold uppercase text-amber-600 mb-1">API Keys</p>
+                  <p className="text-[10px] font-mono font-bold uppercase text-violet-700 mb-1">API Keys</p>
                   {searchResults.keys.map((k: any) => (
                     <div
                       key={k.id}
                       onClick={() => { navigate('/admin/keys'); setShowSearchDropdown(false); }}
-                      className="p-2 hover:bg-subtle rounded cursor-pointer flex justify-between items-center"
+                      className="p-2 hover:bg-violet-50/60 rounded cursor-pointer flex justify-between items-center"
                     >
                       <span className="font-mono text-fg">{k.name} ({k.displayKey})</span>
                       <span className="text-[10px] font-mono text-emerald-600 font-bold">{Number(k.tokensRemaining).toLocaleString()} tokens</span>
@@ -176,7 +178,7 @@ export const AdminLayout: React.FC = () => {
               className={({ isActive }) =>
                 `flex items-center justify-between px-3.5 py-2.5 rounded-control text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-amber-500 text-black font-extrabold shadow-xs'
+                    ? 'bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 text-white font-extrabold shadow-md shadow-violet-500/20'
                     : 'text-muted hover:text-fg hover:bg-white border border-transparent'
                 }`
               }
@@ -186,7 +188,7 @@ export const AdminLayout: React.FC = () => {
                 <span>{item.name}</span>
               </div>
               {item.badge && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-violet-50 text-violet-700 border border-violet-200">
                   {item.badge}
                 </span>
               )}

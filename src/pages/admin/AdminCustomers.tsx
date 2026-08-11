@@ -72,8 +72,8 @@ export const AdminCustomers: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-border pb-3">
         <button
           onClick={() => setActiveSubTab('customers')}
-          className={`px-4 py-2 text-xs font-bold rounded-control transition-colors flex items-center gap-2 ${
-            activeSubTab === 'customers' ? 'bg-amber-500 text-black shadow-sm' : 'bg-card text-muted hover:text-fg'
+          className={`px-4 py-2 text-xs font-bold rounded-control transition-all flex items-center gap-2 ${
+            activeSubTab === 'customers' ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'bg-white text-muted hover:text-fg border border-border'
           }`}
         >
           <Users className="w-4 h-4" />
@@ -82,8 +82,8 @@ export const AdminCustomers: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('leads')}
-          className={`px-4 py-2 text-xs font-bold rounded-control transition-colors flex items-center gap-2 ${
-            activeSubTab === 'leads' ? 'bg-amber-500 text-black shadow-sm' : 'bg-card text-muted hover:text-fg'
+          className={`px-4 py-2 text-xs font-bold rounded-control transition-all flex items-center gap-2 ${
+            activeSubTab === 'leads' ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'bg-white text-muted hover:text-fg border border-border'
           }`}
         >
           <Mail className="w-4 h-4" />
@@ -92,14 +92,15 @@ export const AdminCustomers: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('tickets')}
-          className={`px-4 py-2 text-xs font-bold rounded-control transition-colors flex items-center gap-2 ${
-            activeSubTab === 'tickets' ? 'bg-amber-500 text-black shadow-sm' : 'bg-card text-muted hover:text-fg'
+          className={`px-4 py-2 text-xs font-bold rounded-control transition-all flex items-center gap-2 ${
+            activeSubTab === 'tickets' ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'bg-white text-muted hover:text-fg border border-border'
           }`}
         >
           <HelpCircle className="w-4 h-4" />
           <span>Support Inquiries ({tickets.length})</span>
         </button>
       </div>
+
 
       {/* Search Input */}
       <div className="relative max-w-sm">

@@ -58,7 +58,7 @@ export const AdminSettings: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
-          <Settings className="w-6 h-6 text-amber-500" />
+          <Settings className="w-6 h-6 text-violet-600" />
           <span>Admin Security Settings</span>
         </h1>
         <p className="text-xs text-muted mt-1">
@@ -66,7 +66,7 @@ export const AdminSettings: React.FC = () => {
         </p>
       </div>
 
-      <div className="bg-card border border-border rounded-panel p-6 sm:p-8 max-w-xl space-y-6">
+      <div className="bg-white border border-border rounded-panel p-6 sm:p-8 max-w-xl space-y-6 shadow-xs">
         <form onSubmit={handleUpdatePassword} className="space-y-4">
           <h3 className="text-sm font-bold text-fg border-b border-border pb-3">Update Administrator Password</h3>
 
@@ -78,7 +78,7 @@ export const AdminSettings: React.FC = () => {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="love9002"
-              className="w-full px-3.5 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+              className="w-full px-3.5 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg"
             />
           </div>
 
@@ -91,9 +91,10 @@ export const AdminSettings: React.FC = () => {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="At least 6 characters"
-              className="w-full px-3.5 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+              className="w-full px-3.5 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg"
             />
           </div>
+
 
           <div>
             <label className="block text-xs font-semibold text-fg mb-1">Confirm New Password</label>

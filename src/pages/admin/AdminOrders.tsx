@@ -106,7 +106,7 @@ export const AdminOrders: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
-            <ShoppingBag className="w-6 h-6 text-amber-500" />
+            <ShoppingBag className="w-6 h-6 text-violet-600" />
             <span>Order Management & Fulfillment Ledger</span>
           </h1>
           <p className="text-xs text-muted mt-1">
@@ -115,7 +115,7 @@ export const AdminOrders: React.FC = () => {
         </div>
         <button
           onClick={loadOrders}
-          className="px-3 py-1.5 text-xs bg-bg border border-border hover:bg-card text-fg rounded-control flex items-center gap-1.5 font-mono"
+          className="px-3 py-1.5 text-xs bg-white border border-border hover:bg-subtle text-fg rounded-control flex items-center gap-1.5 font-mono shadow-xs"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Refresh</span>
@@ -123,7 +123,7 @@ export const AdminOrders: React.FC = () => {
       </div>
 
       {/* Filter & Search Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-card border border-border p-4 rounded-panel">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-border p-4 rounded-panel shadow-xs">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted" />
           <span className="text-xs font-mono font-semibold text-muted uppercase">Status:</span>
@@ -133,7 +133,7 @@ export const AdminOrders: React.FC = () => {
               onClick={() => setStatusFilter(st)}
               className={`px-3 py-1 text-xs rounded-control font-mono font-bold uppercase transition-all ${
                 statusFilter === st
-                  ? 'bg-amber-500 text-black shadow-sm'
+                  ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs'
                   : 'bg-bg text-muted hover:text-fg border border-border'
               }`}
             >
@@ -141,6 +141,7 @@ export const AdminOrders: React.FC = () => {
             </button>
           ))}
         </div>
+
 
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">

@@ -239,14 +239,14 @@ export const AdminKeys: React.FC = () => {
       </div>
 
       {/* Filter Pills & Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-4 rounded-panel">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-border p-4 rounded-panel shadow-xs">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {['all', 'active', 'suspended', 'trial', 'production'].map((tab) => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
-              className={`px-3 py-1.5 rounded-control text-xs font-semibold uppercase tracking-wider transition-colors ${
-                filter === tab ? 'bg-violet-700 text-white' : 'text-muted hover:text-fg hover:bg-bg'
+              className={`px-3 py-1.5 rounded-control text-xs font-semibold uppercase tracking-wider transition-all ${
+                filter === tab ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'text-muted hover:text-fg hover:bg-subtle'
               }`}
             >
               {tab}
@@ -261,43 +261,44 @@ export const AdminKeys: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search key, customer..."
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg"
           />
         </div>
       </div>
 
       {/* Keys Table */}
-      <div className="bg-card border border-border rounded-panel overflow-hidden">
+      <div className="bg-white border border-border rounded-panel overflow-hidden shadow-xs">
         {loading ? (
-          <div className="py-12 text-center text-xs text-muted">Loading API keys...</div>
+          <div className="py-12 text-center text-xs font-mono text-muted">Loading API keys...</div>
         ) : keys.length === 0 ? (
-          <div className="py-12 text-center text-xs text-muted">No API keys matching current filters.</div>
+          <div className="py-12 text-center text-xs font-mono text-muted">No API keys matching current filters.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-border text-muted font-mono uppercase bg-bg/50">
-                  <th className="py-3 px-4">Key Name & Prefix</th>
-                  <th className="py-3 px-4">Plan Name</th>
-                  <th className="py-3 px-4">Customer</th>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Allowance (5h Window)</th>
-                  <th className="py-3 px-4">RPM</th>
-                  <th className="py-3 px-4">Expiry</th>
-                  <th className="py-3 px-4">Requests</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
+                  <th className="py-3 px-4 font-bold">Key Name & Prefix</th>
+                  <th className="py-3 px-4 font-bold">Plan Name</th>
+                  <th className="py-3 px-4 font-bold">Customer</th>
+                  <th className="py-3 px-4 font-bold">Type</th>
+                  <th className="py-3 px-4 font-bold">Status</th>
+                  <th className="py-3 px-4 font-bold">Allowance (5h Window)</th>
+                  <th className="py-3 px-4 font-bold">RPM</th>
+                  <th className="py-3 px-4 font-bold">Expiry</th>
+                  <th className="py-3 px-4 font-bold">Requests</th>
+                  <th className="py-3 px-4 text-right font-bold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {keys.map((k) => (
-                  <tr key={k.id} className="hover:bg-bg/40">
+                  <tr key={k.id} className="hover:bg-subtle">
                     <td className="py-3.5 px-4">
                       <p className="font-semibold text-fg">{k.name}</p>
                       <p className="font-mono text-[11px] text-muted">{k.displayKey}</p>
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-amber-500">{k.plan || 'Claude Max 20x'}</td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-violet-700">{k.plan || 'Claude Max 20x'}</td>
                     <td className="py-3.5 px-4 font-mono text-muted">{k.customer}</td>
+
                     <td className="py-3.5 px-4 font-mono font-bold">
                       <span className={`px-2 py-0.5 rounded text-[10px] uppercase ${
                         k.type === 'trial' ? 'bg-amber-500/10 text-amber-600' : 'bg-accent/10 text-accent'

@@ -131,12 +131,17 @@ export const configureClient = (
       delete cleanEnv.AWS_SECRET_ACCESS_KEY;
       delete cleanEnv.AWS_ACCESS_KEY_ID;
 
+      // CRITICAL: Delete legacy apiKeyHelper & helper settings to prevent Claude Code v2.1+ Auth conflict warnings
+      delete updatedData.apiKeyHelper;
+      delete updatedData.scalemax;
+
       cleanEnv.ANTHROPIC_BASE_URL = gatewayUrl;
       cleanEnv.ANTHROPIC_AUTH_TOKEN = apiKey;
       cleanEnv.ANTHROPIC_API_KEY = apiKey;
 
       updatedData.env = cleanEnv;
     } else {
+
       updatedData['lightningdeals.apiKey'] = apiKey;
       updatedData['lightningdeals.baseUrl'] = gatewayUrl;
       updatedData['anthropic.baseUrl'] = gatewayUrl;

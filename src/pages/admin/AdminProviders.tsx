@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Server, Plus, RefreshCw, CheckCircle2, XCircle, ShieldAlert, Edit2, Code, DollarSign, Activity, Layers, FileText, ArrowUpRight } from 'lucide-react';
+import { Server, Plus, RefreshCw, CheckCircle2, XCircle, ShieldAlert, Edit2, Code, DollarSign, Activity, Layers, FileText, ArrowUpRight, CloudDownload } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 
 interface VendorProviderItem {
@@ -55,6 +55,10 @@ export const AdminProviders: React.FC = () => {
   const [ledgerEntries, setLedgerEntries] = useState<any[]>([]);
   const [reconcileResult, setReconcileResult] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'providers' | 'ledger'>('providers');
+
+  // Sync Vendor Balance State
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<any | null>(null);
 
   // Test Connection State
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -226,6 +230,25 @@ export const AdminProviders: React.FC = () => {
     }
   };
 
+  const handleSyncVendorBalance = async (providerId: string) => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await adminFetch(`/api/admin/providers/${providerId}/sync-balance`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      setSyncResult(data);
+      if (data.synced) {
+        await fetchProviders();
+      }
+    } catch (e: any) {
+      setSyncResult({ success: false, message: e.message });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleTestConnection = async (providerId: string, masterKey?: string, url?: string, proto?: string) => {
     setTestingId(providerId);
     try {
@@ -321,13 +344,25 @@ export const AdminProviders: React.FC = () => {
             </p>
           </div>
 
-          <button
-            onClick={handleReconcileLedger}
-            className="ui-button-secondary text-xs py-1.5 px-3 gap-1.5 font-mono self-start sm:self-auto"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Audit Reconcile Ledger</span>
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {primaryProvider && (
+              <button
+                onClick={() => handleSyncVendorBalance(primaryProvider.id)}
+                disabled={syncing}
+                className="ui-button-primary text-xs py-1.5 px-3 gap-1.5 font-mono bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs disabled:opacity-50"
+              >
+                <CloudDownload className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                <span>{syncing ? 'Syncing...' : 'Sync Vendor Balance'}</span>
+              </button>
+            )}
+            <button
+              onClick={handleReconcileLedger}
+              className="ui-button-secondary text-xs py-1.5 px-3 gap-1.5 font-mono"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Audit Reconcile Ledger</span>
+            </button>
+          </div>
         </div>
 
         {/* Master Balance KPIs */}
@@ -379,6 +414,22 @@ export const AdminProviders: React.FC = () => {
               </span>
             </div>
             <button onClick={() => setReconcileResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
+          </div>
+        )}
+
+        {syncResult && (
+          <div className={`p-3.5 rounded-control border text-xs font-mono flex items-center justify-between gap-3 ${
+            syncResult.synced ? 'bg-blue-500/5 border-blue-500/30 text-blue-700' : 'bg-amber-500/5 border-amber-500/30 text-amber-700'
+          }`}>
+            <div className="flex items-center gap-2">
+              <CloudDownload className="w-4 h-4 shrink-0" />
+              <span>
+                {syncResult.synced
+                  ? `✅ Vendor balance synced! Total: ${formatTokens(syncResult.balance?.totalTokens || '0')}, Available: ${formatTokens(syncResult.balance?.availableTokens || '0')}, Used: ${formatTokens(syncResult.balance?.usedTokens || '0')} (source: ${syncResult.balance?.source || 'vendor API'})`
+                  : `⚠️ ${syncResult.message || 'Could not auto-detect vendor balance endpoint. Use Top-Up to set manually.'}`}
+              </span>
+            </div>
+            <button onClick={() => setSyncResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
           </div>
         )}
       </div>

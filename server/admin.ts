@@ -369,6 +369,203 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
   }
 });
 
+// POST /admin/providers/:id/sync-balance — Fetch real balance from vendor API and sync into DB
+router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const provider = await prisma.vendorProvider.findUnique({ where: { id } });
+    if (!provider) return res.status(404).json({ error: { message: 'Vendor provider not found.' } });
+
+    const masterKey = decryptText(provider.masterApiKeyEncrypted);
+    if (!masterKey) return res.status(400).json({ error: { message: 'No master API key configured for this vendor.' } });
+
+    const baseUrl = provider.baseUrl.replace(/\/$/, '');
+
+    // Build auth headers based on protocol
+    const anthropicHeaders: Record<string, string> = {
+      'x-api-key': masterKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    };
+    const bearerHeaders: Record<string, string> = {
+      'Authorization': `Bearer ${masterKey}`,
+      'Content-Type': 'application/json',
+    };
+    const bothHeaders: Record<string, string> = {
+      ...anthropicHeaders,
+      'Authorization': `Bearer ${masterKey}`,
+    };
+
+    // Probe multiple common balance/usage/credits endpoints
+    const endpointsToTry = [
+      { path: '/v1/usage', headers: bothHeaders },
+      { path: '/v1/credits', headers: bothHeaders },
+      { path: '/v1/balance', headers: bothHeaders },
+      { path: '/v1/account', headers: bothHeaders },
+      { path: '/v1/account/balance', headers: bothHeaders },
+      { path: '/v1/billing/credits', headers: bothHeaders },
+      { path: '/v1/key/info', headers: bothHeaders },
+      { path: '/v1/key/balance', headers: bothHeaders },
+      { path: '/api/balance', headers: bothHeaders },
+      { path: '/api/credits', headers: bothHeaders },
+      { path: '/api/usage', headers: bothHeaders },
+    ];
+
+    let vendorBalance: {
+      totalTokens?: number;
+      usedTokens?: number;
+      remainingTokens?: number;
+      rawResponse?: any;
+      endpoint?: string;
+    } | null = null;
+
+    const probeResults: Array<{ path: string; status: number; body?: any }> = [];
+
+    for (const ep of endpointsToTry) {
+      try {
+        const upstreamRes = await fetch(`${baseUrl}${ep.path}`, {
+          method: 'GET',
+          headers: ep.headers,
+        });
+
+        const status = upstreamRes.status;
+
+        if (status === 404 || status === 405) {
+          probeResults.push({ path: ep.path, status });
+          continue;
+        }
+
+        let body: any;
+        try {
+          body = await upstreamRes.json();
+        } catch {
+          const text = await upstreamRes.text();
+          body = { rawText: text };
+        }
+
+        probeResults.push({ path: ep.path, status, body });
+
+        if (status === 200 && body && !vendorBalance) {
+          // Try to extract balance from various response formats
+          const b: typeof vendorBalance = { rawResponse: body, endpoint: ep.path };
+
+          // Format: { total_tokens, used_tokens, remaining_tokens }
+          if (body.total_tokens !== undefined) b.totalTokens = Number(body.total_tokens);
+          if (body.used_tokens !== undefined) b.usedTokens = Number(body.used_tokens);
+          if (body.remaining_tokens !== undefined) b.remainingTokens = Number(body.remaining_tokens);
+
+          // Format: { balance, usage }
+          if (body.balance !== undefined) b.remainingTokens = Number(body.balance);
+          if (body.usage !== undefined) b.usedTokens = Number(body.usage);
+
+          // Format: { credits, credits_used, credits_remaining }
+          if (body.credits !== undefined) b.totalTokens = Number(body.credits);
+          if (body.credits_used !== undefined) b.usedTokens = Number(body.credits_used);
+          if (body.credits_remaining !== undefined) b.remainingTokens = Number(body.credits_remaining);
+
+          // Format: { token_limit, tokens_used, tokens_remaining }
+          if (body.token_limit !== undefined) b.totalTokens = Number(body.token_limit);
+          if (body.tokens_used !== undefined) b.usedTokens = Number(body.tokens_used);
+          if (body.tokens_remaining !== undefined) b.remainingTokens = Number(body.tokens_remaining);
+
+          // Format: { data: { total, used, remaining } }
+          if (body.data) {
+            if (body.data.total !== undefined) b.totalTokens = Number(body.data.total);
+            if (body.data.used !== undefined) b.usedTokens = Number(body.data.used);
+            if (body.data.remaining !== undefined) b.remainingTokens = Number(body.data.remaining);
+            if (body.data.total_tokens !== undefined) b.totalTokens = Number(body.data.total_tokens);
+            if (body.data.used_tokens !== undefined) b.usedTokens = Number(body.data.used_tokens);
+            if (body.data.remaining_tokens !== undefined) b.remainingTokens = Number(body.data.remaining_tokens);
+            if (body.data.balance !== undefined) b.remainingTokens = Number(body.data.balance);
+            if (body.data.token_limit !== undefined) b.totalTokens = Number(body.data.token_limit);
+            if (body.data.tokens_remaining !== undefined) b.remainingTokens = Number(body.data.tokens_remaining);
+          }
+
+          // If we extracted any numeric balance info, use it
+          if (b.totalTokens !== undefined || b.remainingTokens !== undefined || b.usedTokens !== undefined) {
+            vendorBalance = b;
+          }
+        }
+      } catch (err: any) {
+        probeResults.push({ path: ep.path, status: 0, body: { error: err.message } });
+      }
+    }
+
+    // If we found balance data, sync it to the database
+    if (vendorBalance && (vendorBalance.totalTokens || vendorBalance.remainingTokens)) {
+      const syncedTotal = BigInt(vendorBalance.totalTokens || vendorBalance.remainingTokens || 0);
+      const syncedUsed = BigInt(vendorBalance.usedTokens || 0);
+      const syncedAvailable = vendorBalance.remainingTokens !== undefined
+        ? BigInt(vendorBalance.remainingTokens)
+        : syncedTotal - syncedUsed;
+
+      // Update vendor provider with synced balance
+      await prisma.vendorProvider.update({
+        where: { id },
+        data: {
+          availableTokens: syncedAvailable,
+          purchasedTokens: syncedTotal,
+          consumedTokens: syncedUsed,
+        },
+      });
+
+      // Create INITIAL_ALLOCATION ledger entry if no ledger entries exist yet
+      const existingLedgerCount = await prisma.masterTokenLedger.count({
+        where: { providerId: id },
+      });
+
+      if (existingLedgerCount === 0) {
+        await prisma.masterTokenLedger.create({
+          data: {
+            providerId: id,
+            type: 'INITIAL_ALLOCATION',
+            amount: syncedTotal,
+            balanceAfter: syncedAvailable,
+            reference: `VENDOR_SYNC_${new Date().toISOString()}`,
+            notes: `Auto-synced from vendor API ${vendorBalance.endpoint}. Total: ${syncedTotal.toString()}, Used: ${syncedUsed.toString()}, Available: ${syncedAvailable.toString()}`,
+            adminUserId: req.user?.id || null,
+          },
+        });
+      } else {
+        // Create ADJUSTMENT entry to reflect the sync
+        await prisma.masterTokenLedger.create({
+          data: {
+            providerId: id,
+            type: 'ADJUSTMENT',
+            amount: syncedAvailable - provider.availableTokens,
+            balanceAfter: syncedAvailable,
+            reference: `VENDOR_RESYNC_${new Date().toISOString()}`,
+            notes: `Re-synced from vendor API ${vendorBalance.endpoint}. Previous available: ${provider.availableTokens.toString()}, New available: ${syncedAvailable.toString()}`,
+            adminUserId: req.user?.id || null,
+          },
+        });
+      }
+
+      return res.json({
+        success: true,
+        synced: true,
+        balance: {
+          totalTokens: syncedTotal.toString(),
+          usedTokens: syncedUsed.toString(),
+          availableTokens: syncedAvailable.toString(),
+          source: vendorBalance.endpoint,
+        },
+        probeResults,
+      });
+    }
+
+    // No balance endpoint found — return probe results so admin can see what's available
+    return res.json({
+      success: false,
+      synced: false,
+      message: 'Could not find a balance/usage endpoint on the vendor API. You can manually set the balance using Top-Up.',
+      probeResults,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // POST /admin/providers/:id/topup — Add Master Token Top-Up
 router.post('/providers/:id/topup', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;

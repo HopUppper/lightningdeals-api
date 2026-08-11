@@ -658,10 +658,14 @@ export const AdminProviders: React.FC = () => {
                   type="password"
                   value={masterApiKey}
                   onChange={(e) => setMasterApiKey(e.target.value)}
-                  placeholder={editingProvider ? 'sk-ant-••••••••' : 'sk-ant-api03-••••••••'}
+                  placeholder={editingProvider ? 'sm_live_•••••••• or sk-ant-••••••••' : 'sm_live_•••••••• (Vendor Master Key)'}
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
+                <p className="text-[10px] text-muted mt-1 font-sans">
+                  Supports custom vendor keys (<code className="text-violet-600 font-mono">sm_live_...</code>), Anthropic (<code className="text-violet-600 font-mono">sk-ant-...</code>), OpenAI, and HTTP proxies.
+                </p>
               </div>
+
 
               <div className="flex items-center gap-2">
                 <input

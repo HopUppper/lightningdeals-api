@@ -116,10 +116,14 @@ export function buildProviderRequest(
     };
   }
 
-  // Default: Anthropic Protocol
+  // Default: Anthropic / Custom Vendor Protocol (Supports sm_live_... and sk-ant-... master keys)
   headers['x-api-key'] = decryptedMasterKey;
+  if (!headers['authorization']) {
+    headers['authorization'] = `Bearer ${decryptedMasterKey}`;
+  }
   headers['anthropic-version'] = '2023-06-01';
   const targetUrl = baseUrl.endsWith('/v1/messages') ? baseUrl : `${baseUrl}/v1/messages`;
+
 
   return {
     url: targetUrl,

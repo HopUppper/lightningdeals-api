@@ -18,9 +18,10 @@ async function auditMasterVendorAccounting() {
   }
 
   try {
-    // 1. Setup Test Provider & Encrypted Master Key
-    const masterKeySecret = 'sk-ant-api03-master-vendor-secret-audit-key-2026';
+    // 1. Setup Test Provider & Encrypted Master Key (sm_live_ format)
+    const masterKeySecret = 'sm_live_vendor_master_key_audit_2026_x89f4102';
     const encryptedMasterKey = encryptText(masterKeySecret);
+
 
     const testVendor = await prisma.vendorProvider.create({
       data: {

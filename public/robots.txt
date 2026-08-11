@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Allow: /assets/
+Allow: /docs
+Allow: /pricing
+Allow: /models
+Allow: /status
+Allow: /check-key
+Allow: /trial
+Allow: /request-quote
+Allow: /terms
+Allow: /privacy
+Allow: /refund
+
+# Block private dashboards, admin panel, and internal API endpoints
+Disallow: /admin/
+Disallow: /admin
+Disallow: /dashboard/
+Disallow: /dashboard
+Disallow: /account/
+Disallow: /api/admin/
+Disallow: /api/user/
+Disallow: /v1/
+
+Sitemap: https://lightningapi.pro/sitemap.xml

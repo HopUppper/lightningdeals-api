@@ -12,6 +12,9 @@ import { prisma } from './db';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust reverse proxy (Render / Cloudflare) to extract true client IP
+app.set('trust proxy', true);
+
 // CORS Hardening
 const allowedOrigins = [
   'http://localhost:3000',

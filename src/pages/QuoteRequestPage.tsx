@@ -72,7 +72,7 @@ export const QuoteRequestPage: React.FC = () => {
               <p className="text-[11px] text-muted mt-0.5">Chat directly with our engineering desk on WhatsApp for instant pricing & allocation.</p>
             </div>
             <a
-              href="https://wa.me/917980313066?text=Hi%20LightningDeals!%20I%20want%20to%20request%20an%20API%20key%20package%20quote."
+              href="https://wa.me/917695956938?text=Hi%20LightningDeals!%20I%20want%20to%20request%20an%20API%20key%20package%20quote."
               target="_blank"
               rel="noopener noreferrer"
               className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-control shrink-0 flex items-center justify-center gap-1.5 shadow-sm"

@@ -4,7 +4,7 @@ import { MessageSquare, X, ArrowUpRight, LifeBuoy } from 'lucide-react';
 export const SupportWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const WHATSAPP_URL = "https://wa.me/917980313066?text=Hi%20LightningDeals%20Support!%20I%20need%20help%20with%20my%20API%20key.";
+  const WHATSAPP_URL = "https://wa.me/917695956938?text=Hi%20LightningDeals%20Support!%20I%20need%20help%20with%20my%20API%20key.";
 
   return (
     <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end sm:right-6 sm:bottom-6">

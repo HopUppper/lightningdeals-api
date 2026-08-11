@@ -6,7 +6,7 @@ import { ThreeDCard } from './ThreeDCard';
 export const PricingSection: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
-  const WHATSAPP_URL = "https://wa.me/917980313066?text=Hi%2C%20I%20want%20to%20buy%20a%20LightningDeals%20API%20key%20package";
+  const WHATSAPP_URL = "https://wa.me/917695956938?text=Hi%2C%20I%20want%20to%20buy%20a%20LightningDeals%20API%20key%20package";
 
   const tokenPackages = [
     {

@@ -159,6 +159,25 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   // MASTER VENDOR CAPACITY CHECK
   const masterCheck = await checkMasterCapacity(vendor?.id, estimatedRequiredTokens);
   if (!masterCheck.available) {
+    await prisma.apiRequest.create({
+      data: {
+        apiKeyId: keyRecord.id,
+        userId: keyRecord.userId,
+        model,
+        endpoint: '/v1/messages',
+        statusCode: 503,
+        errorCode: 'service_unavailable',
+        errorMessage: 'Master vendor token capacity limit reached or unavailable.',
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        latencyMs: Date.now() - startTime,
+        streaming: !!stream,
+        providerId: vendor?.id || null,
+        isEstimated: false,
+        usageSource: 'LOCAL_CALCULATED',
+      },
+    });
     return res.status(503).json({
       error: {
         type: 'service_unavailable',
@@ -184,6 +203,25 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       if (!ssrfCheck.safe) {
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
         releaseMasterReservation(requestId);
+        await prisma.apiRequest.create({
+          data: {
+            apiKeyId: keyRecord.id,
+            userId: keyRecord.userId,
+            model,
+            endpoint: '/v1/messages',
+            statusCode: 400,
+            errorCode: 'ssrf_blocked',
+            errorMessage: ssrfCheck.error || 'Blocked by SSRF security filter.',
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            latencyMs: Date.now() - startTime,
+            streaming: !!stream,
+            providerId: vendor?.id || null,
+            isEstimated: false,
+            usageSource: 'LOCAL_CALCULATED',
+          },
+        });
         return res.status(400).json({ error: { type: 'ssrf_blocked', message: ssrfCheck.error || 'Blocked by SSRF security filter.' } });
       }
 
@@ -211,8 +249,32 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         releaseMasterReservation(requestId);
 
         const errorText = await upstreamRes.text();
-        let parsedError = { message: 'Upstream vendor error.' };
+        let parsedError: any = { message: 'Upstream vendor error.' };
         try { parsedError = JSON.parse(errorText); } catch (e) {}
+
+        const errType = parsedError?.error?.type || parsedError?.type || 'upstream_error';
+        const errMessage = parsedError?.error?.message || parsedError?.message || errorText || 'Upstream vendor error.';
+
+        await prisma.apiRequest.create({
+          data: {
+            apiKeyId: keyRecord.id,
+            userId: keyRecord.userId,
+            model,
+            endpoint: '/v1/messages',
+            statusCode: upstreamRes.status,
+            errorCode: String(errType).substring(0, 100),
+            errorMessage: String(errMessage).substring(0, 500),
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            latencyMs: Date.now() - startTime,
+            streaming: !!stream,
+            providerId: vendor?.id || null,
+            isEstimated: false,
+            usageSource: 'PROVIDER_REPORTED',
+          },
+        });
+
         return res.status(upstreamRes.status).json(parsedError);
       }
 

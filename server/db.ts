@@ -1,21 +1,73 @@
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import path from 'path';
+import fs from 'fs';
 
-const dbPath = process.env.DATABASE_URL || `file:${path.join(process.cwd(), 'prisma', 'dev.db')}`;
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = dbPath;
+// Determine authoritative SQLite database path with persistent disk fallback & auto-backup
+function resolveDatabaseUrl(): string {
+  if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://'))) {
+    return process.env.DATABASE_URL;
+  }
+
+  const defaultLocalDb = path.join(process.cwd(), 'prisma', 'dev.db');
+  const persistentDir = process.env.PERSISTENT_DATA_PATH || '/var/data';
+  let targetDbFile = defaultLocalDb;
+
+  // Check for cloud persistent disk (e.g. Render Persistent Disk)
+  if (fs.existsSync(persistentDir)) {
+    try {
+      const persistentDbFile = path.join(persistentDir, 'lightningdeals.db');
+      if (fs.existsSync(defaultLocalDb) && !fs.existsSync(persistentDbFile)) {
+        fs.copyFileSync(defaultLocalDb, persistentDbFile);
+      }
+      if (fs.existsSync(persistentDbFile)) {
+        targetDbFile = persistentDbFile;
+        console.log('✅ Using Render Persistent Disk Database:', persistentDbFile);
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not initialize persistent disk database, falling back to local file:', e);
+    }
+  }
+
+  // Backup file in system temp dir to survive container process restarts
+  const tmpBackupFile = path.join(process.env.TMPDIR || '/tmp', 'lightningdeals_backup.sqlite');
+
+  // Auto-restore from backup if primary database is missing or smaller
+  try {
+    if (fs.existsSync(tmpBackupFile)) {
+      const primarySize = fs.existsSync(targetDbFile) ? fs.statSync(targetDbFile).size : 0;
+      const backupSize = fs.statSync(tmpBackupFile).size;
+      if (backupSize > primarySize) {
+        fs.copyFileSync(tmpBackupFile, targetDbFile);
+        console.log(`✅ Automatically restored database state from persistent backup (${backupSize} bytes)`);
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Auto-restore check notice:', e);
+  }
+
+  // Schedule periodic background sync to persistent backup file every 5 seconds
+  setInterval(() => {
+    try {
+      if (fs.existsSync(targetDbFile) && fs.statSync(targetDbFile).size > 0) {
+        fs.copyFileSync(targetDbFile, tmpBackupFile);
+      }
+    } catch (e) {}
+  }, 5000);
+
+  return `file:${targetDbFile}`;
 }
+
+const activeDbUrl = resolveDatabaseUrl();
+process.env.DATABASE_URL = activeDbUrl;
 
 export const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: dbPath,
+      url: activeDbUrl,
     },
   },
 });
-
-
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'lightningdeals_secure_encryption_key_32_bytes_long!!'; // Must be 32 chars
 const IV_LENGTH = 16;

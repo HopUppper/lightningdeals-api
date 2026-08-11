@@ -22,54 +22,47 @@ async function main() {
   console.log('Seeding LightningDeals database (clean production seed)...');
 
   // Clear all existing data
-  await prisma.masterTokenLedger.deleteMany({});
-  await prisma.plan.deleteMany({});
-  await prisma.adminLog.deleteMany({});
-  await prisma.trialClaim.deleteMany({});
-  await prisma.tokenLedger.deleteMany({});
-  await prisma.order.deleteMany({});
-  await prisma.tokenPackage.deleteMany({});
-  await prisma.vendorProvider.deleteMany({});
-  await prisma.apiRequest.deleteMany({});
-  await prisma.apiKey.deleteMany({});
-  await prisma.model.deleteMany({});
-  await prisma.supportTicket.deleteMany({});
-  await prisma.systemSetting.deleteMany({});
-  await prisma.user.deleteMany({});
+  // Safe non-destructive seeding: ONLY seed defaults if database tables are completely empty
+  const existingVendorCount = await prisma.vendorProvider.count();
+  const existingUserCount = await prisma.user.count();
 
   // ──────────────────────────────────────────────
-  // 1. Administrator Account (ONLY real user)
+  // 1. Administrator Account (ONLY if no users exist)
   // ──────────────────────────────────────────────
-  await prisma.user.create({
-    data: {
-      email: 'sidhjain9002@gmail.com',
-      name: 'LightningDeals Owner',
-      passwordHash: hashPassword('love9002'),
-      role: 'admin',
-      emailVerified: true,
-      status: 'active',
-    },
-  });
+  if (existingUserCount === 0) {
+    await prisma.user.create({
+      data: {
+        email: 'sidhjain9002@gmail.com',
+        name: 'LightningDeals Owner',
+        passwordHash: hashPassword('love9002'),
+        role: 'admin',
+        emailVerified: true,
+        status: 'active',
+      },
+    });
+  }
 
   // ──────────────────────────────────────────────
-  // 2. Default Vendor Provider (unconfigured — 0 tokens until you top up)
+  // 2. Default Vendor Provider (ONLY if no vendors exist)
   // ──────────────────────────────────────────────
-  const defaultKey = process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
-  await prisma.vendorProvider.create({
-    data: {
-      name: 'Primary Vendor Provider',
-      providerType: 'anthropic',
-      protocol: 'anthropic',
-      baseUrl: 'https://api.anthropic.com',
-      masterApiKeyEncrypted: defaultKey ? encryptText(defaultKey) : '',
-      status: defaultKey ? 'connected' : 'disabled',
-      isPrimary: true,
-      availableTokens: BigInt(0),
-      purchasedTokens: BigInt(0),
-      consumedTokens: BigInt(0),
-      notes: 'Configure your vendor master key (sm_live_... or sk-ant-...) and top up balance via Admin Panel.',
-    },
-  });
+  if (existingVendorCount === 0) {
+    const defaultKey = process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
+    await prisma.vendorProvider.create({
+      data: {
+        name: 'Primary Vendor Provider',
+        providerType: 'anthropic',
+        protocol: 'anthropic',
+        baseUrl: 'https://api.anthropic.com',
+        masterApiKeyEncrypted: defaultKey ? encryptText(defaultKey) : '',
+        status: defaultKey ? 'connected' : 'disabled',
+        isPrimary: true,
+        availableTokens: BigInt(0),
+        purchasedTokens: BigInt(0),
+        consumedTokens: BigInt(0),
+        notes: 'Configure your vendor master key (sm_live_... or sk-ant-...) and top up balance via Admin Panel.',
+      },
+    });
+  }
 
   // ──────────────────────────────────────────────
   // 3. Token Packages (plan catalog for customer purchases)

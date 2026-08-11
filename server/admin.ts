@@ -445,17 +445,15 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
       'Authorization': `Bearer ${masterKey}`,
     };
 
-    // Endpoints to probe
+    // Endpoints to probe — Put /v1/usage & user self at top
     const endpointsToTry = [
+      { path: '/v1/usage', method: 'GET', headers: headersBoth },
       { path: '/api/user/self', method: 'GET', headers: headersBoth },
       { path: '/api/key/self', method: 'GET', headers: headersBoth },
       { path: '/v1/user/self', method: 'GET', headers: headersBoth },
       { path: '/v1/key/self', method: 'GET', headers: headersBoth },
       { path: '/api/user/info', method: 'GET', headers: headersBoth },
       { path: '/v1/user/info', method: 'GET', headers: headersBoth },
-      { path: '/api/me', method: 'GET', headers: headersBoth },
-      { path: '/v1/me', method: 'GET', headers: headersBoth },
-      { path: '/v1/usage', method: 'GET', headers: headersBoth },
       { path: '/v1/credits', method: 'GET', headers: headersBoth },
       { path: '/v1/balance', method: 'GET', headers: headersBoth },
       { path: '/api/balance', method: 'GET', headers: headersBoth },
@@ -510,18 +508,24 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
 
         probeResults.push({ path: ep.path, method: ep.method, status, body, headers: resHeaders });
 
-        // Inspect response headers for balance
+        // Inspect response headers specifically for TOKEN remaining / quota (EXCLUDING request counters)
         for (const [hk, hv] of Object.entries(resHeaders)) {
+          const lk = hk.toLowerCase();
+          // STRICT FILTER: Ignore RPM / request counters like x-ratelimit-remaining-requests!
+          if (lk.includes('request') || lk.includes('req') || lk.includes('rpm') || lk.includes('reset')) {
+            continue;
+          }
+
           const num = Number(hv);
           if (!isNaN(num) && num > 0) {
-            if (hk.toLowerCase().includes('remaining') || hk.toLowerCase().includes('balance') || hk.toLowerCase().includes('quota')) {
+            if (lk.includes('remaining-tokens') || lk.includes('token') || lk.includes('quota') || lk.includes('balance')) {
               vendorBalance = { remainingTokens: num < 10000 ? num * 500000 : num, endpoint: `${ep.path} (Header: ${hk})` };
               break;
             }
           }
         }
 
-        // Inspect body if 200 OK
+        // Inspect body if 200 OK and no header balance found yet
         if (status === 200 && body && !vendorBalance) {
           const extracted = scanObjectForBalance(body);
           if (extracted && (extracted.total !== undefined || extracted.remaining !== undefined || extracted.used !== undefined)) {
@@ -581,11 +585,15 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
 
           probeResults.push({ path: `${cp.path} (Test Completion Probe)`, method: 'POST', status, body, headers: resHeaders });
 
-          // Inspect headers on completion probe
+          // Inspect headers on completion probe (excluding request counters)
           for (const [hk, hv] of Object.entries(resHeaders)) {
+            const lk = hk.toLowerCase();
+            if (lk.includes('request') || lk.includes('req') || lk.includes('rpm') || lk.includes('reset')) {
+              continue;
+            }
             const num = Number(hv);
             if (!isNaN(num) && num > 0) {
-              if (hk.toLowerCase().includes('remaining') || hk.toLowerCase().includes('quota') || hk.toLowerCase().includes('balance')) {
+              if (lk.includes('remaining-tokens') || lk.includes('quota') || lk.includes('balance') || lk.includes('token')) {
                 vendorBalance = { remainingTokens: num < 10000 ? num * 500000 : num, endpoint: `${cp.path} (Completion Header: ${hk})` };
                 break;
               }

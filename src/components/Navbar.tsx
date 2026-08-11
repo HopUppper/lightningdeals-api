@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ArrowRight, ShieldCheck, User, Zap } from 'lucide-react';
+import { Menu, X, ArrowRight, Zap, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
@@ -23,17 +23,15 @@ export const Navbar: React.FC = () => {
   const navLinks = [
     { name: 'Why Us', href: isHomePage ? '#why-us' : '/#why-us' },
     { name: 'API Gateway', href: isHomePage ? '#api' : '/#api' },
-    { name: 'Models', href: isHomePage ? '#models' : '/#models' },
-    { name: 'Token Packages', href: '/pricing', isPage: true },
-
+    { name: 'Models', href: '/models', isPage: true },
+    { name: 'Pricing', href: '/pricing', isPage: true },
     { name: 'Check Key', href: '/check-key', isPage: true },
     { name: 'Docs', href: '/docs', isPage: true },
     { name: 'Status', href: '/status', isPage: true },
   ];
 
-
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-page items-center justify-between px-5 sm:px-6" aria-label="Primary">
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-fg group">
@@ -44,13 +42,17 @@ export const Navbar: React.FC = () => {
         </Link>
 
         {/* Desktop Navigation Links */}
-        <div className="hidden items-center gap-0.5 lg:flex">
+        <div className="hidden items-center gap-1 lg:flex">
           {navLinks.map((link) => (
             link.isPage ? (
               <Link
                 key={link.name}
                 to={link.href}
-                className="inline-flex min-h-[44px] items-center border-b-2 border-transparent px-2.5 text-xs font-semibold text-muted transition-colors hover:text-accent hover:border-accent/40 xl:px-3 xl:text-sm"
+                className={`inline-flex min-h-[40px] items-center rounded-control px-3 text-xs font-semibold transition-colors ${
+                  location.pathname === link.href
+                    ? 'bg-amber-500/10 text-amber-600 font-bold'
+                    : 'text-muted hover:text-fg hover:bg-subtle'
+                }`}
               >
                 {link.name}
               </Link>
@@ -58,7 +60,7 @@ export const Navbar: React.FC = () => {
               <a
                 key={link.name}
                 href={link.href}
-                className="inline-flex min-h-[44px] items-center border-b-2 border-transparent px-2.5 text-xs font-semibold text-muted transition-colors hover:text-accent hover:border-accent/40 xl:px-3 xl:text-sm"
+                className="inline-flex min-h-[40px] items-center rounded-control px-3 text-xs font-semibold text-muted transition-colors hover:text-fg hover:bg-subtle"
               >
                 {link.name}
               </a>
@@ -68,33 +70,35 @@ export const Navbar: React.FC = () => {
 
         {/* Desktop CTAs */}
         <div className="hidden items-center gap-3 lg:flex">
-          <a
-            href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20would%20like%20to%20get%20a%20free%20trial%20API%20key."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ui-button-primary bg-emerald-600 hover:bg-emerald-500 border-emerald-600"
+          <Link
+            to="/trial"
+            className="ui-button-secondary text-xs px-3.5 py-1.5 font-semibold"
+          >
+            Check Key
+          </Link>
+          <Link
+            to="/trial"
+            className="ui-button-primary text-xs px-4 py-2 font-bold"
           >
             Get Free Trial
-          </a>
+          </Link>
         </div>
 
         {/* Mobile Menu Actions */}
         <div className="flex items-center gap-2 lg:hidden">
-          <a
-            href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20would%20like%20to%20get%20a%20free%20trial%20API%20key."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ui-button-primary px-3 text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 border-emerald-600"
+          <Link
+            to="/trial"
+            className="ui-button-primary px-3 py-1.5 text-xs font-bold"
           >
-            Get Trial
-          </a>
+            Free Trial
+          </Link>
 
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-expanded={mobileMenuOpen}
             aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-control border border-border bg-card px-3 text-sm font-medium text-fg transition-colors hover:border-accent/40 hover:text-accent"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-control border border-border bg-card text-fg transition-colors hover:bg-subtle"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -103,7 +107,7 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-x-0 top-16 h-[calc(100vh-4rem)] z-[100] flex flex-col bg-card border-b border-border p-6 overflow-y-auto lg:hidden shadow-2xl">
+        <div className="fixed inset-x-0 top-16 h-[calc(100vh-4rem)] z-[100] flex flex-col bg-white border-b border-border p-6 overflow-y-auto lg:hidden shadow-2xl">
           <div className="flex flex-col gap-1 border-b border-border pb-6">
             {navLinks.map((link) => (
               link.isPage ? (
@@ -111,7 +115,7 @@ export const Navbar: React.FC = () => {
                   key={link.name}
                   to={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between py-3 text-base font-semibold text-fg hover:text-accent border-b border-border/40 last:border-0"
+                  className="flex items-center justify-between py-3 text-base font-semibold text-fg hover:text-amber-600 border-b border-border/40 last:border-0"
                 >
                   <span>{link.name}</span>
                   <ArrowRight className="h-4 w-4 text-muted" />
@@ -121,7 +125,7 @@ export const Navbar: React.FC = () => {
                   key={link.name}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between py-3 text-base font-semibold text-fg hover:text-accent border-b border-border/40 last:border-0"
+                  className="flex items-center justify-between py-3 text-base font-semibold text-fg hover:text-amber-600 border-b border-border/40 last:border-0"
                 >
                   <span>{link.name}</span>
                   <ArrowRight className="h-4 w-4 text-muted" />
@@ -134,14 +138,13 @@ export const Navbar: React.FC = () => {
             <Link
               to="/trial"
               onClick={() => setMobileMenuOpen(false)}
-              className="ui-button-primary w-full justify-center text-center text-sm font-semibold"
+              className="ui-button-primary w-full justify-center text-center text-sm font-bold"
             >
-              Get Free Trial Key (1M Tokens)
+              Claim Free Trial Key (1M Tokens)
             </Link>
           </div>
         </div>
       )}
-
     </header>
   );
 };

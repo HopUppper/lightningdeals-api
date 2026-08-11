@@ -90,12 +90,18 @@ import { AdminEmergencyControls } from './pages/admin/AdminEmergencyControls';
 
 
 
+import { SocialProofStrip } from './components/SocialProofStrip';
+import { TermsPage } from './pages/TermsPage';
+import { PrivacyPage } from './pages/PrivacyPage';
+import { RefundPage } from './pages/RefundPage';
+
 export const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg text-fg selection:bg-amber-500/20 selection:text-amber-500 font-sans antialiased">
       <Navbar />
       <main id="main-content">
         <HeroSection />
+        <SocialProofStrip />
         <ContextVisualizer />
         <OneCommandSetup />
 
@@ -116,6 +122,7 @@ export const LandingPage: React.FC = () => {
     </div>
   );
 };
+
 
 export const PublicPricingPage: React.FC = () => {
   return (
@@ -163,6 +170,10 @@ export function App() {
           <Route path="/docs/*" element={<DocsPage />} />
           <Route path="/status" element={<StatusPage />} />
           <Route path="/check-key" element={<CheckKeyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/refund" element={<RefundPage />} />
+
           
           {/* Legacy redirects */}
           <Route path="/login" element={<Navigate to="/" replace />} />

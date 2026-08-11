@@ -1,46 +1,46 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #fbfaff;
+  --color-bg: #f7f7f8;
   --color-card: #ffffff;
-  --color-fg: #0b1020;
-  --color-muted: #5c687d;
-  --color-accent: #5b21b6;
-  --color-accent-hover: #4c1d95;
-  --color-accent-secondary: #7c3aed;
-  --color-accent-light: #f5f3ff;
-  --color-border: #e4e0ee;
-  --color-subtle: #f7f5fc;
+  --color-fg: #111114;
+  --color-muted: #5b5b63;
+  --color-accent: #e8b300;
+  --color-accent-hover: #d4a300;
+  --color-accent-secondary: #f5b700;
+  --color-accent-light: #fffbeb;
+  --color-border: #e5e5e5;
+  --color-subtle: #f0f0f2;
 
   --max-width-page: 1200px;
   --max-width-reading: 720px;
 
-  --radius-control: 10px;
-  --radius-panel: 14px;
-  --radius-card: 20px;
-  --radius-hero: 28px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-card: 16px;
+  --radius-hero: 24px;
 
-  --shadow-e1: 0 1px 2px rgba(15, 16, 32, 0.05);
-  --shadow-e2: 0 1px 2px rgba(15, 16, 32, 0.05), 0 8px 20px -10px rgba(91, 33, 182, 0.16);
-  --shadow-e3: 0 2px 4px rgba(15, 16, 32, 0.04), 0 24px 56px -20px rgba(91, 33, 182, 0.22);
+  --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-e2: 0 4px 16px -4px rgba(0, 0, 0, 0.05);
+  --shadow-e3: 0 12px 32px -8px rgba(0, 0, 0, 0.08);
 
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 :root {
-  --ui-bg: #fbfaff;
+  --ui-bg: #f7f7f8;
   --ui-surface: #ffffff;
-  --ui-surface-subtle: #f7f5fc;
-  --ui-text: #0b1020;
-  --ui-text-muted: #5c687d;
-  --ui-border: #e4e0ee;
-  --ui-accent: #5b21b6;
-  --ui-accent-hover: #4c1d95;
-  --ui-radius-control: 10px;
-  --ui-radius-panel: 14px;
-  --ui-radius-lg: 20px;
-  --ui-radius-xl: 28px;
+  --ui-surface-subtle: #f0f0f2;
+  --ui-text: #111114;
+  --ui-text-muted: #5b5b63;
+  --ui-border: #e5e5e5;
+  --ui-accent: #e8b300;
+  --ui-accent-hover: #d4a300;
+  --ui-radius-control: 8px;
+  --ui-radius-panel: 12px;
+  --ui-radius-lg: 16px;
+  --ui-radius-xl: 24px;
   --ui-page-width: 1200px;
 }
 
@@ -59,18 +59,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-
 code, pre {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* LightningDeals Hero Grid Pattern */
-
+/* Light Off-White Grid Pattern */
 .hero-grid {
-  background-color: var(--ui-surface-subtle);
-  background-image: linear-gradient(90deg, rgba(91, 33, 182, 0.045) 1px, transparent 0),
-                    linear-gradient(180deg, rgba(91, 33, 182, 0.045) 1px, transparent 0);
-  background-size: 44px 44px;
+  background-color: var(--ui-bg);
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 0),
+                    linear-gradient(180deg, rgba(0, 0, 0, 0.03) 1px, transparent 0);
+  background-size: 32px 32px;
   background-position: top center;
 }
 
@@ -78,7 +76,7 @@ code, pre {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(120% 80% at 50% 0, transparent 40%, var(--ui-bg) 100%);
+  background: radial-gradient(120% 80% at 50% 0, transparent 50%, var(--ui-bg) 100%);
   pointer-events: none;
 }
 
@@ -87,57 +85,62 @@ code, pre {
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-panel);
   background: var(--ui-surface);
+  box-shadow: var(--shadow-e1);
 }
 
 .ui-button-primary {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 42px;
   align-items: center;
+  justify-content: center;
   border-radius: var(--ui-radius-control);
   background: var(--ui-accent);
-  padding: 0 18px;
-  color: #ffffff;
+  padding: 0 20px;
+  color: #111114;
   font-size: 14px;
-  font-weight: 600;
-  transition: background-color 0.12s ease-out, transform 0.1s ease-out;
+  font-weight: 700;
+  transition: background-color 0.15s ease-out, transform 0.1s ease-out, box-shadow 0.15s ease-out;
 }
 
 .ui-button-primary:hover {
   background: var(--ui-accent-hover);
+  box-shadow: 0 4px 12px rgba(232, 179, 0, 0.25);
 }
 
 .ui-button-primary:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 .ui-button-secondary {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 42px;
   align-items: center;
-  border: 1px solid #cfc8dc;
+  justify-content: center;
+  border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-control);
   background: #ffffff;
-  padding: 0 18px;
-  color: #28344a;
+  padding: 0 20px;
+  color: #111114;
   font-size: 14px;
   font-weight: 600;
-  transition: border-color 0.12s ease-out, color 0.12s ease-out, transform 0.1s ease-out;
+  transition: border-color 0.15s ease-out, color 0.15s ease-out, background-color 0.15s ease-out, transform 0.1s ease-out;
 }
 
 .ui-button-secondary:hover {
-  border-color: #a899c4;
-  color: var(--ui-accent);
+  border-color: #111114;
+  background-color: #f7f7f8;
 }
 
 .ui-button-secondary:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 .ui-kicker {
-  color: var(--ui-accent);
+  color: #b48500;
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 /* Arrow CTA Interaction */
@@ -151,17 +154,17 @@ code, pre {
   transform: translateX(4px);
 }
 
-/* Code block scrollbar */
+/* Monospace Code Custom Scrollbars */
 .landing-code::-webkit-scrollbar {
   height: 6px;
   width: 6px;
 }
 
 .landing-code::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
 }
 
 .landing-code::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.3);
 }

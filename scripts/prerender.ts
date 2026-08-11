@@ -12,6 +12,10 @@ import { StatusPage } from '../src/pages/StatusPage';
 import { CheckKeyPage } from '../src/pages/CheckKeyPage';
 import { TrialPage } from '../src/pages/TrialPage';
 import { QuoteRequestPage } from '../src/pages/QuoteRequestPage';
+import { TermsPage } from '../src/pages/TermsPage';
+import { PrivacyPage } from '../src/pages/PrivacyPage';
+import { RefundPage } from '../src/pages/RefundPage';
+
 
 const distDir = path.resolve(process.cwd(), 'dist');
 const templatePath = path.resolve(distDir, 'index.html');
@@ -88,7 +92,29 @@ const routes: RouteConfig[] = [
     title: 'Custom Enterprise API Quote — LightningDeals',
     description: 'Request custom high-volume token quotas and enterprise rate limits for development teams.',
   },
+  {
+    path: '/terms',
+    outFile: 'terms.html',
+    component: TermsPage,
+    title: 'Terms of Service — LightningDeals AI Gateway',
+    description: 'Terms of service agreement for LightningDeals API Gateway services.',
+  },
+  {
+    path: '/privacy',
+    outFile: 'privacy.html',
+    component: PrivacyPage,
+    title: 'Privacy Policy — LightningDeals AI Gateway',
+    description: 'Privacy policy and zero prompt logging practices for LightningDeals API Gateway.',
+  },
+  {
+    path: '/refund',
+    outFile: 'refund.html',
+    component: RefundPage,
+    title: 'Refund Policy — LightningDeals AI Gateway',
+    description: 'Refund policy and token credit adjustment policy for prepaid packages.',
+  },
 ];
+
 
 console.log('⚡ Starting SSG Pre-rendering for LightningDeals marketing pages...');
 

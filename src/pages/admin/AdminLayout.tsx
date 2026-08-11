@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { ShieldCheck, LayoutDashboard, Users, Key, Zap, ShoppingBag, DollarSign, Cpu, Server, Activity, ShieldAlert, FileText, Settings, Terminal, AlertTriangle, LogOut, ArrowLeft, Mail, Search, LifeBuoy, X } from 'lucide-react';
+import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface NavItem {
@@ -9,7 +9,6 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   end?: boolean;
   badge?: string;
-  alert?: boolean;
 }
 
 export const AdminLayout: React.FC = () => {
@@ -47,7 +46,6 @@ export const AdminLayout: React.FC = () => {
       } finally {
         setSearching(false);
       }
-
     }, 250);
 
     return () => clearTimeout(timer);
@@ -63,18 +61,17 @@ export const AdminLayout: React.FC = () => {
     { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
 
-
   return (
     <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
       {/* Top Bar */}
-      <header className="h-16 border-b border-border bg-card sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
+      <header className="h-16 border-b border-border bg-white sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link to="/admin" className="flex items-center gap-2 group">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-black font-extrabold transition-transform group-hover:scale-105">
-              <Zap className="w-4 h-4 fill-current" />
+          <Link to="/admin" className="flex items-center gap-2.5 group">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-black font-extrabold shadow-sm transition-transform group-hover:scale-105">
+              <Zap className="w-5 h-5 fill-current" />
             </div>
             <span className="text-base font-bold text-fg tracking-tight">LightningDeals</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-bold uppercase tracking-wider">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold font-mono uppercase tracking-wider border border-amber-200">
               Control Center
             </span>
           </Link>
@@ -89,8 +86,8 @@ export const AdminLayout: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => { if (searchResults) setShowSearchDropdown(true); }}
-              placeholder="Search keys, customers, emails..."
-              className="w-full pl-10 pr-8 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono"
+              placeholder="Search keys, customers, orders... (⌘K)"
+              className="w-full pl-10 pr-8 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-amber-500 text-fg font-mono"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-fg">
@@ -101,20 +98,20 @@ export const AdminLayout: React.FC = () => {
 
           {/* Search Dropdown Overlay */}
           {showSearchDropdown && searchResults && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-panel shadow-2xl p-4 z-50 space-y-4 max-h-[400px] overflow-y-auto text-xs font-sans">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-panel shadow-lg p-4 z-50 space-y-4 max-h-[400px] overflow-y-auto text-xs font-sans">
               <div className="flex items-center justify-between border-b border-border pb-2">
-                <span className="font-mono text-[10px] uppercase font-bold text-muted">Global Search Results</span>
-                <button onClick={() => setShowSearchDropdown(false)} className="text-muted hover:text-fg text-xs">Close</button>
+                <span className="font-mono text-[10px] uppercase font-bold text-muted">Search Results</span>
+                <button onClick={() => setShowSearchDropdown(false)} className="text-muted hover:text-fg text-xs font-mono">Close</button>
               </div>
 
               {searchResults.customers?.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-mono font-bold uppercase text-amber-500 mb-1">Customers</p>
+                  <p className="text-[10px] font-mono font-bold uppercase text-amber-600 mb-1">Customers</p>
                   {searchResults.customers.map((c: any) => (
                     <div
                       key={c.id}
                       onClick={() => { navigate('/admin/customers'); setShowSearchDropdown(false); }}
-                      className="p-2 hover:bg-bg rounded cursor-pointer flex justify-between items-center"
+                      className="p-2 hover:bg-subtle rounded cursor-pointer flex justify-between items-center"
                     >
                       <span className="font-semibold text-fg">{c.name} ({c.email})</span>
                       <span className="text-[10px] font-mono text-muted uppercase">{c.role}</span>
@@ -125,15 +122,15 @@ export const AdminLayout: React.FC = () => {
 
               {searchResults.keys?.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-mono font-bold uppercase text-amber-500 mb-1">API Keys</p>
+                  <p className="text-[10px] font-mono font-bold uppercase text-amber-600 mb-1">API Keys</p>
                   {searchResults.keys.map((k: any) => (
                     <div
                       key={k.id}
                       onClick={() => { navigate('/admin/keys'); setShowSearchDropdown(false); }}
-                      className="p-2 hover:bg-bg rounded cursor-pointer flex justify-between items-center"
+                      className="p-2 hover:bg-subtle rounded cursor-pointer flex justify-between items-center"
                     >
                       <span className="font-mono text-fg">{k.name} ({k.displayKey})</span>
-                      <span className="text-[10px] font-mono text-emerald-500 font-bold">{Number(k.tokensRemaining).toLocaleString()} tokens</span>
+                      <span className="text-[10px] font-mono text-emerald-600 font-bold">{Number(k.tokensRemaining).toLocaleString()} tokens</span>
                     </div>
                   ))}
                 </div>
@@ -150,12 +147,12 @@ export const AdminLayout: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-semibold text-fg">{user?.name || 'Administrator'}</p>
-              <p className="text-[10px] text-muted font-mono">{user?.email || 'sidhjain9002@gmail.com'}</p>
+              <p className="text-[10px] text-muted font-mono">{user?.email || 'admin@lightningapi.pro'}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="p-2 rounded-control text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-1 text-xs font-semibold"
-              title="Sign out of Admin Panel"
+              className="p-2 rounded-control text-muted hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1.5 text-xs font-semibold"
+              title="Sign out of Admin Control Center"
             >
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Logout</span>
@@ -165,11 +162,11 @@ export const AdminLayout: React.FC = () => {
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-8 py-8 grid lg:grid-cols-[230px_1fr] gap-8">
-        {/* Simplified Sidebar */}
-        <aside className="space-y-2">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-8 py-8 grid lg:grid-cols-[220px_1fr] gap-8">
+        {/* Sidebar */}
+        <aside className="space-y-1.5">
           <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted px-3 mb-2">
-            ADMIN NAVIGATION
+            ADMIN OPERATIONS
           </p>
           {primaryNavItems.map((item) => (
             <NavLink
@@ -177,10 +174,10 @@ export const AdminLayout: React.FC = () => {
               to={item.path}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center justify-between px-4 py-3 rounded-control text-xs font-semibold transition-all ${
+                `flex items-center justify-between px-3.5 py-2.5 rounded-control text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-amber-500 text-black shadow-md font-bold'
-                    : 'text-muted hover:text-fg hover:bg-card border border-transparent'
+                    ? 'bg-amber-500 text-black font-extrabold shadow-xs'
+                    : 'text-muted hover:text-fg hover:bg-white border border-transparent'
                 }`
               }
             >
@@ -189,7 +186,7 @@ export const AdminLayout: React.FC = () => {
                 <span>{item.name}</span>
               </div>
               {item.badge && (
-                <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200">
                   {item.badge}
                 </span>
               )}
@@ -205,4 +202,3 @@ export const AdminLayout: React.FC = () => {
     </div>
   );
 };
-

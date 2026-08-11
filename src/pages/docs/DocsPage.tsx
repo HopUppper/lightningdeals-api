@@ -44,6 +44,8 @@ export const DocsPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeIdeTab, setActiveIdeTab] = useState('claude-code');
+
 
   // Available models from catalog
   const modelsList = [
@@ -358,113 +360,106 @@ export const DocsPage: React.FC = () => {
 
               <div className="my-12 h-px bg-border"></div>
 
-              {/* IDE: CLAUDE CODE CLI */}
+              {/* IDE CONFIGURATION GUIDES WITH TABBED SWITCHER */}
               <section id="ide-claude-code" className="mb-16 scroll-mt-24">
-                <h2 className="mb-5 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-fg">Claude Code CLI</h2>
-                <p className="text-sm leading-relaxed text-muted">Point the Claude Code CLI at LightningDeals and every model in the lineup becomes selectable from the same session.</p>
-
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Automatic — recommended</h3>
-                <p className="text-sm text-muted">Run <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">npx lightningdeals</code> and select Claude Code CLI.</p>
-
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Manual configuration</h3>
-                <p className="mb-2 text-sm leading-relaxed text-muted">Create or edit <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">~/.claude/settings.json</code>:</p>
-
-                <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
-                  <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">~/.claude/settings.json</div>
-                  <CopyButton text={`{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY",\n    "ANTHROPIC_BASE_URL": "https://lightningapi.pro",\n    "ANTHROPIC_MODEL": "claude-fable-5[1m]",\n    "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5-20251001",\n    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",\n    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1m]",\n    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",\n    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"\n  },\n  "hasCompletedOnboarding": true\n}`} />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>{`{
-  "env": {
-    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY",
-    "ANTHROPIC_BASE_URL": "https://lightningapi.pro",
-    "ANTHROPIC_MODEL": "claude-fable-5[1m]",
-    "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5-20251001",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1m]",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
-  },
-  "hasCompletedOnboarding": true
-}`}</code></pre>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="text-xl font-extrabold tracking-tight text-fg">IDE & Developer Tool Integrations</h2>
+                    <p className="text-xs text-muted mt-1">Select your primary IDE to view automatic and manual configuration steps.</p>
+                  </div>
                 </div>
 
-                <div className="mt-4 flex items-start gap-3 border border-amber-500/25 bg-amber-500/[0.04] p-4 rounded-control">
-                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                  <p className="text-sm leading-relaxed text-muted">
-                    Replace <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">YOUR_API_KEY</code> with your actual key. The <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">[1m]</code> suffix asks for the 1M-token context tier — drop it to use the model's standard window.
-                  </p>
+                {/* IDE Tab Switcher */}
+                <div className="bg-white border border-border p-1.5 rounded-panel shadow-xs mb-6 overflow-x-auto flex items-center gap-1">
+                  {[
+                    { id: 'claude-code', name: 'Claude Code CLI' },
+                    { id: 'vscode', name: 'VS Code' },
+                    { id: 'cursor', name: 'Cursor' },
+                    { id: 'windsurf', name: 'Windsurf' },
+                    { id: 'cline', name: 'Cline' },
+                    { id: 'roo-code', name: 'Roo Code' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveIdeTab(tab.id)}
+                      className={`px-3.5 py-1.5 rounded-control text-xs font-bold transition-all whitespace-nowrap ${
+                        activeIdeTab === tab.id
+                          ? 'bg-amber-500 text-black shadow-xs font-extrabold'
+                          : 'text-muted hover:text-fg hover:bg-subtle'
+                      }`}
+                    >
+                      {tab.name}
+                    </button>
+                  ))}
                 </div>
+
+                {/* Active Tab Content */}
+                {activeIdeTab === 'claude-code' && (
+                  <div className="bg-white border border-border p-6 rounded-panel space-y-4">
+                    <h3 className="text-base font-bold text-fg">Claude Code CLI Setup</h3>
+                    <p className="text-xs text-muted">Point Claude Code CLI at LightningDeals for drop-in 1M context token access.</p>
+                    <div className="group relative border border-border bg-bg rounded-control overflow-hidden">
+                      <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase text-muted">~/.claude/settings.json</div>
+                      <CopyButton text={`{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY",\n    "ANTHROPIC_BASE_URL": "https://lightningapi.pro",\n    "ANTHROPIC_MODEL": "claude-sonnet-5"\n  }\n}`} />
+                      <pre className="p-4 font-mono text-xs text-fg overflow-x-auto"><code>{`{\n  "env": {\n    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY",\n    "ANTHROPIC_BASE_URL": "https://lightningapi.pro",\n    "ANTHROPIC_MODEL": "claude-sonnet-5"\n  }\n}`}</code></pre>
+                    </div>
+                  </div>
+                )}
+
+                {activeIdeTab === 'cursor' && (
+                  <div className="bg-white border border-border p-6 rounded-panel space-y-4">
+                    <h3 className="text-base font-bold text-fg">Cursor IDE Setup</h3>
+                    <p className="text-xs text-muted">Route Cursor's AI features through LightningDeals API Gateway.</p>
+                    <div className="space-y-2 text-xs font-mono text-fg">
+                      <p><strong>1. Base URL:</strong> <code className="bg-bg px-2 py-0.5 rounded border border-border text-amber-600">https://lightningapi.pro/v1</code></p>
+                      <p><strong>2. API Key:</strong> <code className="bg-bg px-2 py-0.5 rounded border border-border text-fg">YOUR_LIGHTNING_KEY</code></p>
+                      <p><strong>3. Model:</strong> <code className="bg-bg px-2 py-0.5 rounded border border-border text-fg">claude-sonnet-5</code></p>
+                    </div>
+                  </div>
+                )}
+
+                {activeIdeTab === 'windsurf' && (
+                  <div className="bg-white border border-border p-6 rounded-panel space-y-4">
+                    <h3 className="text-base font-bold text-fg">Windsurf Editor Setup</h3>
+                    <p className="text-xs text-muted">Route Windsurf AI Provider to LightningDeals Base URL.</p>
+                    <div className="group relative border border-border bg-bg rounded-control overflow-hidden">
+                      <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase text-muted">Windsurf Custom Base URL</div>
+                      <CopyButton text="https://lightningapi.pro/v1" />
+                      <pre className="p-4 font-mono text-xs text-fg overflow-x-auto"><code>https://lightningapi.pro/v1</code></pre>
+                    </div>
+                  </div>
+                )}
+
+                {activeIdeTab === 'vscode' && (
+                  <div className="bg-white border border-border p-6 rounded-panel space-y-4">
+                    <h3 className="text-base font-bold text-fg">VS Code Extension Setup</h3>
+                    <p className="text-xs text-muted">Run <code className="bg-bg px-1.5 py-0.5 font-mono text-[12px] text-fg rounded border border-border">npx lightningdeals</code> and select VS Code to merge settings automatically.</p>
+                  </div>
+                )}
+
+                {activeIdeTab === 'cline' && (
+                  <div className="bg-white border border-border p-6 rounded-panel space-y-4">
+                    <h3 className="text-base font-bold text-fg">Cline Extension Setup</h3>
+                    <div className="group relative border border-border bg-bg rounded-control overflow-hidden">
+                      <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase text-muted">settings.json</div>
+                      <CopyButton text={`{\n  "cline.apiProvider": "anthropic",\n  "cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "cline.apiKey": "YOUR_API_KEY"\n}`} />
+                      <pre className="p-4 font-mono text-xs text-fg overflow-x-auto"><code>{`{\n  "cline.apiProvider": "anthropic",\n  "cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "cline.apiKey": "YOUR_API_KEY"\n}`}</code></pre>
+                    </div>
+                  </div>
+                )}
+
+                {activeIdeTab === 'roo-code' && (
+                  <div className="bg-white border border-border p-6 rounded-panel space-y-4">
+                    <h3 className="text-base font-bold text-fg">Roo Code Setup</h3>
+                    <div className="group relative border border-border bg-bg rounded-control overflow-hidden">
+                      <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase text-muted">settings.json</div>
+                      <CopyButton text={`{\n  "roo-cline.apiProvider": "anthropic",\n  "roo-cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "roo-cline.apiKey": "YOUR_API_KEY"\n}`} />
+                      <pre className="p-4 font-mono text-xs text-fg overflow-x-auto"><code>{`{\n  "roo-cline.apiProvider": "anthropic",\n  "roo-cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "roo-cline.apiKey": "YOUR_API_KEY"\n}`}</code></pre>
+                    </div>
+                  </div>
+                )}
               </section>
 
-              {/* IDE: VS CODE */}
-              <section id="ide-vscode" className="mb-16 scroll-mt-24">
-                <h2 className="mb-5 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-fg">VS Code</h2>
-                <p className="text-sm leading-relaxed text-muted">The VS Code Claude extension reads the same configuration as the CLI.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Automatic — recommended</h3>
-                <p className="text-sm text-muted">Run <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">npx lightningdeals</code> and select VS Code.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Manual configuration</h3>
-                <p className="mb-2 text-sm leading-relaxed text-muted">Same file as Claude Code CLI above. Restart VS Code once you have saved it.</p>
-              </section>
-
-              {/* IDE: CURSOR */}
-              <section id="ide-cursor" className="mb-16 scroll-mt-24">
-                <h2 className="mb-5 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-fg">Cursor</h2>
-                <p className="text-sm leading-relaxed text-muted">Route Cursor's AI features through LightningDeals.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Automatic — recommended</h3>
-                <p className="text-sm text-muted">Run <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">npx lightningdeals</code> and select Cursor.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">API routing</h3>
-                <p className="mb-2 text-sm leading-relaxed text-muted">Open Settings → Models → add a Claude-compatible model with:</p>
-
-                <ul className="ml-1 list-inside list-disc space-y-1.5 text-sm text-muted">
-                  <li>Base URL: <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">https://lightningapi.pro/v1</code></li>
-                  <li>API key: your LightningDeals key</li>
-                  <li>Model: <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">claude-sonnet-5</code></li>
-                </ul>
-              </section>
-
-              {/* IDE: WINDSURF */}
-              <section id="ide-windsurf" className="mb-16 scroll-mt-24">
-                <h2 className="mb-5 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-fg">Windsurf</h2>
-                <p className="text-sm leading-relaxed text-muted">Route Windsurf's AI provider through LightningDeals.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Automatic — recommended</h3>
-                <p className="text-sm text-muted">Run <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">npx lightningdeals</code> and select Windsurf.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">API routing</h3>
-                <p className="mb-2 text-sm leading-relaxed text-muted">Open Settings → AI Provider → set the base URL to:</p>
-                <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
-                  <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Base URL</div>
-                  <CopyButton text="https://lightningapi.pro/v1" />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>https://lightningapi.pro/v1</code></pre>
-                </div>
-              </section>
-
-              {/* IDE: CLINE */}
-              <section id="ide-cline" className="mb-16 scroll-mt-24">
-                <h2 className="mb-5 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-fg">Cline</h2>
-                <p className="text-sm leading-relaxed text-muted">Configure the Cline VS Code extension to use LightningDeals.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Automatic — recommended</h3>
-                <p className="text-sm text-muted">Run <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">npx lightningdeals</code> and select Cline.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Manual configuration</h3>
-                <p className="mb-2 text-sm leading-relaxed text-muted">Add to your VS Code <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">settings.json</code>:</p>
-                <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
-                  <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">settings.json</div>
-                  <CopyButton text={`{\n  "cline.apiProvider": "anthropic",\n  "cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "cline.apiKey": "YOUR_API_KEY"\n}`} />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>{`{\n  "cline.apiProvider": "anthropic",\n  "cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "cline.apiKey": "YOUR_API_KEY"\n}`}</code></pre>
-                </div>
-              </section>
-
-              {/* IDE: ROO CODE */}
-              <section id="ide-roo" className="mb-16 scroll-mt-24">
-                <h2 className="mb-5 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-fg">Roo Code</h2>
-                <p className="text-sm leading-relaxed text-muted">Configure the Roo Code VS Code extension to use LightningDeals.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Automatic — recommended</h3>
-                <p className="text-sm text-muted">Run <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">npx lightningdeals</code> and select Roo Code.</p>
-                <h3 className="mb-3 mt-6 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-fg font-bold">Manual configuration</h3>
-                <p className="mb-2 text-sm leading-relaxed text-muted">Add to your VS Code <code className="bg-card border border-border px-1.5 py-0.5 font-mono text-[12px] text-fg rounded">settings.json</code>:</p>
-                <div className="group relative my-4 max-w-full border border-border bg-card rounded-control overflow-hidden">
-                  <div className="border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">settings.json</div>
-                  <CopyButton text={`{\n  "roo-cline.apiProvider": "anthropic",\n  "roo-cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "roo-cline.apiKey": "YOUR_API_KEY"\n}`} />
-                  <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-fg"><code>{`{\n  "roo-cline.apiProvider": "anthropic",\n  "roo-cline.anthropicBaseUrl": "https://lightningapi.pro",\n  "roo-cline.apiKey": "YOUR_API_KEY"\n}`}</code></pre>
-                </div>
-              </section>
 
 
               <div className="my-12 h-px bg-border"></div>

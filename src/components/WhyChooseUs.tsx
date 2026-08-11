@@ -1,32 +1,32 @@
 import React from 'react';
-import { CreditCard, Layers, Key, Eye } from 'lucide-react';
+import { Wallet, RefreshCw, Search, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const WhyChooseUs: React.FC = () => {
   const benefits = [
     {
       num: '01',
-      title: '5-hour rolling window',
-      desc: 'Every key receives its allowance on a rolling five-hour window. Watch it drain in real time; it resets automatically on cycle.',
-      icon: CreditCard,
+      title: 'Permanent Prepaid Token Balance',
+      desc: 'Pay per token allowance without monthly subscriptions, recurring seats, or expiring credits.',
+      icon: Wallet,
     },
     {
       num: '02',
-      title: 'One API for all AI tools',
-      desc: 'Use your LightningDeals key across Claude Code CLI, Cursor IDE, Windsurf, VS Code, Cline, and custom applications.',
-      icon: Layers,
+      title: 'Drop-in Anthropic /v1 Endpoint',
+      desc: 'Identical request/response payload shape for Claude Code CLI, Cursor, Windsurf, and VS Code.',
+      icon: RefreshCw,
     },
     {
       num: '03',
-      title: 'One-command CLI onboarding',
-      desc: 'Run npx lightningdeals to automatically detect installed tools, merge environment variables safely, and verify latency.',
-      icon: Key,
+      title: 'Built-in Web Search & Vision Tools',
+      desc: 'Native web search and image understanding tools supported natively out of the box.',
+      icon: Search,
     },
     {
       num: '04',
-      title: 'Transparent real-time tracking',
-      desc: 'Track API calls, prompt tokens, output tokens, remaining rolling window balance, and request status from your dashboard without guessing.',
-      icon: Eye,
+      title: 'Full 13-Model Catalog Access',
+      desc: 'Seamlessly switch between Claude Fable 5, Sonnet 5, Sonnet 3.5, Opus 3, and Haiku 3.5.',
+      icon: Layers,
     },
   ];
 
@@ -35,46 +35,39 @@ export const WhyChooseUs: React.FC = () => {
       <div className="mx-auto max-w-page px-5 sm:px-6 space-y-12 relative z-10">
         
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="max-w-2xl space-y-3"
-        >
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+        <div className="max-w-xl space-y-3">
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
             Why LightningDeals
           </span>
-          <h2 id="why-us-title" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-fg">
-            A simpler way to power your AI tools.
+          <h2 id="why-us-title" className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
+            Built for developers who demand reliability.
           </h2>
-          <p className="text-sm sm:text-base text-muted leading-relaxed">
-            Keep the developer tools you love, use a 5-hour rolling window allowance, and route requests to leading model families through one unified API gateway.
+          <p className="text-sm text-muted leading-relaxed">
+            High-performance API infrastructure designed for speed, clarity, and zero lock-in.
           </p>
-        </motion.div>
+        </div>
 
         {/* 4 Feature Cards Grid */}
-        <div className="grid sm:grid-cols-2 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {benefits.map((b, idx) => {
             const IconComp = b.icon;
             return (
               <motion.article
                 key={b.num}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.1 }}
-                whileHover={{ y: -5, scale: 1.01 }}
-                className="bg-card/90 border border-border p-7 rounded-panel space-y-4 hover:border-amber-500/50 hover:shadow-xl shadow-md transition-all group backdrop-blur-sm"
+                transition={{ duration: 0.4, delay: idx * 0.1 }}
+                className="bg-white border border-border p-6 rounded-panel space-y-3 hover:border-amber-500/60 transition-all shadow-xs group"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xl font-extrabold text-amber-500">{b.num}</span>
-                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform">
-                    <IconComp className="h-5 w-5" />
+                  <span className="font-mono text-xs font-bold text-muted">{b.num}</span>
+                  <div className="p-2 rounded-lg bg-amber-50 border border-amber-100 text-amber-600">
+                    <IconComp className="h-4 w-4" />
                   </div>
                 </div>
-                <h3 className="text-lg font-bold text-fg group-hover:text-amber-400 transition-colors">{b.title}</h3>
-                <p className="text-xs sm:text-sm leading-relaxed text-muted">{b.desc}</p>
+                <h3 className="text-base font-bold text-fg group-hover:text-amber-600 transition-colors">{b.title}</h3>
+                <p className="text-xs leading-relaxed text-muted font-normal">{b.desc}</p>
               </motion.article>
             );
           })}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Cpu, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const ModelCatalog: React.FC = () => {
@@ -11,7 +11,7 @@ export const ModelCatalog: React.FC = () => {
       name: 'Claude Fable 5',
       family: 'Claude Family',
       category: 'fast',
-      description: 'Sub-second response completion model for instant IDE edits and real-time agentic loop execution.',
+      description: 'Sub-second response completion model for instant IDE edits and real-time agentic loops.',
       contextWindow: '1,000,000 Tokens (1M)',
       availability: 'Self-service',
       protocol: 'Anthropic Messages API',
@@ -77,28 +77,28 @@ export const ModelCatalog: React.FC = () => {
   const filteredModels = catalog.filter((m) => activeTab === 'all' || m.category === activeTab);
 
   return (
-    <section id="models" className="py-16 sm:py-24 border-b border-border bg-card/30 relative overflow-hidden">
-      <div className="max-w-page mx-auto px-5 sm:px-6 space-y-12 relative z-10">
+    <section id="models" className="py-16 sm:py-24 border-b border-border bg-bg relative overflow-hidden">
+      <div className="max-w-page mx-auto px-5 sm:px-6 space-y-10 relative z-10">
         
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="max-w-2xl space-y-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 flex items-center gap-1.5 w-fit">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1.5 w-fit">
               <Sparkles className="w-3.5 h-3.5 fill-current" />
               <span>Dedicated Claude Gateway</span>
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-              The Full Claude Model Lineup
+              Supported Claude Model Lineup
             </h2>
             <p className="text-sm text-muted leading-relaxed">
-              Exact public API IDs and gateway routing specifications for the Claude family. All models consume from your 5-hour rolling token window.
+              Exact public API model IDs and gateway routing specifications for the Claude family.
             </p>
           </div>
 
           {/* Tab Filter Pills */}
-          <div className="flex items-center gap-1.5 bg-bg/80 border border-border p-1.5 rounded-panel backdrop-blur-md overflow-x-auto">
+          <div className="flex items-center gap-1.5 bg-white border border-border p-1.5 rounded-panel shadow-xs overflow-x-auto">
             {[
-              { id: 'all', label: 'All Claude Models' },
+              { id: 'all', label: 'All Models' },
               { id: 'flagship', label: 'Flagship & Reasoning' },
               { id: 'fast', label: 'Ultra-Fast & Edits' },
             ].map((tab) => (
@@ -107,8 +107,8 @@ export const ModelCatalog: React.FC = () => {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-3.5 py-1.5 rounded-control text-xs font-bold transition-all whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-amber-500 text-black shadow-md'
-                    : 'text-muted hover:text-fg hover:bg-card'
+                    ? 'bg-amber-500 text-black shadow-xs'
+                    : 'text-muted hover:text-fg hover:bg-subtle'
                 }`}
               >
                 {tab.label}
@@ -127,17 +127,16 @@ export const ModelCatalog: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3 }}
-                whileHover={{ y: -4 }}
-                className="bg-card border border-border rounded-panel p-6 space-y-4 hover:border-amber-500/50 hover:shadow-xl transition-all shadow-md flex flex-col justify-between"
+                transition={{ duration: 0.2 }}
+                className="bg-white border border-border rounded-panel p-6 space-y-4 hover:border-amber-500/60 transition-all shadow-xs flex flex-col justify-between group"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-base font-bold text-fg">{m.name}</h3>
-                      <code className="text-xs font-mono text-amber-500 font-semibold block mt-0.5">{m.id}</code>
+                      <h3 className="text-base font-bold text-fg group-hover:text-amber-600 transition-colors">{m.name}</h3>
+                      <code className="text-xs font-mono text-amber-600 font-bold block mt-0.5">{m.id}</code>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
                       {m.badge}
                     </span>
                   </div>
@@ -145,18 +144,18 @@ export const ModelCatalog: React.FC = () => {
                   <p className="text-xs text-muted leading-relaxed">{m.description}</p>
                 </div>
 
-                <div className="pt-4 border-t border-border/60 space-y-2 font-mono text-xs text-muted">
+                <div className="pt-4 border-t border-border/80 space-y-2 font-mono text-xs text-muted">
                   <div className="flex justify-between items-center">
                     <span>Protocol:</span>
                     <span className="text-fg font-semibold">{m.protocol}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Context Window:</span>
-                    <span className="text-emerald-400 font-bold">{m.contextWindow}</span>
+                    <span className="text-emerald-600 font-bold">{m.contextWindow}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Availability:</span>
-                    <span className="text-amber-500 font-bold">{m.availability}</span>
+                    <span className="text-fg font-bold">{m.availability}</span>
                   </div>
                 </div>
               </motion.div>

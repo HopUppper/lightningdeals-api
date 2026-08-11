@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle2, AlertCircle, Zap, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Send, CheckCircle2, AlertCircle, Zap, ShieldCheck } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 
@@ -50,22 +50,21 @@ export const QuoteRequestPage: React.FC = () => {
 
       <main className="flex-1 max-w-2xl w-full mx-auto px-5 py-12">
         <div className="text-center space-y-3">
-          <div className="ui-kicker justify-center">
-            <Zap className="w-3.5 h-3.5 text-amber-500 fill-current" />
-            <span>Prepaid Token Gateway</span>
-          </div>
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 inline-flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5 fill-current" /> Enterprise Gateway
+          </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-            Request a Custom Token Quote
+            Request Custom Enterprise Quote
           </h1>
-          <p className="text-muted text-sm sm:text-base leading-relaxed">
-            Select your required AI token allocation. LightningDeals will review your project and email a custom prepaid key proposal.
+          <p className="text-muted text-xs sm:text-sm leading-relaxed max-w-lg mx-auto">
+            Specify your required token allocation and upstream rate limits. Our engineering desk will issue a custom key proposal within 1 hour.
           </p>
         </div>
 
-        <div className="mt-8 bg-card border border-border rounded-panel p-6 sm:p-8 shadow-xl">
+        <div className="mt-8 bg-white border border-border rounded-panel p-6 sm:p-8 shadow-xs">
           {submitted ? (
             <div className="text-center py-8 space-y-4">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto border border-emerald-500/20">
+              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-fg">Quote Request Submitted!</h3>
@@ -74,37 +73,37 @@ export const QuoteRequestPage: React.FC = () => {
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmitQuote} className="space-y-4">
+            <form onSubmit={handleSubmitQuote} className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-semibold text-fg mb-1">Your Full Name *</label>
+                <label className="block font-semibold text-fg mb-1">Full Name *</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Vikram Sharma"
-                  className="w-full px-3.5 py-2.5 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                  placeholder="Developer Name"
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-amber-500 font-sans"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-fg mb-1">Work or Personal Email *</label>
+                <label className="block font-semibold text-fg mb-1">Work Email *</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="vikram@enterprise.com"
-                  className="w-full px-3.5 py-2.5 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                  placeholder="dev@enterprise.com"
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-amber-500 font-sans"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-fg mb-1">Required Token Allocation *</label>
+                <label className="block font-semibold text-fg mb-1">Required Token Allocation *</label>
                 <select
                   value={tokenAmount}
                   onChange={(e) => setTokenAmount(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                  className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-amber-500"
                 >
                   <option value="10M Tokens">10 Million Tokens (Starter Allocation)</option>
                   <option value="40M Tokens">40 Million Tokens (Developer Allocation)</option>
@@ -116,11 +115,11 @@ export const QuoteRequestPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-fg mb-1">Primary IDE / Tool</label>
+                <label className="block font-semibold text-fg mb-1">Primary IDE / Integration</label>
                 <select
                   value={useCase}
                   onChange={(e) => setUseCase(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-amber-500 font-sans"
                 >
                   <option value="Claude Code">Claude Code CLI</option>
                   <option value="Cursor IDE">Cursor IDE</option>
@@ -131,18 +130,18 @@ export const QuoteRequestPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-fg mb-1">Message / Requirements (Optional)</label>
+                <label className="block font-semibold text-fg mb-1">Project Details / Rate Limit Requirements (Optional)</label>
                 <textarea
                   rows={3}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Provide any additional details about your project or team token requirements..."
-                  className="w-full p-3 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                  className="w-full p-3 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-amber-500 font-sans"
                 />
               </div>
 
               {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-control text-red-600 text-xs flex items-center gap-2">
+                <div className="p-3 bg-red-50 border border-red-200 rounded-control text-red-700 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -154,7 +153,7 @@ export const QuoteRequestPage: React.FC = () => {
                 className="ui-button-primary w-full justify-center text-xs py-3 font-bold disabled:opacity-50 gap-2"
               >
                 <Send className="w-4 h-4" />
-                <span>{loading ? 'Submitting Quote Request...' : 'Submit Quote Request'}</span>
+                <span>{loading ? 'Submitting Quote Request...' : 'Submit Enterprise Quote Request'}</span>
               </button>
             </form>
           )}

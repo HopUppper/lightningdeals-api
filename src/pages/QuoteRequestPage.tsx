@@ -6,12 +6,13 @@ import { Footer } from '../components/Footer';
 export const QuoteRequestPage: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [tokenAmount, setTokenAmount] = useState('100M Tokens');
+  const [tokenAmount, setTokenAmount] = useState('20M / 5h Window');
   const [useCase, setUseCase] = useState('Claude Code');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
 
   const handleSubmitQuote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,20 +100,21 @@ export const QuoteRequestPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-fg mb-1">Required Token Allocation *</label>
+                <label className="block font-semibold text-fg mb-1">Required 5-Hour Rolling Token Allocation *</label>
                 <select
                   value={tokenAmount}
                   onChange={(e) => setTokenAmount(e.target.value)}
                   className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-amber-500"
                 >
-                  <option value="10M Tokens">10 Million Tokens (Starter Allocation)</option>
-                  <option value="40M Tokens">40 Million Tokens (Developer Allocation)</option>
-                  <option value="100M Tokens">100 Million Tokens (Power User Allocation)</option>
-                  <option value="250M Tokens">250 Million Tokens (Team Allocation)</option>
-                  <option value="500M Tokens">500 Million Tokens (Scale Allocation)</option>
-                  <option value="1B+ Tokens">1 Billion+ Tokens (Enterprise Allocation)</option>
+                  <option value="5M / 5h Window">5M / 5h Window (Claude Max 5x)</option>
+                  <option value="20M / 5h Window">20M / 5h Window (Claude Max 20x)</option>
+                  <option value="40M / 5h Window">40M / 5h Window (Claude Max 40x)</option>
+                  <option value="100M / 5h Window">100M / 5h Window (Claude Max 100x)</option>
+                  <option value="250M / 5h Window">250M / 5h Window (Claude Max 250x)</option>
+                  <option value="500M+ / 5h Window">500M+ / 5h Window (Enterprise Scale)</option>
                 </select>
               </div>
+
 
               <div>
                 <label className="block font-semibold text-fg mb-1">Primary IDE / Integration</label>

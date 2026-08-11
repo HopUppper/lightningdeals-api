@@ -85,9 +85,23 @@ router.post('/auth/login', async (req: Request, res: Response) => {
     const token = generateToken({ id: user.id, email: user.email, role: user.role });
     res.cookie('ld_token', token, { httpOnly: true, secure: false, maxAge: 7 * 24 * 3600 * 1000 });
 
+    const ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
+    const userAgent = (req.headers['user-agent'] || 'Unknown Device').substring(0, 80);
+
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: user.id,
+        action: user.role === 'admin' ? 'ADMIN_LOGIN' : 'USER_LOGIN',
+        targetType: 'User',
+        targetId: user.id,
+        metadata: `Logged in to portal from ${ipAddress} (${userAgent})`,
+        ipAddress,
+      },
     });
 
     res.json({

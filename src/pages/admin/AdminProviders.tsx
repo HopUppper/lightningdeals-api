@@ -448,7 +448,7 @@ export const AdminProviders: React.FC = () => {
             {showProbeLogs && syncResult.probeResults && (
               <div className="p-4 rounded-control border border-border bg-black/90 text-emerald-400 font-mono text-[11px] space-y-2 max-h-80 overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-white/10 pb-2 text-white font-bold">
-                  <span>⚡ ScaleMax Vendor Diagnostic Probe Log ({syncResult.probeResults.length} Endpoints Tested)</span>
+                  <span>⚡ Upstream Vendor Diagnostic Probe Log ({syncResult.probeResults.length} Endpoints Tested)</span>
                   <span className="text-[10px] text-muted font-normal">Base URL: {primaryProvider?.baseUrl}</span>
                 </div>
                 {syncResult.probeResults.map((pr: any, idx: number) => (

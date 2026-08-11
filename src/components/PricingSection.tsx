@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, Sparkles, MessageSquare, Table, LayoutGrid } from 'lucide-react';
+import { Check, Sparkles, MessageSquare, Table, LayoutGrid, ArrowRight } from 'lucide-react';
 import { ThreeDCard } from './ThreeDCard';
 
 export const PricingSection: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
+  const WHATSAPP_URL = "https://wa.me/917980313066?text=Hi%2C%20I%20want%20to%20buy%20a%20LightningDeals%20API%20key%20package";
+
   const tokenPackages = [
     {
       planName: 'Claude Max 5x',
-      priceInr: '₹1,499',
+      priceLabel: 'WhatsApp for Price',
       tokens: '5 Million Tokens',
       allocation: '5M / 5h Window',
       tagline: 'Ideal for starter projects & light coding',
@@ -17,7 +19,7 @@ export const PricingSection: React.FC = () => {
     },
     {
       planName: 'Claude Max 20x',
-      priceInr: '₹4,999',
+      priceLabel: 'WhatsApp for Price',
       tokens: '20 Million Tokens',
       allocation: '20M / 5h Window',
       tagline: 'Great for active daily coding assistance',
@@ -25,7 +27,7 @@ export const PricingSection: React.FC = () => {
     },
     {
       planName: 'Claude Max 40x',
-      priceInr: '₹8,999',
+      priceLabel: 'WhatsApp for Price',
       tokens: '40 Million Tokens',
       allocation: '40M / 5h Window',
       tagline: 'Best value for heavy IDE power users & builders',
@@ -33,7 +35,7 @@ export const PricingSection: React.FC = () => {
     },
     {
       planName: 'Claude Max 100x',
-      priceInr: '₹19,999',
+      priceLabel: 'WhatsApp for Price',
       tokens: '100 Million Tokens',
       allocation: '100M / 5h Window',
       tagline: 'High volume allocation for full engineering squads',
@@ -52,10 +54,10 @@ export const PricingSection: React.FC = () => {
               Prepaid Token Packages
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-              Transparent Prepaid Token Pricing
+              Prepaid Token Packages & Pricing
             </h2>
             <p className="text-sm text-muted leading-relaxed">
-              Every key receives a 5-hour rolling token window that auto-resets on cycle. No recurring monthly subscriptions.
+              Every key receives a 5-hour rolling token window that auto-resets on cycle. Contact our WhatsApp help desk for instant key allocation & customized package deals.
             </p>
           </div>
 
@@ -105,9 +107,11 @@ export const PricingSection: React.FC = () => {
                       <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200">
                         {pkg.planName}
                       </span>
-                      <div className="mt-3 flex items-baseline gap-1">
-                        <span className="text-3xl font-extrabold text-fg font-mono">{pkg.priceInr}</span>
-                        <span className="text-xs text-muted font-sans">one-time</span>
+                      <div className="mt-3">
+                        <span className="text-base font-extrabold text-emerald-600 font-mono flex items-center gap-1.5">
+                          <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>WhatsApp for Pricing</span>
+                        </span>
                       </div>
                       <p className="text-xs text-muted mt-1.5 min-h-[32px]">{pkg.tagline}</p>
                     </div>
@@ -120,7 +124,7 @@ export const PricingSection: React.FC = () => {
                     <ul className="space-y-2 text-xs text-muted pt-2 border-t border-border/80">
                       <li className="flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-violet-600 shrink-0" />
-                        <span>Full 13 Claude Model Family</span>
+                        <span>Full Claude Model Family</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-3.5 h-3.5 text-violet-600 shrink-0" />
@@ -134,15 +138,19 @@ export const PricingSection: React.FC = () => {
                   </div>
 
                   <div className="pt-6">
-                    <Link
-                      to="/request-quote"
-                      className={`w-full justify-center text-xs py-2.5 font-bold gap-1.5 ${
-                        pkg.featured ? 'ui-button-primary' : 'ui-button-secondary'
+                    <a
+                      href={WHATSAPP_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`w-full justify-center text-xs py-2.5 font-bold gap-1.5 flex items-center rounded-control transition-all ${
+                        pkg.featured
+                          ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-md hover:brightness-110'
+                          : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/20'
                       }`}
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Get Package Key</span>
-                    </Link>
+                      <span>WhatsApp Us to Purchase</span>
+                    </a>
                   </div>
                 </div>
               </ThreeDCard>
@@ -158,7 +166,7 @@ export const PricingSection: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
                     <th className="py-3.5 px-4 font-bold">Package Tier</th>
-                    <th className="py-3.5 px-4 font-bold">Prepaid Price (INR)</th>
+                    <th className="py-3.5 px-4 font-bold">Pricing Policy</th>
                     <th className="py-3.5 px-4 font-bold">5-Hour Allowance</th>
                     <th className="py-3.5 px-4 font-bold">Context Window</th>
                     <th className="py-3.5 px-4 font-bold">IDE Tools Support</th>
@@ -169,14 +177,20 @@ export const PricingSection: React.FC = () => {
                   {tokenPackages.map((pkg) => (
                     <tr key={pkg.planName} className="hover:bg-subtle">
                       <td className="py-3.5 px-4 font-bold text-fg font-sans">{pkg.planName}</td>
-                      <td className="py-3.5 px-4 font-bold text-violet-700">{pkg.priceInr}</td>
+                      <td className="py-3.5 px-4 font-bold text-emerald-600">Contact on WhatsApp</td>
                       <td className="py-3.5 px-4 font-bold text-fg">{pkg.allocation}</td>
                       <td className="py-3.5 px-4 text-emerald-600 font-bold">1,000,000 Tokens</td>
                       <td className="py-3.5 px-4 text-muted font-sans">Claude Code, Cursor, Windsurf</td>
                       <td className="py-3.5 px-4 text-right">
-                        <Link to="/request-quote" className="ui-button-primary text-xs px-3 py-1.5 font-bold">
-                          Select
-                        </Link>
+                        <a
+                          href={WHATSAPP_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 font-bold rounded inline-flex items-center gap-1"
+                        >
+                          <span>WhatsApp</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </a>
                       </td>
                     </tr>
                   ))}
@@ -189,12 +203,18 @@ export const PricingSection: React.FC = () => {
         {/* Custom Enterprise Banner */}
         <div className="p-6 bg-bg border border-border rounded-panel flex flex-col sm:flex-row items-center justify-between gap-4 max-w-4xl mx-auto">
           <div>
-            <h4 className="text-sm font-bold text-fg">Need Claude Max 250x or Custom Enterprise Capacity?</h4>
+            <h4 className="text-sm font-bold text-fg">Need Custom Enterprise Capacity?</h4>
             <p className="text-xs text-muted mt-0.5">Custom enterprise allocations with dedicated upstream rate limits and SLA support.</p>
           </div>
-          <Link to="/request-quote" className="ui-button-primary text-xs py-2.5 px-5 whitespace-nowrap font-bold">
-            Contact Enterprise Sales
-          </Link>
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ui-button-primary text-xs py-2.5 px-5 whitespace-nowrap font-bold flex items-center gap-2"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Chat on WhatsApp</span>
+          </a>
         </div>
 
       </div>

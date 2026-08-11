@@ -63,6 +63,24 @@ export const QuoteRequestPage: React.FC = () => {
         </div>
 
         <div className="mt-8 bg-white border border-border rounded-panel p-6 sm:p-8 shadow-xs">
+          <div className="mb-6 p-4 rounded-control bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-sans">
+            <div>
+              <div className="font-bold text-emerald-700 text-xs flex items-center gap-1.5">
+                <Send className="w-4 h-4 text-emerald-600" />
+                <span>Need Instant Key Allocation on WhatsApp?</span>
+              </div>
+              <p className="text-[11px] text-muted mt-0.5">Chat directly with our engineering desk on WhatsApp for instant pricing & allocation.</p>
+            </div>
+            <a
+              href="https://wa.me/917980313066?text=Hi%20LightningDeals!%20I%20want%20to%20request%20an%20API%20key%20package%20quote."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-control shrink-0 flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <span>WhatsApp Support</span>
+            </a>
+          </div>
+
           {submitted ? (
             <div className="text-center py-8 space-y-4">
               <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">

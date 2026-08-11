@@ -54,7 +54,7 @@ export const Footer: React.FC = () => {
               <li><Link to="/privacy" className="hover:text-violet-600">Privacy Policy</Link></li>
               <li><Link to="/refund" className="hover:text-violet-600">Refund Policy</Link></li>
               <li><Link to="/request-quote" className="hover:text-violet-600">Enterprise Sales</Link></li>
-              <li><a href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20need%20support%20with%20my%20API%20key." target="_blank" rel="noopener noreferrer" className="hover:text-violet-600">WhatsApp Help Desk</a></li>
+              <li><a href="https://wa.me/917980313066?text=Hi%20LightningDeals%20Team!%20I%20need%20support%20with%20my%20API%20key." target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 font-semibold text-emerald-700">WhatsApp Help Desk</a></li>
             </ul>
           </div>
 

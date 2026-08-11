@@ -141,7 +141,7 @@ export async function handleSystemStatus(req: Request, res: Response) {
     services: [
       { name: 'LightningDeals API Gateway', status: 'Operational', latency: '1ms' },
       { name: 'Database & Token Ledger Pool', status: dbOperational ? 'Operational' : 'Down', latency: `${dbLatencyMs}ms` },
-      { name: 'Upstream Vendor Connector', status: vendorConnected ? 'Operational' : 'Degraded', note: primaryVendor ? primaryVendor.name : 'Gateway Fallback Active' },
+      { name: 'Upstream Vendor Connector', status: vendorConnected ? 'Operational' : 'Degraded', note: primaryVendor ? 'Authoritative Upstream Provider Cluster' : 'Gateway Fallback Active' },
       { name: 'Trial Anti-Abuse Risk Engine', status: 'Operational' },
     ],
   });

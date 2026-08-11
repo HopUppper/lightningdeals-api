@@ -243,7 +243,7 @@ export const AdminRequests: React.FC = () => {
                     <div className="mt-2 p-2.5 bg-red-950/40 rounded border border-red-500/30 text-[11px] font-sans text-fg">
                       <span className="font-bold text-red-400">💡 Diagnostic Guidance:</span>{' '}
                       {selectedRequest.statusCode === 503
-                        ? 'The upstream vendor cluster (ScaleMax/Anthropic) experienced a temporary 503 capacity outage. Requests automatically retry or route to backup vendor.'
+                        ? 'The upstream vendor cluster experienced a temporary 503 capacity outage. Requests automatically retry or route to backup vendor.'
                         : selectedRequest.statusCode === 429
                         ? 'Customer API Key reached its 5-hour rolling token allowance or RPM limit.'
                         : selectedRequest.statusCode === 400

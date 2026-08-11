@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, BookOpen, Layers, LifeBuoy, CheckCircle2, ShieldCheck, Zap, Server } from 'lucide-react';
+import { Activity, BookOpen, Layers, LifeBuoy, CheckCircle2, ShieldCheck, Zap, Server, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const TrustEvidence: React.FC = () => {
@@ -36,11 +36,11 @@ export const TrustEvidence: React.FC = () => {
   const systemState = statusLoading
     ? 'Checking...'
     : statusError || !systemStatus?.status
-    ? 'Status Unavailable'
+    ? 'Unavailable'
     : systemStatus.status === 'OPERATIONAL'
     ? 'Operational'
     : systemStatus.status === 'DEGRADED'
-    ? 'Degraded Performance'
+    ? 'Degraded'
     : 'Offline';
 
   const activeKeysCount = statusLoading
@@ -52,13 +52,11 @@ export const TrustEvidence: React.FC = () => {
   const stats = [
     { label: 'Gateway Status', value: systemState, subtext: 'Live Service SLA' },
     { label: 'Database Latency', value: dbLatency, subtext: 'Real Query Time' },
-    { label: 'Active Allocation Keys', value: activeKeysCount, subtext: 'Live System Total' },
+    { label: 'Active Keys', value: activeKeysCount, subtext: 'Live System Total' },
     { label: 'CLI Onboarding', value: '1 Command', subtext: 'npx lightningdeals' },
   ];
 
-
   const items = [
-
     {
       title: 'Live Gateway Status',
       desc: 'Real-time database, API proxy, and vendor health checks',
@@ -93,8 +91,8 @@ export const TrustEvidence: React.FC = () => {
     <section id="status" className="border-b border-border bg-card/40 py-16 sm:py-24 relative overflow-hidden" aria-labelledby="evidence-title">
       <div className="mx-auto max-w-page px-5 sm:px-6 space-y-12 relative z-10">
         
-        {/* Section Header */}
-        <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
+        {/* Section Header & Ticker Cards */}
+        <div className="grid gap-8 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -113,8 +111,8 @@ export const TrustEvidence: React.FC = () => {
             </p>
           </motion.div>
 
-          {/* Stats Metric Ticker Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {/* Stats Metric Ticker Grid - Fixed spacing & fitted text */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {stats.map((s, idx) => (
               <motion.div
                 key={s.label}
@@ -123,11 +121,15 @@ export const TrustEvidence: React.FC = () => {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: idx * 0.1 }}
                 whileHover={{ y: -3 }}
-                className="bg-bg border border-border/80 p-4 rounded-panel text-center space-y-1 hover:border-amber-500/40 transition-all shadow-md"
+                className="bg-bg border border-border/80 p-3.5 sm:p-4 rounded-panel text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xs overflow-hidden min-w-0"
               >
-                <p className="text-xl sm:text-2xl font-extrabold font-mono text-amber-500">{s.value}</p>
-                <p className="text-xs font-bold text-fg">{s.label}</p>
-                <p className="text-[10px] font-mono text-muted">{s.subtext}</p>
+                <div className="min-h-[32px] flex items-center justify-center">
+                  <p className="text-sm sm:text-base font-bold font-mono text-amber-500 truncate tracking-tight w-full">{s.value}</p>
+                </div>
+                <div className="mt-1 border-t border-border/40 pt-1.5">
+                  <p className="text-xs font-bold text-fg leading-tight truncate">{s.label}</p>
+                  <p className="text-[10px] font-mono text-muted mt-0.5 truncate">{s.subtext}</p>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -148,20 +150,22 @@ export const TrustEvidence: React.FC = () => {
                 whileHover={{ scale: 1.01, y: -2 }}
                 className="bg-bg/90 border border-border/80 p-5 rounded-panel flex items-center justify-between gap-4 hover:border-amber-500/50 hover:shadow-lg transition-all group backdrop-blur-sm"
               >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 shrink-0 group-hover:scale-110 transition-transform">
-                    <IconComp className="h-5 w-5" />
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-10 h-10 rounded-control bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
+                    <IconComp className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-fg group-hover:text-amber-400 transition-colors">{item.title}</h3>
-                    <p className="text-xs text-muted truncate mt-0.5">{item.desc}</p>
+                    <h3 className="text-sm font-bold text-fg group-hover:text-amber-500 transition-colors truncate">{item.title}</h3>
+                    <p className="text-xs text-muted leading-relaxed line-clamp-1 mt-0.5">{item.desc}</p>
                   </div>
                 </div>
 
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-bold font-mono text-emerald-500 shrink-0">
-                  <CheckCircle2 className="h-3 w-3" />
-                  {item.badge}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                    {item.badge}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-muted group-hover:text-amber-500 transition-colors" />
+                </div>
               </motion.a>
             );
           })}

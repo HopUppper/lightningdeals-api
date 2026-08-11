@@ -418,7 +418,7 @@ export const AdminProviders: React.FC = () => {
         )}
 
         {syncResult && (
-          <div className={`p-3.5 rounded-control border text-xs font-mono flex items-center justify-between gap-3 ${
+          <div className={`p-3.5 rounded-control border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
             syncResult.synced ? 'bg-blue-500/5 border-blue-500/30 text-blue-700' : 'bg-amber-500/5 border-amber-500/30 text-amber-700'
           }`}>
             <div className="flex items-center gap-2">
@@ -426,10 +426,24 @@ export const AdminProviders: React.FC = () => {
               <span>
                 {syncResult.synced
                   ? `✅ Vendor balance synced! Total: ${formatTokens(syncResult.balance?.totalTokens || '0')}, Available: ${formatTokens(syncResult.balance?.availableTokens || '0')}, Used: ${formatTokens(syncResult.balance?.usedTokens || '0')} (source: ${syncResult.balance?.source || 'vendor API'})`
-                  : `⚠️ ${syncResult.message || 'Could not auto-detect vendor balance endpoint. Use Top-Up to set manually.'}`}
+                  : `⚠️ ${syncResult.message || 'Could not auto-detect vendor balance endpoint. Click Set Balance to initialize master capacity.'}`}
               </span>
             </div>
-            <button onClick={() => setSyncResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              {!syncResult.synced && (
+                <button
+                  onClick={() => {
+                    setTopUpReference('INITIAL_VENDOR_PRELOAD');
+                    setTopUpNotes('Master token balance provided by ScaleMax upstream provider');
+                    setShowTopUpModal(true);
+                  }}
+                  className="px-2.5 py-1 rounded text-xs font-bold bg-amber-600 text-white hover:bg-amber-700 font-sans"
+                >
+                  Set Master Balance Now
+                </button>
+              )}
+              <button onClick={() => setSyncResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
+            </div>
           </div>
         )}
       </div>

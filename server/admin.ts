@@ -396,19 +396,26 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
       'Authorization': `Bearer ${masterKey}`,
     };
 
-    // Probe multiple common balance/usage/credits endpoints
+    // Probe multiple common balance/usage/credits endpoints & inspect response headers
     const endpointsToTry = [
       { path: '/v1/usage', headers: bothHeaders },
       { path: '/v1/credits', headers: bothHeaders },
       { path: '/v1/balance', headers: bothHeaders },
       { path: '/v1/account', headers: bothHeaders },
       { path: '/v1/account/balance', headers: bothHeaders },
-      { path: '/v1/billing/credits', headers: bothHeaders },
+      { path: '/v1/user/self', headers: bothHeaders },
+      { path: '/api/user/self', headers: bothHeaders },
+      { path: '/v1/user/info', headers: bothHeaders },
+      { path: '/v1/me', headers: bothHeaders },
+      { path: '/api/me', headers: bothHeaders },
       { path: '/v1/key/info', headers: bothHeaders },
       { path: '/v1/key/balance', headers: bothHeaders },
+      { path: '/v1/billing/credits', headers: bothHeaders },
+      { path: '/v1/dashboard/billing/credit_grants', headers: bothHeaders },
       { path: '/api/balance', headers: bothHeaders },
       { path: '/api/credits', headers: bothHeaders },
       { path: '/api/usage', headers: bothHeaders },
+      { path: '/v1/models', headers: bothHeaders },
     ];
 
     let vendorBalance: {
@@ -419,7 +426,7 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
       endpoint?: string;
     } | null = null;
 
-    const probeResults: Array<{ path: string; status: number; body?: any }> = [];
+    const probeResults: Array<{ path: string; status: number; body?: any; headers?: Record<string, string> }> = [];
 
     for (const ep of endpointsToTry) {
       try {
@@ -430,8 +437,16 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
 
         const status = upstreamRes.status;
 
+        // Capture interesting balance headers
+        const resHeaders: Record<string, string> = {};
+        upstreamRes.headers.forEach((v, k) => {
+          if (k.toLowerCase().includes('token') || k.toLowerCase().includes('balance') || k.toLowerCase().includes('credit') || k.toLowerCase().includes('limit') || k.toLowerCase().includes('remaining')) {
+            resHeaders[k] = v;
+          }
+        });
+
         if (status === 404 || status === 405) {
-          probeResults.push({ path: ep.path, status });
+          probeResults.push({ path: ep.path, status, headers: resHeaders });
           continue;
         }
 
@@ -443,7 +458,18 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
           body = { rawText: text };
         }
 
-        probeResults.push({ path: ep.path, status, body });
+        probeResults.push({ path: ep.path, status, body, headers: resHeaders });
+
+        // Check response headers first
+        for (const [hk, hv] of Object.entries(resHeaders)) {
+          const num = Number(hv);
+          if (!isNaN(num) && num > 0) {
+            if (hk.includes('remaining') || hk.includes('balance')) {
+              vendorBalance = { remainingTokens: num, endpoint: `${ep.path} (Header: ${hk})` };
+              break;
+            }
+          }
+        }
 
         if (status === 200 && body && !vendorBalance) {
           // Try to extract balance from various response formats
@@ -468,6 +494,10 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
           if (body.tokens_used !== undefined) b.usedTokens = Number(body.tokens_used);
           if (body.tokens_remaining !== undefined) b.remainingTokens = Number(body.tokens_remaining);
 
+          // Format: { quota, remaining_quota }
+          if (body.quota !== undefined) b.totalTokens = Number(body.quota);
+          if (body.remaining_quota !== undefined) b.remainingTokens = Number(body.remaining_quota);
+
           // Format: { data: { total, used, remaining } }
           if (body.data) {
             if (body.data.total !== undefined) b.totalTokens = Number(body.data.total);
@@ -479,6 +509,7 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
             if (body.data.balance !== undefined) b.remainingTokens = Number(body.data.balance);
             if (body.data.token_limit !== undefined) b.totalTokens = Number(body.data.token_limit);
             if (body.data.tokens_remaining !== undefined) b.remainingTokens = Number(body.data.tokens_remaining);
+            if (body.data.quota !== undefined) b.totalTokens = Number(body.data.quota);
           }
 
           // If we extracted any numeric balance info, use it

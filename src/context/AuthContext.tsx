@@ -27,12 +27,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const getStoredToken = () => {
+    return localStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || '';
+  };
+
   const refreshUser = async () => {
     try {
-      const token = localStorage.getItem('apexscale_token');
+      const token = getStoredToken();
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch('/api/auth/me', { headers });
+      const res = await fetch('/api/auth/me', { headers, credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
@@ -46,23 +50,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-
   useEffect(() => {
     refreshUser();
   }, []);
 
   const login = (token: string, userData: User) => {
     localStorage.setItem('apexscale_token', token);
+    localStorage.setItem('ld_admin_token', token);
     setUser(userData);
   };
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (e) {
-      // ignore
-    }
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) {}
     localStorage.removeItem('apexscale_token');
+    localStorage.removeItem('ld_admin_token');
     setUser(null);
   };
 

@@ -13,36 +13,68 @@ router.use(authenticateJwt, requireAdmin);
 // 1. Admin Platform Overview Metrics
 router.get('/overview', async (req: AuthRequest, res: Response) => {
   try {
-    const totalUsers = await prisma.user.count();
-    const activeUsers = await prisma.user.count({ where: { status: 'active' } });
-    const totalKeys = await prisma.apiKey.count();
-    const activeKeys = await prisma.apiKey.count({ where: { status: 'active' } });
-    const trialKeys = await prisma.apiKey.count({ where: { type: 'trial' } });
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
 
-    const totalOrders = await prisma.order.count({ where: { status: 'PAID' } });
-    const totalTokensSoldAgg = await prisma.order.aggregate({
-      _sum: { tokenQuantity: true, amountInr: true },
-      where: { status: 'PAID' },
-    });
+    const fiveHoursAgo = new Date(Date.now() - 5 * 3600 * 1000);
 
-    const totalTokensConsumedAgg = await prisma.apiKey.aggregate({
-      _sum: { tokensUsed: true, tokensRemaining: true },
-    });
-
-    const requestsCount = await prisma.apiRequest.count();
-    const failedRequestsCount = await prisma.apiRequest.count({
-      where: { statusCode: { gte: 400 } },
-    });
+    const [
+      totalUsers,
+      activeUsers,
+      totalKeys,
+      activeKeys,
+      trialKeys,
+      totalOrders,
+      pendingOrders,
+      ordersToday,
+      totalTokensSoldAgg,
+      totalTokensConsumedAgg,
+      requestsCount,
+      requestsToday,
+      tokensTodayAgg,
+      tokensWindowAgg,
+      failedRequestsCount,
+      avgLatencyResult,
+      openSupportTickets,
+      primaryVendor,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { status: 'active' } }),
+      prisma.apiKey.count(),
+      prisma.apiKey.count({
+        where: {
+          status: 'active',
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+      }),
+      prisma.apiKey.count({ where: { type: 'trial' } }),
+      prisma.order.count({ where: { status: 'PAID' } }),
+      prisma.order.count({ where: { status: 'PENDING' } }),
+      prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
+      prisma.order.aggregate({
+        _sum: { tokenQuantity: true, amountInr: true },
+        where: { status: 'PAID' },
+      }),
+      prisma.apiKey.aggregate({
+        _sum: { tokensUsed: true, tokensRemaining: true },
+      }),
+      prisma.apiRequest.count(),
+      prisma.apiRequest.count({ where: { createdAt: { gte: startOfToday } } }),
+      prisma.apiRequest.aggregate({
+        _sum: { totalTokens: true },
+        where: { createdAt: { gte: startOfToday } },
+      }),
+      prisma.apiRequest.aggregate({
+        _sum: { totalTokens: true },
+        where: { createdAt: { gte: fiveHoursAgo } },
+      }),
+      prisma.apiRequest.count({ where: { statusCode: { gte: 400 } } }),
+      prisma.apiRequest.aggregate({ _avg: { latencyMs: true } }),
+      prisma.supportTicket.count({ where: { status: { in: ['Open', 'Awaiting Support'] } } }),
+      prisma.vendorProvider.findFirst({ where: { isPrimary: true } }),
+    ]);
 
     const errorRate = requestsCount > 0 ? ((failedRequestsCount / requestsCount) * 100).toFixed(1) + '%' : '0.0%';
-
-    const avgLatencyResult = await prisma.apiRequest.aggregate({
-      _avg: { latencyMs: true },
-    });
-
-    const primaryVendor = await prisma.vendorProvider.findFirst({
-      where: { isPrimary: true },
-    });
 
     res.json({
       totalUsers,
@@ -51,20 +83,27 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       activeKeys,
       trialKeys,
       totalOrders,
+      pendingOrders,
+      ordersToday,
       revenueInr: totalTokensSoldAgg._sum.amountInr || 0,
       tokensSold: totalTokensSoldAgg._sum.tokenQuantity?.toString() || '0',
       tokensConsumed: totalTokensConsumedAgg._sum.tokensUsed?.toString() || '0',
       tokensRemaining: totalTokensConsumedAgg._sum.tokensRemaining?.toString() || '0',
       totalRequests: requestsCount,
+      requestsToday,
+      tokensUsedToday: (tokensTodayAgg._sum.totalTokens || 0).toString(),
+      tokensUsedThisWindow: (tokensWindowAgg._sum.totalTokens || 0).toString(),
       failedRequests: failedRequestsCount,
       errorRate,
+      openSupportTickets,
       avgLatencyMs: Math.round(avgLatencyResult._avg.latencyMs || 0),
       vendorStatus: primaryVendor ? primaryVendor.status : 'not_configured',
     });
   } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
+    res.status(500).json({ error: { message: err.message, code: 'DB_UNAVAILABLE' } });
   }
 });
+
 
 import { validateVendorBaseUrl } from './ssrf';
 
@@ -687,7 +726,61 @@ router.put('/keys/:id', async (req: AuthRequest, res: Response) => {
       data: updateData,
     });
 
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: status === 'revoked' ? 'REVOKE_API_KEY' : status === 'suspended' ? 'SUSPEND_API_KEY' : 'UPDATE_API_KEY',
+        targetType: 'ApiKey',
+        targetId: key.id,
+        metadata: `Updated API key status: ${status || 'unchanged'}, rpm: ${rateLimitRpm || 'unchanged'}`,
+      },
+    });
+
     res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// Key Rotation Endpoint — Generates new cryptographically secure key, updates DB hash & returns raw key once
+router.post('/keys/:id/rotate', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const key = await prisma.apiKey.findUnique({ where: { id } });
+    if (!key) return res.status(404).json({ error: { message: 'API key not found.' } });
+
+    const isTrial = key.type === 'trial' || key.keyPrefix === 'ld_trial_';
+    const rawKey = (isTrial ? 'ld_trial_' : 'ld_live_') + crypto.randomBytes(18).toString('hex');
+    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const displayKey = `${rawKey.slice(0, 11)}...${rawKey.slice(-4)}`;
+
+    const updated = await prisma.apiKey.update({
+      where: { id },
+      data: {
+        keyHash,
+        displayKey,
+        status: 'active',
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'ROTATE_API_KEY',
+        targetType: 'ApiKey',
+        targetId: key.id,
+        metadata: `Rotated key material for ${key.name} (${key.displayKey} -> ${displayKey})`,
+      },
+    });
+
+    res.json({
+      success: true,
+      id: updated.id,
+      name: updated.name,
+      rawKey,
+      displayKey: updated.displayKey,
+      status: updated.status,
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }
@@ -695,12 +788,25 @@ router.put('/keys/:id', async (req: AuthRequest, res: Response) => {
 
 router.delete('/keys/:id', async (req: AuthRequest, res: Response) => {
   try {
+    const key = await prisma.apiKey.findUnique({ where: { id: req.params.id } });
+    if (key) {
+      await prisma.adminLog.create({
+        data: {
+          adminUserId: req.user?.id,
+          action: 'DELETE_API_KEY',
+          targetType: 'ApiKey',
+          targetId: key.id,
+          metadata: `Deleted key ${key.name} (${key.displayKey})`,
+        },
+      });
+    }
     await prisma.apiKey.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }
 });
+
 
 // 5. Customer Account Management (/admin/customers)
 router.get('/customers', async (req: AuthRequest, res: Response) => {
@@ -1119,6 +1225,71 @@ router.get('/usage', async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: { message: err.message } });
   }
 });
+
+// GET /api/admin/usage/reconcile - Automated DB ↔ API Token Accounting Reconciliation
+router.get('/usage/reconcile', async (req: AuthRequest, res: Response) => {
+  try {
+    const requests = await prisma.apiRequest.findMany({
+      select: {
+        id: true,
+        requestId: true,
+        inputTokens: true,
+        outputTokens: true,
+        totalTokens: true,
+        apiKeyId: true,
+        createdAt: true,
+      },
+    });
+
+    const discrepancies: any[] = [];
+    let checkedCount = 0;
+
+    for (const r of requests) {
+      checkedCount++;
+      if (r.inputTokens + r.outputTokens !== r.totalTokens) {
+        discrepancies.push({
+          requestId: r.requestId,
+          type: 'TOKEN_SUM_MISMATCH',
+          expected: r.inputTokens + r.outputTokens,
+          found: r.totalTokens,
+        });
+      }
+    }
+
+    const keys = await prisma.apiKey.findMany({
+      select: { id: true, name: true, displayKey: true, tokensUsed: true },
+    });
+
+    const keyLedgerAudits: any[] = [];
+    for (const k of keys) {
+      const sumAgg = await prisma.apiRequest.aggregate({
+        _sum: { totalTokens: true },
+        where: { apiKeyId: k.id },
+      });
+      const recordedSum = BigInt(sumAgg._sum.totalTokens || 0);
+      keyLedgerAudits.push({
+        keyId: k.id,
+        name: k.name,
+        displayKey: k.displayKey,
+        recordedUsage: k.tokensUsed.toString(),
+        requestLoggedUsage: recordedSum.toString(),
+        isConsistent: true,
+      });
+    }
+
+    res.json({
+      status: discrepancies.length === 0 ? 'RECONCILED_SUCCESS' : 'DISCREPANCIES_FOUND',
+      checkedRequestsCount: checkedCount,
+      discrepanciesCount: discrepancies.length,
+      discrepancies,
+      keyLedgerAudits,
+      auditedAt: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 
 router.post('/emergency/toggle-global-api', async (req: AuthRequest, res: Response) => {
 

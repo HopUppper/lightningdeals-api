@@ -194,11 +194,38 @@ export const AdminKeys: React.FC = () => {
     }
   };
 
+  const handleRotateKey = async (key: any) => {
+    if (!confirm(`Are you sure you want to rotate key "${key.name}"? The previous key secret will be permanently invalidated.`)) return;
+    setSubmitting(true);
+    setCreatedRawKey(null);
+    setModalError(null);
+
+    try {
+      const res = await fetch(`/api/admin/keys/${key.id}/rotate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok && data.rawKey) {
+        setCreatedRawKey(data.rawKey);
+        setShowCreateModal(true);
+        fetchKeys();
+      } else {
+        alert(data.error?.message || 'Failed to rotate API key.');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Network error rotating API key.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
   };
+
 
   const formatTokens = (val: number) => {
     if (val >= 1000000000) return `${(val / 1000000000).toFixed(2)}B`;
@@ -327,7 +354,7 @@ export const AdminKeys: React.FC = () => {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleInspectUsage(k)}
-                          className="px-2 py-1 rounded text-[10px] font-semibold border border-amber-500/40 text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 flex items-center gap-1"
+                          className="px-2 py-1 rounded text-[10px] font-semibold border border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 flex items-center gap-1"
                           title="Inspect 20 latest requests and model token usage"
                         >
                           <Activity className="w-3 h-3" />
@@ -335,29 +362,44 @@ export const AdminKeys: React.FC = () => {
                         </button>
 
                         <button
-                          onClick={() => handleUpdateKey(k.id, { resetWindow: true })}
-                          className="px-2 py-1 rounded text-[10px] font-semibold border border-border bg-bg hover:bg-card text-muted hover:text-fg"
-                          title="Reset 5-hour rolling usage window"
+                          onClick={() => handleRotateKey(k)}
+                          className="px-2 py-1 rounded text-[10px] font-semibold border border-violet-200 bg-white hover:bg-violet-50 text-violet-700 font-mono"
+                          title="Generate new cryptographically secure key material"
                         >
-                          Reset Window
+                          Rotate
                         </button>
 
                         <button
                           onClick={() => handleUpdateKey(k.id, { status: k.status === 'active' ? 'suspended' : 'active' })}
-                          className="px-2 py-1 rounded text-[10px] font-semibold border border-border bg-bg hover:bg-card text-fg"
+                          className="px-2 py-1 rounded text-[10px] font-semibold border border-border bg-white hover:bg-subtle text-fg"
                         >
                           {k.status === 'active' ? 'Suspend' : 'Activate'}
                         </button>
 
+                        {k.status !== 'revoked' && (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Revoke key "${k.name}"? This action cannot be undone.`)) {
+                                handleUpdateKey(k.id, { status: 'revoked' });
+                              }
+                            }}
+                            className="px-2 py-1 rounded text-[10px] font-semibold border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                            title="Permanently revoke key"
+                          >
+                            Revoke
+                          </button>
+                        )}
+
                         <button
                           onClick={() => handleDeleteKey(k.id)}
-                          className="p-1 rounded text-muted hover:text-red-500 hover:bg-red-500/10"
-                          title="Delete key"
+                          className="p-1 rounded text-muted hover:text-red-600 hover:bg-red-50"
+                          title="Delete key record"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
+
                   </tr>
                 ))}
               </tbody>

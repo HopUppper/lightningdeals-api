@@ -68,6 +68,23 @@ export const AdminUsage: React.FC = () => {
     return num.toLocaleString();
   };
 
+  const [reconciliationResult, setReconciliationResult] = useState<any>(null);
+  const [reconciling, setReconciling] = useState(false);
+
+  const handleReconcileUsage = async () => {
+    setReconciling(true);
+    try {
+      const res = await fetch('/api/admin/usage/reconcile');
+      if (res.ok) {
+        setReconciliationResult(await res.json());
+      }
+    } catch (e: any) {
+      console.error(e);
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -85,6 +102,15 @@ export const AdminUsage: React.FC = () => {
             <span className="text-[11px] font-mono text-muted">Last updated: {lastUpdated}</span>
           )}
           <button
+            onClick={handleReconcileUsage}
+            disabled={reconciling}
+            className="px-3 py-1.5 text-xs bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 rounded-control flex items-center gap-1.5 font-mono shadow-xs font-bold"
+            title="Perform server-side token settlement audit check"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>{reconciling ? 'Auditing...' : 'Reconcile Tokens'}</span>
+          </button>
+          <button
             onClick={loadUsageData}
             className="px-3 py-1.5 text-xs bg-white border border-border hover:bg-subtle text-fg rounded-control flex items-center gap-1.5 font-mono shadow-xs"
           >
@@ -93,6 +119,14 @@ export const AdminUsage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {reconciliationResult && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-panel text-xs text-emerald-800 font-mono space-y-1">
+          <p className="font-bold">✓ Token Settlement Audit Completed ({reconciliationResult.auditedAt})</p>
+          <p>Scanned {reconciliationResult.checkedRequestsCount} requests across {reconciliationResult.keyLedgerAudits?.length || 0} API keys. Discrepancies found: {reconciliationResult.discrepanciesCount}.</p>
+        </div>
+      )}
+
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-control text-xs text-red-700 font-mono flex items-center gap-2">

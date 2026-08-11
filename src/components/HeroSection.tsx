@@ -81,13 +81,13 @@ export const HeroSection: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-wrap items-center gap-3 pt-2"
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 w-full sm:w-auto"
             >
-              <Link to="/trial" className="ui-button-primary text-sm px-6 py-3 font-bold gap-2">
+              <Link to="/trial" className="ui-button-primary text-sm px-6 py-3.5 font-bold gap-2 justify-center w-full sm:w-auto text-center shadow-md">
                 <span>Claim Free 1M Token Trial</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link to="/docs" className="ui-button-secondary text-sm px-6 py-3 font-semibold gap-2">
+              <Link to="/docs" className="ui-button-secondary text-sm px-6 py-3.5 font-semibold gap-2 justify-center w-full sm:w-auto text-center">
                 <span>Read Setup Guide</span>
               </Link>
             </motion.div>

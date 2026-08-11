@@ -111,15 +111,15 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-x-0 top-16 h-[calc(100vh-4rem)] z-[100] flex flex-col bg-white/95 backdrop-blur-xl border-b border-border p-6 overflow-y-auto lg:hidden shadow-2xl">
-          <div className="flex flex-col gap-1 border-b border-border pb-6">
+        <div className="fixed inset-x-0 top-16 h-[calc(100vh-4rem)] z-[100] flex flex-col bg-white/95 backdrop-blur-2xl border-b border-border p-6 overflow-y-auto lg:hidden shadow-2xl font-sans">
+          <div className="flex flex-col gap-1 border-b border-border/80 pb-6">
             {navLinks.map((link) => (
               link.isPage ? (
                 <Link
                   key={link.name}
                   to={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between py-3 text-base font-semibold text-fg hover:text-violet-600 border-b border-border/40 last:border-0"
+                  className="flex items-center justify-between py-3.5 px-3 text-base font-semibold text-fg hover:text-violet-600 hover:bg-violet-50/60 rounded-control transition-colors border-b border-border/30 last:border-0"
                 >
                   <span>{link.name}</span>
                   <ArrowRight className="h-4 w-4 text-muted" />
@@ -129,7 +129,7 @@ export const Navbar: React.FC = () => {
                   key={link.name}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between py-3 text-base font-semibold text-fg hover:text-violet-600 border-b border-border/40 last:border-0"
+                  className="flex items-center justify-between py-3.5 px-3 text-base font-semibold text-fg hover:text-violet-600 hover:bg-violet-50/60 rounded-control transition-colors border-b border-border/30 last:border-0"
                 >
                   <span>{link.name}</span>
                   <ArrowRight className="h-4 w-4 text-muted" />
@@ -142,10 +142,21 @@ export const Navbar: React.FC = () => {
             <Link
               to="/trial"
               onClick={() => setMobileMenuOpen(false)}
-              className="ui-button-primary w-full justify-center text-center text-sm font-bold py-3"
+              className="ui-button-primary w-full justify-center text-center text-sm font-bold py-3.5 shadow-md"
             >
-              Claim Free Trial Key (1M Tokens)
+              <Sparkles className="w-4 h-4" />
+              <span>Claim Free Trial Key (1M Tokens)</span>
             </Link>
+
+            <a
+              href="https://wa.me/917695956938?text=Hi%20LightningDeals!%20I%20need%20assistance%20with%20API%20keys."
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMobileMenuOpen(false)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white w-full justify-center text-center text-sm font-bold py-3.5 rounded-control flex items-center gap-2 shadow-sm"
+            >
+              <span>WhatsApp Support (+91 7695956938)</span>
+            </a>
           </div>
         </div>
       )}

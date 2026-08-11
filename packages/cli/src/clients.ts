@@ -20,40 +20,70 @@ export const getClientTargets = (): ClientTarget[] => {
 
   const targets = [
     {
-      id: 'claude-code',
-      name: 'Claude Code CLI',
-      configPath: path.join(home, '.claude', 'settings.json'),
+      id: 'codex',
+      name: 'Codex',
+      configPath: path.join(home, '.codex', 'settings.json'),
     },
     {
       id: 'cursor',
-      name: 'Cursor IDE',
+      name: 'Cursor',
       configPath: isWin
         ? path.join(appData, 'Cursor', 'User', 'settings.json')
         : path.join(home, 'Library', 'Application Support', 'Cursor', 'User', 'settings.json'),
     },
     {
-      id: 'windsurf',
-      name: 'Windsurf Editor',
-      configPath: isWin
-        ? path.join(appData, 'Windsurf', 'User', 'settings.json')
-        : path.join(home, '.codeium', 'windsurf', 'settings.json'),
-    },
-    {
-      id: 'vscode',
-      name: 'VS Code',
-      configPath: isWin
-        ? path.join(appData, 'Code', 'User', 'settings.json')
-        : path.join(home, 'Library', 'Application Support', 'Code', 'User', 'settings.json'),
+      id: 'roo-code',
+      name: 'Roo Code (VS Code)',
+      configPath: path.join(home, '.roo', 'settings.json'),
     },
     {
       id: 'cline',
-      name: 'Cline (VS Code Extension)',
+      name: 'Cline',
       configPath: path.join(home, '.cline', 'settings.json'),
     },
     {
-      id: 'roo-code',
-      name: 'Roo Code',
-      configPath: path.join(home, '.roo', 'settings.json'),
+      id: 'continue',
+      name: 'Continue (VS Code)',
+      configPath: path.join(home, '.continue', 'config.json'),
+    },
+    {
+      id: 'trae-solo',
+      name: 'TRAE SOLO',
+      configPath: isWin
+        ? path.join(appData, 'Trae', 'User', 'settings.json')
+        : path.join(home, '.trae', 'settings.json'),
+    },
+    {
+      id: 'claude-code',
+      name: 'Claude Code',
+      configPath: path.join(home, '.claude', 'settings.json'),
+    },
+    {
+      id: 'opencode',
+      name: 'OpenCode',
+      configPath: path.join(home, '.opencode', 'config.json'),
+    },
+    {
+      id: 'openclaw',
+      name: 'OpenClaw',
+      configPath: path.join(home, '.openclaw', 'config.json'),
+    },
+    {
+      id: 'hermes',
+      name: 'Hermes',
+      configPath: path.join(home, '.hermes', 'config.json'),
+    },
+    {
+      id: 'cherry-studio',
+      name: 'Cherry Studio',
+      configPath: isWin
+        ? path.join(appData, 'CherryStudio', 'config.json')
+        : path.join(home, '.cherrystudio', 'config.json'),
+    },
+    {
+      id: 'api-code',
+      name: 'API Code',
+      configPath: path.join(home, '.apicode', 'config.json'),
     },
   ];
 
@@ -85,16 +115,11 @@ export const getClientTargets = (): ClientTarget[] => {
   });
 };
 
-
 export const configureClient = (
   client: ClientTarget,
   apiKey: string,
   gatewayUrl: string = 'https://lightningapi.pro'
 ): { success: boolean; backupPath?: string; error?: string } => {
-
-
-
-
   try {
     const dir = path.dirname(client.configPath);
     if (!fs.existsSync(dir)) {
@@ -141,7 +166,6 @@ export const configureClient = (
 
       updatedData.env = cleanEnv;
     } else {
-
       updatedData['lightningdeals.apiKey'] = apiKey;
       updatedData['lightningdeals.baseUrl'] = gatewayUrl;
       updatedData['anthropic.baseUrl'] = gatewayUrl;

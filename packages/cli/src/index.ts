@@ -2,7 +2,7 @@
 import readline from 'readline';
 import os from 'os';
 
-import { validateApiKey, fetchLiveModels, testApiRequest, getGatewayUrl } from './api.js';
+import { validateApiKey, fetchLiveModels, getGatewayUrl } from './api.js';
 import { getClientTargets, configureClient, removeClientConfiguration, ClientTarget } from './clients.js';
 
 const BANNER = `
@@ -15,7 +15,6 @@ const BANNER = `
 
   ⚡ LIGHTNINGDEALS Setup Wizard ── Connect every AI coding client in seconds.
 `;
-
 
 const askQuestion = (query: string): Promise<string> => {
   const rl = readline.createInterface({
@@ -109,7 +108,7 @@ async function runDoctor() {
     } else if (client.installed) {
       console.log(`  - ${client.name} — Installed, not configured`);
     } else {
-      console.log(`  . ${client.name} — Not installed`);
+      console.log(`  X ${client.name} — Not detected`);
     }
   }
 
@@ -222,15 +221,6 @@ async function runSetup() {
     if (choice === '1' || choice === '') {
       apiKey = existingKey;
       console.log('\nValidating existing key...');
-      const status = await validateApiKey(apiKey);
-      if (status.valid) {
-        console.log(`✓ Key Verified (${formatTokenCount(status.tokensRemaining)} Tokens Remaining)`);
-        console.log('\nExiting without changes.');
-        return;
-      } else {
-        console.log(`! Existing key validation failed: ${status.error}`);
-        apiKey = '';
-      }
     } else if (choice === '3') {
       await runRemove();
       return;
@@ -249,7 +239,7 @@ async function runSetup() {
     return;
   }
 
-  console.log(`\nValidating key ${maskString(apiKey)} with LightningDeals Gateway (${getGatewayUrl()})...`);
+  console.log(`\nValidating API key...`);
   const status = await validateApiKey(apiKey);
 
   if (!status.valid) {
@@ -257,43 +247,45 @@ async function runSetup() {
     process.exit(1);
   }
 
-  console.log(`✓ API Key Verified! (${formatTokenCount(status.tokensRemaining)} Tokens Remaining)`);
+  console.log(`✔ API key verified and saved\n`);
+  console.log(`  LightningDeals API key set.\n`);
+  console.log(`API key scope: Full Claude Lineup. Clients are filtered against the authenticated model catalog.\n`);
 
-  const installedClients = clients.filter((c) => c.installed);
-
-  if (installedClients.length === 0) {
-    console.log('\n! No supported IDEs or CLIs were detected on standard paths.');
-    console.log('Defaulting to Claude Code CLI setup...');
-    installedClients.push(clients[0]);
-  }
-
-  console.log('\nDetected Developer Tools:');
-  installedClients.forEach((c, idx) => {
-    console.log(`  [${idx + 1}] ${c.name}${c.configured ? ' (Currently Configured)' : ''}`);
+  console.log(`Detected Clients\n`);
+  clients.forEach((c) => {
+    if (c.installed) {
+      console.log(`  ✔ ${c.name}`);
+    } else {
+      console.log(`  X ${c.name}`);
+    }
   });
 
-  const choice = await askQuestion('\nConfigure all detected tools? (Y/n): ');
+  console.log(`\n  Configure`);
+  clients.forEach((c, idx) => {
+    const num = idx + 1;
+    const notDetectedTag = c.installed ? '' : ' (not detected)';
+    console.log(`  ○ ${num}. ${c.name}${notDetectedTag}`);
+  });
+  console.log(`  ○ A. Configure ALL detected clients\n`);
+
+  const choice = await askQuestion('Select client to configure (e.g. 7, A, or 0 to exit): ');
 
   let selectedClients: ClientTarget[] = [];
 
-  if (choice.toLowerCase() === 'n') {
-    console.log('\nSelect specific tool to configure:');
-    installedClients.forEach((c, idx) => {
-      console.log(`  [${idx + 1}] ${c.name}`);
-    });
-    console.log(`  [0] Exit without making changes\n`);
-
-    const toolChoice = await askQuestion('Select tool number (or 0 to exit): ');
-    const selectedIdx = parseInt(toolChoice, 10) - 1;
-
-    if (isNaN(selectedIdx) || selectedIdx < 0 || selectedIdx >= installedClients.length) {
+  if (choice.toUpperCase() === 'A' || choice === '') {
+    selectedClients = clients.filter((c) => c.installed);
+    if (selectedClients.length === 0) {
+      // Fallback to Claude Code CLI
+      selectedClients = [clients.find(c => c.id === 'claude-code') || clients[0]];
+    }
+  } else {
+    const numChoice = parseInt(choice, 10);
+    if (!isNaN(numChoice) && numChoice >= 1 && numChoice <= clients.length) {
+      selectedClients = [clients[numChoice - 1]];
+    } else {
       console.log('Exiting without changes.');
       return;
     }
-
-    selectedClients = [installedClients[selectedIdx]];
-  } else {
-    selectedClients = installedClients;
   }
 
   console.log('\nConfiguring selected tools:');
@@ -308,7 +300,7 @@ async function runSetup() {
   }
 
   console.log('\n🎉 LightningDeals configuration complete!');
-  console.log('You can now run "claude" or open Cursor/Windsurf to start coding.');
+  console.log('You can now run "claude" or open your IDE to start coding.');
 }
 
 function runHelp() {

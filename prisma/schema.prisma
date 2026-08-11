@@ -94,8 +94,9 @@ model VendorProvider {
   baseUrl                String              @default("https://api.anthropic.com")
   status                 String              @default("connected") // "connected" | "invalid_credential" | "ssrf_blocked" | "timeout" | "rate_limited" | "provider_error" | "disabled"
   isPrimary              Boolean             @default(true)
-  availableTokens        BigInt              @default(100000000)
-  purchasedTokens        BigInt              @default(100000000)
+  availableTokens        BigInt              @default(0)
+  purchasedTokens        BigInt              @default(0)
+
   consumedTokens         BigInt              @default(0)
   reservedTokens         BigInt              @default(0)
   warningThresholdTokens BigInt              @default(20000000)

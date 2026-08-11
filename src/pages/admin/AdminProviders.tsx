@@ -257,7 +257,10 @@ export const AdminProviders: React.FC = () => {
     return num.toLocaleString();
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, hasKey = true) => {
+    if (!hasKey) {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">⚪ NOT CONFIGURED</span>;
+    }
     const s = (status || '').toUpperCase();
     if (s === 'HEALTHY' || s === 'CONNECTED') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">● HEALTHY</span>;
@@ -268,10 +271,14 @@ export const AdminProviders: React.FC = () => {
     if (s === 'CRITICAL') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30 font-mono animate-pulse">🚨 CRITICAL</span>;
     }
+    if (s === 'NOT_CONFIGURED') {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">⚪ NOT CONFIGURED</span>;
+    }
     return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30">⛔ DEPLETED</span>;
   };
 
   const primaryProvider = providers.find((p) => p.isPrimary) || providers[0];
+  const primaryHasKey = Boolean(primaryProvider && primaryProvider.displayMasterKey && primaryProvider.displayMasterKey !== 'Not Set');
 
   return (
     <div className="space-y-6">
@@ -307,10 +314,10 @@ export const AdminProviders: React.FC = () => {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-bold text-fg font-mono">Vendor Master Token Balance</h2>
-              {getStatusBadge(balanceMetrics?.status || 'HEALTHY')}
+              {getStatusBadge(balanceMetrics?.status || primaryProvider?.status || 'NOT_CONFIGURED', primaryHasKey)}
             </div>
             <p className="text-xs text-muted mt-0.5">
-              Active Upstream Provider: <span className="font-semibold text-fg">{primaryProvider?.name || 'Anthropic Official Vendor'}</span> ({primaryProvider?.displayMasterKey || 'Not Set'})
+              Active Upstream Provider: <span className="font-semibold text-fg">{primaryProvider?.name || 'No Provider Configured'}</span> ({primaryProvider?.displayMasterKey || 'Not Set'})
             </p>
           </div>
 
@@ -328,7 +335,7 @@ export const AdminProviders: React.FC = () => {
           <div className="p-4 rounded-control bg-bg border border-border space-y-1">
             <p className="text-[11px] text-muted uppercase font-bold">Available Master Tokens</p>
             <p className="text-2xl font-bold text-emerald-600">
-              {formatTokens(balanceMetrics?.availableTokens || primaryProvider?.availableTokens || '100000000')}
+              {formatTokens(balanceMetrics?.availableTokens ?? primaryProvider?.availableTokens ?? 0)}
             </p>
             <p className="text-[10px] text-muted">Prepaid capacity available for customer completions</p>
           </div>
@@ -344,7 +351,7 @@ export const AdminProviders: React.FC = () => {
           <div className="p-4 rounded-control bg-bg border border-border space-y-1">
             <p className="text-[11px] text-muted uppercase font-bold font-mono">Consumed Upstream Tokens</p>
             <p className="text-2xl font-bold text-amber-600">
-              {formatTokens(balanceMetrics?.consumedTokens || primaryProvider?.consumedTokens || '0')}
+              {formatTokens(balanceMetrics?.consumedTokens ?? primaryProvider?.consumedTokens ?? 0)}
             </p>
             <p className="text-[10px] text-muted">Total tokens used by customer requests</p>
           </div>
@@ -352,11 +359,12 @@ export const AdminProviders: React.FC = () => {
           <div className="p-4 rounded-control bg-bg border border-border space-y-1">
             <p className="text-[11px] text-muted uppercase font-bold font-mono">Lifetime Purchased Tokens</p>
             <p className="text-2xl font-bold text-fg">
-              {formatTokens(balanceMetrics?.purchasedTokens || primaryProvider?.purchasedTokens || '100000000')}
+              {formatTokens(balanceMetrics?.purchasedTokens ?? primaryProvider?.purchasedTokens ?? 0)}
             </p>
             <p className="text-[10px] text-muted">Total master tokens topped up across {balanceMetrics?.topUpCount || 0} top-ups</p>
           </div>
         </div>
+
 
         {reconcileResult && (
           <div className={`p-3.5 rounded-control border text-xs font-mono flex items-center justify-between gap-3 ${

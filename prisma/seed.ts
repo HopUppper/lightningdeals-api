@@ -11,6 +11,18 @@ function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+function encryptText(text: string): string {
+  if (!text) return '';
+  const keyHex = process.env.ENCRYPTION_KEY || 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
+  const key = Buffer.from(keyHex, 'hex');
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+}
+
+
 async function main() {
   console.log('Seeding LightningDeals database...');
 
@@ -54,17 +66,23 @@ async function main() {
   });
 
   // 4. Default Upstream Vendor Provider
+  const defaultKey = process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
   const vendorProvider = await prisma.vendorProvider.create({
     data: {
-      name: 'Anthropic Official Vendor',
+      name: 'Primary Vendor Provider',
       providerType: 'anthropic',
+      protocol: 'anthropic',
       baseUrl: 'https://api.anthropic.com',
-      masterApiKeyEncrypted: process.env.ANTHROPIC_API_KEY || '',
-      status: 'connected',
+      masterApiKeyEncrypted: defaultKey ? encryptText(defaultKey) : '',
+      status: defaultKey ? 'connected' : 'disabled',
       isPrimary: true,
+      availableTokens: BigInt(0),
+      purchasedTokens: BigInt(0),
+      consumedTokens: BigInt(0),
       notes: 'Primary upstream vendor gateway for Claude models.',
     },
   });
+
 
   // 5. Token Packages (Claude Rolling Window Allocations)
   const packages = [

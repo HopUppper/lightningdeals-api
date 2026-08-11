@@ -25,24 +25,28 @@ export function releaseMasterReservation(requestId: string) {
 export async function checkMasterCapacity(providerId?: string, requiredTokens = 1000) {
   const provider = providerId
     ? await prisma.vendorProvider.findUnique({ where: { id: providerId } })
-    : await prisma.vendorProvider.findFirst({ where: { isPrimary: true, status: 'connected' } });
+    : await prisma.vendorProvider.findFirst({ where: { isPrimary: true } });
 
-  if (!provider) {
-    // If no explicit vendor provider is configured in DB, check if master key is fallback set
+  if (!provider || !provider.masterApiKeyEncrypted) {
     return {
-      available: true,
-      availableTokens: 100000000,
-      providerId: 'fallback',
-      status: 'HEALTHY',
+      available: false,
+      availableTokens: 0,
+      rawAvailableTokens: '0',
+      reservedTokens: 0,
+      providerId: provider?.id || 'none',
+      providerName: provider?.name || 'No Upstream Provider Configured',
+      status: 'NOT_CONFIGURED',
     };
   }
 
   const reservedNum = getActiveMasterReservations(provider.id);
   const availableNum = Number(provider.availableTokens) - reservedNum;
-  const isAvailable = availableNum >= requiredTokens;
+  const isAvailable = availableNum >= requiredTokens && provider.status !== 'disabled';
 
   let status = 'HEALTHY';
-  if (availableNum <= Number(provider.criticalThresholdTokens)) {
+  if (provider.status === 'disabled' || !provider.masterApiKeyEncrypted) {
+    status = 'NOT_CONFIGURED';
+  } else if (availableNum <= Number(provider.criticalThresholdTokens)) {
     status = availableNum <= 0 ? 'DEPLETED' : 'CRITICAL';
   } else if (availableNum <= Number(provider.warningThresholdTokens)) {
     status = 'WARNING';
@@ -58,6 +62,7 @@ export async function checkMasterCapacity(providerId?: string, requiredTokens = 
     status,
   };
 }
+
 
 export async function settleMasterUsage({
   providerId,

@@ -223,22 +223,69 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
         const reader = upstreamRes.body?.getReader();
         const decoder = new TextDecoder();
-        let fullContent = '';
+        let sseBuffer = '';
+        let reportedInputTokens: number | null = null;
+        let reportedOutputTokens: number | null = null;
+        let streamedCharsLength = 0;
 
         if (reader) {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            const chunk = decoder.decode(value);
-            fullContent += chunk;
+            const chunk = decoder.decode(value, { stream: true });
             res.write(chunk);
+            sseBuffer += chunk;
+
+            // Process SSE buffer line by line to extract exact provider token usage
+            const lines = sseBuffer.split('\n');
+            sseBuffer = lines.pop() || ''; // Keep incomplete trailing chunk in buffer
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith('data:')) {
+                const jsonStr = trimmed.slice(5).trim();
+                if (jsonStr && jsonStr !== '[DONE]') {
+                  try {
+                    const data = JSON.parse(jsonStr);
+                    // Anthropic message_start event: contains exact input_tokens & prompt cache tokens
+                    if (data.type === 'message_start' && data.message?.usage) {
+                      const u = data.message.usage;
+                      const inputBase = Number(u.input_tokens || 0);
+                      const cacheRead = Number(u.cache_read_input_tokens || 0);
+                      const cacheCreation = Number(u.cache_creation_input_tokens || 0);
+                      reportedInputTokens = inputBase + cacheRead + cacheCreation;
+                    }
+                    // Anthropic message_delta event: contains exact output_tokens
+                    if (data.type === 'message_delta' && data.usage?.output_tokens !== undefined) {
+                      reportedOutputTokens = Number(data.usage.output_tokens || 0);
+                    }
+                    // OpenAI stream chunk format
+                    if (data.usage) {
+                      if (data.usage.prompt_tokens !== undefined) reportedInputTokens = Number(data.usage.prompt_tokens);
+                      if (data.usage.completion_tokens !== undefined) reportedOutputTokens = Number(data.usage.completion_tokens);
+                    }
+                    if (data.delta?.text) {
+                      streamedCharsLength += data.delta.text.length;
+                    }
+                  } catch (e) {}
+                }
+              }
+            }
           }
         }
 
         res.end();
 
-        const inputTokens = Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
-        const outputTokens = Math.max(25, Math.ceil(fullContent.length / 4));
+        // If provider reported exact tokens via SSE stream, use them 100% (isEstimated = false)
+        const isProviderReported = reportedInputTokens !== null && reportedInputTokens > 0;
+
+        // Accurate fallback calculation including system prompt, tools, & messages
+        const fullPayloadStr = JSON.stringify({ system, tools, messages });
+        const fallbackInputTokens = Math.max(20, Math.ceil(fullPayloadStr.length / 3.8));
+        const fallbackOutputTokens = Math.max(10, Math.ceil(streamedCharsLength / 3.8));
+
+        const inputTokens = isProviderReported ? (reportedInputTokens || fallbackInputTokens) : fallbackInputTokens;
+        const outputTokens = (reportedOutputTokens !== null && reportedOutputTokens > 0) ? reportedOutputTokens : fallbackOutputTokens;
         const totalTokens = inputTokens + outputTokens;
 
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
@@ -253,8 +300,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           latencyMs: Date.now() - startTime,
           streaming: true,
           vendorId: vendor?.id,
-          isEstimated: true,
-          usageSource: 'LOCAL_CALCULATED',
+          isEstimated: !isProviderReported,
+          usageSource: isProviderReported ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
         });
         return;
       } else {

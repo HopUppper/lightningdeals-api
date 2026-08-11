@@ -3,40 +3,39 @@ import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'lightningdeals_secure_encryption_key_32_bytes_long!!';
+const IV_LENGTH = 16;
 
 function encryptText(text: string): string {
   if (!text) return '';
-  const keyHex = process.env.ENCRYPTION_KEY || 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
-  const key = Buffer.from(keyHex, 'hex');
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32)), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
 }
 
 async function main() {
-  console.log('Seeding LightningDeals database (clean production seed)...');
+  console.log('Seeding LightningDeals database (idempotent production seed)...');
 
-  // Clear all existing data
-  // Safe non-destructive seeding: ONLY seed defaults if database tables are completely empty
-  const existingVendorCount = await prisma.vendorProvider.count();
   const existingUserCount = await prisma.user.count();
+  const existingVendorCount = await prisma.vendorProvider.count();
+  const existingPackageCount = await prisma.tokenPackage.count();
 
   // ──────────────────────────────────────────────
-  // 1. Administrator Account (ONLY if no users exist)
+  // 1. Initial Admin User (ONLY if admin does not exist)
   // ──────────────────────────────────────────────
-  if (existingUserCount === 0) {
+  const adminEmail = 'sidhjain9002@gmail.com';
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+
+  if (!existingAdmin) {
+    const passwordHash = crypto.createHash('sha256').update('love9002').digest('hex');
     await prisma.user.create({
       data: {
-        email: 'sidhjain9002@gmail.com',
         name: 'LightningDeals Owner',
-        passwordHash: hashPassword('love9002'),
+        email: adminEmail,
+        passwordHash,
         role: 'admin',
-        emailVerified: true,
         status: 'active',
       },
     });
@@ -67,15 +66,17 @@ async function main() {
   // ──────────────────────────────────────────────
   // 3. Token Packages (plan catalog for customer purchases)
   // ──────────────────────────────────────────────
-  const packages = [
-    { tokenAmount: BigInt(5000000), priceInr: 299, displayName: 'Claude Max 5x (5M / 5h)', description: 'Ideal for light coding & small projects', sortOrder: 1 },
-    { tokenAmount: BigInt(20000000), priceInr: 899, displayName: 'Claude Max 20x (20M / 5h)', description: 'Great for daily coding assistance', sortOrder: 2 },
-    { tokenAmount: BigInt(40000000), priceInr: 1699, displayName: 'Claude Max 40x (40M / 5h)', description: 'Popular choice for active developers', sortOrder: 3 },
-    { tokenAmount: BigInt(100000000), priceInr: 3999, displayName: 'Claude Max 100x (100M / 5h)', description: 'Best value for heavy IDE power users', featured: true, sortOrder: 4 },
-  ];
+  if (existingPackageCount === 0) {
+    const packages = [
+      { tokenAmount: BigInt(5000000), priceInr: 299, displayName: 'Claude Max 5x (5M / 5h)', description: 'Ideal for light coding & small projects', sortOrder: 1 },
+      { tokenAmount: BigInt(20000000), priceInr: 899, displayName: 'Claude Max 20x (20M / 5h)', description: 'Great for daily coding assistance', sortOrder: 2 },
+      { tokenAmount: BigInt(40000000), priceInr: 1699, displayName: 'Claude Max 40x (40M / 5h)', description: 'Popular choice for active developers', sortOrder: 3 },
+      { tokenAmount: BigInt(100000000), priceInr: 3999, displayName: 'Claude Max 100x (100M / 5h)', description: 'Best value for heavy IDE power users', featured: true, sortOrder: 4 },
+    ];
 
-  for (const pkg of packages) {
-    await prisma.tokenPackage.create({ data: pkg });
+    for (const pkg of packages) {
+      await prisma.tokenPackage.create({ data: pkg });
+    }
   }
 
   // ──────────────────────────────────────────────
@@ -91,7 +92,10 @@ async function main() {
   ];
 
   for (const p of defaultPlans) {
-    await prisma.plan.create({ data: p });
+    const existingPlan = await prisma.plan.findUnique({ where: { name: p.name } });
+    if (!existingPlan) {
+      await prisma.plan.create({ data: p });
+    }
   }
 
   // ──────────────────────────────────────────────
@@ -107,14 +111,13 @@ async function main() {
   ];
 
   for (const m of models) {
-    await prisma.model.create({ data: m });
+    const existingModel = await prisma.model.findUnique({ where: { modelId: m.modelId } });
+    if (!existingModel) {
+      await prisma.model.create({ data: m });
+    }
   }
 
-  console.log('✅ Clean production seed complete!');
-  console.log('   Admin: sidhjain9002@gmail.com');
-  console.log('   Customers: 0 (add via Admin Panel)');
-  console.log('   API Keys: 0 (create via Admin Panel)');
-  console.log('   Vendor Balance: 0 (top up via Admin Panel)');
+  console.log('✅ Production idempotent seed complete!');
 }
 
 main()

@@ -281,12 +281,14 @@ export const AdminProviders: React.FC = () => {
     return num.toLocaleString();
   };
 
-  const getStatusBadge = (status: string, hasKey = true) => {
+  const getStatusBadge = (status: string, hasKey = true, availableTokensVal?: string | number) => {
     if (!hasKey) {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">⚪ NOT CONFIGURED</span>;
     }
     const s = (status || '').toUpperCase();
-    if (s === 'HEALTHY' || s === 'CONNECTED') {
+    const tokens = Number(availableTokensVal || 0);
+
+    if (s === 'HEALTHY' || s === 'CONNECTED' || s === 'OPERATIONAL' || s === 'ACTIVE') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">● HEALTHY</span>;
     }
     if (s === 'WARNING') {
@@ -295,8 +297,14 @@ export const AdminProviders: React.FC = () => {
     if (s === 'CRITICAL') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30 font-mono animate-pulse">🚨 CRITICAL</span>;
     }
-    if (s === 'NOT_CONFIGURED') {
+    if (s === 'INVALID_CREDENTIAL' || s === 'INVALID_KEY' || s === 'UNHEALTHY') {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">⚠️ KEY AUTH NEEDED</span>;
+    }
+    if (s === 'NOT_CONFIGURED' || s === 'DISABLED') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">⚪ NOT CONFIGURED</span>;
+    }
+    if (tokens > 0) {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">● HEALTHY</span>;
     }
     return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30">⛔ DEPLETED</span>;
   };
@@ -540,7 +548,7 @@ export const AdminProviders: React.FC = () => {
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4">{getStatusBadge(p.status)}</td>
+                      <td className="py-3.5 px-4">{getStatusBadge(p.status, Boolean(p.displayMasterKey && p.displayMasterKey !== 'Not Set'), p.availableTokens)}</td>
                       <td className="py-3.5 px-4 text-right space-x-2">
                         <button
                           onClick={() => openEditModal(p)}

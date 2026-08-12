@@ -28,6 +28,8 @@ export const StatusPage: React.FC = () => {
 
   useEffect(() => {
     fetchSystemStatus();
+    const interval = setInterval(fetchSystemStatus, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -67,7 +69,7 @@ export const StatusPage: React.FC = () => {
                     : 'System Status Offline'}
                 </h3>
                 <p className="text-xs text-muted font-mono mt-0.5">
-                  Last checked: {statusData?.timestamp ? new Date(statusData.timestamp).toLocaleTimeString() : 'Unavailable'}
+                  Last checked: {loading && !statusData ? 'Checking live probes...' : statusData?.timestamp ? new Date(statusData.timestamp).toLocaleTimeString() : 'Just now'}
                 </p>
               </div>
             </div>

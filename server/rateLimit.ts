@@ -7,7 +7,7 @@ interface RateLimitStore {
 
 const authRateLimitMap = new Map<string, RateLimitStore>();
 const trialRateLimitMap = new Map<string, RateLimitStore>();
-const apiRateLimitMap = new Map<string, RateLimitStore>();
+const keyCheckRateLimitMap = new Map<string, RateLimitStore>();
 
 // Clean up expired buckets periodically (every 5 minutes)
 setInterval(() => {
@@ -21,10 +21,13 @@ setInterval(() => {
   for (const [key, val] of apiRateLimitMap.entries()) {
     if (now > val.resetAt) apiRateLimitMap.delete(key);
   }
+  for (const [key, val] of keyCheckRateLimitMap.entries()) {
+    if (now > val.resetAt) keyCheckRateLimitMap.delete(key);
+  }
 }, 5 * 60 * 1000);
 
 export function createRateLimiter(options: { windowMs: number; max: number; message: string; keyPrefix: string }) {
-  const storeMap = options.keyPrefix === 'auth' ? authRateLimitMap : options.keyPrefix === 'trial' ? trialRateLimitMap : apiRateLimitMap;
+  const storeMap = options.keyPrefix === 'auth' ? authRateLimitMap : options.keyPrefix === 'trial' ? trialRateLimitMap : options.keyPrefix === 'key_check' ? keyCheckRateLimitMap : apiRateLimitMap;
 
   return (req: Request, res: Response, next: NextFunction) => {
     const ip = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
@@ -73,4 +76,11 @@ export const trialLimiter = createRateLimiter({
   max: 3, // 3 claims per day per IP
   message: 'Daily trial limit reached for this IP address. Please upgrade to a paid key or try again tomorrow.',
   keyPrefix: 'trial',
+});
+
+export const keyCheckLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 requests per minute per IP
+  message: 'Security Alert: Rate limit exceeded for API key validation. Max 5 checks per minute.',
+  keyPrefix: 'key_check',
 });

@@ -66,7 +66,7 @@ export const PrivacyPage: React.FC = () => {
               </p>
               <ul className="list-disc pl-5 space-y-2">
                 <li><strong>Password Security:</strong> User passwords are hashed using <code className="bg-bg px-1.5 py-0.5 rounded text-violet-600 font-mono text-xs">scrypt</code> with a 16-byte random salt and timing-safe verification.</li>
-                <li><strong>Infrastructure Secrets:</strong> Upstream provider credentials are encrypted using AES-256-CBC authenticated encryption and kept completely isolated from browser bundles.</li>
+                <li><strong>Infrastructure Secrets:</strong> Upstream provider credentials are encrypted using AES-256-GCM AEAD authenticated encryption with 96-bit random IVs and authentication tags, kept completely isolated from browser bundles.</li>
                 <li><strong>Data in Transit:</strong> All HTTP traffic between client, gateway, and upstream suppliers is enforced over TLS 1.3 encryption with HTTP Strict Transport Security (HSTS).</li>
               </ul>
             </section>

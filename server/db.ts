@@ -74,21 +74,39 @@ function getDerivedEncryptionKey(): Buffer {
   return crypto.scryptSync(secret, 'lightningdeals_salt_2026', 32);
 }
 
-const IV_LENGTH = 16;
+const IV_LENGTH_GCM = 12; // 96-bit IV for AES-256-GCM
 
 export function encryptText(text: string): string {
   if (!text) return '';
-  const iv = crypto.randomBytes(IV_LENGTH);
+  const iv = crypto.randomBytes(IV_LENGTH_GCM);
   const key = getDerivedEncryptionKey();
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  let encrypted = cipher.update(text);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return `gcm:${iv.toString('hex')}:${authTag}:${encrypted}`;
 }
 
 export function decryptText(text: string): string {
   if (!text) return '';
   try {
+    // Format 1: AES-256-GCM AEAD (gcm:iv:authTag:ciphertext)
+    if (text.startsWith('gcm:')) {
+      const parts = text.split(':');
+      if (parts.length !== 4) return text;
+      const [, ivHex, tagHex, cipherHex] = parts;
+      const iv = Buffer.from(ivHex, 'hex');
+      const authTag = Buffer.from(tagHex, 'hex');
+      const encryptedText = Buffer.from(cipherHex, 'hex');
+      const key = getDerivedEncryptionKey();
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(authTag);
+      let decrypted = decipher.update(encryptedText, undefined, 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    }
+
+    // Format 2: Legacy AES-256-CBC backwards compatibility (iv:ciphertext)
     const textParts = text.split(':');
     if (textParts.length < 2) return text;
     const iv = Buffer.from(textParts.shift()!, 'hex');
@@ -97,7 +115,7 @@ export function decryptText(text: string): string {
     const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
+    return decrypted.toString('utf8');
   } catch (e) {
     return text;
   }

@@ -51,12 +51,23 @@ export function hashApiKey(key: string): string {
 
 
 export async function validateAndExtractApiKey(req: Request) {
-  const rawKey =
-    req.headers['x-api-key']?.toString() ||
-    req.headers.authorization?.replace('Bearer ', '').trim();
+  const xApiKey = req.headers['x-api-key']?.toString().trim();
+  const authBearer = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
+
+  // Dual Auth Header Conflict Detection (Audit Item 4)
+  if (xApiKey && authBearer && xApiKey !== authBearer) {
+    console.warn(`[SECURITY ALERT] Conflicting auth headers from IP ${req.ip}: x-api-key vs Authorization Bearer mismatch`);
+    return {
+      errorStatus: 400,
+      errorType: 'invalid_request_error',
+      errorMessage: 'Conflicting authentication credentials detected. Both x-api-key and Authorization Bearer headers were provided with different values. Please specify a single consistent API key.',
+    };
+  }
+
+  const rawKey = xApiKey || authBearer;
 
   if (!rawKey) {
-    return { errorStatus: 401, errorType: 'authentication_error', errorMessage: 'Missing API key. Pass via x-api-key header or Bearer authorization.' };
+    return { errorStatus: 401, errorType: 'authentication_error', errorMessage: 'Missing API key. Pass via x-api-key header or Authorization Bearer header.' };
   }
 
   // Check Emergency Controls

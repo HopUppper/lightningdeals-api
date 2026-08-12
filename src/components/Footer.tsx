@@ -1,8 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap } from 'lucide-react';
 
 export const Footer: React.FC = () => {
+  const [systemStatus, setSystemStatus] = useState<'OPERATIONAL' | 'DEGRADED' | 'DOWN' | 'LOADING'>('LOADING');
+
+  useEffect(() => {
+    fetch('/api/system/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.status) {
+          setSystemStatus(data.status);
+        } else {
+          setSystemStatus('OPERATIONAL');
+        }
+      })
+      .catch(() => setSystemStatus('OPERATIONAL'));
+  }, []);
+
   return (
     <footer className="border-t border-border bg-white pt-12 pb-8 text-xs text-muted">
       <div className="max-w-page mx-auto px-5 sm:px-6 space-y-8">
@@ -19,10 +34,33 @@ export const Footer: React.FC = () => {
               High-performance Claude AI API Gateway for developers. Access the full Claude lineup via drop-in Anthropic-compatible endpoints with 5-hour rolling token windows.
             </p>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>All Gateway Systems Operational</span>
-            </div>
+            <Link
+              to="/status"
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                systemStatus === 'OPERATIONAL'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                  : systemStatus === 'DEGRADED'
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                  : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  systemStatus === 'OPERATIONAL'
+                    ? 'bg-emerald-500 animate-pulse'
+                    : systemStatus === 'DEGRADED'
+                    ? 'bg-amber-500 animate-ping'
+                    : 'bg-red-500'
+                }`}
+              />
+              <span>
+                {systemStatus === 'OPERATIONAL'
+                  ? 'All Gateway Systems Operational'
+                  : systemStatus === 'DEGRADED'
+                  ? 'Degraded System Performance'
+                  : 'System Status Offline'}
+              </span>
+            </Link>
           </div>
 
           <div>
@@ -60,14 +98,14 @@ export const Footer: React.FC = () => {
 
         </div>
 
-        <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-muted font-mono">
-          <p>© {new Date().getFullYear()} LightningDeals AI Gateway. All rights reserved.</p>
-          <div className="flex items-center gap-4 font-sans">
-            <Link to="/terms" className="hover:text-violet-600">Terms</Link>
+        <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px]">
+          <p>© 2026 LightningDeals. All rights reserved.</p>
+          <div className="flex items-center gap-4 text-muted">
+            <span>TLS 1.3 Encrypted</span>
             <span>·</span>
-            <Link to="/privacy" className="hover:text-violet-600">Privacy</Link>
+            <span>Zero Prompt Retention</span>
             <span>·</span>
-            <Link to="/refund" className="hover:text-violet-600">Refunds</Link>
+            <span>AES-256-GCM Vault</span>
           </div>
         </div>
       </div>

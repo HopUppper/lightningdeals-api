@@ -78,8 +78,10 @@ app.post('/v1/messages/count_tokens', handleCountTokens);
 app.post('/tools/web_search', handleWebSearch);
 app.post('/tools/understand_image', handleUnderstandImage);
 
+import { keyCheckLimiter } from './rateLimit';
+
 // 3. Public System & Key Status Tools
-app.get('/api/key-status', handleCheckKeyStatus);
+app.get('/api/key-status', keyCheckLimiter, handleCheckKeyStatus);
 app.get('/api/system/status', handleSystemStatus);
 
 

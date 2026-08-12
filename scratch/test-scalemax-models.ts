@@ -1,43 +1,50 @@
 import { prisma, decryptText } from '../server/db';
 
-async function testScaleMaxModels() {
-  const vendor = await prisma.vendorProvider.findFirst({ where: { isPrimary: true } });
-  if (!vendor) return;
+async function testModels() {
+  const vendor = await prisma.vendorProvider.findFirst({ where: { name: 'ScaleMax' } });
+  if (!vendor) {
+    console.error('ScaleMax vendor not found');
+    return;
+  }
 
-  const key = decryptText(vendor.masterApiKeyEncrypted);
-  console.log(`Testing ScaleMax Model Names (${vendor.baseUrl})...`);
+  const masterKey = decryptText(vendor.masterApiKeyEncrypted);
+  console.log(`Base URL: ${vendor.baseUrl}`);
+  console.log(`Master Key Prefix: ${masterKey.slice(0, 15)}...`);
 
   const modelsToTest = [
     'claude-3-5-sonnet-20241022',
-    'claude-3-7-sonnet-20250219',
-    'claude-3-5-sonnet-latest',
+    'claude-opus-4-8',
+    'claude-fable-5',
+    'claude-sonnet-5',
     'claude-3-opus-20240229',
-    'claude-3-haiku-20240307',
   ];
 
-  for (const m of modelsToTest) {
-    const res = await fetch(`${vendor.baseUrl}/v1/messages`, {
-      method: 'POST',
-      headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: m,
-        max_tokens: 100,
-        stream: true,
-        messages: [{ role: 'user', content: 'hello' }],
-      }),
-    });
-    console.log(`Model [${m}] -> Status: ${res.status}`);
-    const text = await res.text();
-    if (res.status !== 200) {
-      console.log(`  Error:`, text);
-    } else {
-      console.log(`  Success (first 100 chars):`, text.slice(0, 100));
+  for (const model of modelsToTest) {
+    console.log(`\n--- Testing Model: ${model} ---`);
+    const startTime = Date.now();
+    try {
+      const res = await fetch(`${vendor.baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'x-api-key': masterKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'Ping' }],
+        }),
+      });
+
+      const duration = Date.now() - startTime;
+      console.log(`Status: ${res.status} ${res.statusText} (${duration}ms)`);
+      const text = await res.text();
+      console.log(`Response: ${text.slice(0, 300)}`);
+    } catch (err: any) {
+      console.error(`Error:`, err.message);
     }
   }
 }
 
-testScaleMaxModels().catch(console.error);
+testModels().finally(() => prisma.$disconnect());

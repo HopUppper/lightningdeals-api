@@ -769,9 +769,12 @@ export const AdminProviders: React.FC = () => {
                 </label>
                 <input
                   type="password"
+                  autoComplete="new-password"
+                  data-1p-ignore
+                  data-lpignore="true"
                   value={masterApiKey}
                   onChange={(e) => setMasterApiKey(e.target.value)}
-                  placeholder={editingProvider ? 'sm_live_•••••••• or sk-ant-••••••••' : 'sm_live_•••••••• (Vendor Master Key)'}
+                  placeholder={editingProvider ? 'sm_live_•••••••• or sk-ant-•••••••• (Leave blank to keep existing)' : 'sm_live_•••••••• (Vendor Master Key)'}
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
                 <p className="text-[10px] text-muted mt-1 font-sans">

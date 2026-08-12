@@ -67,6 +67,8 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 
 // 1. Anthropic-Compatible API Gateway
+app.get('/v1', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
+app.get('/v1/', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
 app.post('/v1/messages', handleMessagesEndpoint);
 app.get('/v1/models', handleGetModels);
 app.post('/v1/messages/count_tokens', handleCountTokens);

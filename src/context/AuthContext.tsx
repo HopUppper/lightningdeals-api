@@ -9,26 +9,42 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
+  adminUser: User | null;
   loading: boolean;
+  adminLoading: boolean;
   login: (token: string, user: User) => void;
+  adminLogin: (token: string, user: User) => void;
   logout: () => Promise<void>;
+  adminLogout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  refreshAdmin: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  adminUser: null,
   loading: true,
+  adminLoading: true,
   login: () => {},
+  adminLogin: () => {},
   logout: async () => {},
+  adminLogout: async () => {},
   refreshUser: async () => {},
+  refreshAdmin: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [adminUser, setAdminUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adminLoading, setAdminLoading] = useState(true);
 
   const getStoredToken = () => {
-    return localStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || '';
+    return localStorage.getItem('apexscale_token') || '';
+  };
+
+  const getStoredAdminToken = () => {
+    return localStorage.getItem('ld_admin_token') || '';
   };
 
   const refreshUser = async () => {
@@ -50,14 +66,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshAdmin = async () => {
+    try {
+      const adminToken = getStoredAdminToken();
+      const headers: Record<string, string> = {};
+      if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+      const res = await fetch('/api/admin/auth/me', { headers, credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminUser(data.user);
+      } else {
+        setAdminUser(null);
+      }
+    } catch (e) {
+      setAdminUser(null);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
   useEffect(() => {
     refreshUser();
+    refreshAdmin();
   }, []);
 
   const login = (token: string, userData: User) => {
     localStorage.setItem('apexscale_token', token);
-    localStorage.setItem('ld_admin_token', token);
     setUser(userData);
+  };
+
+  const adminLogin = (token: string, userData: User) => {
+    localStorage.setItem('ld_admin_token', token);
+    setAdminUser(userData);
+    window.location.href = '/admin';
   };
 
   const logout = async () => {
@@ -65,12 +106,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {}
     localStorage.removeItem('apexscale_token');
-    localStorage.removeItem('ld_admin_token');
     setUser(null);
   };
 
+  const adminLogout = async () => {
+    try {
+      await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) {}
+    localStorage.removeItem('ld_admin_token');
+    setAdminUser(null);
+    window.location.href = '/admin/login';
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        adminUser,
+        loading,
+        adminLoading,
+        login,
+        adminLogin,
+        logout,
+        adminLogout,
+        refreshUser,
+        refreshAdmin,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

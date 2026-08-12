@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 export const AdminLayout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { adminUser, adminLogout } = useAuth();
   const navigate = useNavigate();
 
   // Search State
@@ -23,8 +23,7 @@ export const AdminLayout: React.FC = () => {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    await adminLogout();
   };
 
   useEffect(() => {
@@ -150,8 +149,8 @@ export const AdminLayout: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold text-fg">{user?.name || 'Administrator'}</p>
-              <p className="text-[10px] text-muted font-mono">{user?.email || 'admin@lightningapi.pro'}</p>
+              <p className="text-xs font-semibold text-fg">{adminUser?.name || 'Administrator'}</p>
+              <p className="text-[10px] text-muted font-mono">{adminUser?.email || 'admin@lightningapi.pro'}</p>
             </div>
             <button
               onClick={handleLogout}

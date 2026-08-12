@@ -6,6 +6,7 @@ import cors from 'cors';
 import { handleMessagesEndpoint } from './gateway';
 import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
 import adminRouter from './admin';
+import adminAuthRouter from './adminAuth';
 import userRouter from './user';
 import { prisma } from './db';
 
@@ -96,6 +97,7 @@ app.get('/api/pricing/packages', async (req, res) => {
 });
 
 // 3. User & Admin Routes
+app.use('/api/admin/auth', adminAuthRouter);
 app.use('/api', userRouter);
 app.use('/api/admin', adminRouter);
 

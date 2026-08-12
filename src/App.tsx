@@ -65,6 +65,8 @@ import { UserSettings } from './pages/dashboard/UserSettings';
 
 // Admin Control Center Pages
 import { AdminLayout } from './pages/admin/AdminLayout';
+import { AdminAuthGuard } from './pages/admin/AdminAuthGuard';
+import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminOverview } from './pages/admin/AdminOverview';
 import { AdminProviders } from './pages/admin/AdminProviders';
 import { AdminPlans } from './pages/admin/AdminPlans';
@@ -180,13 +182,16 @@ export function App() {
           <Route path="/register" element={<Navigate to="/" replace />} />
           <Route path="/dashboard/*" element={<Navigate to="/" replace />} />
 
-          {/* Admin Control Center — Secret route accessible only via /admin */}
+          {/* Admin Authentication Route */}
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+
+          {/* Admin Control Center — Secret route protected via AdminAuthGuard */}
           <Route
             path="/admin/*"
             element={
-              <AdminRoute>
+              <AdminAuthGuard>
                 <AdminLayout />
-              </AdminRoute>
+              </AdminAuthGuard>
             }
           >
             <Route index element={<AdminOverview />} />

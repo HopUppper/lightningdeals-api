@@ -59,6 +59,86 @@ export const AdminKeys: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit API Key Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingKey, setEditingKey] = useState<any | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editStatus, setEditStatus] = useState('active');
+  const [editPlan, setEditPlan] = useState('Claude Max 20x');
+  const [editAddTokens, setEditAddTokens] = useState('');
+  const [editWithdrawTokens, setEditWithdrawTokens] = useState('');
+  const [editExpiryMode, setEditExpiryMode] = useState('unchanged');
+  const [editExpiryDays, setEditExpiryDays] = useState('');
+  const [editExpiresAtDate, setEditExpiresAtDate] = useState('');
+  const [editRpm, setEditRpm] = useState('60');
+  const [editConcurrency, setEditConcurrency] = useState('5');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const openEditModal = (key: any) => {
+    setEditingKey(key);
+    setEditName(key.name || '');
+    setEditStatus(key.status || 'active');
+    setEditPlan(key.plan || 'Claude Max 20x');
+    setEditAddTokens('');
+    setEditWithdrawTokens('');
+    setEditExpiryMode('unchanged');
+    setEditExpiryDays('');
+    setEditExpiresAtDate(key.expiresAt ? new Date(key.expiresAt).toISOString().split('T')[0] : '');
+    setEditRpm(String(key.rateLimitRpm || 60));
+    setEditConcurrency(String(key.maxConcurrency || 5));
+    setEditError(null);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingKey) return;
+    setEditSubmitting(true);
+    setEditError(null);
+
+    try {
+      const payload: any = {
+        name: editName,
+        status: editStatus,
+        plan: editPlan,
+        rateLimitRpm: Number(editRpm),
+        maxConcurrency: Number(editConcurrency),
+      };
+
+      if (editAddTokens && Number(editAddTokens) > 0) {
+        payload.addTokens = editAddTokens;
+      }
+
+      if (editWithdrawTokens && Number(editWithdrawTokens) > 0) {
+        payload.withdrawTokens = editWithdrawTokens;
+      }
+
+      if (editExpiryMode !== 'unchanged') {
+        payload.expiryMode = editExpiryMode;
+        if (editExpiryDays) payload.expiryDays = Number(editExpiryDays);
+        if (editExpiresAtDate) payload.expiresAtDate = editExpiresAtDate;
+      }
+
+      const res = await adminFetch(`/api/admin/keys/${editingKey.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setShowEditModal(false);
+        await fetchKeys();
+      } else {
+        const data = await res.json();
+        setEditError(data.error?.message || 'Failed to update API key.');
+      }
+    } catch (err: any) {
+      setEditError(err.message || 'Network error updating API key.');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   const fetchKeys = async () => {
     try {
       let url = `/api/admin/keys?filter=${filter}`;
@@ -350,6 +430,14 @@ export const AdminKeys: React.FC = () => {
                         >
                           <Activity className="w-3 h-3" />
                           <span>View Usage</span>
+                        </button>
+
+                        <button
+                          onClick={() => openEditModal(k)}
+                          className="px-2 py-1 rounded text-[10px] font-bold border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 flex items-center gap-1 font-sans"
+                          title="Edit token balance, validity duration, rate limits, and key settings"
+                        >
+                          <span>Edit</span>
                         </button>
 
                         <button
@@ -806,6 +894,223 @@ export const AdminKeys: React.FC = () => {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Complete API Key Editor (Add/Withdraw Tokens, Modify Expiry/Validity, Status & Settings) */}
+      {showEditModal && editingKey && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-panel max-w-xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-fg flex items-center gap-2">
+                  <Key className="w-5 h-5 text-amber-500" />
+                  <span>Edit API Key Configuration</span>
+                </h3>
+                <p className="text-xs font-mono text-muted mt-1">
+                  Key: <span className="text-fg font-bold">{editingKey.displayKey}</span> ({editingKey.name})
+                </p>
+              </div>
+              <button onClick={() => setShowEditModal(false)} className="text-muted hover:text-fg text-sm font-bold">✕</button>
+            </div>
+
+            {editError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-control text-red-600 text-xs font-semibold">
+                {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditKey} className="space-y-5">
+              {/* Section 1: General Settings */}
+              <div className="space-y-3 p-4 rounded-control bg-bg border border-border">
+                <h4 className="text-xs font-mono font-bold uppercase text-fg">1. Key Identity & Status</h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Key Name / Description</label>
+                    <input
+                      type="text"
+                      required
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Key Status</label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                    >
+                      <option value="active">ACTIVE (Operational)</option>
+                      <option value="suspended">SUSPENDED (Temporarily Blocked)</option>
+                      <option value="revoked">REVOKED (Permanently Blocked)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Plan Package Tier</label>
+                    <select
+                      value={editPlan}
+                      onChange={(e) => setEditPlan(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono"
+                    >
+                      <option value="Claude Max 5x">Claude Max 5x</option>
+                      <option value="Claude Max 20x">Claude Max 20x</option>
+                      <option value="Claude Max 40x">Claude Max 40x</option>
+                      <option value="Claude Max 100x">Claude Max 100x</option>
+                      <option value="Claude Max 250x">Claude Max 250x</option>
+                      <option value="Trial Key">Trial Key</option>
+                      <option value="Custom Enterprise">Custom Enterprise</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Rate Limit (RPM)</label>
+                    <input
+                      type="number"
+                      value={editRpm}
+                      onChange={(e) => setEditRpm(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Max Concurrency</label>
+                    <input
+                      type="number"
+                      value={editConcurrency}
+                      onChange={(e) => setEditConcurrency(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Token Allowance Management (Add / Withdraw Tokens) */}
+              <div className="space-y-3 p-4 rounded-control bg-bg border border-border">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-mono font-bold uppercase text-fg">2. Token Balance Adjustments</h4>
+                  <span className="text-[11px] font-mono text-muted">
+                    Remaining: <strong className="text-emerald-600">{formatTokens(Number(editingKey.tokensRemaining || 0))}</strong> / {formatTokens(Number(editingKey.purchasedTokens || 0))}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-control space-y-2">
+                    <label className="block text-xs font-bold text-emerald-700">Add / Top Up Tokens (+)</label>
+                    <input
+                      type="number"
+                      value={editAddTokens}
+                      onChange={(e) => setEditAddTokens(e.target.value)}
+                      placeholder="e.g. 5000000 to add +5M"
+                      className="w-full px-3 py-2 text-xs font-mono bg-card border border-emerald-500/30 rounded-control focus:outline-none text-fg"
+                    />
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" onClick={() => setEditAddTokens('1000000')} className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 font-mono">+1M</button>
+                      <button type="button" onClick={() => setEditAddTokens('5000000')} className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 font-mono">+5M</button>
+                      <button type="button" onClick={() => setEditAddTokens('20000000')} className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 font-mono">+20M</button>
+                      <button type="button" onClick={() => setEditAddTokens('50000000')} className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 font-mono">+50M</button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-control space-y-2">
+                    <label className="block text-xs font-bold text-red-700">Withdraw / Deduct Tokens (-)</label>
+                    <input
+                      type="number"
+                      value={editWithdrawTokens}
+                      onChange={(e) => setEditWithdrawTokens(e.target.value)}
+                      placeholder="e.g. 2000000 to remove -2M"
+                      className="w-full px-3 py-2 text-xs font-mono bg-card border border-red-500/30 rounded-control focus:outline-none text-fg"
+                    />
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" onClick={() => setEditWithdrawTokens('1000000')} className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-700 font-mono">-1M</button>
+                      <button type="button" onClick={() => setEditWithdrawTokens('5000000')} className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-700 font-mono">-5M</button>
+                      <button type="button" onClick={() => setEditWithdrawTokens('10000000')} className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-700 font-mono">-10M</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Validity & Expiration Controls */}
+              <div className="space-y-3 p-4 rounded-control bg-bg border border-border">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-mono font-bold uppercase text-fg">3. Validity & Expiration Date Controls</h4>
+                  <span className="text-[11px] font-mono text-muted">
+                    Current: <strong className="text-fg">{editingKey.expiresAt ? new Date(editingKey.expiresAt).toLocaleDateString() : 'Permanent (Never Expires)'}</strong>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Validity Action</label>
+                    <select
+                      value={editExpiryMode}
+                      onChange={(e) => setEditExpiryMode(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                    >
+                      <option value="unchanged">Keep Current Expiry</option>
+                      <option value="add_days">Extend Validity (+Days)</option>
+                      <option value="reduce_days">Decrease Validity (-Days)</option>
+                      <option value="set_date">Set Specific Expiration Date</option>
+                      <option value="never">Make Permanent (Never Expires)</option>
+                    </select>
+                  </div>
+
+                  {editExpiryMode === 'add_days' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-fg mb-1">Days to Add (+)</label>
+                      <input
+                        type="number"
+                        value={editExpiryDays}
+                        onChange={(e) => setEditExpiryDays(e.target.value)}
+                        placeholder="e.g. 30 for +30 days"
+                        className="w-full px-3 py-2 text-xs font-mono bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                      />
+                    </div>
+                  )}
+
+                  {editExpiryMode === 'reduce_days' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-fg mb-1">Days to Subtract (-)</label>
+                      <input
+                        type="number"
+                        value={editExpiryDays}
+                        onChange={(e) => setEditExpiryDays(e.target.value)}
+                        placeholder="e.g. 7 for -7 days"
+                        className="w-full px-3 py-2 text-xs font-mono bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                      />
+                    </div>
+                  )}
+
+                  {editExpiryMode === 'set_date' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-fg mb-1">Expiration Date</label>
+                      <input
+                        type="date"
+                        value={editExpiresAtDate}
+                        onChange={(e) => setEditExpiresAtDate(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-mono bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowEditModal(false)} className="ui-button-secondary text-xs py-2 px-4">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editSubmitting} className="ui-button-primary text-xs py-2.5 px-6 font-bold disabled:opacity-50">
+                  {editSubmitting ? 'Saving Changes...' : 'Save API Key Configuration'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

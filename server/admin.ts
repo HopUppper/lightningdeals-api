@@ -1139,40 +1139,142 @@ router.post('/keys/trial', async (req: AuthRequest, res: Response) => {
 
 router.put('/keys/:id', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { status, addTokens, rateLimitRpm, expiryDays } = req.body;
+  const {
+    name,
+    status,
+    plan,
+    rateLimitRpm,
+    maxConcurrency,
+    addTokens,
+    withdrawTokens,
+    overridePurchasedTokens,
+    overrideRemainingTokens,
+    expiryMode,
+    expiryDays,
+    expiresAtDate,
+  } = req.body;
+
   try {
     const key = await prisma.apiKey.findUnique({ where: { id } });
     if (!key) return res.status(404).json({ error: { message: 'Key not found.' } });
 
     const updateData: any = {};
-    if (status) updateData.status = status;
-    if (rateLimitRpm) updateData.rateLimitRpm = Number(rateLimitRpm);
+    const auditNotes: string[] = [];
 
-    if (expiryDays) {
+    if (name && name.trim()) {
+      updateData.name = name.trim();
+      auditNotes.push(`Renamed to "${name.trim()}"`);
+    }
+
+    if (status && ['active', 'suspended', 'revoked'].includes(status)) {
+      updateData.status = status;
+      auditNotes.push(`Status changed to ${status.toUpperCase()}`);
+    }
+
+    if (plan && plan.trim()) {
+      updateData.plan = plan.trim();
+      auditNotes.push(`Plan tier updated to ${plan.trim()}`);
+    }
+
+    if (rateLimitRpm !== undefined && rateLimitRpm !== null) {
+      const rpmNum = Math.max(1, Number(rateLimitRpm));
+      updateData.rateLimitRpm = rpmNum;
+      auditNotes.push(`Rate limit set to ${rpmNum} RPM`);
+    }
+
+    if (maxConcurrency !== undefined && maxConcurrency !== null) {
+      const concNum = Math.max(1, Number(maxConcurrency));
+      updateData.maxConcurrency = concNum;
+      auditNotes.push(`Max concurrency set to ${concNum}`);
+    }
+
+    // Expiry / Validity Modifications
+    if (expiryMode === 'never') {
+      updateData.expiresAt = null;
+      auditNotes.push(`Validity set to Permanent (Never Expires)`);
+    } else if (expiryMode === 'add_days' && expiryDays) {
+      const daysToAdd = Number(expiryDays);
+      const baseDate = key.expiresAt && new Date(key.expiresAt) > new Date() ? new Date(key.expiresAt) : new Date();
+      baseDate.setDate(baseDate.getDate() + daysToAdd);
+      updateData.expiresAt = baseDate;
+      auditNotes.push(`Extended validity by +${daysToAdd} days (Expires ${baseDate.toLocaleDateString()})`);
+    } else if (expiryMode === 'reduce_days' && expiryDays) {
+      const daysToSub = Number(expiryDays);
+      const baseDate = key.expiresAt ? new Date(key.expiresAt) : new Date();
+      baseDate.setDate(baseDate.getDate() - daysToSub);
+      updateData.expiresAt = baseDate;
+      auditNotes.push(`Reduced validity by -${daysToSub} days (Expires ${baseDate.toLocaleDateString()})`);
+    } else if (expiryMode === 'set_date' && expiresAtDate) {
+      const setDateObj = new Date(expiresAtDate);
+      updateData.expiresAt = setDateObj;
+      auditNotes.push(`Expiration date set to ${setDateObj.toLocaleDateString()}`);
+    } else if (expiryDays && !expiryMode) {
+      // Legacy fallback
       const exp = new Date();
       exp.setDate(exp.getDate() + Number(expiryDays));
       updateData.expiresAt = exp;
+      auditNotes.push(`Expiration set to +${expiryDays} days`);
     }
 
-    if (addTokens) {
+    // Token Top Up / Addition
+    let currentPurchased = key.purchasedTokens;
+    let currentRemaining = key.tokensRemaining;
+
+    if (addTokens && Number(addTokens) > 0) {
       const tokensToAdd = BigInt(addTokens);
-      updateData.purchasedTokens = key.purchasedTokens + tokensToAdd;
-      updateData.tokensRemaining = key.tokensRemaining + tokensToAdd;
+      currentPurchased += tokensToAdd;
+      currentRemaining += tokensToAdd;
+      updateData.purchasedTokens = currentPurchased;
+      updateData.tokensRemaining = currentRemaining;
 
       await prisma.tokenLedger.create({
         data: {
           apiKeyId: key.id,
           userId: key.userId,
           amount: tokensToAdd,
-          balanceAfter: key.tokensRemaining + tokensToAdd,
+          balanceAfter: currentRemaining,
           type: 'ADMIN_ADJUSTMENT',
           reference: 'ADMIN-TOPUP',
-          notes: 'Admin added tokens',
+          notes: `Admin added +${tokensToAdd.toString()} tokens`,
         },
       });
+      auditNotes.push(`Added +${tokensToAdd.toString()} tokens`);
     }
 
-    const updated = await prisma.apiKey.update({
+    // Token Deduction / Withdrawal
+    if (withdrawTokens && Number(withdrawTokens) > 0) {
+      const tokensToWithdraw = BigInt(withdrawTokens);
+      currentPurchased = currentPurchased > tokensToWithdraw ? currentPurchased - tokensToWithdraw : BigInt(0);
+      currentRemaining = currentRemaining > tokensToWithdraw ? currentRemaining - tokensToWithdraw : BigInt(0);
+      updateData.purchasedTokens = currentPurchased;
+      updateData.tokensRemaining = currentRemaining;
+
+      await prisma.tokenLedger.create({
+        data: {
+          apiKeyId: key.id,
+          userId: key.userId,
+          amount: -tokensToWithdraw,
+          balanceAfter: currentRemaining,
+          type: 'ADMIN_WITHDRAWAL',
+          reference: 'ADMIN-WITHDRAWAL',
+          notes: `Admin withdrew -${tokensToWithdraw.toString()} tokens`,
+        },
+      });
+      auditNotes.push(`Withdrew -${tokensToWithdraw.toString()} tokens`);
+    }
+
+    // Direct Token Overrides
+    if (overridePurchasedTokens !== undefined && overridePurchasedTokens !== null && overridePurchasedTokens !== '') {
+      updateData.purchasedTokens = BigInt(overridePurchasedTokens);
+      auditNotes.push(`Purchased tokens overridden to ${overridePurchasedTokens}`);
+    }
+
+    if (overrideRemainingTokens !== undefined && overrideRemainingTokens !== null && overrideRemainingTokens !== '') {
+      updateData.tokensRemaining = BigInt(overrideRemainingTokens);
+      auditNotes.push(`Remaining tokens overridden to ${overrideRemainingTokens}`);
+    }
+
+    const updatedKey = await prisma.apiKey.update({
       where: { id },
       data: updateData,
     });
@@ -1180,14 +1282,14 @@ router.put('/keys/:id', async (req: AuthRequest, res: Response) => {
     await prisma.adminLog.create({
       data: {
         adminUserId: req.user?.id,
-        action: status === 'revoked' ? 'REVOKE_API_KEY' : status === 'suspended' ? 'SUSPEND_API_KEY' : 'UPDATE_API_KEY',
+        action: 'UPDATE_API_KEY',
         targetType: 'ApiKey',
         targetId: key.id,
-        metadata: `Updated API key status: ${status || 'unchanged'}, rpm: ${rateLimitRpm || 'unchanged'}`,
+        metadata: auditNotes.length > 0 ? auditNotes.join('; ') : 'Updated API key configuration',
       },
     });
 
-    res.json(updated);
+    res.json(updatedKey);
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

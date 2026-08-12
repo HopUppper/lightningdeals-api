@@ -150,9 +150,11 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   }
 
   // Get active Vendor Provider from DB
-  const vendor = await prisma.vendorProvider.findFirst({
-    where: { isPrimary: true, status: 'connected' },
-  });
+  const vendor = (await prisma.vendorProvider.findFirst({
+    where: { isPrimary: true, status: { not: 'disabled' } },
+  })) || (await prisma.vendorProvider.findFirst({
+    where: { status: { not: 'disabled' } },
+  }));
 
   const estimatedRequiredTokens = Math.max(100, Math.ceil(JSON.stringify({ messages, system }).length / 4)) + Math.min(2048, Number(max_tokens || 1024));
 
@@ -398,63 +400,23 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
       releaseMasterReservation(requestId);
       console.error('Vendor API Gateway connection error:', err);
+      return res.status(503).json({
+        error: {
+          type: 'upstream_connection_error',
+          message: `Failed to connect to upstream vendor gateway: ${err.message || 'Network error'}`,
+        },
+      });
     }
   }
 
-
-
-  // Fallback Simulated Response when no Master API key is set
-  const responseText = `Hello! I am Claude connected through your LightningDeals AI Gateway. Your gateway is operational and ready to handle AI completions!`;
-  const inputTokens = Math.max(10, Math.ceil(JSON.stringify({ messages, system, tools }).length / 4));
-  const outputTokens = Math.max(20, Math.ceil(responseText.length / 4));
-  const totalTokens = inputTokens + outputTokens;
-  const simulatedId = `msg_simulated_${crypto.randomBytes(12).toString('hex')}`;
-
-  if (stream) {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: simulatedId, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: inputTokens, output_tokens: 0 } } })}\n\n`);
-
-    res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`);
-
-    const words = responseText.split(' ');
-    for (let i = 0; i < words.length; i++) {
-      const textChunk = (i === 0 ? '' : ' ') + words[i];
-      res.write(`event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: textChunk } })}\n\n`);
-      await new Promise((r) => setTimeout(r, 20));
-    }
-
-    res.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`);
-    res.write(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: outputTokens } })}\n\n`);
-    res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`);
-    res.end();
-  } else {
-    res.json({
-      id: simulatedId,
-      type: 'message',
-      role: 'assistant',
-      model,
-
-      content: [{ type: 'text', text: responseText }],
-      stop_reason: 'end_turn',
-      stop_sequence: null,
-      usage: { input_tokens: inputTokens, output_tokens: outputTokens },
-    });
-  }
-
-  await updateTokensAndLog({
-    keyRecord,
-    model,
-    inputTokens,
-    outputTokens,
-    totalTokens,
-    latencyMs: Date.now() - startTime,
-    streaming: !!stream,
-    vendorId: vendor?.id,
-    isEstimated: true,
-    usageSource: 'SIMULATED_ESTIMATE',
+  // If no master key is set or provider is not configured
+  releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+  releaseMasterReservation(requestId);
+  return res.status(503).json({
+    error: {
+      type: 'master_key_not_configured',
+      message: 'LightningDeals upstream master vendor key is missing or invalid. Please configure your master key in the Admin Panel.',
+    },
   });
 }
 

@@ -124,8 +124,8 @@ export async function handleSystemStatus(req: Request, res: Response) {
     where: { createdAt: { gte: new Date(Date.now() - 3600 * 1000) } },
   });
 
-  const primaryVendor = await prisma.vendorProvider.findFirst({ where: { isPrimary: true } });
-  const vendorConnected = primaryVendor?.status === 'connected';
+  const primaryVendor = await prisma.vendorProvider.findFirst({ where: { isPrimary: true } }) || await prisma.vendorProvider.findFirst({ where: { availableTokens: { gt: 0 } } });
+  const vendorConnected = Boolean(primaryVendor && (primaryVendor.status === 'healthy' || primaryVendor.status === 'connected' || primaryVendor.status === 'active') && Number(primaryVendor.availableTokens) > 0);
 
   const overallStatus = dbOperational && vendorConnected ? 'OPERATIONAL' : dbOperational ? 'DEGRADED' : 'DOWN';
 

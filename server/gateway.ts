@@ -251,22 +251,85 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         metadata,
       });
 
-      const upstreamRes = await fetch(prepared.url, {
-        method: 'POST',
-        headers: prepared.headers,
-        body: JSON.stringify(prepared.body),
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      // Handle client disconnect mid-flight
+      let clientDisconnected = false;
+      req.on('close', () => {
+        if (!res.writableEnded) {
+          clientDisconnected = true;
+          controller.abort();
+        }
       });
+
+      let upstreamRes: Response;
+      try {
+        upstreamRes = await fetch(prepared.url, {
+          method: 'POST',
+          headers: prepared.headers,
+          body: JSON.stringify(prepared.body),
+          signal: controller.signal,
+        }) as any;
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+        releaseMasterReservation(requestId);
+
+        const isTimeout = fetchErr.name === 'AbortError' || clientDisconnected;
+        const errStatusCode = isTimeout ? 504 : 502;
+        const errCode = isTimeout ? 'gateway_timeout' : 'upstream_connection_failed';
+        const errMessage = isTimeout
+          ? 'Upstream vendor request timed out or client connection closed.'
+          : `Failed to establish connection to upstream vendor gateway.`;
+
+        await prisma.apiRequest.create({
+          data: {
+            apiKeyId: keyRecord.id,
+            userId: keyRecord.userId,
+            model,
+            endpoint: '/v1/messages',
+            statusCode: errStatusCode,
+            errorCode: errCode,
+            errorMessage: errMessage,
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            latencyMs: Date.now() - startTime,
+            streaming: !!stream,
+            providerId: vendor?.id || null,
+            isEstimated: false,
+            usageSource: 'LOCAL_CALCULATED',
+          },
+        });
+
+        return res.status(errStatusCode).json({
+          error: {
+            type: isTimeout ? 'timeout_error' : 'upstream_provider_error',
+            message: errMessage,
+            code: errCode,
+          },
+        });
+      }
+
+      clearTimeout(timeoutId);
 
       if (!upstreamRes.ok) {
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
         releaseMasterReservation(requestId);
 
         const errorText = await upstreamRes.text();
-        let parsedError: any = { message: 'Upstream vendor error.' };
+        let parsedError: any = { message: 'Upstream vendor service reported an error.' };
         try { parsedError = JSON.parse(errorText); } catch (e) {}
 
+        const rawMessage = parsedError?.error?.message || parsedError?.message || errorText || 'Upstream vendor error.';
+        // Sanitize secret keys or internal hostnames from vendor error message
+        const safeMessage = String(rawMessage)
+          .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
+          .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
+          .substring(0, 300);
+
         const errType = parsedError?.error?.type || parsedError?.type || 'upstream_error';
-        const errMessage = parsedError?.error?.message || parsedError?.message || errorText || 'Upstream vendor error.';
 
         await prisma.apiRequest.create({
           data: {
@@ -276,7 +339,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
             endpoint: '/v1/messages',
             statusCode: upstreamRes.status,
             errorCode: String(errType).substring(0, 100),
-            errorMessage: String(errMessage).substring(0, 500),
+            errorMessage: safeMessage,
             inputTokens: 0,
             outputTokens: 0,
             totalTokens: 0,
@@ -288,7 +351,13 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           },
         });
 
-        return res.status(upstreamRes.status).json(parsedError);
+        return res.status(upstreamRes.status).json({
+          error: {
+            type: errType,
+            message: safeMessage,
+            code: `UPSTREAM_${upstreamRes.status}`,
+          },
+        });
       }
 
       if (stream) {

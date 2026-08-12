@@ -1,6 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Zap, ArrowLeft, AlertCircle } from 'lucide-react';
+import { HelpCircle, ArrowLeft, Home } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 
@@ -9,26 +8,38 @@ export const NotFoundPage: React.FC = () => {
     <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 max-w-xl w-full mx-auto px-5 py-20 text-center flex flex-col items-center justify-center space-y-6">
-        <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20 shadow-lg">
-          <Zap className="w-8 h-8 fill-current" />
-        </div>
+      <main className="flex-1 flex items-center justify-center p-6 max-w-4xl mx-auto w-full">
+        <div className="text-center space-y-6 max-w-lg">
+          <div className="w-16 h-16 rounded-full bg-violet-600/10 border border-violet-600/20 text-violet-600 flex items-center justify-center mx-auto">
+            <HelpCircle className="w-8 h-8" />
+          </div>
 
-        <div className="space-y-2">
-          <p className="text-xs font-mono font-bold uppercase tracking-wider text-amber-500">404 Error</p>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-            Page not found
-          </h1>
-          <p className="text-muted text-xs sm:text-sm leading-relaxed max-w-md mx-auto">
-            The page or route you are looking for does not exist or has been moved.
-          </p>
-        </div>
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-violet-50 text-violet-700 border border-violet-200">
+              404 Page Not Found
+            </span>
+            <h1 className="text-3xl font-bold text-fg">Page does not exist</h1>
+            <p className="text-sm text-muted leading-relaxed">
+              The page or resource you requested could not be located on the LightningDeals API Gateway platform.
+            </p>
+          </div>
 
-        <div className="pt-2">
-          <Link to="/" className="ui-button-primary text-xs py-3 px-6 gap-2 font-bold inline-flex items-center">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to LightningDeals</span>
-          </Link>
+          <div className="flex items-center justify-center gap-4 pt-4">
+            <a
+              href="/"
+              className="ui-button-primary py-2.5 px-5 text-sm font-semibold gap-2 justify-center"
+            >
+              <Home className="w-4 h-4" />
+              <span>Return Home</span>
+            </a>
+            <button
+              onClick={() => window.history.back()}
+              className="ui-button-secondary py-2.5 px-5 text-sm font-semibold gap-2 justify-center"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Go Back</span>
+            </button>
+          </div>
         </div>
       </main>
 

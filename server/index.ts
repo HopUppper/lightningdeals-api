@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import crypto from 'crypto';
 
 import { handleMessagesEndpoint } from './gateway';
 import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
@@ -9,12 +10,45 @@ import adminRouter from './admin';
 import adminAuthRouter from './adminAuth';
 import userRouter from './user';
 import { prisma } from './db';
+import { globalErrorHandler, NotFoundError } from './errors';
+
+// 0. Startup Configuration Integrity Checks
+function validateEnvironmentOnStartup() {
+  const isProd = process.env.NODE_ENV === 'production';
+  console.log(`[STARTUP AUDIT] Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  if (!process.env.DATABASE_URL) {
+    console.warn(`[STARTUP WARNING] DATABASE_URL is not set. Database connections will fall back to local configuration.`);
+  }
+
+  if (isProd && !process.env.ENCRYPTION_KEY) {
+    console.warn(`[SECURITY WARNING] ENCRYPTION_KEY environment variable is not explicitly set in production mode.`);
+  }
+}
+
+validateEnvironmentOnStartup();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Trust reverse proxy (Render / Cloudflare) to extract true client IP
 app.set('trust proxy', true);
+
+// Request ID Correlation & Security Headers Middleware
+app.use((req, res, next) => {
+  const existingReqId = req.headers['x-request-id']?.toString();
+  const requestId = existingReqId || `req_${crypto.randomUUID().replace(/-/g, '').substring(0, 16)}`;
+  (req as any).requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
+
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self';");
+  next();
+});
 
 // CORS Hardening
 const allowedOrigins = [
@@ -51,22 +85,6 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-
-
-// Security Headers Middleware
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self';");
-  next();
-});
-
-app.use(cookieParser());
-app.use(express.json({ limit: '10mb' }));
-
 // 1. Anthropic-Compatible API Gateway
 app.get('/v1', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
 app.get('/v1/', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
@@ -84,9 +102,8 @@ import { keyCheckLimiter } from './rateLimit';
 app.get('/api/key-status', keyCheckLimiter, handleCheckKeyStatus);
 app.get('/api/system/status', handleSystemStatus);
 
-
 // Public Pricing Packages for Frontend
-app.get('/api/pricing/packages', async (req, res) => {
+app.get('/api/pricing/packages', async (req, res, next) => {
   try {
     const packages = await prisma.tokenPackage.findMany({
       where: { enabled: true },
@@ -94,16 +111,16 @@ app.get('/api/pricing/packages', async (req, res) => {
     });
     res.json(packages.map((p) => ({ ...p, tokenAmount: p.tokenAmount.toString() })));
   } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
+    next(err);
   }
 });
 
-// 3. User & Admin Routes
+// 4. User & Admin Routes
 app.use('/api/admin/auth', adminAuthRouter);
 app.use('/api', userRouter);
 app.use('/api/admin', adminRouter);
 
-// 4. One-line Terminal Setup Scripts
+// 5. One-line Terminal Setup Scripts
 app.get('/setup.sh', (req, res) => {
   const baseUrl = process.env.LIGHTNINGDEALS_API_URL || 'https://lightningapi.pro';
   res.type('text/plain').send(`#!/bin/bash
@@ -127,19 +144,19 @@ Write-Host "Run 'claude' to start coding with LightningDeals."
 `);
 });
 
-
 import fs from 'fs';
 
-// 5. Static Web Application & SSG / SSR Pre-rendered Route Serving
+// 6. Static Web Application & SSG / SSR Pre-rendered Route Serving
 const distPath = path.resolve(import.meta.dirname, '../dist');
 console.log('⚡ Static web assets path:', distPath);
 
 app.use('/assets', express.static(path.join(distPath, 'assets')));
 app.use(express.static(distPath));
 
-app.get('*', (req, res) => {
+// 7. Standard 404 & SPA Catch-all Handler
+app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/v1')) {
-    return res.status(404).json({ error: { message: 'Endpoint not found.' } });
+    return next(new NotFoundError(`API endpoint ${req.path} not found.`));
   }
 
   const cleanPath = req.path.replace(/^\//, '').replace(/\/$/, '');
@@ -152,18 +169,25 @@ app.get('*', (req, res) => {
   }
 
   const indexPath = path.join(distPath, 'index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      res.status(200).send('<!DOCTYPE html><html><body><h1>LightningDeals API Gateway Server Active</h1></body></html>');
-    }
-  });
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+
+  res.status(200).send('<!DOCTYPE html><html><body><h1>LightningDeals API Gateway Server Active</h1></body></html>');
 });
 
+// 8. Global Error Handling Middleware
+app.use(globalErrorHandler);
 
+// Global Exception Process Resilience Listeners
+process.on('unhandledRejection', (reason: any) => {
+  console.error('[CRITICAL] Unhandled Promise Rejection caught:', reason?.message || reason);
+});
 
+process.on('uncaughtException', (err: Error) => {
+  console.error('[CRITICAL] Uncaught Exception caught:', err.message || err);
+});
 
 app.listen(PORT, () => {
-  console.log(`🚀 LightningDeals Backend API Gateway running on https://lightningapi.pro`);
+  console.log(`🚀 LightningDeals Backend API Gateway running on port ${PORT}`);
 });
-
-

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const ScrollToHash: React.FC = () => {
   const { pathname, hash } = useLocation();
@@ -157,70 +158,69 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
 
 export function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <ScrollToHash />
-        <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <ScrollToHash />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/pricing" element={<PublicPricingPage />} />
+            <Route path="/models" element={<ModelsPage />} />
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/status" element={<StatusPage />} />
+            <Route path="/check-key" element={<CheckKeyPage />} />
+            <Route path="/trial" element={<TrialPage />} />
+            <Route path="/request-quote" element={<QuoteRequestPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/refund" element={<RefundPage />} />
 
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/pricing" element={<PublicPricingPage />} />
-          <Route path="/models" element={<ModelsPage />} />
-          <Route path="/trial" element={<TrialPage />} />
-          <Route path="/request-quote" element={<QuoteRequestPage />} />
-          <Route path="/contact" element={<QuoteRequestPage />} />
-          <Route path="/docs/*" element={<DocsPage />} />
-          <Route path="/status" element={<StatusPage />} />
-          <Route path="/check-key" element={<CheckKeyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/refund" element={<RefundPage />} />
+            {/* Legacy redirects */}
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/register" element={<Navigate to="/" replace />} />
+            <Route path="/dashboard/*" element={<Navigate to="/" replace />} />
 
-          
-          {/* Legacy redirects */}
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/register" element={<Navigate to="/" replace />} />
-          <Route path="/dashboard/*" element={<Navigate to="/" replace />} />
+            {/* Admin Authentication Route */}
+            <Route path="/admin/login" element={<AdminLoginPage />} />
 
-          {/* Admin Authentication Route */}
-          <Route path="/admin/login" element={<AdminLoginPage />} />
+            {/* Admin Control Center — Secret route protected via AdminAuthGuard */}
+            <Route
+              path="/admin/*"
+              element={
+                <AdminAuthGuard>
+                  <AdminLayout />
+                </AdminAuthGuard>
+              }
+            >
+              <Route index element={<AdminOverview />} />
+              <Route path="providers" element={<AdminProviders />} />
+              <Route path="plans" element={<AdminPlans />} />
+              <Route path="customers" element={<AdminCustomers />} />
+              <Route path="keys" element={<AdminKeys />} />
+              <Route path="usage" element={<AdminUsage />} />
+              <Route path="tokens" element={<AdminTokens />} />
+              <Route path="orders" element={<AdminOrders />} />
 
-          {/* Admin Control Center — Secret route protected via AdminAuthGuard */}
-          <Route
-            path="/admin/*"
-            element={
-              <AdminAuthGuard>
-                <AdminLayout />
-              </AdminAuthGuard>
-            }
-          >
-            <Route index element={<AdminOverview />} />
-            <Route path="providers" element={<AdminProviders />} />
-            <Route path="plans" element={<AdminPlans />} />
-            <Route path="customers" element={<AdminCustomers />} />
-            <Route path="keys" element={<AdminKeys />} />
-            <Route path="usage" element={<AdminUsage />} />
-            <Route path="tokens" element={<AdminTokens />} />
-            <Route path="orders" element={<AdminOrders />} />
+              <Route path="pricing" element={<AdminPricing />} />
+              <Route path="models" element={<AdminModels />} />
+              <Route path="requests" element={<AdminRequests />} />
+              <Route path="security" element={<AdminSecurity />} />
+              <Route path="logs" element={<AdminLogs />} />
+              <Route path="leads" element={<AdminLeads />} />
+              <Route path="support" element={<AdminSupport />} />
+              <Route path="status" element={<AdminStatus />} />
+              <Route path="settings" element={<AdminSettings />} />
+              <Route path="api-test" element={<AdminApiTest />} />
+              <Route path="emergency" element={<AdminEmergencyControls />} />
+            </Route>
 
-            <Route path="pricing" element={<AdminPricing />} />
-            <Route path="models" element={<AdminModels />} />
-            <Route path="requests" element={<AdminRequests />} />
-            <Route path="security" element={<AdminSecurity />} />
-            <Route path="logs" element={<AdminLogs />} />
-            <Route path="leads" element={<AdminLeads />} />
-            <Route path="support" element={<AdminSupport />} />
-            <Route path="status" element={<AdminStatus />} />
-            <Route path="settings" element={<AdminSettings />} />
-            <Route path="api-test" element={<AdminApiTest />} />
-            <Route path="emergency" element={<AdminEmergencyControls />} />
-          </Route>
-
-          {/* Catch-all 404 Route */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Catch-all 404 Route */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

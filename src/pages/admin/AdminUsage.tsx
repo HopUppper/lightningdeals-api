@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, ShieldAlert, CheckCircle2, Clock, Zap, RefreshCw } from 'lucide-react';
+import { Activity, ShieldAlert, CheckCircle2, Clock, Zap, RefreshCw, AlertTriangle } from 'lucide-react';
 import { ThreeDCard } from '../../components/ThreeDCard';
 import { adminFetch } from '../../utils/api';
 
@@ -16,6 +16,9 @@ interface RequestItem {
   totalTokens: number;
   latencyMs: number;
   statusCode: number;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  exactFailureReason?: string | null;
   isEstimated: boolean;
   usageSource: string;
   createdAt: string;
@@ -98,55 +101,56 @@ export const AdminUsage: React.FC = () => {
             Authoritative token consumption analytics, 5-hour rolling usage metrics, and source-verified API request ledgers.
           </p>
         </div>
+
         <div className="flex items-center gap-3">
-          {lastUpdated && (
-            <span className="text-[11px] font-mono text-muted">Last updated: {lastUpdated}</span>
-          )}
+          {lastUpdated && <span className="text-[11px] font-mono text-muted">Last updated: {lastUpdated}</span>}
           <button
             onClick={handleReconcileUsage}
             disabled={reconciling}
-            className="px-3 py-1.5 text-xs bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 rounded-control flex items-center gap-1.5 font-mono shadow-xs font-bold"
-            title="Perform server-side token settlement audit check"
+            className="ui-button-secondary text-xs py-1.5 px-3 gap-1.5 font-mono"
           >
-            <Zap className="w-3.5 h-3.5" />
-            <span>{reconciling ? 'Auditing...' : 'Reconcile Tokens'}</span>
+            <Zap className="w-3.5 h-3.5 text-violet-600" />
+            <span>{reconciling ? 'Reconciling...' : 'Reconcile Tokens'}</span>
           </button>
-          <button
-            onClick={loadUsageData}
-            className="px-3 py-1.5 text-xs bg-white border border-border hover:bg-subtle text-fg rounded-control flex items-center gap-1.5 font-mono shadow-xs"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
+          <button onClick={loadUsageData} disabled={loading} className="ui-button-secondary text-xs py-1.5 px-3 gap-1.5 font-mono">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {reconciliationResult && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-panel text-xs text-emerald-800 font-mono space-y-1">
-          <p className="font-bold">✓ Token Settlement Audit Completed ({reconciliationResult.auditedAt})</p>
-          <p>Scanned {reconciliationResult.checkedRequestsCount} requests across {reconciliationResult.keyLedgerAudits?.length || 0} API keys. Discrepancies found: {reconciliationResult.discrepanciesCount}.</p>
-        </div>
-      )}
-
-
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-control text-xs text-red-700 font-mono flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 shrink-0" />
+        <div className="p-4 rounded-control bg-red-500/10 border border-red-500/20 text-red-700 text-xs font-mono flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* 3D Metrics Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {reconciliationResult && (
+        <div className={`p-4 rounded-control border text-xs font-mono flex items-center justify-between gap-3 ${
+          reconciliationResult.isReconciled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700' : 'bg-red-500/10 border-red-500/20 text-red-700'
+        }`}>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>
+              {reconciliationResult.isReconciled
+                ? `Token Ledger Verified! Logged request tokens match accounting totals across ${reconciliationResult.checkedCount} records.`
+                : `Discrepancy detected across ${reconciliationResult.discrepancies?.length || 0} records.`}
+            </span>
+          </div>
+          <button onClick={() => setReconciliationResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
+        </div>
+      )}
+
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <ThreeDCard intensity={8}>
           <div className="glass-3d-card p-5 rounded-panel h-full flex flex-col justify-between">
             <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Total Platform Tokens</p>
-            <p className="text-2xl font-bold font-mono text-violet-700 mt-2">
+            <p className="text-2xl font-bold font-mono text-violet-600 mt-2">
               {data ? formatNum(data.totalTokensConsumed) : '...'}
             </p>
-            <p className="text-[11px] font-mono text-muted mt-1">
-              {data ? `${formatNum(data.totalInputTokens)} in / ${formatNum(data.totalOutputTokens)} out` : 'Calculated aggregate'}
-            </p>
+            <p className="text-[11px] font-mono text-muted mt-1">Lifetime tokens processed</p>
           </div>
         </ThreeDCard>
 
@@ -186,9 +190,9 @@ export const AdminUsage: React.FC = () => {
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h3 className="text-sm font-bold text-fg flex items-center gap-2">
             <Clock className="w-4 h-4 text-violet-600" />
-            <span>Recent API Request Activity Log</span>
+            <span>Recent API Request Activity Log & Exact Error Audit</span>
           </h3>
-          <span className="text-[11px] font-mono text-muted">Showing latest 20 requests</span>
+          <span className="text-[11px] font-mono text-muted">Showing latest 50 requests with exact status breakdown</span>
         </div>
 
         {loading ? (
@@ -201,13 +205,11 @@ export const AdminUsage: React.FC = () => {
               <thead>
                 <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
                   <th className="py-3 px-4 font-bold">Timestamp</th>
-                  <th className="py-3 px-4 font-bold">Request ID</th>
                   <th className="py-3 px-4 font-bold">Model</th>
-                  <th className="py-3 px-4 font-bold">Key Name</th>
-                  <th className="py-3 px-4 font-bold">Customer</th>
+                  <th className="py-3 px-4 font-bold">Key & Customer</th>
                   <th className="py-3 px-4 font-bold">Status</th>
-                  <th className="py-3 px-4 font-bold">Input / Output</th>
-                  <th className="py-3 px-4 font-bold">Total Tokens</th>
+                  <th className="py-3 px-4 font-bold">Exact Failure / Success Reason</th>
+                  <th className="py-3 px-4 font-bold">Tokens</th>
                   <th className="py-3 px-4 text-right font-bold">Latency</th>
                 </tr>
               </thead>
@@ -217,10 +219,11 @@ export const AdminUsage: React.FC = () => {
                     <td className="py-3 px-4 text-muted whitespace-nowrap">
                       {new Date(r.createdAt).toLocaleTimeString()}
                     </td>
-                    <td className="py-3 px-4 font-bold text-fg">{r.requestId || r.id.substring(0, 8)}</td>
                     <td className="py-3 px-4 font-bold text-violet-700">{r.model}</td>
-                    <td className="py-3 px-4 text-fg font-sans font-medium">{r.keyName}</td>
-                    <td className="py-3 px-4 text-muted font-sans">{r.customer}</td>
+                    <td className="py-3 px-4">
+                      <p className="font-bold text-fg font-sans">{r.keyName}</p>
+                      <p className="text-[10px] text-muted">{r.displayKey} · {r.customer}</p>
+                    </td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                         r.statusCode >= 200 && r.statusCode < 300
@@ -230,10 +233,22 @@ export const AdminUsage: React.FC = () => {
                         {r.statusCode || 200}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-muted">
-                      {r.inputTokens} / {r.outputTokens}
+                    <td className="py-3 px-4 max-w-xs">
+                      {r.statusCode >= 400 ? (
+                        <div className="p-1.5 rounded bg-red-50 border border-red-200 text-red-800 text-[11px] font-sans flex items-start gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                          <span>{r.exactFailureReason || r.errorMessage || r.errorCode || 'Request Failed'}</span>
+                        </div>
+                      ) : (
+                        <span className="text-emerald-600 text-[11px] font-sans font-medium flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span>Request Completed Successfully</span>
+                        </span>
+                      )}
                     </td>
-                    <td className="py-3 px-4 font-bold text-fg">{r.totalTokens.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-fg font-bold">
+                      {r.totalTokens.toLocaleString()} <span className="text-[10px] text-muted font-normal">({r.inputTokens}in / {r.outputTokens}out)</span>
+                    </td>
                     <td className="py-3 px-4 text-right text-emerald-600 font-bold">{r.latencyMs} ms</td>
                   </tr>
                 ))}

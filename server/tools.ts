@@ -74,8 +74,22 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
   });
 
 
+  const isExhausted = windowMetrics.remainingNum <= 0;
+  const isExpired = keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date();
+
+  let exactFailureReason: string | null = null;
+  if (keyRecord.status !== 'active') {
+    exactFailureReason = `API Key Status is "${keyRecord.status.toUpperCase()}". Please reactivate your key or contact support.`;
+  } else if (isExpired) {
+    exactFailureReason = `API Key Expired on ${new Date(keyRecord.expiresAt!).toLocaleDateString()}. Please renew your prepaid package.`;
+  } else if (isExhausted) {
+    exactFailureReason = `5-Hour Rolling Token Allowance Exhausted (0 tokens remaining out of ${windowMetrics.purchasedNum.toLocaleString()}). Allowance auto-resets on next 5-hour cycle.`;
+  }
+
   res.json({
     valid: true,
+    exactFailureReason,
+    hasError: Boolean(exactFailureReason),
     keyPrefix: keyRecord.keyPrefix,
     displayKey: keyRecord.displayKey,
     name: keyRecord.name,
@@ -100,7 +114,10 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     nextResetAt: windowMetrics.nextResetAt,
     windowResetSeconds: windowMetrics.windowResetSeconds,
     consumptionPercent: windowMetrics.consumptionPercent,
-    recentRequests,
+    recentRequests: recentRequests.map((r) => ({
+      ...r,
+      exactFailureReason: r.statusCode >= 400 ? (r.errorMessage || r.errorCode || `HTTP ${r.statusCode} Request Failed`) : null,
+    })),
   });
 }
 

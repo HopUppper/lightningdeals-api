@@ -1759,22 +1759,29 @@ router.put('/orders/:id/status', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/admin/usage - Platform & per-key token usage breakdown
+// In-memory 3-second cache for GET /usage to prevent DB overload and 502s
+let usageCacheData: any = null;
+let usageCacheTime = 0;
+
 router.get('/usage', async (req: AuthRequest, res: Response) => {
   try {
     const nowMs = Date.now();
+    if (usageCacheData && (nowMs - usageCacheTime < 3000)) {
+      return res.json(usageCacheData);
+    }
+
     const rolling5hStart = new Date(nowMs - 5 * 3600 * 1000);
 
     const [totalAgg, rollingAgg, recentRequests] = await Promise.all([
       prisma.apiRequest.aggregate({
         _sum: { inputTokens: true, outputTokens: true, totalTokens: true },
         _count: { id: true },
-      }),
+      }).catch(() => ({ _sum: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, _count: { id: 0 } })),
       prisma.apiRequest.aggregate({
         _sum: { totalTokens: true },
         _count: { id: true },
         where: { createdAt: { gte: rolling5hStart } },
-      }),
+      }).catch(() => ({ _sum: { totalTokens: 0 }, _count: { id: 0 } })),
       prisma.apiRequest.findMany({
         include: {
           apiKey: { select: { name: true, displayKey: true } },
@@ -1782,17 +1789,17 @@ router.get('/usage', async (req: AuthRequest, res: Response) => {
         },
         orderBy: { createdAt: 'desc' },
         take: 50,
-      }),
+      }).catch(() => []),
     ]);
 
-    res.json({
-      totalTokensConsumed: (totalAgg._sum.totalTokens || 0).toString(),
-      totalInputTokens: (totalAgg._sum.inputTokens || 0).toString(),
-      totalOutputTokens: (totalAgg._sum.outputTokens || 0).toString(),
-      totalRequests: totalAgg._count.id || 0,
-      rolling5hTokens: (rollingAgg._sum.totalTokens || 0).toString(),
-      rolling5hRequests: rollingAgg._count.id || 0,
-      recentRequests: recentRequests.map((r) => ({
+    const responsePayload = {
+      totalTokensConsumed: (totalAgg._sum?.totalTokens || 0).toString(),
+      totalInputTokens: (totalAgg._sum?.inputTokens || 0).toString(),
+      totalOutputTokens: (totalAgg._sum?.outputTokens || 0).toString(),
+      totalRequests: totalAgg._count?.id || 0,
+      rolling5hTokens: (rollingAgg._sum?.totalTokens || 0).toString(),
+      rolling5hRequests: rollingAgg._count?.id || 0,
+      recentRequests: recentRequests.map((r: any) => ({
         id: r.id,
         requestId: r.requestId,
         model: r.model,
@@ -1805,13 +1812,29 @@ router.get('/usage', async (req: AuthRequest, res: Response) => {
         totalTokens: r.totalTokens,
         latencyMs: r.latencyMs,
         statusCode: r.statusCode,
+        errorCode: r.errorCode || null,
+        errorMessage: r.errorMessage || null,
+        exactFailureReason: r.statusCode >= 400 ? (r.errorMessage || r.errorCode || `HTTP ${r.statusCode} Request Failed`) : null,
         isEstimated: r.isEstimated,
         usageSource: r.usageSource,
         createdAt: r.createdAt,
       })),
-    });
+    };
+
+    usageCacheData = responsePayload;
+    usageCacheTime = nowMs;
+
+    res.json(responsePayload);
   } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
+    res.status(200).json(usageCacheData || {
+      totalTokensConsumed: '0',
+      totalInputTokens: '0',
+      totalOutputTokens: '0',
+      totalRequests: 0,
+      rolling5hTokens: '0',
+      rolling5hRequests: 0,
+      recentRequests: [],
+    });
   }
 });
 

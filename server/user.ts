@@ -4,8 +4,10 @@ import { prisma } from './db';
 import { generateToken, authenticateJwt, requireVerifiedEmail, AuthRequest, hashPasswordScrypt, verifyPasswordScrypt } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { authLimiter, trialLimiter } from './rateLimit';
+import { sendVerificationEmail, getEmailProviderStatus } from './email';
 import {
   validateAndNormalizeEmail,
+  validateEmailDomainMx,
   validatePhoneNumber,
   validatePasswordPolicy,
   generateCryptographicToken,
@@ -20,7 +22,13 @@ const router = Router();
 // 1. ENTERPRISE REGISTRATION & EMAIL / PHONE VERIFICATION WORKFLOW
 // ============================================================================
 
-// POST /api/user/auth/register — Secure Registration Flow
+// GET /api/user/auth/email-health — Email Delivery Provider Health Check
+router.get('/auth/email-health', async (req: Request, res: Response) => {
+  const status = getEmailProviderStatus();
+  res.json({ success: true, emailProvider: status });
+});
+
+// POST /api/user/auth/register — Enterprise Secure Registration Flow
 router.post('/auth/register', authLimiter, async (req: Request, res: Response) => {
   const { name, email, password, phone } = req.body;
 
@@ -34,6 +42,13 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
     return res.status(400).json({ error: { type: 'invalid_email', message: emailCheck.error } });
   }
   const cleanEmail = emailCheck.email;
+
+  // Domain MX Record Validation
+  const domain = cleanEmail.split('@')[1];
+  const mxCheck = await validateEmailDomainMx(domain);
+  if (!mxCheck.isValid) {
+    return res.status(400).json({ error: { type: 'invalid_email_domain', message: mxCheck.error } });
+  }
 
   let cleanPhone: string | null = null;
   if (phone) {
@@ -50,19 +65,62 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
   }
 
   try {
-    // 2. Duplicate Account Check
-    const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
-    if (existing) {
-      await recordSecurityLog({
-        email: cleanEmail,
-        req,
-        eventType: 'REGISTER_DUPLICATE_ATTEMPT',
-        metadata: { reason: 'Email already registered' },
+    // 2. Duplicate Account Check & Unverified Registration Handling
+    const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    
+    if (existingUser) {
+      // If user is already active & verified -> Reject registration with conflict
+      if (existingUser.emailVerified || existingUser.status === 'active') {
+        await recordSecurityLog({
+          email: cleanEmail,
+          req,
+          eventType: 'REGISTER_DUPLICATE_ATTEMPT',
+          metadata: { reason: 'Email already verified and active' },
+        });
+        return res.status(409).json({ error: { type: 'duplicate_account', message: 'An account with this email address already exists. Please sign in.' } });
+      }
+
+      // If user exists but is UNVERIFIED -> Re-use account record and send fresh verification challenge
+      const { rawToken, tokenHash } = generateCryptographicToken();
+      const { rawOtp, otpHash } = generateSecureOtpCode();
+      const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      // Store new token in DB
+      await prisma.emailVerificationToken.create({
+        data: {
+          userId: existingUser.id,
+          email: existingUser.email,
+          tokenHash,
+          expiresAt: tokenExpiresAt,
+        },
       });
-      return res.status(400).json({ error: { type: 'duplicate_account', message: 'An account with this email address already exists.' } });
+
+      // Send Real Transactional Verification Email
+      const sendResult = await sendVerificationEmail({
+        email: existingUser.email,
+        name: existingUser.name,
+        rawToken,
+        otpCode: rawOtp,
+      });
+
+      if (!sendResult.success) {
+        return res.status(502).json({
+          error: {
+            type: 'email_send_failed',
+            message: 'Failed to deliver verification email via transactional gateway. Please verify your email address and try again.',
+          },
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Verification challenge issued! A verification email has been sent to ${existingUser.email}. Please verify within 15 minutes.`,
+        email: existingUser.email,
+        status: 'PENDING_EMAIL_VERIFICATION',
+      });
     }
 
-    // 3. Create Pending User (emailVerified = false, status = 'unverified')
+    // 3. Create Pending User Record (emailVerified = false, status = 'unverified')
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
@@ -76,10 +134,12 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
       },
     });
 
-    // 4. Generate High-Entropy Cryptographic Verification Token (Expires in 24h)
+    // 4. Generate Cryptographic Link Token & 6-Digit Code (15-min Expiration)
     const { rawToken, tokenHash } = generateCryptographicToken();
-    const tokenExpiresAt = new Date(Date.now() + 24 * 3600 * 1000);
+    const { rawOtp, otpHash } = generateSecureOtpCode();
+    const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
+    // Store tokenHash & otpHash in database
     await prisma.emailVerificationToken.create({
       data: {
         userId: user.id,
@@ -89,17 +149,27 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
       },
     });
 
-    // 5. Generate Optional Phone OTP Code if Phone Provided (Expires in 10m)
-    let rawPhoneOtp: string | null = null;
-    if (cleanPhone) {
-      const { rawOtp, otpHash } = generateSecureOtpCode();
-      rawPhoneOtp = rawOtp;
-      await prisma.phoneOtpCode.create({
-        data: {
-          userId: user.id,
-          phone: cleanPhone,
-          otpHash,
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    // 5. Send Real Transactional Verification Email
+    const sendResult = await sendVerificationEmail({
+      email: user.email,
+      name: user.name,
+      rawToken,
+      otpCode: rawOtp,
+    });
+
+    if (!sendResult.success) {
+      await recordSecurityLog({
+        userId: user.id,
+        email: user.email,
+        req,
+        eventType: 'EMAIL_DELIVERY_FAILED',
+        metadata: { error: sendResult.error },
+      });
+
+      return res.status(502).json({
+        error: {
+          type: 'email_send_failed',
+          message: 'Unable to deliver verification email. Please double-check your email address or try again.',
         },
       });
     }
@@ -108,81 +178,89 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
       userId: user.id,
       email: user.email,
       req,
-      eventType: 'REGISTER',
-      metadata: { phoneProvided: !!cleanPhone },
+      eventType: 'REGISTER_PENDING_EMAIL',
+      metadata: { expiresAt: tokenExpiresAt, providerUsed: sendResult.providerUsed },
     });
 
-    await recordSecurityLog({
-      userId: user.id,
-      email: user.email,
-      req,
-      eventType: 'EMAIL_VERIFICATION_SENT',
-      metadata: { expiresAt: tokenExpiresAt },
-    });
-
-    // In production, token is sent via email. For developer testing visibility, return verification details safely.
+    // Response strictly hides verification tokens from client API responses
     res.status(201).json({
       success: true,
-      message: 'Account created successfully! Please verify your email address to activate your account.',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        emailVerified: false,
-        status: user.status,
-      },
-      verification: {
-        method: 'EMAIL_TOKEN',
-        expiresAt: tokenExpiresAt,
-        token: rawToken, // Verification link token secret
-        phoneOtp: rawPhoneOtp, // Phone OTP if requested
-      },
+      message: `Account created successfully! We sent a verification email to ${user.email}. Please verify within 15 minutes.`,
+      email: user.email,
+      status: 'PENDING_EMAIL_VERIFICATION',
     });
   } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
+    if (err.code === 'P2002') {
+      return res.status(409).json({ error: { type: 'duplicate_account', message: 'An account with this email address already exists. Please sign in.' } });
+    }
+    res.status(500).json({ error: { type: 'server_error', message: err.message } });
   }
 });
 
-// POST /api/user/auth/verify-email — Verify Email with Token
+// POST /api/user/auth/verify-email — Verify Email with Token Link or 6-Digit Code
 router.post('/auth/verify-email', async (req: Request, res: Response) => {
-  const { token } = req.body;
-  if (!token || typeof token !== 'string') {
-    return res.status(400).json({ error: { type: 'invalid_request', message: 'Verification token is required.' } });
+  const { token, code, email } = req.body;
+  
+  if (!token && (!code || !email)) {
+    return res.status(400).json({ error: { type: 'invalid_request', message: 'Verification link token or 6-digit code with email is required.' } });
   }
 
   try {
-    const tokenHash = hashSecret(token.trim());
+    let record: any = null;
 
-    const record = await prisma.emailVerificationToken.findUnique({
-      where: { tokenHash },
-      include: { user: true },
-    });
+    if (token && typeof token === 'string') {
+      const tokenHash = hashSecret(token.trim());
+      record = await prisma.emailVerificationToken.findUnique({
+        where: { tokenHash },
+        include: { user: true },
+      });
+    } else if (code && email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+      if (!user) {
+        return res.status(400).json({ error: { type: 'invalid_code', message: 'No account found matching this email address.' } });
+      }
+
+      record = await prisma.emailVerificationToken.findFirst({
+        where: { userId: user.id, usedAt: null },
+        orderBy: { createdAt: 'desc' },
+        include: { user: true },
+      });
+
+      if (record) {
+        // Increment attempt counter for brute-force protection
+        await prisma.emailVerificationToken.update({
+          where: { id: record.id },
+          data: { attempts: record.attempts + 1 },
+        });
+
+        if (record.attempts >= 5) {
+          return res.status(429).json({ error: { type: 'too_many_attempts', message: 'Maximum verification attempts exceeded. Please request a new verification email.' } });
+        }
+      }
+    }
 
     if (!record) {
-      return res.status(400).json({ error: { type: 'invalid_token', message: 'Invalid or expired verification token.' } });
+      return res.status(400).json({ error: { type: 'invalid_token', message: 'Invalid or expired verification challenge.' } });
     }
 
     if (record.usedAt) {
-      return res.status(400).json({ error: { type: 'token_used', message: 'This verification link has already been used.' } });
+      return res.status(400).json({ error: { type: 'token_used', message: 'This verification link has already been used. Please sign in.' } });
     }
 
     if (record.expiresAt < new Date()) {
-      return res.status(400).json({ error: { type: 'token_expired', message: 'Verification link has expired. Please request a new verification email.' } });
+      return res.status(400).json({ error: { type: 'token_expired', message: 'Verification code has expired. Please request a new verification email.' } });
     }
 
-    if (record.attempts >= 5) {
-      return res.status(400).json({ error: { type: 'too_many_attempts', message: 'Maximum verification attempts exceeded. Please request a new verification email.' } });
-    }
-
-    // Mark email as verified & activate account
+    // Mark email as verified & activate account atomically in a single transaction
+    const user = record.user;
     await prisma.$transaction([
       prisma.emailVerificationToken.update({
         where: { id: record.id },
         data: { usedAt: new Date() },
       }),
       prisma.user.update({
-        where: { id: record.userId },
+        where: { id: user.id },
         data: {
           emailVerified: true,
           emailVerifiedAt: new Date(),
@@ -192,14 +270,13 @@ router.post('/auth/verify-email', async (req: Request, res: Response) => {
     ]);
 
     await recordSecurityLog({
-      userId: record.userId,
-      email: record.email,
+      userId: user.id,
+      email: user.email,
       req,
-      eventType: 'EMAIL_VERIFIED',
+      eventType: 'EMAIL_VERIFIED_ACTIVATED',
     });
 
     // Create session for auto-login after verification
-    const user = record.user;
     const jwtToken = generateToken({ id: user.id, email: user.email, role: user.role });
     const sessionTokenHash = hashSecret(jwtToken);
     const ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
@@ -236,7 +313,7 @@ router.post('/auth/verify-email', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/user/auth/resend-verification — Resend Email Verification Token
+// POST /api/user/auth/resend-verification — Resend Verification Email (60s Cooldown Enforced)
 router.post('/auth/resend-verification', authLimiter, async (req: Request, res: Response) => {
   const { email } = req.body;
   const emailCheck = validateAndNormalizeEmail(email);
@@ -248,33 +325,36 @@ router.post('/auth/resend-verification', authLimiter, async (req: Request, res: 
   try {
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
 
-    // Always return generic success to prevent account enumeration
-    const genericResponse = {
+    // Prevent account enumeration with generic success message
+    const genericMsg = {
       success: true,
-      message: 'If an unverified account with that email exists, a new verification link has been issued.',
+      message: `If an unverified account with ${cleanEmail} exists, a new verification email has been sent.`,
     };
 
-    if (!user || user.emailVerified) {
-      return res.json(genericResponse);
+    if (!user || user.emailVerified || user.status === 'active') {
+      return res.json(genericMsg);
     }
 
-    // Rate Limit Resends (60s Cooldown)
+    // Rate Limit Resends (60-Second Cooldown)
     const recentToken = await prisma.emailVerificationToken.findFirst({
       where: { userId: user.id, usedAt: null },
       orderBy: { createdAt: 'desc' },
     });
 
     if (recentToken && (Date.now() - new Date(recentToken.lastSentAt).getTime()) < 60000) {
+      const waitSeconds = Math.ceil((60000 - (Date.now() - new Date(recentToken.lastSentAt).getTime())) / 1000);
       return res.status(429).json({
         error: {
           type: 'rate_limited',
-          message: 'Please wait at least 60 seconds before requesting another verification email.',
+          message: `Please wait ${waitSeconds} second(s) before requesting another verification email.`,
+          waitSeconds,
         },
       });
     }
 
     const { rawToken, tokenHash } = generateCryptographicToken();
-    const tokenExpiresAt = new Date(Date.now() + 24 * 3600 * 1000);
+    const { rawOtp, otpHash } = generateSecureOtpCode();
+    const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15-minute expiration
 
     await prisma.emailVerificationToken.create({
       data: {
@@ -286,18 +366,32 @@ router.post('/auth/resend-verification', authLimiter, async (req: Request, res: 
       },
     });
 
+    // Send Real Verification Email
+    const sendResult = await sendVerificationEmail({
+      email: user.email,
+      name: user.name,
+      rawToken,
+      otpCode: rawOtp,
+    });
+
+    if (!sendResult.success) {
+      return res.status(502).json({
+        error: {
+          type: 'email_send_failed',
+          message: 'Failed to deliver verification email. Please verify your address and try again.',
+        },
+      });
+    }
+
     await recordSecurityLog({
       userId: user.id,
       email: user.email,
       req,
-      eventType: 'EMAIL_VERIFICATION_SENT',
+      eventType: 'EMAIL_VERIFICATION_RESENT',
       metadata: { resendCount: (recentToken?.resendCount || 0) + 1 },
     });
 
-    res.json({
-      ...genericResponse,
-      token: rawToken, // Provided for testing
-    });
+    res.json(genericMsg);
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

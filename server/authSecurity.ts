@@ -1,6 +1,28 @@
 import crypto from 'crypto';
+import dns from 'dns';
 import { Request } from 'express';
 import { prisma } from './db';
+
+// Domain MX Record Validation
+export async function validateEmailDomainMx(emailDomain: string): Promise<{ isValid: boolean; error?: string }> {
+  const domain = emailDomain.trim().toLowerCase();
+  
+  // Fast path for established major domains
+  const knownDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'proton.me', 'protonmail.com', 'aol.com', 'zoho.com', 'gmx.com', 'mail.com'];
+  if (knownDomains.includes(domain)) {
+    return { isValid: true };
+  }
+
+  try {
+    const mxRecords = await dns.promises.resolveMx(domain);
+    if (!mxRecords || mxRecords.length === 0) {
+      return { isValid: false, error: `The domain "@${domain}" does not have valid mail server (MX) records.` };
+    }
+    return { isValid: true };
+  } catch (err) {
+    return { isValid: false, error: `The email domain "@${domain}" does not appear to exist or cannot receive mail.` };
+  }
+}
 
 // 1. Email Normalization & Validation
 export function validateAndNormalizeEmail(rawEmail: string): { isValid: boolean; email: string; error?: string } {

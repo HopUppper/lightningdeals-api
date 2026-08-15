@@ -17,7 +17,7 @@ export const UserDashboardLayout: React.FC = () => {
     { name: 'API Keys', path: '/dashboard/keys', icon: Key },
     { name: 'Usage', path: '/dashboard/usage', icon: Activity },
     { name: 'Plan', path: '/dashboard/plan', icon: CreditCard },
-    { name: 'Documentation', path: '/docs', icon: BookOpen, external: true },
+    { name: 'Documentation', path: '/dashboard/docs', icon: BookOpen },
     { name: 'Support', path: '/dashboard/support', icon: LifeBuoy },
     { name: 'Account', path: '/dashboard/settings', icon: Settings },
   ];
@@ -65,32 +65,21 @@ export const UserDashboardLayout: React.FC = () => {
             Navigation
           </p>
           {navItems.map((item) => (
-            item.external ? (
-              <Link
-                key={item.name}
-                to={item.path}
-                className="flex items-center gap-3 px-3.5 py-2.5 rounded-control text-xs font-semibold text-muted hover:text-fg hover:bg-subtle transition-colors"
-              >
-                <item.icon className="w-4 h-4 text-violet-600" />
-                <span>{item.name}</span>
-              </Link>
-            ) : (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.end}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-control text-xs font-bold transition-all ${
-                    isActive
-                      ? 'bg-violet-600 text-white shadow-xs font-extrabold'
-                      : 'text-muted hover:text-fg hover:bg-subtle'
-                  }`
-                }
-              >
-                <item.icon className="w-4 h-4" />
-                <span>{item.name}</span>
-              </NavLink>
-            )
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.end}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3.5 py-2.5 rounded-control text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-violet-600 text-white shadow-xs font-extrabold'
+                    : 'text-muted hover:text-fg hover:bg-subtle'
+                }`
+              }
+            >
+              <item.icon className="w-4 h-4" />
+              <span>{item.name}</span>
+            </NavLink>
           ))}
         </aside>
 

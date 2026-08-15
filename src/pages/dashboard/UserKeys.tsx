@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Copy, Check, ShieldCheck, Plus, Trash2, AlertTriangle, X, Lock } from 'lucide-react';
+import { Key, ShieldCheck, Trash2, AlertTriangle, Mail } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { adminFetch } from '../../utils/api';
 
 interface ApiKeyItem {
@@ -20,17 +21,9 @@ export const UserKeys: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // New Key Modal & State
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newKeyName, setNewKeyName] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [createdSecretKey, setCreatedSecretKey] = useState<string | null>(null);
-
   // Revoke Confirmation State
   const [revokingKey, setRevokingKey] = useState<ApiKeyItem | null>(null);
   const [revoking, setRevoking] = useState(false);
-
-  const [copiedText, setCopiedText] = useState(false);
 
   const fetchKeys = async () => {
     try {
@@ -51,31 +44,6 @@ export const UserKeys: React.FC = () => {
   useEffect(() => {
     fetchKeys();
   }, []);
-
-  const handleCreateKey = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newKeyName.trim()) return;
-    setCreating(true);
-
-    try {
-      const res = await adminFetch('/api/user/keys', {
-        method: 'POST',
-        body: JSON.stringify({ name: newKeyName.trim() }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setCreatedSecretKey(data.key.secretKey);
-        fetchKeys();
-      } else {
-        alert('Failed to generate API key. Please check your email verification status.');
-      }
-    } catch (err) {
-      alert('Error creating API key.');
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const handleRevokeKey = async () => {
     if (!revokingKey) return;
@@ -99,12 +67,6 @@ export const UserKeys: React.FC = () => {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedText(true);
-    setTimeout(() => setCopiedText(false), 2000);
-  };
-
   const formatTokens = (val: string | number) => {
     const num = Number(val || 0);
     if (num >= 1000000000) return `${(num / 1000000000).toFixed(2)}B`;
@@ -119,32 +81,33 @@ export const UserKeys: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
             <Key className="w-6 h-6 text-violet-600" />
-            <span>API Key Management</span>
+            <span>Assigned API Keys</span>
           </h1>
           <p className="text-xs text-muted mt-1">
-            Manage your personal Anthropic gateway API keys, inspect statuses, and revoke key credentials.
+            View your personal Anthropic gateway API keys, inspect statuses, and revoke key credentials.
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setNewKeyName('');
-            setCreatedSecretKey(null);
-            setShowCreateModal(true);
-          }}
+        <Link
+          to="/dashboard/support"
           className="ui-button-primary text-xs py-2.5 px-4 font-bold gap-2 shadow-md shrink-0"
         >
-          <Plus className="w-4 h-4" />
-          <span>Create New API Key</span>
-        </button>
+          <Mail className="w-4 h-4" />
+          <span>Request Additional Key</span>
+        </Link>
       </div>
 
       {/* Security Banner */}
-      <div className="p-4 rounded-panel bg-violet-50 border border-violet-200 text-xs text-violet-700 flex items-center gap-3">
-        <ShieldCheck className="w-4 h-4 text-violet-600 shrink-0" />
-        <span>
-          Your API keys grant access to your 5-hour rolling token allowance. Keep keys secure and never expose them in client-side code.
-        </span>
+      <div className="p-4 rounded-panel bg-violet-50 border border-violet-200 text-xs text-violet-700 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-violet-600 shrink-0" />
+          <span>
+            API keys are issued and assigned to your account upon token package purchase. Contact support to request additional key allocations.
+          </span>
+        </div>
+        <Link to="/dashboard/support" className="font-bold underline whitespace-nowrap hover:text-violet-900">
+          Contact Support
+        </Link>
       </div>
 
       {/* Keys List Table */}
@@ -155,14 +118,14 @@ export const UserKeys: React.FC = () => {
           <div className="py-12 text-center text-xs text-red-500 font-mono">{error}</div>
         ) : keys.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted space-y-3">
-            <p>No API keys created yet.</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
+            <p>No active API keys currently assigned to your account.</p>
+            <Link
+              to="/dashboard/support"
               className="ui-button-primary text-xs py-2 px-4 inline-flex items-center gap-2 font-bold"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Create First API Key</span>
-            </button>
+              <Mail className="w-3.5 h-3.5" />
+              <span>Contact Support for Key Assignment</span>
+            </Link>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -217,82 +180,6 @@ export const UserKeys: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Create Key Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-md w-full p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-base font-bold text-fg flex items-center gap-2">
-                <Key className="w-4 h-4 text-violet-600" /> Create New API Key
-              </h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-muted hover:text-fg">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {createdSecretKey ? (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-control bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Save this API key securely now.</span>
-                    <p className="mt-0.5 text-[11px]">For security reasons, you will not be able to view this full secret key again.</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-fg mb-1">Secret Key</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={createdSecretKey}
-                      className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control text-fg font-bold"
-                    />
-                    <button
-                      onClick={() => copyToClipboard(createdSecretKey)}
-                      className="px-3 py-2 bg-violet-600 text-white rounded-control text-xs font-bold shrink-0 hover:bg-violet-700 flex items-center gap-1"
-                    >
-                      {copiedText ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedText ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="w-full py-2.5 bg-accent text-white text-xs font-bold rounded-control"
-                >
-                  I Have Saved My Secret Key
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleCreateKey} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-fg mb-1.5">Key Description Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Claude Code CLI Key"
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-bg border border-border rounded-control text-fg focus:outline-none focus:border-accent"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-control transition-colors disabled:opacity-50"
-                >
-                  {creating ? 'Generating Key...' : 'Generate API Key'}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Revoke Key Modal */}
       {revokingKey && (

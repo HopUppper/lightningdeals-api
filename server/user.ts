@@ -867,6 +867,65 @@ router.get('/plan', authenticateJwt, async (req: AuthRequest, res: Response) => 
   }
 });
 
+// GET /api/user/usage — Get Current User Usage & Metrics (Derived strictly from req.user.id)
+router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const keys = await prisma.apiKey.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let totalPurchased = 0n;
+    let totalUsed = 0n;
+    let totalRemaining = 0n;
+
+    keys.forEach((k) => {
+      totalPurchased += k.purchasedTokens;
+      totalUsed += k.tokensUsed;
+      totalRemaining += k.tokensRemaining;
+    });
+
+    // Default 5M rolling window allowance if no keys custom assigned yet
+    if (totalPurchased === 0n) {
+      totalPurchased = 5000000n;
+      totalRemaining = 5000000n;
+    }
+
+    const keyIds = keys.map((k) => k.id);
+    const recentRequests = keyIds.length > 0 ? await prisma.apiRequest.findMany({
+      where: { apiKeyId: { in: keyIds } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    }) : [];
+
+    const ledgerEntries = await prisma.tokenLedger.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    res.json({
+      totalPurchased: totalPurchased.toString(),
+      totalUsed: totalUsed.toString(),
+      totalRemaining: totalRemaining.toString(),
+      activeKeysCount: keys.filter(k => k.status === 'active').length,
+      recentRequests: recentRequests.map(r => ({
+        ...r,
+        promptTokens: r.promptTokens.toString(),
+        completionTokens: r.completionTokens.toString(),
+        totalTokens: r.totalTokens.toString(),
+      })),
+      ledgerEntries: ledgerEntries.map(l => ({
+        ...l,
+        amount: l.amount.toString(),
+        balanceAfter: l.balanceAfter.toString(),
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // 5. Risk-Scored Trial Anti-Abuse Key Claim (/api/trial/claim)
 router.post('/trial/claim', trialLimiter, async (req: Request, res: Response) => {
   const { email, name, deviceHash } = req.body;

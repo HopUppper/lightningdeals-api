@@ -71,6 +71,7 @@ import { UserOverview } from './pages/dashboard/UserOverview';
 import { UserKeys } from './pages/dashboard/UserKeys';
 import { UserUsage } from './pages/dashboard/UserUsage';
 import { UserPlan } from './pages/dashboard/UserPlan';
+import { UserDocs } from './pages/dashboard/UserDocs';
 import { UserOrders } from './pages/dashboard/UserOrders';
 import { UserApiTestConsole } from './pages/dashboard/UserApiTestConsole';
 import { UserSupport } from './pages/dashboard/UserSupport';
@@ -207,6 +208,7 @@ export function App() {
               <Route path="api-keys" element={<UserKeys />} />
               <Route path="usage" element={<UserUsage />} />
               <Route path="plan" element={<UserPlan />} />
+              <Route path="docs" element={<UserDocs />} />
               <Route path="orders" element={<UserOrders />} />
               <Route path="api-test" element={<UserApiTestConsole />} />
               <Route path="support" element={<UserSupport />} />

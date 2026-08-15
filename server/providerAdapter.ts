@@ -125,23 +125,31 @@ export function buildProviderRequest(
   const targetUrl = baseUrl.endsWith('/v1/messages') ? baseUrl : `${baseUrl}/v1/messages`;
 
 
+  const hasTools = Array.isArray(payload.tools) && payload.tools.length > 0;
+  const toolChoice = hasTools ? payload.tool_choice : undefined;
+
+  const requestBody: Record<string, any> = {
+    model: targetModel,
+    messages: payload.messages || [],
+    max_tokens: payload.max_tokens,
+    stream: payload.stream,
+  };
+
+  if (payload.system) requestBody.system = payload.system;
+  if (hasTools) {
+    requestBody.tools = payload.tools;
+    if (toolChoice) requestBody.tool_choice = toolChoice;
+  }
+  if (payload.temperature !== undefined) requestBody.temperature = payload.temperature;
+  if (payload.top_p !== undefined) requestBody.top_p = payload.top_p;
+  if (payload.stop_sequences) requestBody.stop_sequences = payload.stop_sequences;
+  if (payload.metadata) requestBody.metadata = payload.metadata;
+
   return {
     url: targetUrl,
     headers,
     targetModel,
-    body: {
-      model: targetModel,
-      messages: payload.messages || [],
-      max_tokens: payload.max_tokens,
-      stream: payload.stream,
-      system: payload.system,
-      tools: payload.tools,
-      tool_choice: payload.tool_choice,
-      temperature: payload.temperature,
-      top_p: payload.top_p,
-      stop_sequences: payload.stop_sequences,
-      metadata: payload.metadata,
-    },
+    body: requestBody,
   };
 }
 

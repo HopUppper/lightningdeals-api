@@ -108,7 +108,7 @@ export const UserSettings: React.FC = () => {
               <input
                 type="text"
                 disabled
-                value={user?.role?.toUpperCase() || 'USER'}
+                value={user?.role === 'admin' ? 'ADMINISTRATOR' : 'CUSTOMER ACCOUNT'}
                 className="w-full pl-9 pr-4 py-2 text-xs font-mono font-bold bg-bg border border-border rounded-control text-violet-600 uppercase opacity-80"
               />
             </div>

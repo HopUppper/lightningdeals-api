@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Copy, Check, Terminal, Code2, Cpu, Zap, ShieldCheck } from 'lucide-react';
+import { BookOpen, Copy, Check, Terminal, Code2, Cpu, Zap, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export const UserDocs: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -10,10 +10,13 @@ export const UserDocs: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const npxSnippet = `npx lightningdeals`;
+  const npxWithKeySnippet = `npx lightningdeals --key ld_live_your_api_key_here`;
+
   const claudeCodeSnippet = `export ANTHROPIC_BASE_URL="https://lightningapi.pro"
 export ANTHROPIC_AUTH_TOKEN="ld_live_your_api_key_here"
 
-# Start coding with Claude Code CLI
+# Launch Claude Code CLI
 claude`;
 
   const pythonSnippet = `import anthropic
@@ -52,21 +55,63 @@ console.log(response.content[0].text);`;
           <span>Quick Setup & Integration Guide</span>
         </h1>
         <p className="text-xs text-muted mt-1">
-          Drop-in Anthropic API gateway instructions for Claude Code CLI, Cursor, Windsurf, VS Code, and SDKs.
+          Automated 1-click CLI wizard & drop-in Anthropic API gateway instructions for Cursor, VS Code, Claude Code CLI, and SDKs.
         </p>
       </div>
 
-      {/* Gateway Info Banner */}
-      <div className="p-4 rounded-panel bg-violet-50 border border-violet-200 text-xs text-violet-700 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-violet-600 shrink-0 fill-current" />
-          <span>
-            <span className="font-bold">Base URL:</span> <code className="font-mono bg-white px-2 py-0.5 rounded border border-violet-200 text-violet-900">https://lightningapi.pro</code>
+      {/* Hero 1-Click Automated Setup via npx lightningdeals */}
+      <div className="p-6 rounded-panel bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white space-y-4 shadow-lg relative overflow-hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-xs">
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>Recommended: 1-Click Automated IDE Setup</span>
+          </div>
+          <span className="text-[10px] font-mono bg-emerald-400 text-black px-2.5 py-0.5 rounded-full font-bold uppercase">
+            ⚡ Zero Manual Edits
           </span>
         </div>
-        <span className="font-mono font-bold text-[10px] bg-emerald-500/10 text-emerald-600 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-          ● SUB-45MS LATENCY
-        </span>
+
+        <div>
+          <h2 className="text-lg font-extrabold text-white">Configure All IDEs & Tools Automatically</h2>
+          <p className="text-xs text-violet-100 mt-1 leading-relaxed max-w-2xl">
+            Run the official <code className="font-mono bg-black/30 px-2 py-0.5 rounded text-amber-300">npx lightningdeals</code> wizard in your terminal. It scans your computer and configures Cursor, VS Code, Claude Code CLI, Windsurf, Roo Code, and Continue automatically!
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+          {/* Option A: Interactive Wizard */}
+          <div className="relative bg-black/40 border border-white/20 rounded-control p-3.5 font-mono text-xs">
+            <p className="text-[10px] text-violet-200 font-sans mb-1 font-bold">Interactive Wizard:</p>
+            <pre className="text-amber-300 font-bold">{npxSnippet}</pre>
+            <button
+              onClick={() => copyCode(npxSnippet, 'npx_wizard')}
+              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] flex items-center gap-1 font-sans border border-white/20"
+            >
+              {copiedId === 'npx_wizard' ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedId === 'npx_wizard' ? 'Copied' : 'Copy'}</span>
+            </button>
+          </div>
+
+          {/* Option B: Direct Key Passing */}
+          <div className="relative bg-black/40 border border-white/20 rounded-control p-3.5 font-mono text-xs">
+            <p className="text-[10px] text-violet-200 font-sans mb-1 font-bold">Direct Key Auto-Configure:</p>
+            <pre className="text-emerald-300 font-bold overflow-x-auto">{npxWithKeySnippet}</pre>
+            <button
+              onClick={() => copyCode(npxWithKeySnippet, 'npx_key')}
+              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] flex items-center gap-1 font-sans border border-white/20"
+            >
+              {copiedId === 'npx_key' ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedId === 'npx_key' ? 'Copied' : 'Copy'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 text-[11px] text-violet-100 font-medium pt-1">
+          <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> Cursor</span>
+          <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> Claude Code CLI</span>
+          <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> VS Code (Continue/Roo/Cline)</span>
+          <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" /> Windsurf</span>
+        </div>
       </div>
 
       {/* Setup Options Grid */}
@@ -76,7 +121,7 @@ console.log(response.content[0].text);`;
         <div className="bg-card border border-border rounded-panel p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <h3 className="text-sm font-bold text-fg flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-violet-600" /> Claude Code CLI Setup
+              <Terminal className="w-4 h-4 text-violet-600" /> Claude Code CLI Manual Setup
             </h3>
             <span className="text-[10px] font-mono font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded">Terminal</span>
           </div>
@@ -101,7 +146,7 @@ console.log(response.content[0].text);`;
         <div className="bg-card border border-border rounded-panel p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <h3 className="text-sm font-bold text-fg flex items-center gap-2">
-              <Code2 className="w-4 h-4 text-indigo-600" /> Cursor & Windsurf Integration
+              <Code2 className="w-4 h-4 text-indigo-600" /> Cursor & Windsurf Manual Setup
             </h3>
             <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">IDE</span>
           </div>
@@ -111,7 +156,7 @@ console.log(response.content[0].text);`;
             <li>Enable <span className="font-bold text-fg">Anthropic API Key</span>.</li>
             <li>Set Base URL to: <code className="font-mono bg-bg px-1.5 py-0.5 rounded text-violet-600 font-bold">https://lightningapi.pro</code></li>
             <li>Paste your key: <code className="font-mono bg-bg px-1.5 py-0.5 rounded text-violet-600">ld_live_your_api_key_here</code></li>
-            <li>Select models: <code className="font-mono text-fg font-bold">claude-3-7-sonnet</code> or <code className="font-mono text-fg font-bold">claude-3-5-haiku</code></li>
+            <li>Select models: <code className="font-mono text-fg font-bold">claude-3-7-sonnet</code> or <code className="font-mono text-fg font-bold">claude-3-5-sonnet</code></li>
           </ol>
         </div>
 

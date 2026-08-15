@@ -1,9 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
 
 export interface PageviewHit {
   id: string;
   sessionId: string;
+  userName: string;
+  userEmail: string;
+  isLoggedIn: boolean;
   path: string;
   referrer: string;
   device: string;
@@ -12,6 +18,7 @@ export interface PageviewHit {
   countryCode: string;
   city: string;
   ip: string;
+  userAgent: string;
   timestamp: Date;
 }
 
@@ -32,7 +39,7 @@ function parseBrowser(ua: string = ''): string {
   if (userAgent.includes('chrome/')) return 'Chrome';
   if (userAgent.includes('safari/') && !userAgent.includes('chrome/')) return 'Safari';
   if (userAgent.includes('firefox/')) return 'Firefox';
-  return 'Other';
+  return 'Other Browser';
 }
 
 function parseCountry(req: Request): { name: string; code: string } {
@@ -63,7 +70,7 @@ function parseCountry(req: Request): { name: string; code: string } {
 }
 
 function parseReferrer(rawReferrer: string = ''): string {
-  if (!rawReferrer) return 'Direct';
+  if (!rawReferrer) return 'Direct Navigation';
   const ref = rawReferrer.toLowerCase();
   if (ref.includes('google.')) return 'Google Search';
   if (ref.includes('wa.me') || ref.includes('whatsapp')) return 'WhatsApp Support';
@@ -75,22 +82,52 @@ function parseReferrer(rawReferrer: string = ''): string {
     const url = new URL(rawReferrer);
     return url.hostname.replace('www.', '');
   } catch {
-    return 'Other Web';
+    return 'External Referral';
   }
+}
+
+function extractUserInfoFromReq(req: Request): { userName: string; userEmail: string; isLoggedIn: boolean } {
+  const authHeader = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  // @ts-ignore
+  const token = authHeader || req.cookies?.ld_token;
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { email?: string; name?: string };
+      if (decoded && decoded.email) {
+        return {
+          userName: decoded.name || decoded.email.split('@')[0],
+          userEmail: decoded.email,
+          isLoggedIn: true,
+        };
+      }
+    } catch {
+      // Ignored if expired or anonymous
+    }
+  }
+
+  return {
+    userName: 'Anonymous Web Visitor',
+    userEmail: 'Unauthenticated Public Browsing',
+    isLoggedIn: false,
+  };
 }
 
 // Middleware to record real-time page views
 export function recordPageview(req: Request, res: Response, next: NextFunction) {
-  // Only track GET page navigation requests or beacon pings
   if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/assets') && !req.path.includes('.')) {
     const ua = req.headers['user-agent'] || '';
     const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
     const countryInfo = parseCountry(req);
-    const sessionHash = crypto.createHash('md5').update(`${ip}-${ua.substring(0, 30)}`).digest('hex').substring(0, 12);
+    const sessionHash = `sess_${crypto.createHash('md5').update(`${ip}-${ua.substring(0, 30)}`).digest('hex').substring(0, 8)}`;
+    const userInfo = extractUserInfoFromReq(req);
 
     const hit: PageviewHit = {
       id: `hit_${crypto.randomUUID().substring(0, 8)}`,
       sessionId: sessionHash,
+      userName: userInfo.userName,
+      userEmail: userInfo.userEmail,
+      isLoggedIn: userInfo.isLoggedIn,
       path: req.path || '/',
       referrer: parseReferrer(req.headers['referer']?.toString() || req.headers['referrer']?.toString() || ''),
       device: parseDevice(ua),
@@ -99,6 +136,7 @@ export function recordPageview(req: Request, res: Response, next: NextFunction) 
       countryCode: countryInfo.code,
       city: req.headers['x-city']?.toString() || 'Metropolitan Area',
       ip,
+      userAgent: ua,
       timestamp: new Date(),
     };
 
@@ -117,11 +155,15 @@ export function handleAnalyticsBeacon(req: Request, res: Response) {
     const ua = userAgent || req.headers['user-agent'] || '';
     const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
     const countryInfo = parseCountry(req);
-    const sessionHash = crypto.createHash('md5').update(`${ip}-${ua.substring(0, 30)}`).digest('hex').substring(0, 12);
+    const sessionHash = `sess_${crypto.createHash('md5').update(`${ip}-${ua.substring(0, 30)}`).digest('hex').substring(0, 8)}`;
+    const userInfo = extractUserInfoFromReq(req);
 
     const hit: PageviewHit = {
       id: `hit_${crypto.randomUUID().substring(0, 8)}`,
       sessionId: sessionHash,
+      userName: userInfo.userName,
+      userEmail: userInfo.userEmail,
+      isLoggedIn: userInfo.isLoggedIn,
       path: path || '/',
       referrer: parseReferrer(referrer || req.headers['referer']?.toString() || ''),
       device: parseDevice(ua),
@@ -130,6 +172,7 @@ export function handleAnalyticsBeacon(req: Request, res: Response) {
       countryCode: countryInfo.code,
       city: req.headers['x-city']?.toString() || 'Metropolitan Area',
       ip,
+      userAgent: ua,
       timestamp: new Date(),
     };
 
@@ -144,7 +187,7 @@ export function handleAnalyticsBeacon(req: Request, res: Response) {
   }
 }
 
-// Aggregate Realtime Analytics Report
+// Aggregate Realtime Analytics Report with Detailed Active Visitor Roster
 export function getRealtimeAnalyticsReport() {
   const now = new Date();
   const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
@@ -152,7 +195,57 @@ export function getRealtimeAnalyticsReport() {
 
   // Active in last 5 minutes (Live Users Right Now)
   const activeHits5m = pageviewBuffer.filter(h => h.timestamp >= fiveMinutesAgo);
-  const liveActiveUsers = new Set(activeHits5m.map(h => h.sessionId)).size;
+
+  // Group active hits into distinct visitor sessions
+  const activeSessionMap: Record<string, {
+    sessionId: string;
+    userName: string;
+    userEmail: string;
+    isLoggedIn: boolean;
+    ip: string;
+    currentPath: string;
+    referrer: string;
+    device: string;
+    browser: string;
+    country: string;
+    countryCode: string;
+    city: string;
+    firstSeenAt: Date;
+    lastSeenAt: Date;
+    pageviewsCount: number;
+  }> = {};
+
+  activeHits5m.forEach(hit => {
+    if (!activeSessionMap[hit.sessionId]) {
+      activeSessionMap[hit.sessionId] = {
+        sessionId: hit.sessionId,
+        userName: hit.userName,
+        userEmail: hit.userEmail,
+        isLoggedIn: hit.isLoggedIn,
+        ip: hit.ip,
+        currentPath: hit.path,
+        referrer: hit.referrer,
+        device: `${hit.browser} on ${hit.device}`,
+        browser: hit.browser,
+        country: hit.country,
+        countryCode: hit.countryCode,
+        city: hit.city,
+        firstSeenAt: hit.timestamp,
+        lastSeenAt: hit.timestamp,
+        pageviewsCount: 1,
+      };
+    } else {
+      activeSessionMap[hit.sessionId].pageviewsCount += 1;
+      if (hit.timestamp > activeSessionMap[hit.sessionId].lastSeenAt) {
+        activeSessionMap[hit.sessionId].lastSeenAt = hit.timestamp;
+        activeSessionMap[hit.sessionId].currentPath = hit.path;
+      }
+    }
+  });
+
+  const activeVisitorsList = Object.values(activeSessionMap).sort(
+    (a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime()
+  );
 
   // Active in last 30 minutes
   const activeHits30m = pageviewBuffer.filter(h => h.timestamp >= thirtyMinutesAgo);
@@ -160,8 +253,6 @@ export function getRealtimeAnalyticsReport() {
 
   // Top Pages in last 30 minutes
   const pageMap: Record<string, { activeNow: number; totalViews: number }> = {};
-  
-  // Seed default core routes so dashboard always shows clean stats
   const coreRoutes = ['/', '/pricing', '/docs', '/models', '/check-key', '/status', '/trial'];
   coreRoutes.forEach(route => {
     pageMap[route] = { activeNow: 0, totalViews: 0 };
@@ -182,7 +273,7 @@ export function getRealtimeAnalyticsReport() {
     .map(([path, data]) => ({
       path,
       title: getPathTitle(path),
-      activeNow: Math.max(data.activeNow, path === '/' ? Math.ceil(liveActiveUsers * 0.4) : Math.ceil(liveActiveUsers * 0.1)),
+      activeNow: data.activeNow,
       viewsToday: data.totalViews,
     }))
     .sort((a, b) => b.activeNow - a.activeNow || b.viewsToday - a.viewsToday);
@@ -232,39 +323,18 @@ export function getRealtimeAnalyticsReport() {
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Realtime Velocity (Hits per minute for last 30m)
-  const velocity: { minute: string; hits: number }[] = [];
-  for (let i = 29; i >= 0; i--) {
-    const minStart = new Date(now.getTime() - i * 60 * 1000);
-    const minEnd = new Date(now.getTime() - (i - 1) * 60 * 1000);
-    const hitsInMin = pageviewBuffer.filter(h => h.timestamp >= minStart && h.timestamp < minEnd).length;
-    velocity.push({
-      minute: minStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      hits: hitsInMin,
-    });
-  }
-
   return {
     gaPropertyId: '15440382173',
     measurementId: 'G-GBRR7YHWVM',
     status: 'ACTIVE_REALTIME_STREAM',
-    liveActiveUsers: Math.max(liveActiveUsers, 1),
-    activeUsers30m: Math.max(activeUsers30m, 1),
+    liveActiveUsers: activeVisitorsList.length,
+    activeUsers30m,
     totalHitsToday: pageviewBuffer.length,
-    velocity,
+    activeVisitorsList,
     topPages,
-    countryBreakdown: countryBreakdown.length > 0 ? countryBreakdown : [
-      { code: 'US', name: 'United States', count: 12, percentage: 54.5 },
-      { code: 'IN', name: 'India', count: 6, percentage: 27.2 },
-      { code: 'GB', name: 'United Kingdom', count: 2, percentage: 9.1 },
-      { code: 'DE', name: 'Germany', count: 2, percentage: 9.1 },
-    ],
+    countryBreakdown,
     deviceBreakdown,
-    trafficSources: trafficSources.length > 0 ? trafficSources : [
-      { source: 'Direct', count: 14, percentage: 63.6 },
-      { source: 'Google Search', count: 5, percentage: 22.7 },
-      { source: 'WhatsApp Support', count: 3, percentage: 13.6 },
-    ],
+    trafficSources,
     liveFeed: pageviewBuffer.slice(0, 15),
   };
 }

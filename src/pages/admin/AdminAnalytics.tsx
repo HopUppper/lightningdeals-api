@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Activity, 
   Globe, 
   Users, 
   Eye, 
@@ -10,16 +9,37 @@ import {
   Tablet, 
   ExternalLink, 
   CheckCircle2, 
-  Zap, 
   Clock, 
   ShieldCheck, 
   Layers, 
   TrendingUp, 
-  Sparkles,
   ArrowUpRight,
-  Radio
+  Radio,
+  UserCheck,
+  UserX,
+  MapPin,
+  Compass,
+  Info
 } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
+
+interface ActiveVisitor {
+  sessionId: string;
+  userName: string;
+  userEmail: string;
+  isLoggedIn: boolean;
+  ip: string;
+  currentPath: string;
+  referrer: string;
+  device: string;
+  browser: string;
+  country: string;
+  countryCode: string;
+  city: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  pageviewsCount: number;
+}
 
 interface TopPage {
   path: string;
@@ -50,6 +70,9 @@ interface TrafficSource {
 interface LiveFeedHit {
   id: string;
   sessionId: string;
+  userName: string;
+  userEmail: string;
+  isLoggedIn: boolean;
   path: string;
   referrer: string;
   device: string;
@@ -65,7 +88,7 @@ interface AnalyticsData {
   liveActiveUsers: number;
   activeUsers30m: number;
   totalHitsToday: number;
-  velocity: { minute: string; hits: number }[];
+  activeVisitorsList: ActiveVisitor[];
   topPages: TopPage[];
   countryBreakdown: CountryData[];
   deviceBreakdown: DeviceData[];
@@ -126,14 +149,14 @@ export const AdminAnalytics: React.FC = () => {
           <div className="flex items-center gap-3 mb-1">
             <div className="h-3 w-3 rounded-full bg-emerald-500 animate-ping" />
             <span className="text-xs font-mono font-bold text-emerald-600 tracking-wider uppercase bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              Live Google Analytics & Web Telemetry
+              Live Verified Visitor Telemetry & Stream Engine
             </span>
           </div>
           <h1 className="text-2xl font-black text-fg tracking-tight flex items-center gap-2">
-            Realtime Traffic & User Analytics
+            Realtime Visitor Telemetry & User Roster
           </h1>
           <p className="text-xs text-muted mt-1 font-mono">
-            Synced with GA4 Tag <span className="font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">{data?.measurementId || 'G-GBRR7YHWVM'}</span> • Property ID: <span className="font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">{data?.gaPropertyId || '15440382173'}</span>
+            GA4 Property: <span className="font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">{data?.gaPropertyId || '15440382173'}</span> • Measurement Tag: <span className="font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">{data?.measurementId || 'G-GBRR7YHWVM'}</span>
           </p>
         </div>
 
@@ -178,6 +201,17 @@ export const AdminAnalytics: React.FC = () => {
         </div>
       )}
 
+      {/* Notice Callout on Public Web Anonymity */}
+      <div className="p-4 rounded-2xl bg-slate-900 text-slate-200 text-xs font-mono flex items-start gap-3 border border-slate-800">
+        <Info className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="font-bold text-white">How Live Visitor Identification Works:</p>
+          <p className="text-slate-300 leading-relaxed">
+            Public website visitors browsing landing pages (e.g. <span className="text-violet-300">/</span>, <span className="text-violet-300">/pricing</span>, <span className="text-violet-300">/docs</span>) do not log in or enter their names. They appear with their exact <span className="text-emerald-300">Session ID</span>, <span className="text-emerald-300 font-bold">IP Address</span>, <span className="text-emerald-300">City/Country</span>, and <span className="text-emerald-300">Browser/OS</span>. When a user logs into an account or uses an API key, their account <span className="text-amber-300 font-bold">Name & Email</span> are automatically linked!
+          </p>
+        </div>
+      </div>
+
       {/* Primary Real-Time Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card 1: Active Users Right Now */}
@@ -191,18 +225,18 @@ export const AdminAnalytics: React.FC = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
-              Active Users Right Now
+              Active Visitors Right Now
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 font-mono">
               REALTIME (5M)
             </span>
           </div>
           <div className="flex items-baseline gap-3">
             <div className="text-5xl font-black tracking-tight text-white font-mono">
-              {loading ? '...' : data?.liveActiveUsers || 1}
+              {loading ? '...' : data?.liveActiveUsers || 0}
             </div>
             <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5" /> Online
+              <TrendingUp className="w-3.5 h-3.5" /> Active Sessions
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-mono">
@@ -214,17 +248,17 @@ export const AdminAnalytics: React.FC = () => {
         <div className="bg-white p-6 rounded-3xl border border-violet-100 shadow-sm hover:border-violet-200 transition-all">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold text-muted font-mono tracking-wider uppercase">
-              30-Min Active Sessions
+              30-Min Unique Sessions
             </span>
             <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600">
               <Users className="w-4 h-4" />
             </div>
           </div>
           <div className="text-4xl font-black text-fg font-mono">
-            {loading ? '...' : data?.activeUsers30m || 1}
+            {loading ? '...' : data?.activeUsers30m || 0}
           </div>
           <p className="text-[11px] text-muted mt-2 font-mono">
-            Unique sessions in past 30 minutes
+            Unique visitors in past 30 minutes
           </p>
         </div>
 
@@ -257,12 +291,102 @@ export const AdminAnalytics: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-lg font-extrabold text-emerald-600 font-mono">HEALTHY</span>
+            <span className="text-lg font-extrabold text-emerald-600 font-mono">ACTIVE TELEMETRY</span>
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           </div>
           <p className="text-[11px] text-muted mt-2 font-mono">
-            Updated at {lastUpdated.toLocaleTimeString()}
+            Last update at {lastUpdated.toLocaleTimeString()}
           </p>
+        </div>
+      </div>
+
+      {/* Active Visitor Roster Table */}
+      <div className="bg-white rounded-3xl border border-violet-100 shadow-sm p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-fg flex items-center gap-2">
+              <Users className="w-5 h-5 text-violet-600" /> Active Visitor Roster (Names & Technical Session Details)
+            </h2>
+            <p className="text-xs text-muted font-mono mt-0.5">
+              Live breakdown of visitors currently browsing the site with Session ID, IP, Name, and Location
+            </p>
+          </div>
+          <span className="text-xs font-mono font-bold bg-violet-50 text-violet-700 px-3 py-1 rounded-xl border border-violet-200">
+            {data?.activeVisitorsList?.length || 0} Active Session(s)
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+                <th className="pb-3 pl-2">Visitor / Account</th>
+                <th className="pb-3">Session & IP Address</th>
+                <th className="pb-3">Current Page Path</th>
+                <th className="pb-3">Location & Country</th>
+                <th className="pb-3">Device / Browser</th>
+                <th className="pb-3 text-right pr-2">Last Seen</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data?.activeVisitorsList && data.activeVisitorsList.length > 0 ? (
+                data.activeVisitorsList.map((v) => (
+                  <tr key={v.sessionId} className="hover:bg-violet-50/40 transition-colors">
+                    <td className="py-3.5 pl-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`p-2 rounded-xl ${v.isLoggedIn ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-slate-100 text-slate-500'}`}>
+                          {v.isLoggedIn ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <div className="font-bold text-fg font-sans flex items-center gap-1.5">
+                            {v.userName}
+                            {v.isLoggedIn && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-mono font-bold">
+                                AUTHENTICATED
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted">{v.userEmail}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-3.5">
+                      <div className="font-bold text-violet-700">{v.sessionId}</div>
+                      <div className="text-[11px] text-slate-500">{v.ip}</div>
+                    </td>
+
+                    <td className="py-3.5">
+                      <span className="px-2 py-1 rounded-lg bg-slate-100 font-bold text-slate-800">
+                        {v.currentPath}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5">
+                      <div className="flex items-center gap-1.5 text-slate-700 font-bold">
+                        <span>{getCountryEmoji(v.countryCode)}</span> {v.country}
+                      </div>
+                      <div className="text-[11px] text-slate-400">{v.city}</div>
+                    </td>
+
+                    <td className="py-3.5 text-slate-600">
+                      {v.device}
+                    </td>
+
+                    <td className="py-3.5 text-right pr-2 text-slate-500 font-bold">
+                      {getTimeAgo(v.lastSeenAt)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400 font-mono">
+                    No active visitors detected in the last 5 minutes. Open lightningapi.pro in a browser tab to test!
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -336,24 +460,30 @@ export const AdminAnalytics: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-            {data?.countryBreakdown.map((country) => (
-              <div key={country.code} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="font-bold text-slate-700 flex items-center gap-2">
-                    <span className="text-sm">{getCountryEmoji(country.code)}</span> {country.name}
-                  </span>
-                  <span className="text-muted font-semibold">
-                    {country.count} ({country.percentage}%)
-                  </span>
+            {data?.countryBreakdown && data.countryBreakdown.length > 0 ? (
+              data.countryBreakdown.map((country) => (
+                <div key={country.code} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="font-bold text-slate-700 flex items-center gap-2">
+                      <span className="text-sm">{getCountryEmoji(country.code)}</span> {country.name}
+                    </span>
+                    <span className="text-muted font-semibold">
+                      {country.count} ({country.percentage}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-violet-600 to-indigo-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.max(country.percentage, 5)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-violet-600 to-indigo-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(country.percentage, 5)}%` }}
-                  />
-                </div>
+              ))
+            ) : (
+              <div className="text-xs text-muted text-center py-6 font-mono">
+                No geographical hits yet
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -404,7 +534,7 @@ export const AdminAnalytics: React.FC = () => {
                 <div key={hit.id} className="text-[11px] font-mono p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                   <div>
                     <span className="font-bold text-violet-700">{hit.path}</span>
-                    <span className="text-slate-400 ml-1.5">({hit.country})</span>
+                    <span className="text-slate-400 ml-1.5">({hit.userName})</span>
                   </div>
                   <span className="text-slate-400 text-[10px]">
                     {new Date(hit.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -428,6 +558,15 @@ function getCountryEmoji(code: string): string {
   const charCodeA = code.toUpperCase().charCodeAt(0) + 127397;
   const charCodeB = code.toUpperCase().charCodeAt(1) + 127397;
   return String.fromCodePoint(charCodeA, charCodeB);
+}
+
+function getTimeAgo(dateStr: string): string {
+  if (!dateStr) return 'Just now';
+  const diffSec = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 1000);
+  if (diffSec < 5) return 'Just now';
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  return `${diffMin}m ago`;
 }
 
 export default AdminAnalytics;

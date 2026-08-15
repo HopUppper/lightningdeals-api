@@ -24,17 +24,20 @@ export function generateToken(payload: { id: string; email: string; role: string
 
 export async function authenticateJwt(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  const token = authHeader || req.cookies?.ld_token;
+  const token = authHeader || req.cookies?.ld_admin_token || req.cookies?.ld_token;
 
   if (!token) {
     return res.status(401).json({ error: { type: 'authentication_error', message: 'Authentication required. Please sign in.' } });
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { id?: string; email?: string; role?: string };
     const tokenHash = hashSecret(token);
 
-    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    let user = decoded.id ? await prisma.user.findUnique({ where: { id: decoded.id } }) : null;
+    if (!user && decoded.email) {
+      user = await prisma.user.findFirst({ where: { email: decoded.email.trim().toLowerCase() } });
+    }
 
     if (!user) {
       return res.status(401).json({ error: { type: 'authentication_error', message: 'User account not found.' } });

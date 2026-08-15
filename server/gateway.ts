@@ -115,7 +115,7 @@ export async function validateAndExtractApiKey(req: Request) {
     return {
       errorStatus: 429,
       errorType: 'quota_exceeded',
-      errorMessage: `5-hour rolling token window allowance exhausted (0 tokens remaining). Allowance auto-resets on next 5-hour cycle.`,
+      errorMessage: `Token allowance exhausted (0 tokens remaining). Please top up your API key balance in your dashboard or contact support.`,
     };
   }
 

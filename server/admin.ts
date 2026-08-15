@@ -12,6 +12,14 @@ const router = Router();
 // Protect all admin routes with JWT and Admin Role
 router.use(authenticateJwt, requireAdmin);
 
+// Admin Session Verification Endpoints
+router.get('/auth/me', async (req: AuthRequest, res: Response) => {
+  res.json({ success: true, user: req.user });
+});
+router.get('/me', async (req: AuthRequest, res: Response) => {
+  res.json({ success: true, user: req.user });
+});
+
 // Realtime Google Analytics & Web Traffic Endpoint
 router.get('/analytics/realtime', async (req: AuthRequest, res: Response) => {
   try {

@@ -50,17 +50,25 @@ export const AdminOverview: React.FC = () => {
   }
 
   if (updateError && !overview) {
+    const isAuthError = updateError.toLowerCase().includes('session') || updateError.toLowerCase().includes('authentication') || updateError.toLowerCase().includes('expired');
     return (
-      <div className="p-8 bg-red-50 border border-red-200 rounded-panel text-center space-y-4 max-w-lg mx-auto my-12">
+      <div className="p-8 bg-red-50 border border-red-200 rounded-panel text-center space-y-4 max-w-lg mx-auto my-12 shadow-xs">
         <AlertTriangle className="w-8 h-8 text-red-600 mx-auto" />
-        <h2 className="text-base font-bold text-fg">Database Connection Error</h2>
+        <h2 className="text-base font-bold text-fg">{isAuthError ? 'Admin Session Expired' : 'Database Connection Error'}</h2>
         <p className="text-xs text-red-700 font-mono leading-relaxed">{updateError}</p>
         <button
-          onClick={() => loadOverview(true)}
+          onClick={() => {
+            if (isAuthError) {
+              localStorage.removeItem('ld_admin_token');
+              window.location.href = '/admin';
+            } else {
+              loadOverview(true);
+            }
+          }}
           className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold mx-auto"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Retry Database Connection</span>
+          <span>{isAuthError ? 'Sign In to Admin Panel' : 'Retry Database Connection'}</span>
         </button>
       </div>
     );

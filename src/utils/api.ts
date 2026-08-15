@@ -30,6 +30,12 @@ export async function adminFetch(url: string, options: RequestInit = {}, timeout
   try {
     const response = await fetch(url, mergedOptions);
     clearTimeout(timer);
+    if (url.includes('/api/admin/') && (response.status === 401 || response.status === 403)) {
+      localStorage.removeItem('ld_admin_token');
+      if (window.location.pathname.startsWith('/admin') && !window.location.pathname.includes('/login')) {
+        window.location.href = '/admin';
+      }
+    }
     return response;
   } catch (err: any) {
     clearTimeout(timer);

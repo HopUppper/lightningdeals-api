@@ -210,18 +210,27 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
     }
   }
 
-  // 4. Secure Development / Verification Logging Mode
-  console.log(`\n==================================================`);
-  console.log(`[VERIFICATION EMAIL SENT] To: ${email}`);
-  console.log(`Subject: ${subject}`);
-  console.log(`Verification Token: ${rawToken}`);
-  console.log(`6-Digit OTP Code: ${otpCode}`);
-  console.log(`Verify Link: ${APP_BASE_URL}/verify-email?token=${rawToken}`);
-  console.log(`==================================================\n`);
+  // 4. Fallback: Development Mode only
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`\n==================================================`);
+    console.log(`[DEV VERIFICATION EMAIL LOG] To: ${email}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`Verification Token: ${rawToken}`);
+    console.log(`6-Digit OTP Code: ${otpCode}`);
+    console.log(`Verify Link: ${APP_BASE_URL}/verify-email?token=${rawToken}`);
+    console.log(`==================================================\n`);
 
+    return {
+      success: true,
+      providerUsed: 'DEVELOPMENT_LOG',
+      messageId: `dev-log-${Date.now()}`,
+    };
+  }
+
+  // Production Fail-Closed Safety: Do NOT pretend email was sent if provider credentials are missing
   return {
-    success: true,
-    providerUsed: 'DEVELOPMENT_LOG',
-    messageId: `dev-log-${Date.now()}`,
+    success: false,
+    providerUsed: 'NONE',
+    error: 'Transactional email provider is not configured. Please add RESEND_API_KEY, SENDGRID_API_KEY, or SMTP credentials in your server environment settings.',
   };
 }

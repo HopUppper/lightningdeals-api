@@ -158,6 +158,9 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
     });
 
     if (!sendResult.success) {
+      await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+      await prisma.user.delete({ where: { id: user.id } });
+
       await recordSecurityLog({
         userId: user.id,
         email: user.email,
@@ -169,7 +172,7 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
       return res.status(502).json({
         error: {
           type: 'email_send_failed',
-          message: 'Unable to deliver verification email. Please double-check your email address or try again.',
+          message: sendResult.error || 'Unable to deliver verification email. Account creation was cancelled.',
         },
       });
     }

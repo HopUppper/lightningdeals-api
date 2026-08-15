@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ArrowRight, Zap, Sparkles } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isHomePage = location.pathname === '/';
 
   useEffect(() => {
@@ -19,6 +20,11 @@ export const Navbar: React.FC = () => {
       document.body.style.overflow = 'unset';
     };
   }, [mobileMenuOpen]);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   const navLinks = [
     { name: 'Why Us', href: isHomePage ? '#why-us' : '/#why-us' },
@@ -51,7 +57,7 @@ export const Navbar: React.FC = () => {
               <Link
                 key={link.name}
                 to={link.href}
-                className={`inline-flex min-h-[38px] items-center rounded-control px-3.5 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-[38px] items-center rounded-control px-3 text-xs font-semibold transition-all ${
                   location.pathname === link.href
                     ? 'bg-violet-50 text-violet-700 font-bold border border-violet-200/60'
                     : 'text-muted hover:text-fg hover:bg-subtle'
@@ -63,7 +69,7 @@ export const Navbar: React.FC = () => {
               <a
                 key={link.name}
                 href={link.href}
-                className="inline-flex min-h-[38px] items-center rounded-control px-3.5 text-xs font-semibold text-muted transition-colors hover:text-fg hover:bg-subtle"
+                className="inline-flex min-h-[38px] items-center rounded-control px-3 text-xs font-semibold text-muted transition-colors hover:text-fg hover:bg-subtle"
               >
                 {link.name}
               </a>
@@ -71,31 +77,71 @@ export const Navbar: React.FC = () => {
           ))}
         </div>
 
-        {/* Desktop CTAs */}
-        <div className="hidden items-center gap-3 lg:flex">
-          <Link
-            to="/check-key"
-            className="ui-button-secondary text-xs px-3.5 py-1.5 font-semibold"
-          >
-            Check Key
-          </Link>
-          <Link
-            to="/trial"
-            className="ui-button-primary text-xs px-4 py-2 font-bold gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Get Free Trial</span>
-          </Link>
+        {/* Desktop Authentication & Action CTAs */}
+        <div className="hidden items-center gap-2.5 lg:flex">
+          {user ? (
+            <div className="flex items-center gap-2">
+              <Link
+                to={user.role === 'admin' ? '/admin' : '/dashboard'}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-control bg-violet-600 text-white text-xs font-bold shadow-xs hover:bg-violet-700 transition-all"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>{user.role === 'admin' ? 'Control Center' : 'Dashboard'}</span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-control text-xs font-semibold text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-fg hover:text-violet-600 px-3 py-1.5 rounded-control hover:bg-subtle transition-all"
+              >
+                <LogIn className="w-3.5 h-3.5 text-violet-600" />
+                <span>Sign In</span>
+              </Link>
+
+              <Link
+                to="/register"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3.5 py-1.5 rounded-control transition-all"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Register</span>
+              </Link>
+
+              <Link
+                to="/trial"
+                className="ui-button-primary text-xs px-3.5 py-1.5 font-bold gap-1.5 shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Get Trial</span>
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Mobile Menu Actions */}
         <div className="flex items-center gap-2 lg:hidden">
-          <Link
-            to="/trial"
-            className="ui-button-primary px-3 py-1.5 text-xs font-bold"
-          >
-            Free Trial
-          </Link>
+          {!user ? (
+            <Link
+              to="/login"
+              className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1.5 rounded-control border border-violet-200"
+            >
+              Sign In
+            </Link>
+          ) : (
+            <Link
+              to={user.role === 'admin' ? '/admin' : '/dashboard'}
+              className="text-xs font-bold text-white bg-violet-600 px-3 py-1.5 rounded-control"
+            >
+              Dashboard
+            </Link>
+          )}
 
           <button
             type="button"
@@ -139,24 +185,56 @@ export const Navbar: React.FC = () => {
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
+            {user ? (
+              <>
+                <Link
+                  to={user.role === 'admin' ? '/admin' : '/dashboard'}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="ui-button-primary w-full justify-center text-center text-sm font-bold py-3.5 shadow-md"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Go to {user.role === 'admin' ? 'Control Center' : 'Customer Dashboard'}</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full py-3 rounded-control border border-rose-200 text-rose-600 font-bold text-sm bg-rose-50 hover:bg-rose-100 transition-colors"
+                >
+                  Sign Out ({user.email})
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full py-3.5 rounded-control bg-violet-600 text-white font-bold text-sm text-center shadow-md flex items-center justify-center gap-2"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Sign In to Account</span>
+                </Link>
+
+                <Link
+                  to="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full py-3.5 rounded-control bg-violet-50 border border-violet-200 text-violet-700 font-bold text-sm text-center flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Create Free Account</span>
+                </Link>
+              </>
+            )}
+
             <Link
               to="/trial"
               onClick={() => setMobileMenuOpen(false)}
-              className="ui-button-primary w-full justify-center text-center text-sm font-bold py-3.5 shadow-md"
+              className="w-full justify-center text-center text-xs font-bold py-3 rounded-control border border-border text-muted hover:text-fg"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>Claim Free Trial Key (1M Tokens)</span>
+              <Sparkles className="w-3.5 h-3.5 inline mr-1" />
+              <span>Claim Free 1M Token Trial</span>
             </Link>
-
-            <a
-              href="https://wa.me/917695956938?text=Hi%20LightningDeals!%20I%20need%20assistance%20with%20API%20keys."
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setMobileMenuOpen(false)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white w-full justify-center text-center text-sm font-bold py-3.5 rounded-control flex items-center gap-2 shadow-sm"
-            >
-              <span>WhatsApp Support (+91 7695956938)</span>
-            </a>
           </div>
         </div>
       )}

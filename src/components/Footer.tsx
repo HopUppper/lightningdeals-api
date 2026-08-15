@@ -86,12 +86,13 @@ export const Footer: React.FC = () => {
           </div>
 
           <div>
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg mb-3">Legal & Security</h4>
+            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg mb-3">Account & Security</h4>
             <ul className="space-y-2 font-medium">
+              <li><Link to="/login" className="hover:text-violet-600 font-bold text-violet-700">Sign In to Portal</Link></li>
+              <li><Link to="/register" className="hover:text-violet-600 font-bold text-violet-700">Create Account</Link></li>
+              <li><Link to="/forgot-password" className="hover:text-violet-600">Reset Password</Link></li>
               <li><Link to="/terms" className="hover:text-violet-600">Terms of Service</Link></li>
               <li><Link to="/privacy" className="hover:text-violet-600">Privacy Policy</Link></li>
-              <li><Link to="/refund" className="hover:text-violet-600">Refund Policy</Link></li>
-              <li><Link to="/request-quote" className="hover:text-violet-600">Enterprise Sales</Link></li>
               <li><a href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Team!%20I%20need%20support%20with%20my%20API%20key." target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 font-semibold text-emerald-700">WhatsApp Help Desk</a></li>
             </ul>
           </div>

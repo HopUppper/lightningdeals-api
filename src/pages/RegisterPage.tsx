@@ -12,7 +12,7 @@ export const RegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [registrationSuccess, setRegistrationSuccess] = useState<any | null>(null);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +30,7 @@ export const RegisterPage: React.FC = () => {
       if (!res.ok) {
         setError(data.error?.message || 'Registration failed.');
       } else {
-        setRegistrationSuccess(data);
+        setRegisteredEmail(email);
       }
     } catch (err: any) {
       setError('Network error. Failed to connect to security server.');
@@ -45,7 +45,7 @@ export const RegisterPage: React.FC = () => {
 
       <main className="flex-1 flex items-center justify-center px-5 py-12">
         <div className="w-full max-w-md bg-card border border-border rounded-panel p-6 sm:p-8 shadow-xl">
-          {registrationSuccess ? (
+          {registeredEmail ? (
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
                 <div className="p-4 rounded-3xl bg-violet-50 text-violet-600 border border-violet-200">
@@ -54,35 +54,30 @@ export const RegisterPage: React.FC = () => {
               </div>
 
               <div>
-                <h2 className="text-xl font-bold text-fg">Verify Your Email Address</h2>
+                <h2 className="text-xl font-bold text-fg">Check Your Email Inbox</h2>
                 <p className="text-xs text-muted font-mono mt-2 leading-relaxed">
-                  We issued a high-entropy security verification link to <span className="font-bold text-violet-600">{email}</span>. Please verify your mailbox to activate your account.
+                  We have sent a security verification link to <span className="font-bold text-violet-600">{registeredEmail}</span>. Please open your email inbox and click the verification link to activate your account.
                 </p>
               </div>
 
-              {registrationSuccess.verification?.token && (
-                <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-left space-y-2">
-                  <div className="text-[11px] font-bold text-amber-800 uppercase font-mono tracking-wider flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-amber-600" /> One-Click Verification Link:
-                  </div>
-                  <Link
-                    to={`/verify-email?token=${registrationSuccess.verification.token}&email=${encodeURIComponent(email)}`}
-                    className="block p-2.5 rounded-xl bg-white border border-amber-200 font-mono text-xs font-bold text-violet-700 hover:bg-violet-50 transition-all text-center"
-                  >
-                    Click Here to Verify Email Directly →
-                  </Link>
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2">
+                <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5 font-mono">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" /> Account Status: PENDING EMAIL VERIFICATION
                 </div>
-              )}
+                <p className="text-[11px] text-muted">
+                  Unverified accounts cannot generate API keys or access dashboard resources. Once you click the link in your email, your account will be activated automatically.
+                </p>
+              </div>
 
               <div className="pt-4 border-t border-border flex flex-col gap-2">
                 <Link
-                  to={`/verify-email?email=${encodeURIComponent(email)}`}
+                  to={`/verify-email?email=${encodeURIComponent(registeredEmail)}`}
                   className="w-full py-3 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold text-xs text-center shadow-md hover:brightness-110 transition-all"
                 >
-                  Enter Verification Code / Token
+                  Have a Verification Code / Token? Enter Here →
                 </Link>
-                <Link to="/" className="text-xs text-muted hover:text-fg font-mono">
-                  Return to Homepage
+                <Link to="/login" className="text-xs text-violet-600 font-bold hover:underline font-mono">
+                  Already Verified? Sign In →
                 </Link>
               </div>
             </div>
@@ -168,7 +163,7 @@ export const RegisterPage: React.FC = () => {
                   disabled={loading}
                   className="w-full py-3 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-control transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
                 >
-                  {loading ? 'Creating Secure Account...' : 'Register Account'}
+                  {loading ? 'Creating Account...' : 'Register Account'}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>

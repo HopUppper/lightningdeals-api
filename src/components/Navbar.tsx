@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut } from 'lucide-react';
+import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
@@ -34,8 +34,12 @@ export const Navbar: React.FC = () => {
     { name: 'Check Key', href: '/check-key', isPage: true },
     { name: 'Docs', href: '/docs', isPage: true },
     { name: 'Status', href: '/status', isPage: true },
-    { name: 'Sign In', href: '/login', isPage: true, isHighlight: true },
-    { name: 'Sign Up', href: '/register', isPage: true, isHighlight: true },
+    ...(user ? [
+      { name: 'Dashboard', href: '/dashboard', isPage: true, isHighlight: true }
+    ] : [
+      { name: 'Sign In', href: '/login', isPage: true, isHighlight: true },
+      { name: 'Sign Up', href: '/register', isPage: true, isHighlight: true }
+    ])
   ];
 
   return (
@@ -52,7 +56,7 @@ export const Navbar: React.FC = () => {
           </span>
         </Link>
 
-        {/* Navigation Links — Includes Sign In & Sign Up Tabs */}
+        {/* Navigation Links — Dynamic according to auth state */}
         <div className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (
             link.isPage ? (
@@ -83,40 +87,63 @@ export const Navbar: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="hidden items-center gap-2 md:flex">
-          {user && (
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-control text-xs font-semibold text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
+          {user ? (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-2xl p-1 pl-3 text-xs">
+              <span className="font-bold text-slate-700 font-mono truncate max-w-[130px]" title={user.email}>
+                {user.email.split('@')[0]}
+              </span>
+              <Link
+                to="/dashboard"
+                className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>Dashboard</span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <Link
+                to="/check-key"
+                className="ui-button-secondary text-xs px-3 py-1.5 font-semibold"
+              >
+                Check Key
+              </Link>
+
+              <Link
+                to="/trial"
+                className="ui-button-primary text-xs px-3.5 py-1.5 font-bold gap-1.5 shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Get Free Trial</span>
+              </Link>
+            </>
           )}
-
-          <Link
-            to="/check-key"
-            className="ui-button-secondary text-xs px-3 py-1.5 font-semibold"
-          >
-            Check Key
-          </Link>
-
-          <Link
-            to="/trial"
-            className="ui-button-primary text-xs px-3.5 py-1.5 font-bold gap-1.5 shadow-xs"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Get Free Trial</span>
-          </Link>
         </div>
 
         {/* Mobile Menu Toggle */}
         <div className="flex items-center gap-2 md:hidden">
-          <Link
-            to="/login"
-            className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1.5 rounded-control border border-violet-200"
-          >
-            Sign In
-          </Link>
+          {!user ? (
+            <Link
+              to="/login"
+              className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1.5 rounded-control border border-violet-200"
+            >
+              Sign In
+            </Link>
+          ) : (
+            <Link
+              to="/dashboard"
+              className="text-xs font-bold text-white bg-violet-600 px-3 py-1.5 rounded-control"
+            >
+              Dashboard
+            </Link>
+          )}
 
           <button
             type="button"
@@ -160,23 +187,47 @@ export const Navbar: React.FC = () => {
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
-            <Link
-              to="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full py-3.5 rounded-control bg-violet-600 text-white font-bold text-sm text-center shadow-md flex items-center justify-center gap-2"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Sign In to Account</span>
-            </Link>
+            {user ? (
+              <>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="ui-button-primary w-full justify-center text-center text-sm font-bold py-3.5 shadow-md"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Go to Customer Dashboard</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full py-3 rounded-control border border-rose-200 text-rose-600 font-bold text-sm bg-rose-50 hover:bg-rose-100 transition-colors"
+                >
+                  Sign Out ({user.email})
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full py-3.5 rounded-control bg-violet-600 text-white font-bold text-sm text-center shadow-md flex items-center justify-center gap-2"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Sign In to Account</span>
+                </Link>
 
-            <Link
-              to="/register"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full py-3.5 rounded-control bg-violet-50 border border-violet-200 text-violet-700 font-bold text-sm text-center flex items-center justify-center gap-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Create Free Account</span>
-            </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full py-3.5 rounded-control bg-violet-50 border border-violet-200 text-violet-700 font-bold text-sm text-center flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Create Free Account</span>
+                </Link>
+              </>
+            )}
 
             <Link
               to="/trial"

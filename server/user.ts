@@ -841,6 +841,32 @@ router.delete('/keys/:id', authenticateJwt, async (req: AuthRequest, res: Respon
   }
 });
 
+// GET /api/user/plan — Get Current User Plan Details (Derived strictly from req.user.id)
+router.get('/plan', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const keys = await prisma.apiKey.findMany({
+      where: { userId: req.user!.id, status: 'active' },
+    });
+
+    let totalWindowAllowance = 0n;
+    let totalRemaining = 0n;
+    keys.forEach((k) => {
+      totalWindowAllowance += k.purchasedTokens;
+      totalRemaining += k.tokensRemaining;
+    });
+
+    res.json({
+      planName: keys.length > 0 ? (keys[0].plan || 'Enterprise 5M/5H Rolling Gateway') : 'Standard 5M Rolling Gateway',
+      status: req.user!.emailVerified ? 'active' : 'pending_verification',
+      windowAllowance: totalWindowAllowance > 0n ? totalWindowAllowance.toString() : '5000000',
+      tokensRemaining: totalRemaining > 0n ? totalRemaining.toString() : '5000000',
+      activeKeysCount: keys.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // 5. Risk-Scored Trial Anti-Abuse Key Claim (/api/trial/claim)
 router.post('/trial/claim', trialLimiter, async (req: Request, res: Response) => {
   const { email, name, deviceHash } = req.body;

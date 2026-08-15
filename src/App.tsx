@@ -65,10 +65,12 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 // Customer Dashboard Pages
+import { UserAuthGuard } from './components/UserAuthGuard';
 import { UserDashboardLayout } from './pages/dashboard/UserDashboardLayout';
 import { UserOverview } from './pages/dashboard/UserOverview';
 import { UserKeys } from './pages/dashboard/UserKeys';
 import { UserUsage } from './pages/dashboard/UserUsage';
+import { UserPlan } from './pages/dashboard/UserPlan';
 import { UserOrders } from './pages/dashboard/UserOrders';
 import { UserApiTestConsole } from './pages/dashboard/UserApiTestConsole';
 import { UserSupport } from './pages/dashboard/UserSupport';
@@ -191,7 +193,27 @@ export function App() {
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/dashboard/*" element={<Navigate to="/" replace />} />
+            {/* Customer Dashboard Routes — Protected via UserAuthGuard */}
+            <Route
+              path="/dashboard/*"
+              element={
+                <UserAuthGuard>
+                  <UserDashboardLayout />
+                </UserAuthGuard>
+              }
+            >
+              <Route index element={<UserOverview />} />
+              <Route path="keys" element={<UserKeys />} />
+              <Route path="api-keys" element={<UserKeys />} />
+              <Route path="usage" element={<UserUsage />} />
+              <Route path="plan" element={<UserPlan />} />
+              <Route path="orders" element={<UserOrders />} />
+              <Route path="api-test" element={<UserApiTestConsole />} />
+              <Route path="support" element={<UserSupport />} />
+              <Route path="settings" element={<UserSettings />} />
+              <Route path="account" element={<UserSettings />} />
+            </Route>
+            <Route path="/account/*" element={<Navigate to="/dashboard" replace />} />
 
             {/* Admin Authentication Route */}
             <Route path="/admin/login" element={<AdminLoginPage />} />

@@ -64,7 +64,17 @@ export async function validateAndExtractApiKey(req: Request) {
     };
   }
 
-  const rawKey = xApiKey || authBearer;
+  let rawKey = (xApiKey || authBearer || '').trim();
+
+  if (rawKey.startsWith('id_trial_')) {
+    rawKey = 'ld_trial_' + rawKey.substring(9);
+  } else if (rawKey.startsWith('id_live_')) {
+    rawKey = 'ld_live_' + rawKey.substring(8);
+  } else if (rawKey.startsWith('trial_')) {
+    rawKey = 'ld_trial_' + rawKey.substring(6);
+  } else if (rawKey.startsWith('live_')) {
+    rawKey = 'ld_live_' + rawKey.substring(5);
+  }
 
   if (!rawKey) {
     return { errorStatus: 401, errorType: 'authentication_error', errorMessage: 'Missing API key. Pass via x-api-key header or Authorization Bearer header.' };

@@ -6,13 +6,23 @@ import { calculateKeyRollingWindow } from './window';
 
 // 1. Key Status Verification (/api/key-status)
 export async function handleCheckKeyStatus(req: Request, res: Response) {
-  const rawKey = (
+  let rawKey = (
     req.headers['x-api-key']?.toString() ||
     req.headers['authorization']?.toString().replace(/^Bearer\s+/i, '') ||
     req.query.key?.toString() ||
     req.body?.key?.toString() ||
     ''
   ).trim();
+
+  if (rawKey.startsWith('id_trial_')) {
+    rawKey = 'ld_trial_' + rawKey.substring(9);
+  } else if (rawKey.startsWith('id_live_')) {
+    rawKey = 'ld_live_' + rawKey.substring(8);
+  } else if (rawKey.startsWith('trial_')) {
+    rawKey = 'ld_trial_' + rawKey.substring(6);
+  } else if (rawKey.startsWith('live_')) {
+    rawKey = 'ld_live_' + rawKey.substring(5);
+  }
 
   if (!rawKey) {
     return res.status(401).json({ valid: false, error: { type: 'unauthenticated', message: 'API key parameter or Authorization header is required.' } });

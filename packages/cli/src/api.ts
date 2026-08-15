@@ -25,7 +25,18 @@ export const getGatewayUrl = (): string => {
 
 
 export const validateApiKey = async (apiKey: string): Promise<KeyStatusResult> => {
-  const cleanKey = apiKey.trim();
+  let cleanKey = apiKey.trim();
+
+  if (cleanKey.startsWith('id_trial_')) {
+    cleanKey = 'ld_trial_' + cleanKey.substring(9);
+  } else if (cleanKey.startsWith('id_live_')) {
+    cleanKey = 'ld_live_' + cleanKey.substring(8);
+  } else if (cleanKey.startsWith('trial_')) {
+    cleanKey = 'ld_trial_' + cleanKey.substring(6);
+  } else if (cleanKey.startsWith('live_')) {
+    cleanKey = 'ld_live_' + cleanKey.substring(5);
+  }
+
   const baseUrl = getGatewayUrl();
   try {
     const res = await fetch(`${baseUrl}/api/key-status?key=${encodeURIComponent(cleanKey)}`, {

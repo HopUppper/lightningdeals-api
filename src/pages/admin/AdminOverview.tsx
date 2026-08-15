@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock, HelpCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { ThreeDCard } from '../../components/ThreeDCard';
 import { adminFetch } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 export const AdminOverview: React.FC = () => {
+  const { adminLogout } = useAuth();
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -45,8 +47,13 @@ export const AdminOverview: React.FC = () => {
     return num.toLocaleString();
   };
 
-  if (loading) {
-    return <div className="py-12 text-center text-xs font-mono text-muted">Loading LightningDeals metrics...</div>;
+  if (loading && !overview) {
+    return (
+      <div className="py-20 text-center font-mono text-xs text-muted flex items-center justify-center gap-3">
+        <RefreshCw className="w-5 h-5 animate-spin text-amber-500" />
+        <span>Loading Real-time Telemetry & Ledger Balance...</span>
+      </div>
+    );
   }
 
   if (updateError && !overview) {
@@ -59,8 +66,7 @@ export const AdminOverview: React.FC = () => {
         <button
           onClick={() => {
             if (isAuthError) {
-              localStorage.removeItem('ld_admin_token');
-              window.location.href = '/admin';
+              adminLogout();
             } else {
               loadOverview(true);
             }

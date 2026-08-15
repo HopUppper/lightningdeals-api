@@ -926,6 +926,212 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
   }
 });
 
+// GET /api/user/support — List Customer's Own Support Tickets (IDOR Protected)
+router.get('/support', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const tickets = await prisma.supportTicket.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+      include: { replies: { orderBy: { createdAt: 'asc' } } },
+    });
+    res.json({ tickets });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/support — Create Support Ticket (Linked strictly to req.user.id)
+router.post('/support', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  const { subject, priority, category, message } = req.body;
+  if (!subject || !message) {
+    return res.status(400).json({ error: { message: 'Subject and message body are required.' } });
+  }
+  try {
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId: req.user!.id,
+        userEmail: req.user!.email,
+        userName: req.user!.name,
+        subject: subject.trim(),
+        priority: priority || 'Normal',
+        category: category || 'General Support',
+        message: message.trim(),
+        status: 'Open',
+      },
+    });
+    res.status(201).json({ ticket });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/user/support/:id — Get Specific Support Ticket (Strict IDOR Protection)
+router.get('/support/:id', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const ticket = await prisma.supportTicket.findFirst({
+      where: { id: req.params.id, userId: req.user!.id },
+      include: { replies: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!ticket) {
+      return res.status(404).json({ error: { message: 'Support ticket not found or unauthorized.' } });
+    }
+    res.json({ ticket });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/support/:id/reply — Customer Reply to Ticket (IDOR Protected)
+router.post('/support/:id/reply', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  const { message } = req.body;
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: { message: 'Reply message cannot be empty.' } });
+  }
+  try {
+    const ticket = await prisma.supportTicket.findFirst({
+      where: { id: req.params.id, userId: req.user!.id },
+    });
+    if (!ticket) {
+      return res.status(404).json({ error: { message: 'Support ticket not found or unauthorized.' } });
+    }
+
+    const reply = await prisma.supportTicketReply.create({
+      data: {
+        ticketId: ticket.id,
+        senderType: 'Customer',
+        senderName: req.user!.name,
+        message: message.trim(),
+      },
+    });
+
+    await prisma.supportTicket.update({
+      where: { id: ticket.id },
+      data: { status: 'Awaiting Support', updatedAt: new Date() },
+    });
+
+    res.status(201).json({ reply });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/user/orders — List Customer's Own Orders (IDOR Protected)
+router.get('/orders', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const orders = await prisma.order.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({
+      orders: orders.map((o) => ({
+        ...o,
+        tokensPurchased: o.tokensPurchased.toString(),
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/user/tickets — Alias for /api/user/support (IDOR Protected)
+router.get('/tickets', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const tickets = await prisma.supportTicket.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+      include: { replies: { orderBy: { createdAt: 'asc' } } },
+    });
+    res.json(tickets);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/tickets — Alias for /api/user/support
+router.post('/tickets', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  const { subject, priority, category, message } = req.body;
+  if (!subject || !message) {
+    return res.status(400).json({ error: { message: 'Subject and message body are required.' } });
+  }
+  try {
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId: req.user!.id,
+        userEmail: req.user!.email,
+        userName: req.user!.name,
+        subject: subject.trim(),
+        priority: priority || 'Normal',
+        category: category || 'General Support',
+        message: message.trim(),
+        status: 'Open',
+      },
+    });
+    res.status(201).json(ticket);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/user/tickets/:id — Alias for /api/user/support/:id (Strict IDOR Protection)
+router.get('/tickets/:id', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const ticket = await prisma.supportTicket.findFirst({
+      where: { id: req.params.id, userId: req.user!.id },
+      include: { replies: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!ticket) {
+      return res.status(404).json({ error: { message: 'Support ticket not found or unauthorized.' } });
+    }
+    res.json({
+      ...ticket,
+      messages: ticket.replies.map(r => ({
+        id: r.id,
+        senderType: r.senderType,
+        senderName: r.senderName,
+        content: r.message,
+        createdAt: r.createdAt,
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/tickets/:id/messages — Alias for /api/user/support/:id/reply (IDOR Protected)
+router.post('/tickets/:id/messages', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  const { content, message } = req.body;
+  const replyBody = content || message;
+  if (!replyBody || typeof replyBody !== 'string' || !replyBody.trim()) {
+    return res.status(400).json({ error: { message: 'Reply message cannot be empty.' } });
+  }
+  try {
+    const ticket = await prisma.supportTicket.findFirst({
+      where: { id: req.params.id, userId: req.user!.id },
+    });
+    if (!ticket) {
+      return res.status(404).json({ error: { message: 'Support ticket not found or unauthorized.' } });
+    }
+
+    const reply = await prisma.supportTicketReply.create({
+      data: {
+        ticketId: ticket.id,
+        senderType: 'Customer',
+        senderName: req.user!.name,
+        message: replyBody.trim(),
+      },
+    });
+
+    await prisma.supportTicket.update({
+      where: { id: ticket.id },
+      data: { status: 'Awaiting Support', updatedAt: new Date() },
+    });
+
+    res.status(201).json({ reply, success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // 5. Risk-Scored Trial Anti-Abuse Key Claim (/api/trial/claim)
 router.post('/trial/claim', trialLimiter, async (req: Request, res: Response) => {
   const { email, name, deviceHash } = req.body;

@@ -5,7 +5,7 @@ import { AdminLoginPage } from './AdminLoginPage';
 import { Shield } from 'lucide-react';
 
 export const AdminAuthGuard: React.FC<{ children: React.ReactElement }> = ({ children }) => {
-  const { adminUser, adminLoading } = useAuth();
+  const { user, adminUser, adminLoading } = useAuth();
 
   if (adminLoading) {
     return (
@@ -18,6 +18,11 @@ export const AdminAuthGuard: React.FC<{ children: React.ReactElement }> = ({ chi
         </p>
       </div>
     );
+  }
+
+  // If normal customer attempts to navigate directly to /admin -> Redirect to /dashboard
+  if (user && user.role !== 'admin' && (!adminUser || adminUser.role !== 'admin')) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (!adminUser || adminUser.role !== 'admin') {

@@ -34,12 +34,8 @@ export const Navbar: React.FC = () => {
     { name: 'Check Key', href: '/check-key', isPage: true },
     { name: 'Docs', href: '/docs', isPage: true },
     { name: 'Status', href: '/status', isPage: true },
-    ...(user ? [
-      { name: user.role === 'admin' ? 'Control Center' : 'Dashboard', href: user.role === 'admin' ? '/admin' : '/dashboard', isPage: true, isHighlight: true }
-    ] : [
-      { name: 'Sign In', href: '/login', isPage: true, isHighlight: true },
-      { name: 'Sign Up', href: '/register', isPage: true, isHighlight: true }
-    ])
+    { name: 'Sign In', href: '/login', isPage: true, isHighlight: true },
+    { name: 'Sign Up', href: '/register', isPage: true, isHighlight: true },
   ];
 
   return (
@@ -56,7 +52,7 @@ export const Navbar: React.FC = () => {
           </span>
         </Link>
 
-        {/* Navigation Links — Includes Sign In & Sign Up / Dashboard Tabs */}
+        {/* Navigation Links — Includes Sign In & Sign Up Tabs */}
         <div className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (
             link.isPage ? (
@@ -115,21 +111,12 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile Menu Toggle */}
         <div className="flex items-center gap-2 md:hidden">
-          {!user ? (
-            <Link
-              to="/login"
-              className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1.5 rounded-control border border-violet-200"
-            >
-              Sign In
-            </Link>
-          ) : (
-            <Link
-              to={user.role === 'admin' ? '/admin' : '/dashboard'}
-              className="text-xs font-bold text-white bg-violet-600 px-3 py-1.5 rounded-control"
-            >
-              Dashboard
-            </Link>
-          )}
+          <Link
+            to="/login"
+            className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1.5 rounded-control border border-violet-200"
+          >
+            Sign In
+          </Link>
 
           <button
             type="button"
@@ -173,47 +160,23 @@ export const Navbar: React.FC = () => {
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
-            {user ? (
-              <>
-                <Link
-                  to={user.role === 'admin' ? '/admin' : '/dashboard'}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="ui-button-primary w-full justify-center text-center text-sm font-bold py-3.5 shadow-md"
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>Go to {user.role === 'admin' ? 'Control Center' : 'Customer Dashboard'}</span>
-                </Link>
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full py-3 rounded-control border border-rose-200 text-rose-600 font-bold text-sm bg-rose-50 hover:bg-rose-100 transition-colors"
-                >
-                  Sign Out ({user.email})
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-3.5 rounded-control bg-violet-600 text-white font-bold text-sm text-center shadow-md flex items-center justify-center gap-2"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>Sign In to Account</span>
-                </Link>
+            <Link
+              to="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full py-3.5 rounded-control bg-violet-600 text-white font-bold text-sm text-center shadow-md flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In to Account</span>
+            </Link>
 
-                <Link
-                  to="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-3.5 rounded-control bg-violet-50 border border-violet-200 text-violet-700 font-bold text-sm text-center flex items-center justify-center gap-2"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Create Free Account</span>
-                </Link>
-              </>
-            )}
+            <Link
+              to="/register"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full py-3.5 rounded-control bg-violet-50 border border-violet-200 text-violet-700 font-bold text-sm text-center flex items-center justify-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Create Free Account</span>
+            </Link>
 
             <Link
               to="/trial"

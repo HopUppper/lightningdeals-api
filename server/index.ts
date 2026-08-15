@@ -11,6 +11,7 @@ import adminAuthRouter from './adminAuth';
 import userRouter from './user';
 import { prisma } from './db';
 import { globalErrorHandler, NotFoundError } from './errors';
+import { recordPageview, handleAnalyticsBeacon } from './analyticsTracker';
 
 // 0. Startup Configuration Integrity Checks
 function validateEnvironmentOnStartup() {
@@ -84,6 +85,10 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Realtime Web Analytics Tracker Middleware
+app.use(recordPageview);
+app.post('/api/analytics/beacon', handleAnalyticsBeacon);
 
 // 1. Anthropic-Compatible API Gateway
 app.get('/v1', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));

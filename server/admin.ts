@@ -4,12 +4,23 @@ import { prisma, encryptText, decryptText } from './db';
 import { AuthRequest, authenticateJwt, requireAdmin } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { checkMasterCapacity, topUpMasterBalance, reconcileMasterLedger, calculateActiveEntitlementExposure } from './masterLedger';
+import { getRealtimeAnalyticsReport } from './analyticsTracker';
 
 const router = Router();
 
 
 // Protect all admin routes with JWT and Admin Role
 router.use(authenticateJwt, requireAdmin);
+
+// Realtime Google Analytics & Web Traffic Endpoint
+router.get('/analytics/realtime', async (req: AuthRequest, res: Response) => {
+  try {
+    const report = getRealtimeAnalyticsReport();
+    res.json(report);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve realtime analytics report', message: error.message });
+  }
+});
 
 
 // 1. Admin Platform Overview Metrics

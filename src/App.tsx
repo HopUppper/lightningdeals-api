@@ -76,6 +76,7 @@ import { AdminLayout } from './pages/admin/AdminLayout';
 import { AdminAuthGuard } from './pages/admin/AdminAuthGuard';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminOverview } from './pages/admin/AdminOverview';
+import { AdminAnalytics } from './pages/admin/AdminAnalytics';
 import { AdminProviders } from './pages/admin/AdminProviders';
 import { AdminPlans } from './pages/admin/AdminPlans';
 import { AdminCustomers } from './pages/admin/AdminCustomers';
@@ -201,6 +202,7 @@ export function App() {
               }
             >
               <Route index element={<AdminOverview />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
               <Route path="providers" element={<AdminProviders />} />
               <Route path="plans" element={<AdminPlans />} />
               <Route path="customers" element={<AdminCustomers />} />

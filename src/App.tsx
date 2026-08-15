@@ -7,6 +7,13 @@ const ScrollToHash: React.FC = () => {
   const { pathname, hash } = useLocation();
 
   useEffect(() => {
+    // Send GA4 Pageview on client-side SPA route navigation
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('config', 'G-GBRR7YHWMV', {
+        page_path: pathname + (hash || ''),
+      });
+    }
+
     if (hash) {
       setTimeout(() => {
         const id = hash.replace('#', '');

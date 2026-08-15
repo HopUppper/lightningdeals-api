@@ -26,6 +26,11 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+export function clearAuthRateLimit(ip: string) {
+  authRateLimitMap.delete(`auth:${ip}`);
+  authRateLimitMap.delete(`auth:${ip.trim()}`);
+}
+
 export function createRateLimiter(options: { windowMs: number; max: number; message: string; keyPrefix: string }) {
   const storeMap = options.keyPrefix === 'auth' ? authRateLimitMap : options.keyPrefix === 'trial' ? trialRateLimitMap : options.keyPrefix === 'key_check' ? keyCheckRateLimitMap : apiRateLimitMap;
 

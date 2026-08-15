@@ -2,16 +2,16 @@ import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { prisma } from './db';
-import { createRateLimiter } from './rateLimit';
+import { createRateLimiter, clearAuthRateLimit } from './rateLimit';
 import { AuthRequest } from './auth';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'apexscale-jwt-secret-key-production-2026';
 
-// 15-minute lockout for failed admin login attempts (max 5 attempts)
+// 15-minute lockout for failed admin login attempts (max 25 attempts)
 const adminLoginLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 25,
   message: 'Security Alert: Maximum admin authentication attempts exceeded from this IP address. Access is locked for 15 minutes.',
   keyPrefix: 'auth',
 });
@@ -103,7 +103,8 @@ router.post('/login', adminLoginLimiter, async (req: Request, res: Response) => 
       });
     }
 
-    // Password valid -> Generate Admin JWT Token
+    // Password valid -> Clear IP rate limit counter & Generate Admin JWT Token
+    clearAuthRateLimit(clientIp);
     const token = jwt.sign(
       {
         id: adminUser.id,

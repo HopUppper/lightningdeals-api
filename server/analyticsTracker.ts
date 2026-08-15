@@ -247,9 +247,13 @@ export function getRealtimeAnalyticsReport() {
     }
   });
 
-  const activeVisitorsList = Object.values(activeSessionMap).sort(
-    (a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime()
-  );
+  const activeVisitorsList = Object.values(activeSessionMap)
+    .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
+    .map(v => ({
+      ...v,
+      firstSeenAt: v.firstSeenAt.toISOString(),
+      lastSeenAt: v.lastSeenAt.toISOString(),
+    }));
 
   // Active in last 30 minutes
   const activeHits30m = pageviewBuffer.filter(h => h.timestamp >= thirtyMinutesAgo);

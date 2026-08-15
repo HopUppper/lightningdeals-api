@@ -108,14 +108,20 @@ export const AdminAnalytics: React.FC = () => {
     if (showPulse) setIsRefreshing(true);
     try {
       const res = await adminFetch('/api/admin/analytics/realtime');
-      if (!res.ok) throw new Error('Failed to load realtime analytics data');
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Admin session expired. Please re-authenticate via Admin Login.');
+      }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || `Server returned HTTP ${res.status}`);
+      }
       const json = await res.json();
       setData(json);
       setError(null);
       setLastUpdated(new Date());
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Error connecting to analytics engine');
+      setError(err.message || 'Error connecting to analytics telemetry engine');
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -133,6 +139,15 @@ export const AdminAnalytics: React.FC = () => {
     }
   }, [autoRefreshInterval]);
 
+  if (loading && !data) {
+    return (
+      <div className="py-20 text-center font-mono text-xs text-muted flex items-center justify-center gap-3">
+        <RefreshCw className="w-5 h-5 animate-spin text-violet-600" />
+        <span>Initializing Realtime Analytics Telemetry & Visitor Stream...</span>
+      </div>
+    );
+  }
+
   const getDeviceIcon = (device: string) => {
     switch (device.toLowerCase()) {
       case 'mobile': return <Smartphone className="w-4 h-4 text-emerald-500" />;
@@ -142,28 +157,26 @@ export const AdminAnalytics: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header & Live Stream Status Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/90 backdrop-blur-xl p-6 rounded-3xl border border-violet-100 shadow-sm">
+    <div className="space-y-6 font-sans">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-panel border border-border shadow-xs">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="h-3 w-3 rounded-full bg-emerald-500 animate-ping" />
-            <span className="text-xs font-mono font-bold text-emerald-600 tracking-wider uppercase bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono">
+              <Radio className="w-3 h-3 text-emerald-500 animate-pulse" />
               Live Verified Visitor Telemetry & Stream Engine
             </span>
           </div>
-          <h1 className="text-2xl font-black text-fg tracking-tight flex items-center gap-2">
-            Realtime Visitor Telemetry & User Roster
-          </h1>
+          <h1 className="text-2xl font-bold text-fg mt-2">Realtime Visitor Telemetry & User Roster</h1>
           <p className="text-xs text-muted mt-1 font-mono">
-            GA4 Property: <span className="font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">{data?.gaPropertyId || '15440382173'}</span> • Measurement Tag: <span className="font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">{data?.measurementId || 'G-GBRR7YHWVM'}</span>
+            GA4 Property: <span className="text-violet-600 font-bold">{data?.gaPropertyId || '15440382173'}</span> · Measurement Tag: <span className="text-violet-600 font-bold">{data?.measurementId || 'G-GBRR7YHWVM'}</span>
           </p>
         </div>
 
-        {/* Auto Refresh & Controls */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl p-1 text-xs">
-            <span className="text-[11px] font-medium text-slate-500 px-2 font-mono">Auto-Refresh:</span>
+          {/* Refresh Intervals */}
+          <div className="flex items-center gap-1 bg-bg p-1 rounded-2xl border border-border text-[11px] font-mono">
+            <span className="px-2 text-muted">Auto-Refresh:</span>
             {[
               { label: '5s', val: 5000 },
               { label: '10s', val: 10000 },
@@ -173,10 +186,10 @@ export const AdminAnalytics: React.FC = () => {
               <button
                 key={opt.val}
                 onClick={() => setAutoRefreshInterval(opt.val)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
+                className={`px-2.5 py-1 rounded-xl font-bold transition-all ${
                   autoRefreshInterval === opt.val
                     ? 'bg-violet-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    : 'text-muted hover:text-fg'
                 }`}
               >
                 {opt.label}
@@ -196,8 +209,14 @@ export const AdminAnalytics: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono">
-          ⚠️ {error}
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono flex items-center justify-between gap-3 shadow-xs">
+          <span>⚠️ {error}</span>
+          <button
+            onClick={() => fetchAnalytics(true)}
+            className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-sans font-bold hover:bg-rose-700 transition-colors shrink-0"
+          >
+            Retry Connection
+          </button>
         </div>
       )}
 

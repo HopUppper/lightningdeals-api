@@ -314,27 +314,70 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
       clearTimeout(timeoutId);
 
-      // Automatic Retry on Upstream 502/503 Capacity Spikes
+      // Automatic Retry & Non-Streaming Fallback on Upstream 502/503 Capacity Spikes
       if (!upstreamRes.ok && [502, 503, 504].includes(upstreamRes.status)) {
-        console.warn(`[GATEWAY RETRY] Upstream vendor returned ${upstreamRes.status}. Retrying request...`);
-        await new Promise(r => setTimeout(r, 600));
+        console.warn(`[GATEWAY RETRY] Upstream vendor returned ${upstreamRes.status}. Retrying with stream fallback...`);
+        await new Promise(r => setTimeout(r, 400));
 
         try {
+          const retryBody = { ...prepared.body };
+          if (retryBody.stream) {
+            retryBody.stream = false;
+          }
+
           const retryController = new AbortController();
           const retryTimeoutId = setTimeout(() => retryController.abort(), 30000);
           const retryRes = await fetch(prepared.url, {
             method: 'POST',
             headers: prepared.headers,
-            body: JSON.stringify(prepared.body),
+            body: JSON.stringify(retryBody),
             signal: retryController.signal,
           }) as any;
           clearTimeout(retryTimeoutId);
 
           if (retryRes.ok) {
-            upstreamRes = retryRes;
+            const data = await retryRes.json();
+            const textContent = data.content?.[0]?.text || '';
+            const inputTokens = data.usage?.input_tokens || Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
+            const outputTokens = data.usage?.output_tokens || Math.max(10, Math.ceil(textContent.length / 4));
+            const totalTokens = inputTokens + outputTokens;
+
+            releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+            releaseMasterReservation(requestId);
+
+            await updateTokensAndLog({
+              keyRecord,
+              model,
+              inputTokens,
+              outputTokens,
+              totalTokens,
+              latencyMs: Date.now() - startTime,
+              streaming: !!stream,
+              vendorId: vendor?.id,
+              isEstimated: false,
+              usageSource: 'PROVIDER_REPORTED',
+            });
+
+            if (stream) {
+              res.setHeader('Content-Type', 'text/event-stream');
+              res.setHeader('Cache-Control', 'no-cache');
+              res.setHeader('Connection', 'keep-alive');
+
+              const msgId = data.id || `msg_${crypto.randomBytes(12).toString('hex')}`;
+              res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: msgId, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: inputTokens, output_tokens: 0 } } })}\n\n`);
+              res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`);
+              res.write(`event: ping\ndata: ${JSON.stringify({ type: 'ping' })}\n\n`);
+              res.write(`event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: textContent } })}\n\n`);
+              res.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`);
+              res.write(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: outputTokens } })}\n\n`);
+              res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`);
+              return res.end();
+            } else {
+              return res.json(data);
+            }
           }
         } catch (retryErr) {
-          // Keep original response if retry fails
+          // Keep original error handling if retry fails
         }
       }
 

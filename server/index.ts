@@ -122,6 +122,7 @@ app.get('/api/pricing/packages', async (req, res, next) => {
 
 // 4. User & Admin Routes
 app.use('/api/admin/auth', adminAuthRouter);
+app.use('/api/user', userRouter);
 app.use('/api', userRouter);
 app.use('/api/admin', adminRouter);
 

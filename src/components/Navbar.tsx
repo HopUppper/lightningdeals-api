@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut, User as UserIcon } from 'lucide-react';
+import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
@@ -34,11 +34,17 @@ export const Navbar: React.FC = () => {
     { name: 'Check Key', href: '/check-key', isPage: true },
     { name: 'Docs', href: '/docs', isPage: true },
     { name: 'Status', href: '/status', isPage: true },
+    ...(user ? [
+      { name: user.role === 'admin' ? 'Control Center' : 'Dashboard', href: user.role === 'admin' ? '/admin' : '/dashboard', isPage: true, isHighlight: true }
+    ] : [
+      { name: 'Sign In', href: '/login', isPage: true, isHighlight: true },
+      { name: 'Sign Up', href: '/register', isPage: true, isHighlight: true }
+    ])
   ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-white/85 backdrop-blur-xl shadow-xs">
-      <nav className="mx-auto flex h-16 max-w-page items-center justify-between px-5 sm:px-6" aria-label="Primary">
+      <nav className="mx-auto flex h-16 max-w-page items-center justify-between px-4 sm:px-6" aria-label="Primary">
         
         {/* Brand Logo with 3D Glowing Icon */}
         <Link to="/" className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-fg group">
@@ -50,15 +56,17 @@ export const Navbar: React.FC = () => {
           </span>
         </Link>
 
-        {/* Desktop Navigation Links */}
-        <div className="hidden items-center gap-1 lg:flex">
+        {/* Navigation Links — Includes Sign In & Sign Up / Dashboard Tabs */}
+        <div className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (
             link.isPage ? (
               <Link
                 key={link.name}
                 to={link.href}
-                className={`inline-flex min-h-[38px] items-center rounded-control px-3 text-xs font-semibold transition-all ${
-                  location.pathname === link.href
+                className={`inline-flex min-h-[36px] items-center rounded-control px-3 text-xs font-bold transition-all ${
+                  link.isHighlight
+                    ? 'bg-violet-600 text-white shadow-xs hover:bg-violet-700 font-extrabold px-3.5 ml-1'
+                    : location.pathname === link.href
                     ? 'bg-violet-50 text-violet-700 font-bold border border-violet-200/60'
                     : 'text-muted hover:text-fg hover:bg-subtle'
                 }`}
@@ -69,7 +77,7 @@ export const Navbar: React.FC = () => {
               <a
                 key={link.name}
                 href={link.href}
-                className="inline-flex min-h-[38px] items-center rounded-control px-3 text-xs font-semibold text-muted transition-colors hover:text-fg hover:bg-subtle"
+                className="inline-flex min-h-[36px] items-center rounded-control px-3 text-xs font-semibold text-muted transition-colors hover:text-fg hover:bg-subtle"
               >
                 {link.name}
               </a>
@@ -77,56 +85,36 @@ export const Navbar: React.FC = () => {
           ))}
         </div>
 
-        {/* Desktop Authentication & Action CTAs */}
-        <div className="hidden items-center gap-2.5 lg:flex">
-          {user ? (
-            <div className="flex items-center gap-2">
-              <Link
-                to={user.role === 'admin' ? '/admin' : '/dashboard'}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-control bg-violet-600 text-white text-xs font-bold shadow-xs hover:bg-violet-700 transition-all"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>{user.role === 'admin' ? 'Control Center' : 'Dashboard'}</span>
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-control text-xs font-semibold text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                title="Sign Out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-fg hover:text-violet-600 px-3 py-1.5 rounded-control hover:bg-subtle transition-all"
-              >
-                <LogIn className="w-3.5 h-3.5 text-violet-600" />
-                <span>Sign In</span>
-              </Link>
-
-              <Link
-                to="/register"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3.5 py-1.5 rounded-control transition-all"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Register</span>
-              </Link>
-
-              <Link
-                to="/trial"
-                className="ui-button-primary text-xs px-3.5 py-1.5 font-bold gap-1.5 shadow-xs"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Get Trial</span>
-              </Link>
-            </div>
+        {/* Action Buttons */}
+        <div className="hidden items-center gap-2 md:flex">
+          {user && (
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-control text-xs font-semibold text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           )}
+
+          <Link
+            to="/check-key"
+            className="ui-button-secondary text-xs px-3 py-1.5 font-semibold"
+          >
+            Check Key
+          </Link>
+
+          <Link
+            to="/trial"
+            className="ui-button-primary text-xs px-3.5 py-1.5 font-bold gap-1.5 shadow-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Get Free Trial</span>
+          </Link>
         </div>
 
-        {/* Mobile Menu Actions */}
-        <div className="flex items-center gap-2 lg:hidden">
+        {/* Mobile Menu Toggle */}
+        <div className="flex items-center gap-2 md:hidden">
           {!user ? (
             <Link
               to="/login"
@@ -157,7 +145,7 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-x-0 top-16 h-[calc(100vh-4rem)] z-[100] flex flex-col bg-white/95 backdrop-blur-2xl border-b border-border p-6 overflow-y-auto lg:hidden shadow-2xl font-sans">
+        <div className="fixed inset-x-0 top-16 h-[calc(100vh-4rem)] z-[100] flex flex-col bg-white/95 backdrop-blur-2xl border-b border-border p-6 overflow-y-auto md:hidden shadow-2xl font-sans">
           <div className="flex flex-col gap-1 border-b border-border/80 pb-6">
             {navLinks.map((link) => (
               link.isPage ? (

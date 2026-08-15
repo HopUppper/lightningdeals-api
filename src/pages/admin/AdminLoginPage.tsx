@@ -37,12 +37,9 @@ export const AdminLoginPage: React.FC = () => {
       }
 
       if (res.ok && data.success) {
-        // Save session in AuthContext & redirect
-        if (adminLogin) {
-          adminLogin(data.token, data.user);
-        } else {
-          window.location.href = '/admin';
-        }
+        // Save session in AuthContext & redirect to /admin dashboard
+        adminLogin(data.token, data.user);
+        window.location.href = '/admin';
       } else {
         setError(data?.error?.message || 'Authentication failed. Please verify your admin credentials.');
       }

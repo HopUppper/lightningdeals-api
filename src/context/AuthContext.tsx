@@ -100,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('apexscale_token', token);
     setAdminUser(userData);
     setUser(userData);
+    window.location.href = '/admin';
   };
 
   const logout = async () => {

@@ -6,7 +6,7 @@ import { createRateLimiter, clearAuthRateLimit } from './rateLimit';
 import { AuthRequest } from './auth';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'apexscale-jwt-secret-key-production-2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
 
 // 15-minute lockout for failed admin login attempts (max 25 attempts)
 const adminLoginLimiter = createRateLimiter({

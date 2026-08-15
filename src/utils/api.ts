@@ -1,5 +1,7 @@
-export function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || '';
+export function getAuthHeaders(isAdmin = false): Record<string, string> {
+  const token = isAdmin
+    ? (localStorage.getItem('ld_admin_token') || localStorage.getItem('apexscale_token') || '')
+    : (localStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || '');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -10,7 +12,7 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 export async function adminFetch(url: string, options: RequestInit = {}, timeoutMs: number = 15000): Promise<Response> {
-  const defaultHeaders = getAuthHeaders();
+  const defaultHeaders = getAuthHeaders(true);
   const requestId = `req_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
   
   const controller = new AbortController();

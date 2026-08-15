@@ -97,8 +97,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const adminLogin = (token: string, userData: User) => {
     localStorage.setItem('ld_admin_token', token);
+    localStorage.setItem('apexscale_token', token);
     setAdminUser(userData);
-    window.location.href = '/admin';
+    setUser(userData);
   };
 
   const logout = async () => {
@@ -106,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {}
     localStorage.removeItem('apexscale_token');
+    localStorage.removeItem('ld_admin_token');
     setUser(null);
   };
 
@@ -114,8 +116,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {}
     localStorage.removeItem('ld_admin_token');
+    localStorage.removeItem('apexscale_token');
     setAdminUser(null);
-    window.location.href = '/admin/login';
   };
 
   return (

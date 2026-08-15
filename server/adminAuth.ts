@@ -159,6 +159,8 @@ router.post('/login', adminLoginLimiter, async (req: Request, res: Response) => 
 // POST /api/admin/auth/logout
 router.post('/logout', async (req: Request, res: Response) => {
   res.clearCookie('ld_admin_token');
+  res.clearCookie('ld_token');
+  res.clearCookie('apexscale_token');
   return res.json({ success: true, message: 'Admin session terminated successfully.' });
 });
 

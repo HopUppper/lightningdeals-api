@@ -119,7 +119,9 @@ export function recordPageview(req: Request, res: Response, next: NextFunction) 
     const ua = req.headers['user-agent'] || '';
     const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
     const countryInfo = parseCountry(req);
-    const sessionHash = `sess_${crypto.createHash('md5').update(`${ip}-${ua.substring(0, 30)}`).digest('hex').substring(0, 8)}`;
+    // Deduplicate by IP and primary OS/device type to match GA4 user counting
+    const deviceType = parseDevice(ua);
+    const sessionHash = `sess_${crypto.createHash('md5').update(`${ip}-${deviceType}`).digest('hex').substring(0, 8)}`;
     const userInfo = extractUserInfoFromReq(req);
 
     const hit: PageviewHit = {
@@ -155,7 +157,9 @@ export function handleAnalyticsBeacon(req: Request, res: Response) {
     const ua = userAgent || req.headers['user-agent'] || '';
     const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
     const countryInfo = parseCountry(req);
-    const sessionHash = `sess_${crypto.createHash('md5').update(`${ip}-${ua.substring(0, 30)}`).digest('hex').substring(0, 8)}`;
+    // Deduplicate by IP and primary OS/device type to match GA4 user counting
+    const deviceType = parseDevice(ua);
+    const sessionHash = `sess_${crypto.createHash('md5').update(`${ip}-${deviceType}`).digest('hex').substring(0, 8)}`;
     const userInfo = extractUserInfoFromReq(req);
 
     const hit: PageviewHit = {

@@ -64,10 +64,12 @@ export function buildProviderRequest(
     system?: string;
     tools?: any[];
     tool_choice?: any;
+    thinking?: any;
     temperature?: number;
     top_p?: number;
     stop_sequences?: string[];
     metadata?: any;
+    anthropicBetaHeader?: string;
   }
 ): PreparedProviderRequest {
   const protocol = vendor?.protocol || 'anthropic';
@@ -77,6 +79,10 @@ export function buildProviderRequest(
   const headers: Record<string, string> = {
     'content-type': 'application/json',
   };
+
+  if (payload.anthropicBetaHeader) {
+    headers['anthropic-beta'] = payload.anthropicBetaHeader;
+  }
 
   // Merge custom headers if configured
   if (vendor?.headersJson) {
@@ -124,14 +130,22 @@ export function buildProviderRequest(
   headers['anthropic-version'] = '2023-06-01';
   const targetUrl = baseUrl.endsWith('/v1/messages') ? baseUrl : `${baseUrl}/v1/messages`;
 
-
   const hasTools = Array.isArray(payload.tools) && payload.tools.length > 0;
   const toolChoice = hasTools ? payload.tool_choice : undefined;
+  const isThinkingEnabled = payload.thinking && payload.thinking.type === 'enabled';
+
+  let finalMaxTokens = payload.max_tokens || 4096;
+  if (isThinkingEnabled && payload.thinking.budget_tokens) {
+    const budget = Number(payload.thinking.budget_tokens);
+    if (finalMaxTokens <= budget) {
+      finalMaxTokens = budget + 4096;
+    }
+  }
 
   const requestBody: Record<string, any> = {
     model: targetModel,
     messages: payload.messages || [],
-    max_tokens: payload.max_tokens,
+    max_tokens: finalMaxTokens,
     stream: payload.stream,
   };
 
@@ -140,8 +154,14 @@ export function buildProviderRequest(
     requestBody.tools = payload.tools;
     if (toolChoice) requestBody.tool_choice = toolChoice;
   }
-  if (payload.temperature !== undefined) requestBody.temperature = payload.temperature;
-  if (payload.top_p !== undefined) requestBody.top_p = payload.top_p;
+
+  if (isThinkingEnabled) {
+    requestBody.thinking = payload.thinking;
+  } else {
+    if (payload.temperature !== undefined) requestBody.temperature = payload.temperature;
+    if (payload.top_p !== undefined) requestBody.top_p = payload.top_p;
+  }
+
   if (payload.stop_sequences) requestBody.stop_sequences = payload.stop_sequences;
   if (payload.metadata) requestBody.metadata = payload.metadata;
 

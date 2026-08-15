@@ -146,11 +146,14 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     system,
     tools,
     tool_choice,
+    thinking,
     temperature,
     top_p,
     stop_sequences,
     metadata,
   } = req.body || {};
+
+  const anthropicBetaHeader = (req.headers['anthropic-beta'] || req.headers['anthropic_beta'])?.toString();
 
   if (!model) {
     return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Missing required field: model.' } });
@@ -245,10 +248,12 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         system,
         tools,
         tool_choice,
+        thinking,
         temperature,
         top_p,
         stop_sequences,
         metadata,
+        anthropicBetaHeader,
       });
 
       const controller = new AbortController();

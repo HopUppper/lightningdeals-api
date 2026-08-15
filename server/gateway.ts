@@ -314,6 +314,30 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
       clearTimeout(timeoutId);
 
+      // Automatic Retry on Upstream 502/503 Capacity Spikes
+      if (!upstreamRes.ok && [502, 503, 504].includes(upstreamRes.status)) {
+        console.warn(`[GATEWAY RETRY] Upstream vendor returned ${upstreamRes.status}. Retrying request...`);
+        await new Promise(r => setTimeout(r, 600));
+
+        try {
+          const retryController = new AbortController();
+          const retryTimeoutId = setTimeout(() => retryController.abort(), 30000);
+          const retryRes = await fetch(prepared.url, {
+            method: 'POST',
+            headers: prepared.headers,
+            body: JSON.stringify(prepared.body),
+            signal: retryController.signal,
+          }) as any;
+          clearTimeout(retryTimeoutId);
+
+          if (retryRes.ok) {
+            upstreamRes = retryRes;
+          }
+        } catch (retryErr) {
+          // Keep original response if retry fails
+        }
+      }
+
       if (!upstreamRes.ok) {
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
         releaseMasterReservation(requestId);

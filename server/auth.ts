@@ -41,7 +41,8 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
     }
   }
 
-  const tokenHash = hashSecret(token);
+  try {
+    const tokenHash = hashSecret(token);
 
     let user = decoded.id ? await prisma.user.findUnique({ where: { id: decoded.id } }) : null;
     if (!user && decoded.email) {

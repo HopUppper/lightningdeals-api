@@ -104,27 +104,35 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
       };
     }
 
-    // Atomic Provisioning Transaction: Create API Key + Token Ledger + Update Order
+    // Atomic Provisioning Transaction: Create API Key + Token Ledger + Subscription
     const { rawKeySecret, keyPrefix, keyHash, displayKey } = generateCustomerApiKey();
     const tokenAllowanceBigInt = plan.tokenAllowance;
-    const expiresAt = new Date(Date.now() + plan.validityDays * 24 * 3600 * 1000);
+    const activationTime = new Date();
+    const expiryTime = new Date(activationTime.getTime() + plan.validityDays * 24 * 3600 * 1000);
+    const nextResetTime = new Date(activationTime.getTime() + plan.windowHours * 3600 * 1000);
 
-    const [apiKey, tokenLedger] = await prisma.$transaction([
+    // Deactivate previous active subscriptions for this user
+    await prisma.subscription.updateMany({
+      where: { userId: order.userId, status: 'ACTIVE' },
+      data: { status: 'EXPIRED' },
+    });
+
+    const [apiKey, tokenLedger, subscription] = await prisma.$transaction([
       prisma.apiKey.create({
         data: {
           userId: order.userId,
           keyPrefix,
           keyHash,
           displayKey,
-          name: `${plan.name} (${order.internalOrderId.substring(0, 8)})`,
+          name: `Claude Max ${plan.name} (${order.internalOrderId.substring(0, 8)})`,
           type: 'production',
           status: 'active',
           purchasedTokens: tokenAllowanceBigInt,
           tokensUsed: 0n,
           tokensRemaining: tokenAllowanceBigInt,
-          expiresAt,
+          expiresAt: expiryTime,
           plan: plan.name,
-          rateLimitRpm: plan.rateLimitRpm || 60,
+          rateLimitRpm: 60,
           maxConcurrency: 5,
         },
       }),
@@ -138,7 +146,36 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           notes: `Automated fulfillment for ${plan.displayName}`,
         },
       }),
+      prisma.subscription.create({
+        data: {
+          userId: order.userId,
+          planId: plan.id,
+          planName: plan.name,
+          orderId: order.id,
+          activationTime,
+          expiryTime,
+          quotaLimit: tokenAllowanceBigInt,
+          quotaWindowHours: plan.windowHours,
+          currentUsage: 0n,
+          nextResetTime,
+          status: 'ACTIVE',
+        },
+      }),
     ]);
+
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: { apiKeyId: apiKey.id },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: order.userId,
+        title: `Subscription Activated: Claude Max ${plan.name}`,
+        message: `Your ${plan.name} plan (${plan.tokenDisplay}) is now active until ${expiryTime.toLocaleDateString()}.`,
+        type: 'success',
+      },
+    });
 
     // Update Order to FULFILLED state
     await prisma.order.update({

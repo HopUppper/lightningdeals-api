@@ -1102,6 +1102,256 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
   }
 });
 
+// GET /api/user/subscriptions — Active Claude Max Subscriptions & Usage Data
+router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user!;
+
+    // Find active subscription
+    const activeSub = await prisma.subscription.findFirst({
+      where: {
+        userId: user.id,
+        status: 'ACTIVE',
+        expiryTime: { gt: new Date() },
+      },
+      include: {
+        apiKey: true,
+        order: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Check & mark expired subscriptions
+    await prisma.subscription.updateMany({
+      where: { userId: user.id, status: 'ACTIVE', expiryTime: { lte: new Date() } },
+      data: { status: 'EXPIRED' },
+    });
+
+    // Past subscriptions
+    const pastSubs = await prisma.subscription.findMany({
+      where: { userId: user.id, id: { !(activeSub?.id || '') } },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    // Orders history
+    const orders = await prisma.order.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    let currentUsageStr = '0';
+    let quotaLimitStr = activeSub ? activeSub.quotaLimit.toString() : '0';
+    if (activeSub?.apiKey) {
+      currentUsageStr = activeSub.apiKey.tokensUsed.toString();
+    } else if (activeSub) {
+      currentUsageStr = activeSub.currentUsage.toString();
+    }
+
+    res.json({
+      success: true,
+      activeSubscription: activeSub
+        ? {
+            id: activeSub.id,
+            planId: activeSub.planId,
+            planName: activeSub.planName,
+            status: activeSub.status,
+            activationTime: activeSub.activationTime,
+            expiryTime: activeSub.expiryTime,
+            quotaLimit: quotaLimitStr,
+            currentUsage: currentUsageStr,
+            quotaWindowHours: activeSub.quotaWindowHours,
+            nextResetTime: activeSub.nextResetTime,
+            apiKeyDisplay: activeSub.apiKey?.displayKey || null,
+            orderId: activeSub.orderId,
+          }
+        : null,
+      pastSubscriptions: pastSubs.map((s) => ({
+        id: s.id,
+        planId: s.planId,
+        planName: s.planName,
+        status: s.status,
+        activationTime: s.activationTime,
+        expiryTime: s.expiryTime,
+        quotaLimit: s.quotaLimit.toString(),
+      })),
+      orders: orders.map((o) => ({
+        id: o.id,
+        internalOrderId: o.internalOrderId,
+        planName: o.planName,
+        amountInr: o.amountInr,
+        paymentStatus: o.paymentStatus,
+        fulfillmentStatus: o.fulfillmentStatus,
+        createdAt: o.createdAt,
+        paidAt: o.paidAt,
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/trial/claim — Activate Server-Side 1-Day Free Trial
+router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user!;
+
+    if (!user.emailVerified) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Email verification is required before claiming your Free 1-Day Trial.' },
+      });
+    }
+
+    const existingClaim = await prisma.trialClaim.findFirst({
+      where: { userId: user.id },
+    });
+
+    if (existingClaim) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'You have already claimed your Free 1-Day Trial on this account.' },
+      });
+    }
+
+    const existingSub = await prisma.subscription.findFirst({
+      where: { userId: user.id },
+    });
+
+    if (existingSub) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Free trial is only available for new customer accounts without existing subscriptions.' },
+      });
+    }
+
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
+
+    const keyPrefix = 'ld_trial_';
+    const randomEntropy = crypto.randomBytes(24).toString('hex');
+    const rawKeySecret = `${keyPrefix}${randomEntropy}`;
+    const keyHash = crypto.createHash('sha256').update(rawKeySecret).digest('hex');
+    const displayKey = `${keyPrefix}${randomEntropy.substring(0, 6)}...${randomEntropy.substring(randomEntropy.length - 4)}`;
+
+    const activationTime = new Date();
+    const expiryTime = new Date(activationTime.getTime() + 24 * 3600 * 1000);
+    const nextResetTime = new Date(activationTime.getTime() + 5 * 3600 * 1000);
+
+    const [apiKey, trialClaim, subscription] = await prisma.$transaction([
+      prisma.apiKey.create({
+        data: {
+          userId: user.id,
+          keyPrefix,
+          keyHash,
+          displayKey,
+          name: `Claude Max Free Trial (24h)`,
+          type: 'trial',
+          status: 'active',
+          purchasedTokens: 1000000n,
+          tokensUsed: 0n,
+          tokensRemaining: 1000000n,
+          expiresAt: expiryTime,
+          plan: 'Free Trial',
+          rateLimitRpm: 30,
+          maxConcurrency: 2,
+        },
+      }),
+      prisma.trialClaim.create({
+        data: {
+          userId: user.id,
+          email: user.email,
+          ipAddress: clientIp,
+          decision: 'APPROVED',
+          riskScore: 0.0,
+        },
+      }),
+      prisma.subscription.create({
+        data: {
+          userId: user.id,
+          planId: 'free_trial',
+          planName: 'Free Trial',
+          activationTime,
+          expiryTime,
+          quotaLimit: 1000000n,
+          quotaWindowHours: 5,
+          currentUsage: 0n,
+          nextResetTime,
+          status: 'ACTIVE',
+        },
+      }),
+    ]);
+
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: { apiKeyId: apiKey.id },
+    });
+
+    await prisma.trialClaim.update({
+      where: { id: trialClaim.id },
+      data: { apiKeyId: apiKey.id },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        title: 'Free 1-Day Trial Activated! 🎉',
+        message: 'Your 1M Tokens / 5-Hour Free Trial is now active for 24 hours.',
+        type: 'success',
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Free Trial activated successfully!',
+      trial: {
+        apiKeyDisplay: displayKey,
+        rawKeySecret,
+        activationTime,
+        expiryTime,
+        quotaDisplay: '1M TOKENS / 5 HOURS',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/user/trial/status
+router.get('/trial/status', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const claim = await prisma.trialClaim.findFirst({
+      where: { userId: user.id },
+      include: { apiKey: true },
+    });
+
+    if (!claim) {
+      return res.json({
+        isEligible: true,
+        hasClaimed: false,
+        status: 'NOT_CLAIMED',
+      });
+    }
+
+    const sub = await prisma.subscription.findFirst({
+      where: { userId: user.id, planId: 'free_trial' },
+    });
+
+    const isExpired = sub ? new Date() > sub.expiryTime : false;
+
+    res.json({
+      isEligible: false,
+      hasClaimed: true,
+      status: isExpired ? 'EXPIRED' : 'ACTIVE',
+      expiryTime: sub?.expiryTime || null,
+      claimedAt: claim.createdAt,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // GET /api/user/keys — List User's Own API Keys (IDOR Protected)
 router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {

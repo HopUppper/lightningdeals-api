@@ -2401,5 +2401,262 @@ router.get('/customers/:id/timeline', async (req: AuthRequest, res: Response) =>
   }
 });
 
+// 30. Admin Claude Plans Overview Metrics
+router.get('/claude-plans/overview', async (req: AuthRequest, res: Response) => {
+  try {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [
+      activeSubscriptions,
+      expiredSubscriptions,
+      freeTrialsCount,
+      todayOrders,
+      pendingOrders,
+      failedOrders,
+    ] = await Promise.all([
+      prisma.subscription.count({ where: { status: 'ACTIVE', expiryTime: { gt: new Date() } } }),
+      prisma.subscription.count({ where: { status: 'EXPIRED' } }),
+      prisma.trialClaim.count(),
+      prisma.order.findMany({
+        where: { createdAt: { gte: startOfToday }, paymentStatus: 'CAPTURED' },
+      }),
+      prisma.order.count({ where: { paymentStatus: 'PENDING' } }),
+      prisma.order.count({ where: { paymentStatus: 'FAILED' } }),
+    ]);
+
+    const todayRevenueInr = todayOrders.reduce((sum, o) => sum + (o.paidAmountInr || o.amountInr), 0);
+
+    res.json({
+      activeSubscriptions,
+      expiredSubscriptions,
+      freeTrialsCount,
+      todaySalesCount: todayOrders.length,
+      todayRevenueInr,
+      pendingPayments: pendingOrders,
+      failedPayments: failedOrders,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 31. Admin Claude Subscriptions List (Search & Filter)
+router.get('/subscriptions', async (req: AuthRequest, res: Response) => {
+  try {
+    const { search, planFilter, statusFilter } = req.query;
+
+    const whereClause: any = {};
+
+    if (statusFilter && typeof statusFilter === 'string' && statusFilter !== 'ALL') {
+      whereClause.status = statusFilter.toUpperCase();
+    }
+
+    if (planFilter && typeof planFilter === 'string' && planFilter !== 'ALL') {
+      whereClause.planId = planFilter.toLowerCase();
+    }
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const q = search.trim().toLowerCase();
+      whereClause.user = {
+        OR: [
+          { email: { contains: q, mode: 'insensitive' } },
+          { name: { contains: q, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    const subscriptions = await prisma.subscription.findMany({
+      where: whereClause,
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        apiKey: { select: { id: true, displayKey: true, tokensUsed: true } },
+        order: { select: { id: true, internalOrderId: true, amountInr: true, paymentStatus: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    res.json({
+      subscriptions: subscriptions.map((s) => ({
+        id: s.id,
+        user: s.user,
+        planId: s.planId,
+        planName: s.planName,
+        status: s.status,
+        activationTime: s.activationTime,
+        expiryTime: s.expiryTime,
+        quotaLimit: s.quotaLimit.toString(),
+        currentUsage: s.apiKey?.tokensUsed?.toString() || s.currentUsage.toString(),
+        displayKey: s.apiKey?.displayKey || 'N/A',
+        order: s.order,
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 32. Admin Extend Subscription Validity
+router.post('/subscriptions/:id/extend', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { additionalDays } = req.body;
+
+  const days = Number(additionalDays || 30);
+
+  try {
+    const sub = await prisma.subscription.findUnique({ where: { id }, include: { user: true } });
+    if (!sub) {
+      return res.status(404).json({ error: { message: 'Subscription not found.' } });
+    }
+
+    const newExpiry = new Date(new Date(sub.expiryTime).getTime() + days * 24 * 3600 * 1000);
+
+    await prisma.subscription.update({
+      where: { id },
+      data: {
+        expiryTime: newExpiry,
+        status: 'ACTIVE',
+      },
+    });
+
+    if (sub.apiKeyId) {
+      await prisma.apiKey.update({
+        where: { id: sub.apiKeyId },
+        data: { expiresAt: newExpiry, status: 'active' },
+      });
+    }
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'EXTEND_SUBSCRIPTION',
+        targetType: 'Subscription',
+        targetId: sub.id,
+        metadata: `Extended subscription '${sub.planName}' for user ${sub.user.email} by ${days} days until ${newExpiry.toISOString()}`,
+      },
+    });
+
+    res.json({ success: true, message: `Subscription extended by ${days} days!`, newExpiry });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 33. Admin Cancel/Suspend Subscription
+router.post('/subscriptions/:id/status', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { status, reason } = req.body;
+
+  if (!['SUSPENDED', 'CANCELLED', 'ACTIVE'].includes(status)) {
+    return res.status(400).json({ error: { message: 'Invalid status. Must be SUSPENDED, CANCELLED, or ACTIVE.' } });
+  }
+
+  try {
+    const sub = await prisma.subscription.findUnique({ where: { id }, include: { user: true } });
+    if (!sub) {
+      return res.status(404).json({ error: { message: 'Subscription not found.' } });
+    }
+
+    await prisma.subscription.update({
+      where: { id },
+      data: { status },
+    });
+
+    if (sub.apiKeyId) {
+      await prisma.apiKey.update({
+        where: { id: sub.apiKeyId },
+        data: { status: status === 'ACTIVE' ? 'active' : 'suspended' },
+      });
+    }
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'UPDATE_SUBSCRIPTION_STATUS',
+        targetType: 'Subscription',
+        targetId: sub.id,
+        metadata: `Updated subscription '${sub.planName}' status for ${sub.user.email} to ${status}. Reason: ${reason || 'Admin action'}`,
+      },
+    });
+
+    res.json({ success: true, message: `Subscription status updated to ${status}.` });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 34. Admin Free Trial Claims List
+router.get('/trials', async (req: AuthRequest, res: Response) => {
+  try {
+    const trials = await prisma.trialClaim.findMany({
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        apiKey: { select: { id: true, displayKey: true, tokensUsed: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    res.json({
+      trials: trials.map((t) => ({
+        id: t.id,
+        user: t.user,
+        email: t.email,
+        ipAddress: t.ipAddress,
+        riskScore: t.riskScore,
+        decision: t.decision,
+        displayKey: t.apiKey?.displayKey || 'N/A',
+        tokensUsed: t.apiKey?.tokensUsed?.toString() || '0',
+        createdAt: t.createdAt,
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 35. Admin Revoke Trial Claim
+router.post('/trials/:id/revoke', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const trial = await prisma.trialClaim.findUnique({ where: { id } });
+    if (!trial) return res.status(404).json({ error: { message: 'Trial claim not found.' } });
+
+    await prisma.trialClaim.update({
+      where: { id },
+      data: { decision: 'REJECTED' },
+    });
+
+    if (trial.apiKeyId) {
+      await prisma.apiKey.update({
+        where: { id: trial.apiKeyId },
+        data: { status: 'revoked' },
+      });
+    }
+
+    if (trial.userId) {
+      await prisma.subscription.updateMany({
+        where: { userId: trial.userId, planId: 'free_trial' },
+        data: { status: 'EXPIRED' },
+      });
+    }
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'REVOKE_FREE_TRIAL',
+        targetType: 'TrialClaim',
+        targetId: trial.id,
+        metadata: `Revoked free trial for ${trial.email}`,
+      },
+    });
+
+    res.json({ success: true, message: 'Free trial revoked successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 export default router;
 

@@ -39,6 +39,7 @@ model User {
   userSessions        UserSession[]
   securityLogs        SecurityLog[]
   notifications       Notification[]
+  subscriptions       Subscription[]
 }
 
 
@@ -71,6 +72,7 @@ model ApiKey {
   requests          ApiRequest[]
   tokenLedgers      TokenLedger[]
   trialClaims       TrialClaim[]
+  subscriptions     Subscription[]
 }
 
 model ApiRequest {
@@ -188,6 +190,7 @@ model Order {
   fulfilledAt       DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+  subscriptions     Subscription[]
 
   @@index([userId, createdAt])
   @@index([paymentStatus])
@@ -234,6 +237,31 @@ model TrialClaim {
   apiKeyId   String?
   apiKey     ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
+}
+
+model Subscription {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId           String    // "free_trial", "pro", "max", "ultra"
+  planName         String    // "Free Trial", "PRO", "MAX", "ULTRA"
+  orderId          String?
+  order            Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  apiKeyId         String?
+  apiKey           ApiKey?   @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  activationTime   DateTime  @default(now())
+  expiryTime       DateTime
+  quotaLimit       BigInt    @default(5000000)
+  quotaWindowHours Int       @default(5)
+  currentUsage     BigInt    @default(0)
+  nextResetTime    DateTime
+  status           String    @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "SUSPENDED" | "CANCELLED"
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
 }
 
 model Plan {

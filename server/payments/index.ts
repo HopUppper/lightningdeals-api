@@ -1,4 +1,5 @@
 import { PaymentProviderAdapter } from './provider';
+import { CashfreeAdapter } from './adapters/cashfreeAdapter';
 import { TestPaymentAdapter } from './adapters/testAdapter';
 
 let currentAdapterInstance: PaymentProviderAdapter | null = null;
@@ -8,16 +9,15 @@ export function getPaymentProvider(): PaymentProviderAdapter {
     return currentAdapterInstance;
   }
 
-  const providerType = (process.env.PAYMENT_PROVIDER || 'TEST').toUpperCase();
-  const isTestMode = process.env.PAYMENT_TEST_MODE === 'true' || process.env.NODE_ENV !== 'production';
+  const providerType = (process.env.PAYMENT_PROVIDER || 'CASHFREE').toUpperCase();
+  const isExplicitTestMode = process.env.PAYMENT_TEST_MODE === 'true';
 
-  if (isTestMode || providerType === 'TEST' || providerType === 'MOCK') {
-    currentAdapterInstance = new TestPaymentAdapter();
+  if (!isExplicitTestMode && (providerType === 'CASHFREE' || Boolean(process.env.CASHFREE_APP_ID))) {
+    currentAdapterInstance = new CashfreeAdapter();
     return currentAdapterInstance;
   }
 
-  // Fallback to Test Adapter if no production adapter is configured
-  currentAdapterInstance = new TestPaymentAdapter();
+  currentAdapterInstance = new CashfreeAdapter();
   return currentAdapterInstance;
 }
 

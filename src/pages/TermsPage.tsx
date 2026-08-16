@@ -99,7 +99,7 @@ export const TermsPage: React.FC = () => {
                 <span>6. Payments, Billing & Refund Policy</span>
               </h2>
               <p>
-                All token package purchases are processed via encrypted payment gateways (e.g. Razorpay). Due to the immediate allocation of server bandwidth and upstream capacity, all sales are final and non-refundable once token usage has commenced, unless a major technical failure on our platform prevents delivery of services.
+                All token package purchases are processed via encrypted payment gateways (e.g. Cashfree Payments). Due to the immediate allocation of server bandwidth and upstream capacity, all sales are final and non-refundable once token usage has commenced, unless a major technical failure on our platform prevents delivery of services.
               </p>
             </section>
 

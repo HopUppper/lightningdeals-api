@@ -1,355 +1,287 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { X, ShieldCheck, CheckCircle2, AlertCircle, Copy, Check, ArrowRight, Zap, Lock, RefreshCw } from 'lucide-react';
+import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, CreditCard, ExternalLink } from 'lucide-react';
+import { adminFetch } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export interface CheckoutModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   plan: {
     id: string;
     name: string;
-    displayName: string;
+    priceInr: number;
     tokenDisplay: string;
     windowHours: number;
-    priceInr: number;
-    currency: string;
-  };
+    validityDays: number;
+    tagline?: string;
+  } | null;
+  onClose: () => void;
 }
 
-export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, plan }) => {
+export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<'CONFIRM' | 'PAYING' | 'VERIFYING' | 'SUCCESS' | 'ERROR'>('CONFIRM');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [paymentState, setPaymentState] = useState<
+    'IDLE' | 'PROCESSING' | 'PENDING' | 'SUCCESSFUL' | 'FAILED' | 'CANCELLED' | 'VERIFICATION_FAILED'
+  >('IDLE');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [orderData, setOrderData] = useState<{
-    internalOrderId: string;
-    gatewayOrderId: string;
-    amountInr: number;
-  } | null>(null);
+  if (!plan) return null;
 
-  const [fulfillmentData, setFulfillmentData] = useState<{
-    displayKey: string;
-    rawKeySecret?: string;
-    tokenAllowance: string;
-  } | null>(null);
+  const handleInitiatePayment = async () => {
+    if (!user) {
+      navigate('/login?redirect=checkout');
+      return;
+    }
 
-  const [copied, setCopied] = useState(false);
+    setPaymentState('PROCESSING');
+    setErrorMessage(null);
 
-  if (!isOpen) return null;
-
-  const handleStartCheckout = async () => {
-    setLoading(true);
-    setError(null);
+    // Track GA Event: Checkout Started
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'begin_checkout', {
+        currency: 'INR',
+        value: plan.priceInr,
+        items: [{ item_id: plan.id, item_name: plan.name }],
+      });
+    }
 
     try {
-      // 1. Create Internal Order & Gateway Order (Zero Frontend Price Trust)
-      const res = await fetch('/api/checkout/create-order', {
+      // 1. Create Server-Side Order (Zero Frontend Price Trust)
+      const res = await adminFetch('/api/checkout/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: plan.id }),
       });
 
       const data = await res.json();
 
-      if (res.status === 401) {
-        // Redirect unauthenticated customers to login
-        navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-        return;
-      }
-
       if (!res.ok || !data.success) {
-        setError(data.error?.message || 'Failed to initialize payment checkout.');
-        setStep('ERROR');
+        setPaymentState('FAILED');
+        setErrorMessage(data.error?.message || 'Failed to initialize payment order.');
         return;
       }
 
-      setOrderData({
-        internalOrderId: data.order.internalOrderId,
-        gatewayOrderId: data.order.gatewayOrderId,
-        amountInr: data.order.amountInr,
-      });
+      const { internalOrderId, gatewayOrderId, checkoutUrl } = data.order;
 
-      setStep('PAYING');
-    } catch (err: any) {
-      setError('Network error connecting to checkout server.');
-      setStep('ERROR');
-    } finally {
-      setLoading(false);
-    }
-  };
+      setPaymentState('PENDING');
 
-  const handleSimulatePayment = async () => {
-    if (!orderData) return;
-    setLoading(true);
-    setStep('VERIFYING');
-    setError(null);
+      // Execute Cashfree Checkout or Test verification
+      if (checkoutUrl && !checkoutUrl.includes('TEST_FALLBACK')) {
+        // Direct to Cashfree Gateway Checkout URL
+        window.location.href = checkoutUrl;
+      } else {
+        // Simulate/Execute Server Verification for local/staging
+        setTimeout(async () => {
+          try {
+            const verifyRes = await adminFetch('/api/checkout/verify', {
+              method: 'POST',
+              body: JSON.stringify({
+                internalOrderId,
+                gatewayOrderId: gatewayOrderId || internalOrderId,
+              }),
+            });
 
-    try {
-      // 2. Execute Payment Verification & Atomic Key Provisioning
-      const res = await fetch('/api/checkout/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          internalOrderId: orderData.internalOrderId,
-          gatewayOrderId: orderData.gatewayOrderId,
-          gatewayPaymentId: `test_pay_${Date.now()}`,
-          gatewaySignature: `test_sig_valid_${Date.now()}`,
-          payload: { amount: orderData.amountInr },
-        }),
-      });
+            const verifyData = await verifyRes.json();
 
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setError(data.error?.message || 'Payment verification failed.');
-        setStep('ERROR');
-        return;
+            if (verifyRes.ok && verifyData.success) {
+              setPaymentState('SUCCESSFUL');
+              if (typeof window !== 'undefined' && (window as any).gtag) {
+                (window as any).gtag('event', 'purchase', {
+                  transaction_id: internalOrderId,
+                  value: plan.priceInr,
+                  currency: 'INR',
+                  items: [{ item_id: plan.id, item_name: plan.name }],
+                });
+              }
+              setTimeout(() => {
+                onClose();
+                navigate('/dashboard/plan');
+              }, 1500);
+            } else {
+              setPaymentState('VERIFICATION_FAILED');
+              setErrorMessage(verifyData.error || 'We couldn\'t verify the payment. Please contact support.');
+            }
+          } catch (err: any) {
+            setPaymentState('VERIFICATION_FAILED');
+            setErrorMessage('Payment verification error. Contact support if charged.');
+          }
+        }, 1200);
       }
-
-      setFulfillmentData({
-        displayKey: data.fulfillment.displayKey,
-        rawKeySecret: data.fulfillment.rawKeySecret,
-        tokenAllowance: data.fulfillment.tokenAllowance,
-      });
-
-      setStep('SUCCESS');
     } catch (err: any) {
-      setError('Network error verifying payment credentials.');
-      setStep('ERROR');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCopyKey = () => {
-    if (fulfillmentData?.rawKeySecret) {
-      navigator.clipboard.writeText(fulfillmentData.rawKeySecret);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
+      setPaymentState('FAILED');
+      setErrorMessage(err.message || 'Network error initializing payment gateway.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
-      <div className="relative w-full max-w-lg bg-card border border-border rounded-panel p-6 sm:p-8 shadow-2xl overflow-hidden">
-        {/* Modal Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-muted hover:text-fg rounded-full hover:bg-subtle transition-all"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Step 1: CONFIRM ORDER */}
-        {step === 'CONFIRM' && (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-mono font-bold border border-violet-200">
-                <Zap className="w-3.5 h-3.5 fill-current" /> LightningDeals Checkout
-              </div>
-              <h2 className="text-2xl font-extrabold text-fg tracking-tight">Confirm Your Selection</h2>
-              <p className="text-xs text-muted">
-                Server-side verified pricing & automatic API key provisioning upon payment.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-bg border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted font-medium">Selected Package</span>
-                <span className="text-sm font-bold text-fg">{plan.name}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted font-medium">Token Allocation</span>
-                <span className="text-xs font-mono font-bold text-violet-600">{plan.tokenDisplay}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted font-medium">Rolling Reset Window</span>
-                <span className="text-xs font-mono text-slate-700">Every {plan.windowHours} Hours</span>
-              </div>
-              <div className="pt-3 border-t border-border flex items-center justify-between">
-                <span className="text-sm font-bold text-fg">Total Price</span>
-                <span className="text-xl font-extrabold text-violet-600 font-mono">₹{plan.priceInr.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleStartCheckout}
-              disabled={loading}
-              className="w-full py-3.5 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold text-xs shadow-md hover:brightness-110 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Initializing Secure Order...
-                </>
-              ) : (
-                <>
-                  Proceed to Payment (₹{plan.priceInr.toLocaleString()}) <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-
-            <div className="text-[11px] text-muted text-center font-mono flex items-center justify-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Independent Server-Side Order Verification
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: PAYING */}
-        {step === 'PAYING' && orderData && (
-          <div className="space-y-6 text-center">
-            <div className="space-y-2">
-              <h2 className="text-xl font-extrabold text-fg">Complete Online Payment</h2>
-              <p className="text-xs text-muted font-mono">
-                Order ID: <span className="font-bold text-violet-600">{orderData.internalOrderId}</span>
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-violet-50/50 border border-violet-200 text-left space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700">Gateway Order:</span>
-                <span className="text-xs font-mono text-slate-900 font-bold">{orderData.gatewayOrderId}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700">Amount Due:</span>
-                <span className="text-base font-extrabold text-violet-700 font-mono">₹{orderData.amountInr.toLocaleString()}</span>
-              </div>
-              <p className="text-[11px] text-muted leading-relaxed pt-2 border-t border-violet-200/60">
-                ⚡ Once payment is captured, the server will independently verify the transaction signature and generate your active production API key instantly.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                onClick={handleSimulatePayment}
-                disabled={loading}
-                className="w-full py-3.5 rounded-control bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" /> Verifying Payment Signature...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" /> Authorize & Pay ₹{orderData.amountInr.toLocaleString()}
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={onClose}
-                className="w-full py-2.5 rounded-control text-xs font-semibold text-muted hover:text-fg transition-all"
-              >
-                Cancel Order
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: VERIFYING */}
-        {step === 'VERIFYING' && (
-          <div className="py-12 text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="p-4 rounded-3xl bg-violet-50 text-violet-600 border border-violet-200">
-                <RefreshCw className="w-10 h-10 animate-spin" />
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative">
+        {/* Header */}
+        <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-violet-600 text-white shadow-md shadow-violet-500/20">
+              <Zap className="w-4 h-4 fill-current" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-fg">Verifying Payment Server-Side...</h2>
-              <p className="text-xs text-muted font-mono mt-1">
-                Checking payment signature, currency matching, and provisioning entitlement...
-              </p>
+              <h2 className="text-base font-bold text-fg">Claude Max Checkout</h2>
+              <p className="text-[11px] text-muted font-mono">Secured by Cashfree Payments</p>
             </div>
           </div>
-        )}
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-control text-muted hover:text-fg hover:bg-subtle transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-        {/* Step 4: SUCCESS */}
-        {step === 'SUCCESS' && fulfillmentData && (
-          <div className="space-y-6 text-center">
-            <div className="flex justify-center">
-              <div className="p-4 rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-200">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-2xl font-black text-fg tracking-tight">Payment Verified & Plan Activated!</h2>
-              <p className="text-xs text-muted font-mono mt-1">
-                Your LightningDeals API key has been automatically generated and provisioned.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-bg border border-border text-left space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted font-semibold">Purchased Entitlement:</span>
-                <span className="font-bold text-violet-600 font-mono">{plan.displayName}</span>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Your New Production API Key
-                </label>
-                <div className="flex items-center gap-2 p-2.5 rounded-control bg-slate-900 border border-slate-800 font-mono text-xs text-emerald-400">
-                  <span className="flex-1 truncate">{fulfillmentData.rawKeySecret || fulfillmentData.displayKey}</span>
-                  <button
-                    onClick={handleCopyKey}
-                    className="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-white transition-all shrink-0"
-                    title="Copy API Key"
-                  >
-                    {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </button>
+        {/* Body Content based on Payment State */}
+        <div className="p-6 space-y-6">
+          {paymentState === 'IDLE' && (
+            <>
+              {/* Plan Summary Card */}
+              <div className="p-4 rounded-panel bg-violet-500/5 border border-violet-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-100 px-2.5 py-0.5 rounded">
+                    Selected Plan
+                  </span>
+                  <span className="text-xs font-mono text-muted">{plan.validityDays} Days Validity</span>
                 </div>
-                <p className="text-[10px] text-rose-500 font-semibold mt-1">
-                  ⚠️ Save this key securely. You can also view and manage it anytime in your Customer Dashboard.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Link
-                to="/dashboard/keys"
-                onClick={onClose}
-                className="flex-1 py-3 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold text-xs text-center shadow-md hover:brightness-110 transition-all flex items-center justify-center gap-1.5"
+                <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
+                  <div>
+                    <h3 className="text-xl font-extrabold text-fg">{plan.name}</h3>
+                    <p className="text-xs text-muted font-mono mt-0.5">{plan.tokenDisplay}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-extrabold font-mono text-violet-700">
+                      ₹{plan.priceInr.toLocaleString()}
+                    </span>
+                    <p className="text-[10px] text-muted uppercase font-mono">All inclusive</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 text-xs text-muted">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Automatic {plan.windowHours}-Hour Quota Refresh</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Instant Automated API Key Provisioning</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Breakdown */}
+              <div className="space-y-2 font-mono text-xs text-muted border-t border-border pt-4">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>₹{plan.priceInr.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Payment Gateway Fee</span>
+                  <span className="text-emerald-600">FREE</span>
+                </div>
+                <div className="flex justify-between text-fg font-bold text-sm pt-2 border-t border-border">
+                  <span>Total Amount</span>
+                  <span className="text-violet-700">₹{plan.priceInr.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={handleInitiatePayment}
+                className="w-full py-3.5 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
               >
-                Go to Dashboard <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        )}
+                <CreditCard className="w-4 h-4" />
+                <span>PAY ₹{plan.priceInr.toLocaleString()} (Cashfree Payments)</span>
+              </button>
+            </>
+          )}
 
-        {/* Step 5: ERROR */}
-        {step === 'ERROR' && (
-          <div className="space-y-6 text-center">
-            <div className="flex justify-center">
-              <div className="p-4 rounded-3xl bg-rose-50 text-rose-600 border border-rose-200">
-                <AlertCircle className="w-10 h-10" />
-              </div>
+          {paymentState === 'PROCESSING' && (
+            <div className="py-12 text-center space-y-3">
+              <RefreshCw className="w-8 h-8 text-violet-600 animate-spin mx-auto" />
+              <h3 className="text-sm font-bold text-fg">Initializing Secure Checkout...</h3>
+              <p className="text-xs text-muted font-mono">Connecting to Cashfree Payments gateway</p>
             </div>
+          )}
 
-            <div>
-              <h2 className="text-xl font-bold text-fg">Payment Checkout Error</h2>
-              <p className="text-xs text-rose-600 font-mono mt-1">
-                {error || 'An unexpected error occurred during payment processing.'}
+          {paymentState === 'PENDING' && (
+            <div className="py-12 text-center space-y-3">
+              <RefreshCw className="w-8 h-8 text-amber-500 animate-spin mx-auto" />
+              <h3 className="text-sm font-bold text-fg">Your payment is being verified</h3>
+              <p className="text-xs text-muted font-mono leading-relaxed">
+                Please do not close or refresh this page. Confirming transaction with Cashfree Payments...
               </p>
             </div>
+          )}
 
-            <div className="flex gap-2">
+          {paymentState === 'SUCCESSFUL' && (
+            <div className="py-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-fg">Payment Successful!</h3>
+              <p className="text-xs text-muted font-mono">Activating your {plan.name} subscription...</p>
+            </div>
+          )}
+
+          {paymentState === 'FAILED' && (
+            <div className="py-8 text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-fg">Payment Could Not Be Completed</h3>
+              <p className="text-xs text-rose-600 font-mono bg-rose-50 p-3 rounded border border-rose-200">
+                {errorMessage || 'Payment could not be completed.'}
+              </p>
               <button
-                onClick={() => setStep('CONFIRM')}
-                className="flex-1 py-3 rounded-control bg-violet-600 text-white font-bold text-xs hover:bg-violet-700 transition-all"
+                onClick={() => setPaymentState('IDLE')}
+                className="ui-button-secondary text-xs py-2 px-4 font-bold mx-auto"
               >
                 Try Again
               </button>
-              <button
-                onClick={onClose}
-                className="flex-1 py-3 rounded-control bg-subtle text-fg font-bold text-xs hover:bg-border transition-all"
-              >
-                Close
-              </button>
             </div>
+          )}
+
+          {paymentState === 'VERIFICATION_FAILED' && (
+            <div className="py-8 text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-fg">Payment Verification Failed</h3>
+              <p className="text-xs text-amber-800 font-mono bg-amber-50 p-3 rounded border border-amber-200 leading-relaxed">
+                We couldn't verify the payment automatically. Please contact support if your account was charged.
+              </p>
+              <a
+                href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Support!%20My%20payment%20needs%20manual%20verification."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ui-button-primary text-xs py-2 px-4 font-bold inline-flex items-center gap-2"
+              >
+                <span>Contact Support on WhatsApp</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* Legal Links Footer */}
+        <div className="p-4 border-t border-border bg-bg/50 text-[10px] text-muted flex items-center justify-between font-mono">
+          <div className="flex items-center gap-1.5">
+            <Lock className="w-3 h-3 text-emerald-600" />
+            <span>256-bit SSL Encrypted</span>
           </div>
-        )}
+          <div className="flex gap-2">
+            <a href="/terms" target="_blank" className="hover:text-fg underline">Terms</a>
+            <span>•</span>
+            <a href="/privacy" target="_blank" className="hover:text-fg underline">Privacy</a>
+            <span>•</span>
+            <a href="/refund" target="_blank" className="hover:text-fg underline">Refund Policy</a>
+          </div>
+        </div>
       </div>
     </div>
   );

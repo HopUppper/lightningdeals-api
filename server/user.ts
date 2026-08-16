@@ -296,7 +296,8 @@ router.post('/auth/verify-email', async (req: Request, res: Response) => {
       },
     });
 
-    res.cookie('ld_token', jwtToken, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000 });
+    res.clearCookie('ld_token');
+    res.clearCookie('ld_admin_token');
 
     res.json({
       success: true,
@@ -602,7 +603,8 @@ router.post('/auth/login', authLimiter, async (req: Request, res: Response) => {
       },
     });
 
-    res.cookie('ld_token', token, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000 });
+    res.clearCookie('ld_token');
+    res.clearCookie('ld_admin_token');
 
     await recordSecurityLog({
       userId: user.id,

@@ -40,18 +40,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [adminLoading, setAdminLoading] = useState(true);
 
   const getStoredToken = () => {
-    return localStorage.getItem('apexscale_token') || '';
+    return sessionStorage.getItem('apexscale_token') || '';
   };
 
   const getStoredAdminToken = () => {
-    return localStorage.getItem('ld_admin_token') || '';
+    return sessionStorage.getItem('ld_admin_token') || '';
   };
 
   const refreshUser = async () => {
     try {
       const token = getStoredToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
       const res = await fetch('/api/auth/me', { headers, credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
@@ -69,8 +73,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshAdmin = async () => {
     try {
       const adminToken = getStoredAdminToken();
-      const headers: Record<string, string> = {};
-      if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+      if (!adminToken) {
+        setAdminUser(null);
+        setAdminLoading(false);
+        return;
+      }
+      const headers: Record<string, string> = { Authorization: `Bearer ${adminToken}` };
       const res = await fetch('/api/admin/auth/me', { headers, credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
@@ -86,18 +94,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Clear legacy persistent localStorage tokens to enforce strict session login
+    localStorage.removeItem('apexscale_token');
+    localStorage.removeItem('ld_admin_token');
     refreshUser();
     refreshAdmin();
   }, []);
 
   const login = (token: string, userData: User) => {
-    localStorage.setItem('apexscale_token', token);
+    sessionStorage.setItem('apexscale_token', token);
+    localStorage.removeItem('apexscale_token');
     setUser(userData);
   };
 
   const adminLogin = (token: string, userData: User) => {
-    localStorage.setItem('ld_admin_token', token);
-    localStorage.setItem('apexscale_token', token);
+    sessionStorage.setItem('ld_admin_token', token);
+    sessionStorage.setItem('apexscale_token', token);
+    localStorage.removeItem('ld_admin_token');
+    localStorage.removeItem('apexscale_token');
     setAdminUser(userData);
     setUser(userData);
     window.location.href = '/admin';
@@ -107,6 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {}
+    sessionStorage.removeItem('apexscale_token');
+    sessionStorage.removeItem('ld_admin_token');
     localStorage.removeItem('apexscale_token');
     localStorage.removeItem('ld_admin_token');
     setUser(null);
@@ -116,6 +132,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {}
+    sessionStorage.removeItem('ld_admin_token');
+    sessionStorage.removeItem('apexscale_token');
     localStorage.removeItem('ld_admin_token');
     localStorage.removeItem('apexscale_token');
     setAdminUser(null);

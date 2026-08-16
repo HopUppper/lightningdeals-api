@@ -1842,6 +1842,75 @@ router.get('/orders', async (req: AuthRequest, res: Response) => {
   }
 });
 
+import { fulfillOrder } from './payments/fulfillment';
+
+// GET /api/admin/orders - List all orders with user metadata & fulfillment details
+router.get('/orders', async (req: AuthRequest, res: Response) => {
+  try {
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    res.json({
+      orders: orders.map((o) => ({
+        ...o,
+        tokenQuantity: o.tokenQuantity.toString(),
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/orders/:internalOrderId/fulfill - Admin Manual Fulfillment Retry Trigger
+router.post('/orders/:internalOrderId/fulfill', async (req: AuthRequest, res: Response) => {
+  const { internalOrderId } = req.params;
+
+  try {
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [{ internalOrderId }, { id: internalOrderId }],
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: { message: 'Order not found.' } });
+    }
+
+    // Force payment status to CAPTURED if admin triggers manual fulfillment
+    if (order.paymentStatus !== 'CAPTURED' && order.paymentStatus !== 'AUTHORIZED') {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { paymentStatus: 'CAPTURED', paidAt: new Date() },
+      });
+    }
+
+    const fulfillment = await fulfillOrder(order.internalOrderId);
+
+    if (!fulfillment.success) {
+      return res.status(400).json({ error: { message: fulfillment.error || 'Fulfillment retry failed.' } });
+    }
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'ADMIN_MANUAL_FULFILLMENT',
+        targetType: 'Order',
+        targetId: order.id,
+        metadata: `Fulfilled order ${order.internalOrderId} for user ${order.userId}. Key ID: ${fulfillment.apiKeyId}`,
+      },
+    });
+
+    res.json({ success: true, fulfillment });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // PUT /api/admin/orders/:id/status - Update order status (PENDING, PAID, FAILED, REFUNDED)
 router.put('/orders/:id/status', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;

@@ -24,7 +24,7 @@ export function generateToken(payload: { id: string; email: string; role: string
 
 export async function authenticateJwt(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  const token = authHeader || req.cookies?.ld_admin_token || req.cookies?.ld_token;
+  const token = authHeader;
 
   if (!token) {
     return res.status(401).json({ error: { type: 'authentication_error', message: 'Authentication required. Please sign in.' } });

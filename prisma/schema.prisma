@@ -155,20 +155,46 @@ model TokenPackage {
 }
 
 model Order {
-  id               String        @id @default(uuid())
-  userId           String
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  packageId        String?
-  package          TokenPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
-  tokenQuantity    BigInt
-  amountInr        Float
-  currency         String        @default("INR")
-  status           String        @default("PAID") // "PENDING" | "PAID" | "FAILED" | "CANCELLED"
-  paymentReference String?
-  paymentGateway   String        @default("RAZORPAY_UPI_MANUAL")
-  tokensCredited   Boolean       @default(true)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id                String        @id @default(uuid())
+  internalOrderId   String        @unique @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId         String?
+  package           TokenPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  planId            String        @default("plan_5m_5h")
+  planName          String        @default("Claude Max 5x")
+  tokenQuantity     BigInt        @default(5000000)
+  windowHours       Int           @default(5)
+  amountInr         Float
+  paidAmountInr     Float?
+  currency          String        @default("INR")
+  status            String        @default("PENDING") // "PENDING" | "PAID" | "FAILED" | "CANCELLED" (Legacy compatibility)
+  paymentStatus     String        @default("CREATED") // CREATED, PENDING, PROCESSING, AUTHORIZED, CAPTURED, FAILED, CANCELLED, REFUNDED, VERIFICATION_FAILED
+  fulfillmentStatus String        @default("NOT_FULFILLED") // NOT_FULFILLED, FULFILLMENT_PENDING, FULFILLED, FULFILLMENT_FAILED, RETRY_REQUIRED
+  paymentGateway    String        @default("TEST")
+  paymentReference  String?
+  gatewayOrderId    String?
+  gatewayPaymentId  String?
+  gatewaySignature  String?
+  fulfilledApiKeyId String?
+  failureReason     String?
+  tokensCredited    Boolean       @default(false)
+  paidAt            DateTime?
+  fulfilledAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model PaymentEvent {
+  id               String   @id @default(uuid())
+  eventId          String   @unique
+  provider         String
+  eventType        String
+  payloadHash      String?
+  gatewayOrderId   String?
+  gatewayPaymentId String?
+  processedAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
 }
 
 model TokenLedger {

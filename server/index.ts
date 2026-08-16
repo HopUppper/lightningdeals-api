@@ -120,7 +120,12 @@ app.get('/api/pricing/packages', async (req, res, next) => {
   }
 });
 
-// 4. User & Admin Routes
+import { checkoutRouter, handlePaymentWebhook } from './payments/paymentRoutes';
+
+// 4. Checkout, Webhooks, User & Admin Routes
+app.use('/api/checkout', checkoutRouter);
+app.post('/api/webhooks/payment', handlePaymentWebhook);
+
 app.use('/api/admin/auth', adminAuthRouter);
 app.use('/api/user', userRouter);
 app.use('/api', userRouter);

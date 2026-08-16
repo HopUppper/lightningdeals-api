@@ -20,20 +20,30 @@ export const RegisterPage: React.FC = () => {
     setError(null);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
       const res = await fetch('/api/user/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({ name, email, password, phone: phone.trim() || undefined }),
       });
 
+      clearTimeout(timeoutId);
+
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error?.message || 'Registration failed.');
+        setError(data.error?.message || 'Registration failed. Please check your details and try again.');
       } else {
         setRegisteredEmail(email);
       }
     } catch (err: any) {
-      setError('Network error. Failed to connect to security server.');
+      if (err.name === 'AbortError') {
+        setError('Server request timed out. Please try registering again.');
+      } else {
+        setError('Network error connecting to security server. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

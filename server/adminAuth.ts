@@ -128,13 +128,10 @@ router.post('/login', adminLoginLimiter, async (req: Request, res: Response) => 
       },
     });
 
-    // Set secure HTTP-only cookie
-    res.cookie('ld_admin_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 3600 * 1000, // 24 hours
-    });
+    // Clear any background cookies to prevent unintended auto-login on site open
+    res.clearCookie('ld_admin_token');
+    res.clearCookie('ld_token');
+    res.clearCookie('apexscale_token');
 
     return res.json({
       success: true,
@@ -170,7 +167,7 @@ router.get('/me', async (req: Request, res: Response) => {
   const authHeader = req.headers.authorization;
   const token = (authHeader && authHeader.startsWith('Bearer '))
     ? authHeader.split(' ')[1]
-    : req.cookies?.ld_admin_token;
+    : null;
 
   if (!token) {
     return res.status(401).json({

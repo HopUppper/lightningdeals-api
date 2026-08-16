@@ -8,6 +8,7 @@ interface RateLimitStore {
 const authRateLimitMap = new Map<string, RateLimitStore>();
 const trialRateLimitMap = new Map<string, RateLimitStore>();
 const keyCheckRateLimitMap = new Map<string, RateLimitStore>();
+const apiRateLimitMap = new Map<string, RateLimitStore>();
 
 // Clean up expired buckets periodically (every 5 minutes)
 setInterval(() => {

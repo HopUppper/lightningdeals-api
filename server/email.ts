@@ -9,7 +9,7 @@ export interface EmailProviderStatus {
   statusMessage: string;
 }
 
-const DEFAULT_FROM = process.env.EMAIL_FROM || 'LightningDeals <onboarding@resend.dev>';
+const DEFAULT_FROM = process.env.EMAIL_FROM || 'LightningDeals <support@lightningapi.pro>';
 const APP_BASE_URL = process.env.APP_BASE_URL || process.env.VITE_APP_URL || 'https://lightningapi.pro';
 
 // Get current email provider health & configuration status
@@ -68,11 +68,11 @@ function generateVerificationEmailHtml(name: string, rawToken: string, otpCode: 
     body { margin: 0; padding: 0; background-color: #07090E; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9; }
     .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
     .card { background: #0F172A; border: 1px solid #1E293B; border-radius: 16px; padding: 40px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-    .logo-badge { display: inline-flex; align-items: center; justify-content: center; width: 48px; h-8; height: 48px; background: linear-gradient(135deg, #7C3AED, #4F46E5); border-radius: 12px; margin-bottom: 24px; }
+    .logo-badge { display: inline-flex; items-center: center; justify-content: center; width: 48px; height: 48px; background: linear-gradient(135deg, #7C3AED, #4F46E5); border-radius: 12px; margin-bottom: 24px; }
     h1 { font-size: 24px; font-weight: 800; margin: 0 0 12px 0; color: #F8FAFC; letter-spacing: -0.5px; }
     p { font-size: 14px; line-height: 1.6; color: #94A3B8; margin: 0 0 24px 0; }
     .btn { display: inline-block; background: linear-gradient(135deg, #7C3AED, #6366F1); color: #FFFFFF !important; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 32px; border-radius: 10px; box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.4); margin-bottom: 32px; }
-    .code-box { background: #020617; border: 1px border #334155; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center; }
+    .code-box { background: #020617; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center; }
     .code-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #64748B; margin-bottom: 8px; }
     .code-digits { font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #38BDF8; }
     .expiry-note { font-size: 12px; color: #64748B; margin-top: 24px; border-top: 1px solid #1E293B; padding-top: 20px; }
@@ -131,13 +131,13 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
   const { email, name, rawToken, otpCode } = options;
   const htmlContent = generateVerificationEmailHtml(name, rawToken, otpCode);
   const subject = '⚡ Verify Your LightningDeals Account';
+  let lastError = '';
 
   // 1. Resend API
   if (process.env.RESEND_API_KEY) {
     try {
-      // Resend requires verified domains or the default onboarding domain for API dispatches
-      let resendFrom = 'LightningDeals <onboarding@resend.dev>';
-      if (process.env.EMAIL_FROM && (process.env.EMAIL_FROM.includes('@resend.dev') || process.env.EMAIL_FROM.includes('lightningapi.pro'))) {
+      let resendFrom = 'LightningDeals <support@lightningapi.pro>';
+      if (process.env.EMAIL_FROM) {
         resendFrom = process.env.EMAIL_FROM;
       }
 
@@ -161,13 +161,22 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
       if (res.ok && data.id) {
         return { success: true, providerUsed: 'RESEND', messageId: data.id };
       }
-      console.error('[EMAIL DELIVERY ERROR] Resend API failed:', data);
+
+      const resendMsg = data.message || data.error?.message || JSON.stringify(data);
+      console.error('[EMAIL DELIVERY ERROR] Resend API failed:', resendMsg);
+
+      if (res.status === 403 && resendMsg.includes('testing emails')) {
+        lastError = `Resend Account Test Restriction: Your Resend API key is currently using the free testing domain (onboarding@resend.dev), which can ONLY send emails to the account owner (sidhjain9002@gmail.com). To send verification emails to any address (${email}), please verify your custom domain in Resend Dashboard (resend.com/domains) or use sidhjain9002@gmail.com.`;
+      } else {
+        lastError = `Resend API Error: ${resendMsg}`;
+      }
     } catch (err: any) {
       console.error('[EMAIL DELIVERY ERROR] Resend fetch exception:', err.message);
+      lastError = `Resend exception: ${err.message}`;
     }
   }
 
-  // 2. SendGrid API
+  // 2. SendGrid API Fallback
   if (process.env.SENDGRID_API_KEY) {
     try {
       const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
@@ -236,10 +245,10 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
     };
   }
 
-  // Production Fail-Closed Safety: Do NOT pretend email was sent if provider credentials are missing
+  // Production Fail-Closed Safety: Return exact diagnostic error
   return {
     success: false,
     providerUsed: 'NONE',
-    error: 'Transactional email provider is not configured. Please add RESEND_API_KEY, SENDGRID_API_KEY, or SMTP credentials in your server environment settings.',
+    error: lastError || 'Transactional email provider is not configured. Please add RESEND_API_KEY, SENDGRID_API_KEY, or SMTP credentials in your server environment settings.',
   };
 }

@@ -135,41 +135,28 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
   // 1. Resend API
   if (process.env.RESEND_API_KEY) {
     try {
-      let fromAddress = DEFAULT_FROM;
-      let res = await fetch('https://api.resend.com/emails', {
+      // Resend requires verified domains or the default onboarding domain for API dispatches
+      let resendFrom = 'LightningDeals <onboarding@resend.dev>';
+      if (process.env.EMAIL_FROM && (process.env.EMAIL_FROM.includes('@resend.dev') || process.env.EMAIL_FROM.includes('lightningapi.pro'))) {
+        resendFrom = process.env.EMAIL_FROM;
+      }
+
+      const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
+        signal: AbortSignal.timeout(8000),
         headers: {
           'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: fromAddress,
+          from: resendFrom,
           to: [email],
           subject,
           html: htmlContent,
         }),
       });
 
-      let data = await res.json();
-      
-      // Fallback retry with onboarding@resend.dev if custom domain is not yet verified on Resend
-      if (!res.ok && fromAddress !== 'LightningDeals <onboarding@resend.dev>') {
-        console.warn('[RESEND WARNING] Retrying with onboarding@resend.dev fallback domain...');
-        res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'LightningDeals <onboarding@resend.dev>',
-            to: [email],
-            subject,
-            html: htmlContent,
-          }),
-        });
-        data = await res.json();
-      }
+      const data = await res.json();
 
       if (res.ok && data.id) {
         return { success: true, providerUsed: 'RESEND', messageId: data.id };
@@ -185,6 +172,7 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
     try {
       const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
+        signal: AbortSignal.timeout(8000),
         headers: {
           'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
           'Content-Type': 'application/json',

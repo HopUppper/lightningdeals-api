@@ -217,8 +217,12 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   if (vendor) reserveMasterTokens(vendor.id, requestId, estimatedRequiredTokens);
 
   let decryptedMasterKey = vendor ? decryptText(vendor.masterApiKeyEncrypted) : '';
-  if (!decryptedMasterKey) {
-    decryptedMasterKey = process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
+  // If decrypted key is invalid (e.g. corrupt iv:ciphertext string or empty), fallback to environment variables
+  if (!decryptedMasterKey || decryptedMasterKey.includes(':') || (!decryptedMasterKey.startsWith('sm_') && !decryptedMasterKey.startsWith('sk-'))) {
+    const envKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
+    if (envKey) {
+      decryptedMasterKey = envKey;
+    }
   }
 
   // 1. REAL SUPPLIER PROXY PATH

@@ -1129,7 +1129,7 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
 
     // Past subscriptions
     const pastSubs = await prisma.subscription.findMany({
-      where: { userId: user.id, id: { !(activeSub?.id || '') } },
+      where: { userId: user.id, id: activeSub ? { not: activeSub.id } : undefined },
       orderBy: { createdAt: 'desc' },
       take: 10,
     });

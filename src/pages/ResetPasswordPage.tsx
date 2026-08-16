@@ -4,10 +4,13 @@ import { Lock, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 
+import { useAuth } from '../context/AuthContext';
+
 export const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -46,9 +49,12 @@ export const ResetPasswordPage: React.FC = () => {
 
       if (res.ok && data.success) {
         setSuccess(true);
+        if (data.token && data.user) {
+          login(data.token, data.user);
+        }
         setTimeout(() => {
           navigate('/dashboard');
-        }, 3000);
+        }, 2000);
       } else {
         setError(data.error?.message || 'Failed to reset password. Link may be expired.');
       }

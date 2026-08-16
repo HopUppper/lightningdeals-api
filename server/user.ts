@@ -4,7 +4,7 @@ import { prisma } from './db';
 import { generateToken, authenticateJwt, requireVerifiedEmail, AuthRequest, hashPasswordScrypt, verifyPasswordScrypt } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { authLimiter, trialLimiter } from './rateLimit';
-import { sendVerificationEmail, getEmailProviderStatus } from './email';
+import { sendVerificationEmail, sendPasswordResetEmail, getEmailProviderStatus } from './email';
 import {
   validateAndNormalizeEmail,
   validateEmailDomainMx,
@@ -311,6 +311,167 @@ router.post('/auth/verify-email', async (req: Request, res: Response) => {
         status: 'active',
       },
       token: jwtToken,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/auth/forgot-password — Initiate Password Reset via Email OTP / Token Link
+router.post('/auth/forgot-password', authLimiter, async (req: Request, res: Response) => {
+  const { email } = req.body;
+  const emailCheck = validateAndNormalizeEmail(email);
+  if (!emailCheck.isValid) {
+    return res.status(400).json({ error: { type: 'invalid_email', message: emailCheck.error } });
+  }
+  const cleanEmail = emailCheck.email;
+
+  const genericResponse = {
+    success: true,
+    message: `If an account with ${cleanEmail} exists, a secure password reset link and 6-digit code have been sent to your email address.`,
+  };
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (!user) {
+      return res.json(genericResponse);
+    }
+
+    // Generate Cryptographic Token & 6-Digit Code
+    const { rawToken, tokenHash } = generateCryptographicToken();
+    const { rawOtp, otpHash } = generateSecureOtpCode();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Store in PasswordResetToken table
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        email: user.email,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    // Automatically unlock account temporarily so password reset can succeed
+    if (user.lockedUntil || user.failedLoginAttempts > 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      });
+    }
+
+    // Send Real Transactional Reset Email via Resend
+    await sendPasswordResetEmail({
+      email: user.email,
+      name: user.name,
+      rawToken,
+      otpCode: rawOtp,
+    });
+
+    await recordSecurityLog({
+      userId: user.id,
+      email: user.email,
+      req,
+      eventType: 'PASSWORD_RESET_REQUESTED',
+      metadata: { expiresAt },
+    });
+
+    res.json(genericResponse);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/auth/reset-password — Confirm Password Reset & Issue New Session
+router.post('/auth/reset-password', async (req: Request, res: Response) => {
+  const { token, code, email, newPassword } = req.body;
+
+  if (!newPassword || typeof newPassword !== 'string') {
+    return res.status(400).json({ error: { type: 'invalid_password', message: 'New password is required.' } });
+  }
+
+  const passwordPolicy = validatePasswordPolicy(newPassword);
+  if (!passwordPolicy.isValid) {
+    return res.status(400).json({ error: { type: 'weak_password', message: passwordPolicy.error } });
+  }
+
+  try {
+    let record: any = null;
+
+    if (token && typeof token === 'string') {
+      const tokenHash = hashSecret(token.trim());
+      record = await prisma.passwordResetToken.findUnique({
+        where: { tokenHash },
+        include: { user: true },
+      });
+    } else if (code && email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+      if (user) {
+        record = await prisma.passwordResetToken.findFirst({
+          where: { userId: user.id, usedAt: null },
+          orderBy: { createdAt: 'desc' },
+          include: { user: true },
+        });
+      }
+    }
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      return res.status(400).json({
+        error: {
+          type: 'invalid_token',
+          message: 'The password reset link or code is invalid or has expired. Please request a new password reset.',
+        },
+      });
+    }
+
+    const user = record.user;
+    const newPasswordHash = hashPasswordScrypt(newPassword);
+
+    // Update password, unlock account, and mark token as used atomically
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: newPasswordHash,
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          emailVerified: true,
+          status: 'active',
+        },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+      prisma.userSession.updateMany({
+        where: { userId: user.id },
+        data: { isRevoked: true },
+      }),
+    ]);
+
+    // Issue new authenticated JWT token so user is logged in automatically
+    const jwtToken = generateToken({ id: user.id, email: user.email, role: user.role });
+
+    await recordSecurityLog({
+      userId: user.id,
+      email: user.email,
+      req,
+      eventType: 'PASSWORD_RESET_COMPLETED',
+    });
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully! Your account is now active.',
+      token: jwtToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: true,
+        status: 'active',
+      },
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

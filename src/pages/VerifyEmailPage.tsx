@@ -3,12 +3,14 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Mail, CheckCircle2, AlertCircle, RefreshCw, ArrowRight, ShieldCheck, KeyRound } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { useAuth } from '../context/AuthContext';
 
 export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const tokenParam = searchParams.get('token');
   const emailParam = searchParams.get('email') || '';
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [emailInput, setEmailInput] = useState(emailParam);
   const [otpCode, setOtpCode] = useState('');
@@ -36,6 +38,9 @@ export const VerifyEmailPage: React.FC = () => {
 
       if (res.ok && data.success) {
         setSuccess(true);
+        if (data.token && data.user) {
+          login(data.token, data.user);
+        }
       } else {
         setError(data.error?.message || 'Verification failed. The link may be invalid or expired.');
       }
@@ -67,6 +72,9 @@ export const VerifyEmailPage: React.FC = () => {
       const data = await res.json();
       if (res.ok && data.success) {
         setSuccess(true);
+        if (data.token && data.user) {
+          login(data.token, data.user);
+        }
       } else {
         setError(data.error?.message || 'Invalid verification code. Please check and try again.');
       }

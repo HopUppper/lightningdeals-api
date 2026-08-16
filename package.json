@@ -7,7 +7,7 @@
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"tsx server/index.ts\" \"vite\"",
     "server": "tsx server/index.ts",
     "start": "tsx server/index.ts",
-    "build": "prisma db push --accept-data-loss && tsc && vite build && npx tsx scripts/prerender.ts",
+    "build": "npx prisma db push --accept-data-loss && tsc && npx vite build && npx tsx scripts/prerender.ts",
     "preview": "vite preview",
     "db:push": "prisma db push --accept-data-loss",
     "db:seed": "tsx prisma/seed.ts",

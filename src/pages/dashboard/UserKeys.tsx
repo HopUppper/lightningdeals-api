@@ -98,15 +98,15 @@ export const UserKeys: React.FC = () => {
       </div>
 
       {/* Security Banner */}
-      <div className="p-4 rounded-panel bg-violet-50 border border-violet-200 text-xs text-violet-700 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-panel bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-violet-600 shrink-0" />
+          <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
           <span>
-            API keys are issued and assigned to your account upon token package purchase. Contact support to request additional key allocations.
+            <strong>Security Notice:</strong> Plaintext secret API keys are only revealed <strong>ONCE</strong> upon trial activation or plan purchase. The table below lists your masked active identifiers.
           </span>
         </div>
-        <Link to="/dashboard/support" className="font-bold underline whitespace-nowrap hover:text-violet-900">
-          Contact Support
+        <Link to="/pricing" className="font-bold underline text-violet-700 whitespace-nowrap hover:text-violet-900">
+          View Plans
         </Link>
       </div>
 

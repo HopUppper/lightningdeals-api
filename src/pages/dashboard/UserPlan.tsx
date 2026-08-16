@@ -4,6 +4,7 @@ import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, Cred
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 import { CheckoutModal } from '../../components/CheckoutModal';
+import { ApiKeyRevealModal } from '../../components/ApiKeyRevealModal';
 
 export const UserPlan: React.FC = () => {
   const { user } = useAuth();
@@ -13,6 +14,12 @@ export const UserPlan: React.FC = () => {
   const [claimingTrial, setClaimingTrial] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<any | null>(null);
+  const [revealedKeyData, setRevealedKeyData] = useState<{
+    key: string;
+    planName: string;
+    quotaDisplay: string;
+    windowHours: number;
+  } | null>(null);
 
   // Time remaining states for live countdown
   const [resetCountdown, setResetCountdown] = useState<string>('');
@@ -94,6 +101,15 @@ export const UserPlan: React.FC = () => {
       if (!res.ok || !trialData.success) {
         setTrialError(trialData.error?.message || 'Failed to claim trial.');
       } else {
+        const rawKey = trialData.trial?.rawKeySecret || trialData.trial?.apiKey || trialData.rawKeySecret || trialData.apiKey;
+        if (rawKey) {
+          setRevealedKeyData({
+            key: rawKey,
+            planName: 'Free 1-Day Trial',
+            quotaDisplay: '1M TOKENS / 5 HOURS',
+            windowHours: 5,
+          });
+        }
         await fetchSubscriptions();
       }
     } catch (e: any) {
@@ -350,6 +366,21 @@ export const UserPlan: React.FC = () => {
           plan={selectedPlanForCheckout}
           onClose={() => {
             setSelectedPlanForCheckout(null);
+            fetchSubscriptions();
+          }}
+        />
+      )}
+
+      {/* API Key Revealed Modal */}
+      {revealedKeyData && (
+        <ApiKeyRevealModal
+          isOpen={!!revealedKeyData}
+          apiKey={revealedKeyData.key}
+          planName={revealedKeyData.planName}
+          quotaDisplay={revealedKeyData.quotaDisplay}
+          windowHours={revealedKeyData.windowHours}
+          onClose={() => {
+            setRevealedKeyData(null);
             fetchSubscriptions();
           }}
         />

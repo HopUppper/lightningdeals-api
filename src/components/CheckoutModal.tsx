@@ -3,6 +3,7 @@ import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, Credit
 import { adminFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { ApiKeyRevealModal } from './ApiKeyRevealModal';
 
 export interface CheckoutModalProps {
   plan: {
@@ -25,6 +26,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
     'IDLE' | 'PROCESSING' | 'PENDING' | 'SUCCESSFUL' | 'FAILED' | 'CANCELLED' | 'VERIFICATION_FAILED'
   >('IDLE');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
   if (!plan) return null;
 
@@ -93,10 +95,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                   items: [{ item_id: plan.id, item_name: plan.name }],
                 });
               }
-              setTimeout(() => {
-                onClose();
-                navigate('/dashboard/plan');
-              }, 1500);
+              const keySecret = verifyData.fulfillment?.rawKeySecret || verifyData.rawKeySecret;
+              if (keySecret) {
+                setRevealedKey(keySecret);
+              } else {
+                setTimeout(() => {
+                  onClose();
+                  navigate('/dashboard/plan');
+                }, 1200);
+              }
             } else {
               setPaymentState('VERIFICATION_FAILED');
               setErrorMessage(verifyData.error || 'We couldn\'t verify the payment. Please contact support.');
@@ -301,6 +308,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
           </div>
         </div>
       </div>
+
+      {/* Render Key Revealed Modal upon successful verification */}
+      {revealedKey && (
+        <ApiKeyRevealModal
+          isOpen={!!revealedKey}
+          apiKey={revealedKey}
+          planName={plan.name}
+          quotaDisplay={plan.tokenDisplay}
+          windowHours={plan.windowHours}
+          onClose={() => {
+            setRevealedKey(null);
+            onClose();
+            navigate('/dashboard/plan');
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -268,18 +268,36 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
           )}
         </div>
 
-        {/* Legal Links Footer */}
-        <div className="p-4 border-t border-border bg-bg/50 text-[10px] text-muted flex items-center justify-between font-mono">
-          <div className="flex items-center gap-1.5">
-            <Lock className="w-3 h-3 text-emerald-600" />
-            <span>256-bit SSL Encrypted</span>
-          </div>
-          <div className="flex gap-2">
-            <a href="/terms" target="_blank" className="hover:text-fg underline">Terms</a>
-            <span>•</span>
-            <a href="/privacy" target="_blank" className="hover:text-fg underline">Privacy</a>
-            <span>•</span>
-            <a href="/refund" target="_blank" className="hover:text-fg underline">Refund Policy</a>
+        {/* Legal Links & Agreement Footer */}
+        <div className="p-4 border-t border-border bg-bg/50 text-[10px] text-muted space-y-2 font-mono">
+          <p className="text-center text-muted">
+            By completing your purchase, you agree to our{' '}
+            <a href="/terms-and-conditions" target="_blank" className="text-violet-600 underline font-bold">
+              Terms & Conditions
+            </a>{' '}
+            and{' '}
+            <a href="/refund-policy" target="_blank" className="text-violet-600 underline font-bold">
+              Refund Policy
+            </a>
+            . Access our{' '}
+            <a href="/privacy-policy" target="_blank" className="text-violet-600 underline font-bold">
+              Privacy Policy
+            </a>
+            .
+          </p>
+
+          <div className="flex items-center justify-between pt-1 border-t border-border/50">
+            <div className="flex items-center gap-1.5">
+              <Lock className="w-3 h-3 text-emerald-600" />
+              <span>256-bit SSL Encrypted</span>
+            </div>
+            <div className="flex gap-2">
+              <a href="/terms-and-conditions" target="_blank" className="hover:text-fg underline">Terms</a>
+              <span>•</span>
+              <a href="/privacy-policy" target="_blank" className="hover:text-fg underline">Privacy</a>
+              <span>•</span>
+              <a href="/refund-policy" target="_blank" className="hover:text-fg underline">Refund Policy</a>
+            </div>
           </div>
         </div>
       </div>

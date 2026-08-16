@@ -197,7 +197,11 @@ export function App() {
               <Route path="/trial" element={<TrialPage />} />
               <Route path="/request-quote" element={<QuoteRequestPage />} />
               <Route path="/terms" element={<TermsPage />} />
+              <Route path="/terms-and-conditions" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPage />} />
+              <Route path="/refund" element={<RefundPage />} />
+              <Route path="/refund-policy" element={<RefundPage />} />
               {/* Authentication & Verification Routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />

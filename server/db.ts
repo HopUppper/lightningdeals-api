@@ -69,9 +69,13 @@ export const prisma = new PrismaClient({
   },
 });
 
+let cachedEncryptionKey: Buffer | null = null;
 function getDerivedEncryptionKey(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY || 'lightningdeals_default_vault_secret';
-  return crypto.scryptSync(secret, 'lightningdeals_salt_2026', 32);
+  if (!cachedEncryptionKey) {
+    const secret = process.env.ENCRYPTION_KEY || 'lightningdeals_default_vault_secret';
+    cachedEncryptionKey = crypto.scryptSync(secret, 'lightningdeals_salt_2026', 32, { N: 1024, r: 8, p: 1 });
+  }
+  return cachedEncryptionKey;
 }
 
 const IV_LENGTH_GCM = 12; // 96-bit IV for AES-256-GCM

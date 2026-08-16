@@ -21,6 +21,60 @@ export const AdminCustomers: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Issue API Key Modal State
+  const [showIssueKeyModal, setShowIssueKeyModal] = useState(false);
+  const [selectedKeyCustomer, setSelectedKeyCustomer] = useState<any | null>(null);
+  const [issuePlanId, setIssuePlanId] = useState('20000000');
+  const [issueKeyName, setIssueKeyName] = useState('Primary Production Key');
+  const [issueSubmitting, setIssueSubmitting] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [issuedSecretKey, setIssuedSecretKey] = useState<string | null>(null);
+
+  const openIssueKeyModal = (cust: any) => {
+    setSelectedKeyCustomer(cust);
+    setIssuePlanId('20000000');
+    setIssueKeyName(`${cust.name.split(' ')[0]}'s Production Key`);
+    setIssueError(null);
+    setIssuedSecretKey(null);
+    setShowIssueKeyModal(true);
+  };
+
+  const handleIssueKeySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedKeyCustomer) return;
+    setIssueSubmitting(true);
+    setIssueError(null);
+
+    const tokenLimitNum = Number(issuePlanId);
+    const numM = Math.round(tokenLimitNum / 1000000);
+    const planName = `${numM}M Tokens / 5h Window`;
+
+    try {
+      const res = await adminFetch('/api/admin/keys', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: selectedKeyCustomer.id,
+          name: issueKeyName.trim(),
+          tokenLimit: tokenLimitNum,
+          plan: planName,
+          isTrial: false,
+        }),
+      });
+
+      const resData = await res.json();
+      if (res.ok && resData.rawKey) {
+        setIssuedSecretKey(resData.rawKey);
+        fetchData();
+      } else {
+        setIssueError(resData?.error?.message || 'Failed to issue API key to customer.');
+      }
+    } catch (err: any) {
+      setIssueError(err.message || 'Network error issuing API key.');
+    } finally {
+      setIssueSubmitting(false);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -256,17 +310,24 @@ export const AdminCustomers: React.FC = () => {
                       <td className="py-3 px-4 font-mono text-amber-600">{formatTokens(c.tokensUsed)}</td>
                       <td className="py-3 px-4 font-mono font-bold text-emerald-600">{formatTokens(c.tokensRemaining)}</td>
                       <td className="py-3 px-4 font-mono text-muted">{new Date(c.createdAt).toLocaleDateString()}</td>
-                      <td className="py-3 px-4 text-right space-x-1.5">
+                      <td className="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
+                        <button
+                          onClick={() => openIssueKeyModal(c)}
+                          className="px-2 py-1 rounded bg-violet-600 hover:bg-violet-700 text-white font-bold text-[11px] inline-flex items-center gap-1 shadow-xs font-mono"
+                          title="Issue API Key & Plan Allocation"
+                        >
+                          <Key className="w-3 h-3" /> Issue Key
+                        </button>
                         <button
                           onClick={() => openEditModal(c)}
-                          className="p-1.5 rounded border border-border text-muted hover:text-fg hover:bg-bg transition-colors"
+                          className="p-1.5 rounded border border-border text-muted hover:text-fg hover:bg-bg transition-colors inline-flex items-center"
                           title="Edit Customer"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeleteCustomer(c.id, c.name)}
-                          className="p-1.5 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                          className="p-1.5 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors inline-flex items-center"
                           title="Delete Customer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -442,6 +503,112 @@ export const AdminCustomers: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Issue API Key Modal */}
+      {showIssueKeyModal && selectedKeyCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white border border-border rounded-panel p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-violet-600" />
+                <h2 className="text-base font-bold text-fg">Issue API Key & Plan</h2>
+              </div>
+              <button onClick={() => setShowIssueKeyModal(false)} className="text-muted hover:text-fg">✕</button>
+            </div>
+
+            {issuedSecretKey ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-control bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs space-y-2">
+                  <p className="font-bold">✅ API Key Generated & Attached to {selectedKeyCustomer.name}!</p>
+                  <p className="font-mono text-[11px]">Send this secret key to the customer on WhatsApp:</p>
+                  <div className="p-2.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded border border-emerald-500/30 flex items-center justify-between select-all">
+                    <span className="truncate max-w-[240px]">{issuedSecretKey}</span>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(issuedSecretKey)}
+                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shrink-0 ml-2"
+                    >
+                      Copy Key
+                    </button>
+                  </div>
+                </div>
+
+                <a
+                  href={`https://wa.me/917695956938?text=${encodeURIComponent(`Hi ${selectedKeyCustomer.name}! Here is your LightningDeals API key: ${issuedSecretKey}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 rounded-control font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Send Key on WhatsApp</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => { setShowIssueKeyModal(false); setIssuedSecretKey(null); fetchData(); }}
+                  className="w-full py-2 rounded-control text-xs font-bold bg-bg border border-border hover:bg-subtle text-fg"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleIssueKeySubmit} className="space-y-4">
+                <div className="p-3 bg-subtle rounded-control border border-border text-xs space-y-1">
+                  <p className="font-bold text-fg">Target Customer: {selectedKeyCustomer.name}</p>
+                  <p className="font-mono text-muted">{selectedKeyCustomer.email}</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-fg mb-1">Select Plan Capacity</label>
+                  <select
+                    value={issuePlanId}
+                    onChange={(e) => setIssuePlanId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  >
+                    <option value="5000000">5M Tokens / 5h Window (Basic Plan)</option>
+                    <option value="20000000">20M Tokens / 5h Window (Pro Plan)</option>
+                    <option value="40000000">40M Tokens / 5h Window (Max Plan)</option>
+                    <option value="100000000">100M Tokens / 5h Window (Ultra Plan)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-fg mb-1">Key Name / Tag</label>
+                  <input
+                    type="text"
+                    required
+                    value={issueKeyName}
+                    onChange={(e) => setIssueKeyName(e.target.value)}
+                    placeholder="e.g. Primary Production Key"
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  />
+                </div>
+
+                {issueError && (
+                  <div className="p-3 rounded bg-red-50 border border-red-200 text-red-700 text-xs font-mono">{issueError}</div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setShowIssueKeyModal(false)}
+                    className="px-4 py-2 rounded-control text-xs font-semibold text-muted hover:text-fg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={issueSubmitting}
+                    className="px-4 py-2 rounded-control text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {issueSubmitting ? 'Generating...' : 'Generate & Attach API Key'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

@@ -103,57 +103,96 @@ export const UserOverview: React.FC = () => {
         </div>
       </div>
 
-      {/* Main 5-Hour Window Token Allowance Card */}
-      <div className="bg-card border border-border rounded-panel p-6 sm:p-8 space-y-6 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-violet-50 text-violet-600 border border-violet-200">
-              <Zap className="w-5 h-5 fill-current" />
+      {/* Main 5-Hour Window Token Allowance Card OR Keyless Empty State */}
+      {purchased === 0 ? (
+        <div className="bg-gradient-to-br from-violet-500/5 via-indigo-500/5 to-cyan-500/5 border border-violet-500/20 rounded-panel p-8 text-center space-y-5 shadow-lg">
+          <div className="inline-flex p-3 rounded-2xl bg-violet-50 text-violet-600 border border-violet-200">
+            <Zap className="w-8 h-8" />
+          </div>
+          <div className="max-w-xl mx-auto space-y-2">
+            <h2 className="text-xl font-extrabold text-fg tracking-tight">No Active Plan / API Key Allocated</h2>
+            <p className="text-xs text-muted leading-relaxed">
+              Your account currently has no active API key allocations. Select a prepaid token capacity plan or contact our engineering team on WhatsApp to activate your key.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <a
+              href={`https://wa.me/917695956938?text=${encodeURIComponent(`Hi LightningDeals Team! I just created my account (${user?.email || ''}) and need an API key allocation.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-5 py-2.5 rounded-control font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2 shadow-md"
+            >
+              <LifeBuoy className="w-4 h-4" />
+              <span>Contact on WhatsApp</span>
+            </a>
+            <a
+              href="/#pricing"
+              className="px-5 py-2.5 rounded-control font-bold text-xs bg-violet-600 hover:bg-violet-700 text-white inline-flex items-center gap-2 shadow-md"
+            >
+              <Key className="w-4 h-4" />
+              <span>Browse Token Plans</span>
+            </a>
+            <Link
+              to="/docs"
+              className="px-5 py-2.5 rounded-control font-bold text-xs bg-white text-fg border border-border hover:bg-subtle inline-flex items-center gap-2 shadow-xs"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>View Documentation</span>
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-panel p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-violet-50 text-violet-600 border border-violet-200">
+                <Zap className="w-5 h-5 fill-current" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-fg">CURRENT 5-HOUR WINDOW</h2>
+                <p className="text-xs text-muted font-mono">Resets automatically every 5 rolling hours</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-bold text-fg">CURRENT 5-HOUR WINDOW</h2>
-              <p className="text-xs text-muted font-mono">Resets automatically every 5 rolling hours</p>
+
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-control bg-bg border border-border text-xs font-mono">
+              <Clock className="w-4 h-4 text-violet-600 animate-pulse" />
+              <span className="text-muted">Next Window Refresh:</span>
+              <span className="font-extrabold text-fg">{timeLeft}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-control bg-bg border border-border text-xs font-mono">
-            <Clock className="w-4 h-4 text-violet-600 animate-pulse" />
-            <span className="text-muted">Next Window Refresh:</span>
-            <span className="font-extrabold text-fg">{timeLeft}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
+              <p className="text-[11px] font-mono text-muted uppercase">5-Hour Allowance</p>
+              <p className="text-3xl font-extrabold font-mono text-fg">{formatTokens(purchased)}</p>
+            </div>
+
+            <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
+              <p className="text-[11px] font-mono text-muted uppercase">Tokens Consumed</p>
+              <p className="text-3xl font-extrabold font-mono text-amber-600">{formatTokens(used)}</p>
+            </div>
+
+            <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
+              <p className="text-[11px] font-mono text-muted uppercase">Tokens Remaining</p>
+              <p className="text-3xl font-extrabold font-mono text-emerald-600">{formatTokens(remaining)}</p>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs text-muted font-mono">
+              <span>Consumed: {percentUsed}%</span>
+              <span>Available: {(100 - Number(percentUsed)).toFixed(1)}%</span>
+            </div>
+            <div className="h-3 w-full bg-bg border border-border rounded-full overflow-hidden p-0.5">
+              <div
+                className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-emerald-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.max(0, Number(percentUsed)))}%` }}
+              />
+            </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
-            <p className="text-[11px] font-mono text-muted uppercase">5-Hour Allowance</p>
-            <p className="text-3xl font-extrabold font-mono text-fg">{formatTokens(purchased)}</p>
-          </div>
-
-          <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
-            <p className="text-[11px] font-mono text-muted uppercase">Tokens Consumed</p>
-            <p className="text-3xl font-extrabold font-mono text-amber-600">{formatTokens(used)}</p>
-          </div>
-
-          <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
-            <p className="text-[11px] font-mono text-muted uppercase">Tokens Remaining</p>
-            <p className="text-3xl font-extrabold font-mono text-emerald-600">{formatTokens(remaining)}</p>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs text-muted font-mono">
-            <span>Consumed: {percentUsed}%</span>
-            <span>Available: {(100 - Number(percentUsed)).toFixed(1)}%</span>
-          </div>
-          <div className="h-3 w-full bg-bg border border-border rounded-full overflow-hidden p-0.5">
-            <div
-              className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-emerald-500 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.max(0, Number(percentUsed)))}%` }}
-            />
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Quick Action Navigation Grid */}
       <div>

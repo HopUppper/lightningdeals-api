@@ -1116,10 +1116,10 @@ router.get('/plan', authenticateJwt, async (req: AuthRequest, res: Response) => 
     });
 
     res.json({
-      planName: keys.length > 0 ? (keys[0].plan || 'Enterprise 5M/5H Rolling Gateway') : 'Standard 5M Rolling Gateway',
+      planName: keys.length > 0 ? (keys[0].plan || 'Prepaid API Token Plan') : 'No Active Plan',
       status: req.user!.emailVerified ? 'active' : 'pending_verification',
-      windowAllowance: totalWindowAllowance > 0n ? totalWindowAllowance.toString() : '5000000',
-      tokensRemaining: totalRemaining > 0n ? totalRemaining.toString() : '5000000',
+      windowAllowance: totalWindowAllowance.toString(),
+      tokensRemaining: totalRemaining.toString(),
       activeKeysCount: keys.length,
     });
   } catch (err: any) {
@@ -1145,10 +1145,10 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
       totalRemaining += k.tokensRemaining;
     });
 
-    // Default 5M rolling window allowance if no keys custom assigned yet
+    // No default allowance for keyless users — must be assigned by admin or purchased
     if (totalPurchased === 0n) {
-      totalPurchased = 5000000n;
-      totalRemaining = 5000000n;
+      totalPurchased = 0n;
+      totalRemaining = 0n;
     }
 
     const keyIds = keys.map((k) => k.id);

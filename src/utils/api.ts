@@ -1,7 +1,7 @@
 export function getAuthHeaders(isAdmin = false): Record<string, string> {
   const token = isAdmin
-    ? (localStorage.getItem('ld_admin_token') || localStorage.getItem('apexscale_token') || '')
-    : (localStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || '');
+    ? (sessionStorage.getItem('ld_admin_token') || sessionStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || localStorage.getItem('apexscale_token') || '')
+    : (sessionStorage.getItem('apexscale_token') || sessionStorage.getItem('ld_admin_token') || localStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || '');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -33,6 +33,7 @@ export async function adminFetch(url: string, options: RequestInit = {}, timeout
     const response = await fetch(url, mergedOptions);
     clearTimeout(timer);
     if (url.includes('/api/admin/') && (response.status === 401 || response.status === 403)) {
+      sessionStorage.removeItem('ld_admin_token');
       localStorage.removeItem('ld_admin_token');
     }
     return response;

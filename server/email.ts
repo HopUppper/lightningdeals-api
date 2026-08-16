@@ -9,7 +9,7 @@ export interface EmailProviderStatus {
   statusMessage: string;
 }
 
-const DEFAULT_FROM = process.env.EMAIL_FROM || 'LightningDeals <no-reply@lightningapi.pro>';
+const DEFAULT_FROM = process.env.EMAIL_FROM || 'LightningDeals <onboarding@resend.dev>';
 const APP_BASE_URL = process.env.APP_BASE_URL || process.env.VITE_APP_URL || 'https://lightningapi.pro';
 
 // Get current email provider health & configuration status
@@ -135,21 +135,42 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
   // 1. Resend API
   if (process.env.RESEND_API_KEY) {
     try {
-      const res = await fetch('https://api.resend.com/emails', {
+      let fromAddress = DEFAULT_FROM;
+      let res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: DEFAULT_FROM,
+          from: fromAddress,
           to: [email],
           subject,
           html: htmlContent,
         }),
       });
 
-      const data = await res.json();
+      let data = await res.json();
+      
+      // Fallback retry with onboarding@resend.dev if custom domain is not yet verified on Resend
+      if (!res.ok && fromAddress !== 'LightningDeals <onboarding@resend.dev>') {
+        console.warn('[RESEND WARNING] Retrying with onboarding@resend.dev fallback domain...');
+        res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'LightningDeals <onboarding@resend.dev>',
+            to: [email],
+            subject,
+            html: htmlContent,
+          }),
+        });
+        data = await res.json();
+      }
+
       if (res.ok && data.id) {
         return { success: true, providerUsed: 'RESEND', messageId: data.id };
       }

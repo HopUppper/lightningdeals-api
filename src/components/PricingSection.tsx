@@ -207,7 +207,11 @@ export const PricingSection: React.FC = () => {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span>Full Claude 3.7 Sonnet & Opus Access</span>
+                        <span>Claude 3.7 Sonnet, 3.5 Sonnet, Haiku & Opus</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span className="font-semibold text-fg">...and Many More Top Models</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-emerald-500 shrink-0" />

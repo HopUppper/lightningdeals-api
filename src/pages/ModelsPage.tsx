@@ -25,7 +25,7 @@ export const ModelsPage: React.FC = () => {
               The Entire Claude Model Lineup
             </h1>
             <p className="text-sm sm:text-base text-muted leading-relaxed">
-              Access Claude Fable 5, Claude Sonnet 5, Claude Opus 5, Claude 3.5 Sonnet, and Claude 3.5 Haiku through one base URL with 5-hour rolling token windows.
+              Access Claude Opus 5, Claude Fable 5, Claude Sonnet 5, Claude Haiku 4.5... and many more through one base URL with 5-hour rolling token windows.
             </p>
             <div className="pt-2 flex justify-center gap-4">
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="ui-button-primary text-xs py-2.5 px-5 font-bold">

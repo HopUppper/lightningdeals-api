@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Cpu, Layers, Plus } from 'lucide-react';
+import { Cpu, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThreeDCard } from './ThreeDCard';
 
@@ -8,81 +8,81 @@ export const ModelCatalog: React.FC = () => {
 
   const catalog = [
     {
-      id: 'claude-3-7-sonnet-20250219',
-      name: 'Claude 3.7 Sonnet',
-      family: 'Claude Family',
+      id: 'claude-opus-5',
+      name: 'Claude Opus 5',
+      family: 'Claude 5 Generation',
       category: 'flagship',
-      description: 'Latest hybrid reasoning model featuring extended thinking mode for complex engineering & agentic tasks.',
+      description: 'Premier heavy-lifting flagship for complex agentic coding and deep enterprise architecture tasks with adaptive thinking.',
       contextWindow: '1,000,000 Tokens (1M)',
       availability: 'Self-service',
       protocol: 'Anthropic Messages API',
-      badge: 'Latest & Best',
-    },
-    {
-      id: 'claude-3-5-sonnet-20241022',
-      name: 'Claude 3.5 Sonnet',
-      family: 'Claude Family',
-      category: 'flagship',
-      description: 'Flagship workhorse model for high-confidence software engineering and Claude Code CLI.',
-      contextWindow: '1,000,000 Tokens (1M)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Recommended',
-    },
-    {
-      id: 'claude-3-5-haiku-20241022',
-      name: 'Claude 3.5 Haiku',
-      family: 'Claude Family',
-      category: 'fast',
-      description: 'Lightweight ultra-fast completion model for automated linting, inline suggestions & quick responses.',
-      contextWindow: '500,000 Tokens (500K)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Ultra Fast',
-    },
-    {
-      id: 'claude-3-opus-20240229',
-      name: 'Claude 3 Opus',
-      family: 'Claude Family',
-      category: 'flagship',
-      description: 'High-capability reasoning model for complex architectural design and deep codebase refactoring.',
-      contextWindow: '200,000 Tokens (200K)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Architectural',
-    },
-    {
-      id: 'claude-sonnet-5',
-      name: 'Claude Sonnet 5',
-      family: 'Claude Family',
-      category: 'flagship',
-      description: 'Next-generation hybrid reasoning model with supreme coding benchmark performance.',
-      contextWindow: '1,000,000 Tokens (1M)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Next Gen',
+      badge: 'Premier Flagship',
     },
     {
       id: 'claude-fable-5',
       name: 'Claude Fable 5',
-      family: 'Claude Family',
-      category: 'fast',
-      description: 'Sub-second response completion model for instant IDE edits and real-time agentic loops.',
+      family: 'Claude 5 Generation',
+      category: 'flagship',
+      description: 'Elite Mythos-class intelligence model optimized for long-running, complex multi-step workflows and agentic loops.',
       contextWindow: '1,000,000 Tokens (1M)',
       availability: 'Self-service',
       protocol: 'Anthropic Messages API',
-      badge: 'New & Fast',
+      badge: 'Mythos Class',
     },
     {
-      id: 'claude-opus-5',
-      name: 'Claude Opus 5',
-      family: 'Claude Family',
+      id: 'claude-sonnet-5',
+      name: 'Claude Sonnet 5',
+      family: 'Claude 5 Generation',
       category: 'flagship',
-      description: 'Maximum intelligence model for large codebase architecture and multi-file reasoning.',
+      description: 'Default everyday balance of speed and high-end intelligence for active software development.',
       contextWindow: '1,000,000 Tokens (1M)',
       availability: 'Self-service',
       protocol: 'Anthropic Messages API',
-      badge: 'Deep Reasoning',
+      badge: 'Everyday Flagship',
+    },
+    {
+      id: 'claude-haiku-4-5',
+      name: 'Claude Haiku 4.5',
+      family: 'Claude Generation',
+      category: 'fast',
+      description: 'Fastest budget model optimized for high-volume, lightweight tasks, automated linting, and quick edits.',
+      contextWindow: '500,000 Tokens (500K)',
+      availability: 'Self-service',
+      protocol: 'Anthropic Messages API',
+      badge: 'Ultra Fast Budget',
+    },
+    {
+      id: 'claude-3-7-sonnet-20250219',
+      name: 'Claude 3.7 Sonnet',
+      family: 'Claude Generation',
+      category: 'flagship',
+      description: 'Hybrid reasoning model featuring extended thinking mode for complex engineering tasks.',
+      contextWindow: '1,000,000 Tokens (1M)',
+      availability: 'Self-service',
+      protocol: 'Anthropic Messages API',
+      badge: 'Extended Thinking',
+    },
+    {
+      id: 'claude-3-5-sonnet-20241022',
+      name: 'Claude 3.5 Sonnet',
+      family: 'Claude Generation',
+      category: 'flagship',
+      description: 'Primary workhorse model for high-confidence software engineering and Claude Code CLI.',
+      contextWindow: '1,000,000 Tokens (1M)',
+      availability: 'Self-service',
+      protocol: 'Anthropic Messages API',
+      badge: 'Workhorse',
+    },
+    {
+      id: 'claude-3-5-haiku-20241022',
+      name: 'Claude 3.5 Haiku',
+      family: 'Claude Generation',
+      category: 'fast',
+      description: 'Lightweight high-speed model for automated completions and fast response loops.',
+      contextWindow: '500,000 Tokens (500K)',
+      availability: 'Self-service',
+      protocol: 'Anthropic Messages API',
+      badge: 'Fast Response',
     },
   ];
 
@@ -95,13 +95,13 @@ export const ModelCatalog: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="max-w-2xl space-y-3">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-600 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 inline-flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5" /> Model Catalog & Capabilities
+              <Cpu className="w-3.5 h-3.5" /> Latest Model Lineup
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-              Latest Best AI Models & Beyond
+              The Entire Latest Claude Model Generation
             </h2>
             <p className="text-sm text-muted leading-relaxed">
-              Access the newest flagship models including <strong>Claude 3.7 Sonnet</strong>, <strong>Claude 3.5 Sonnet</strong>, <strong>Claude 3.5 Haiku</strong>, <strong>Claude Opus</strong>... and many more.
+              Featuring <strong>Claude Opus 5</strong>, <strong>Claude Fable 5</strong>, <strong>Claude Sonnet 5</strong>, <strong>Claude Haiku 4.5</strong>... and many more.
             </p>
           </div>
 
@@ -199,7 +199,7 @@ export const ModelCatalog: React.FC = () => {
           </div>
 
           <a
-            href="https://wa.me/917695956938?text=Hi%20LightningDeals!%20I%20want%20to%20inquire%20about%20model%20support."
+            href="https://wa.me/917695956938?text=Hi%20LightningDeals!%20I%20want%20to%20inquire%20about%20the%20latest%20Claude%20models."
             target="_blank"
             rel="noopener noreferrer"
             className="px-5 py-2.5 rounded-control bg-fg text-bg hover:bg-fg/90 font-bold text-xs font-mono shrink-0 shadow-sm"

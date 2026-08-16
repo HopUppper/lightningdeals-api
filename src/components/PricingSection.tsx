@@ -207,7 +207,7 @@ export const PricingSection: React.FC = () => {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span>Claude 3.7 Sonnet, 3.5 Sonnet, Haiku & Opus</span>
+                        <span>Claude Opus 5, Fable 5, Sonnet 5 & Haiku 4.5</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-emerald-500 shrink-0" />

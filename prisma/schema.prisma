@@ -38,6 +38,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   userSessions        UserSession[]
   securityLogs        SecurityLog[]
+  notifications       Notification[]
 }
 
 
@@ -93,6 +94,10 @@ model ApiRequest {
   isEstimated  Boolean   @default(false)
   usageSource  String    @default("PROVIDER_REPORTED") // "PROVIDER_REPORTED" | "LOCAL_CALCULATED" | "SIMULATED_ESTIMATE"
   createdAt    DateTime  @default(now())
+
+  @@index([apiKeyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 
@@ -183,6 +188,9 @@ model Order {
   fulfilledAt       DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([paymentStatus])
 }
 
 model PaymentEvent {
@@ -209,6 +217,9 @@ model TokenLedger {
   reference    String?
   notes        String?
   createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([apiKeyId, createdAt])
 }
 
 model TrialClaim {
@@ -375,6 +386,24 @@ model SecurityLog {
   eventType String   // "REGISTER" | "EMAIL_VERIFICATION_SENT" | "EMAIL_VERIFIED" | "PHONE_OTP_SENT" | "PHONE_VERIFIED" | "LOGIN_SUCCESS" | "LOGIN_FAILED" | "LOGIN_LOCKED" | "LOGOUT" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET_COMPLETED" | "PASSWORD_CHANGED" | "SESSION_REVOKED" | "ADMIN_LOGIN_SUCCESS" | "ADMIN_LOGIN_FAILED" | "ACCOUNT_SUSPENDED"
   metadata  String?
   createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([email])
+  @@index([eventType])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("info") // "info" | "success" | "warning" | "error"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }
 
 

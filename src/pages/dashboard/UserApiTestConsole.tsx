@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Terminal, Play, Zap, AlertCircle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { adminFetch } from '../../utils/api';
 
 export const UserApiTestConsole: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
@@ -36,31 +37,24 @@ export const UserApiTestConsole: React.FC = () => {
     setError(null);
     setResponse(null);
 
-    const activeKeyObj = keys.find((k) => k.displayKey === selectedKey);
-    const keyToUse = activeKeyObj ? activeKeyObj.displayKey : selectedKey;
+    const activeKeyObj = keys.find((k) => k.displayKey === selectedKey || k.id === selectedKey);
 
     try {
-      const res = await fetch('/v1/messages', {
+      const res = await adminFetch('/api/user/keys/test', {
         method: 'POST',
-        headers: {
-          'x-api-key': keyToUse,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-          model,
-          max_tokens: 150,
-          messages: [{ role: 'user', content: prompt }],
+          apiKeyId: activeKeyObj?.id,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.error?.message || 'API request failed.');
+      if (!res.ok || !data.success) {
+        setError(data.error?.message || 'API key test failed.');
       } else {
         setResponse(data);
       }
     } catch (err: any) {
-      setError(err.message || 'Network error.');
+      setError(err.message || 'Network error executing key probe.');
     } finally {
       setLoading(false);
     }

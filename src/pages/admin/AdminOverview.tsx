@@ -12,11 +12,17 @@ export const AdminOverview: React.FC = () => {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
+  const [actionCenter, setActionCenter] = useState<any[]>([]);
+
   const loadOverview = async (isInitial = false) => {
     if (isInitial) setLoading(true);
     setUpdateError(null);
     try {
-      const res = await adminFetch('/api/admin/overview');
+      const [res, acRes] = await Promise.all([
+        adminFetch('/api/admin/overview'),
+        adminFetch('/api/admin/action-center').catch(() => null),
+      ]);
+
       if (res.ok) {
         setOverview(await res.json());
         setLastUpdated(new Date().toLocaleTimeString());
@@ -24,14 +30,17 @@ export const AdminOverview: React.FC = () => {
         const errJson = await res.json().catch(() => ({}));
         setUpdateError(errJson.error?.message || 'Unable to load live data. Database connection unavailable.');
       }
+
+      if (acRes && acRes.ok) {
+        const acData = await acRes.json();
+        setActionCenter(acData.items || []);
+      }
     } catch (e: any) {
       setUpdateError(e.message || 'Unable to load live data. Database connection unavailable.');
     } finally {
       if (isInitial) setLoading(false);
     }
   };
-
-
 
   useEffect(() => {
     loadOverview(true);
@@ -111,6 +120,39 @@ export const AdminOverview: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* Action Center Banner */}
+      {actionCenter.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Action Center ({actionCenter.length} items requiring attention)
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            {actionCenter.map((item) => (
+              <Link
+                key={item.id}
+                to={item.actionUrl}
+                className={`p-3.5 rounded-control border text-xs flex items-center justify-between gap-3 transition-all hover:scale-[1.002] ${
+                  item.type === 'critical' ? 'bg-red-500/10 border-red-500/30 text-red-700' :
+                  item.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-800' :
+                  'bg-violet-500/10 border-violet-500/30 text-violet-800'
+                }`}
+              >
+                <div className="space-y-0.5">
+                  <p className="font-bold text-fg">{item.title}</p>
+                  <p className="text-[11px] font-mono text-muted">{item.subtitle}</p>
+                </div>
+                <span className="px-3 py-1 bg-white border border-border rounded text-[11px] font-bold font-mono text-fg shrink-0 shadow-xs">
+                  Resolve →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPI 3D Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

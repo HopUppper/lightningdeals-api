@@ -2166,5 +2166,240 @@ router.put('/password', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET /admin/search — Global Search across Customers, Keys, Orders, Tickets & Security Logs
+router.get('/search', async (req: AuthRequest, res: Response) => {
+  const query = String(req.query.q || '').trim();
+  if (!query) {
+    return res.json({ customers: [], keys: [], orders: [], tickets: [], securityLogs: [] });
+  }
+
+  try {
+    const [customers, keys, orders, tickets, securityLogs] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: query, mode: 'insensitive' } },
+            { email: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        take: 10,
+        select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
+      }),
+      prisma.apiKey.findMany({
+        where: {
+          OR: [
+            { name: { contains: query, mode: 'insensitive' } },
+            { displayKey: { contains: query, mode: 'insensitive' } },
+            { user: { email: { contains: query, mode: 'insensitive' } } },
+          ],
+        },
+        take: 10,
+        select: { id: true, name: true, displayKey: true, plan: true, status: true, createdAt: true, user: { select: { email: true } } },
+      }),
+      prisma.order.findMany({
+        where: {
+          OR: [
+            { internalOrderId: { contains: query, mode: 'insensitive' } },
+            { user: { email: { contains: query, mode: 'insensitive' } } },
+          ],
+        },
+        take: 10,
+        select: { id: true, internalOrderId: true, planName: true, paymentStatus: true, fulfillmentStatus: true, amountInr: true, createdAt: true, user: { select: { email: true } } },
+      }),
+      prisma.supportTicket.findMany({
+        where: {
+          OR: [
+            { subject: { contains: query, mode: 'insensitive' } },
+            { user: { email: { contains: query, mode: 'insensitive' } } },
+          ],
+        },
+        take: 10,
+        select: { id: true, subject: true, category: true, status: true, createdAt: true, user: { select: { email: true } } },
+      }),
+      prisma.securityLog.findMany({
+        where: {
+          OR: [
+            { email: { contains: query, mode: 'insensitive' } },
+            { eventType: { contains: query, mode: 'insensitive' } },
+            { ipAddress: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    res.json({ customers, keys, orders, tickets, securityLogs });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /admin/action-center — Action Center Items Requiring Urgent Admin Attention
+router.get('/action-center', async (req: AuthRequest, res: Response) => {
+  try {
+    const items: Array<{ id: string; type: 'critical' | 'warning' | 'info'; title: string; subtitle: string; actionUrl: string }> = [];
+
+    // 1. Check Vendor Master Supplier Balance
+    const primaryVendor = await prisma.vendorProvider.findFirst({ where: { isPrimary: true } });
+    if (primaryVendor) {
+      const avail = primaryVendor.availableTokens;
+      const warn = primaryVendor.warningThresholdTokens;
+      const crit = primaryVendor.criticalThresholdTokens;
+
+      if (avail < crit) {
+        items.push({
+          id: 'supplier-crit',
+          type: 'critical',
+          title: '🔴 Master Supplier Balance Critically Low',
+          subtitle: `ScaleMax available tokens is ${Number(avail / 1000000n)}M (threshold: ${Number(crit / 1000000n)}M). Top-up immediately!`,
+          actionUrl: '/admin/providers',
+        });
+      } else if (avail < warn) {
+        items.push({
+          id: 'supplier-warn',
+          type: 'warning',
+          title: '🟡 Master Supplier Balance Low',
+          subtitle: `ScaleMax available tokens is ${Number(avail / 1000000n)}M (threshold: ${Number(warn / 1000000n)}M). Consider adding tokens.`,
+          actionUrl: '/admin/providers',
+        });
+      }
+    }
+
+    // 2. Fulfillment Failures
+    const failedFulfillments = await prisma.order.count({
+      where: { fulfillmentStatus: 'FULFILLMENT_FAILED' },
+    });
+    if (failedFulfillments > 0) {
+      items.push({
+        id: 'fulfillment-failed',
+        type: 'critical',
+        title: `🔴 ${failedFulfillments} Order Fulfillment Failure(s)`,
+        subtitle: 'Customer payments received but API key assignment failed. Click to resolve.',
+        actionUrl: '/admin/orders',
+      });
+    }
+
+    // 3. Open High Priority Support Tickets
+    const openTickets = await prisma.supportTicket.count({
+      where: { status: { in: ['Open', 'Awaiting Support'] } },
+    });
+    if (openTickets > 0) {
+      items.push({
+        id: 'open-tickets',
+        type: 'warning',
+        title: `🟠 ${openTickets} Unanswered Support Ticket(s)`,
+        subtitle: 'Customers awaiting assistance. Click to reply.',
+        actionUrl: '/admin/support',
+      });
+    }
+
+    // 4. Security Log Spikes (Failed Logins or Account Lockouts in last 24h)
+    const recentLocked = await prisma.securityLog.count({
+      where: {
+        eventType: { in: ['LOGIN_LOCKED', 'LOGIN_LOCKED_ATTEMPT'] },
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
+    });
+    if (recentLocked > 0) {
+      items.push({
+        id: 'security-locked',
+        type: 'info',
+        title: `⚠ ${recentLocked} Account Lockout Event(s) in Last 24 Hours`,
+        subtitle: 'Repeated failed login attempts detected. Review security logs.',
+        actionUrl: '/admin/security',
+      });
+    }
+
+    res.json({ items, count: items.length });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /admin/customers/:id/timeline — Customer Activity Timeline
+router.get('/customers/:id/timeline', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const customer = await prisma.user.findUnique({ where: { id } });
+    if (!customer) return res.status(404).json({ error: { message: 'Customer not found.' } });
+
+    const [orders, keys, ledgers, securityLogs, tickets] = await Promise.all([
+      prisma.order.findMany({ where: { userId: id }, orderBy: { createdAt: 'desc' } }),
+      prisma.apiKey.findMany({ where: { userId: id }, orderBy: { createdAt: 'desc' } }),
+      prisma.tokenLedger.findMany({ where: { userId: id }, orderBy: { createdAt: 'desc' }, take: 20 }),
+      prisma.securityLog.findMany({ where: { userId: id }, orderBy: { createdAt: 'desc' }, take: 20 }),
+      prisma.supportTicket.findMany({ where: { userId: id }, orderBy: { createdAt: 'desc' } }),
+    ]);
+
+    const events: Array<{ id: string; timestamp: Date; type: string; title: string; details: string; iconType: string }> = [];
+
+    // Customer Registration Event
+    events.push({
+      id: `reg_${customer.id}`,
+      timestamp: customer.createdAt,
+      type: 'ACCOUNT_CREATED',
+      title: 'Customer Signed Up',
+      details: `Account registered with email ${customer.email}`,
+      iconType: 'user',
+    });
+
+    // Orders
+    orders.forEach((o) => {
+      events.push({
+        id: `ord_${o.id}`,
+        timestamp: o.createdAt,
+        type: 'ORDER_PLACED',
+        title: `Order Placed (${o.planName})`,
+        details: `Status: ${o.paymentStatus}, Fulfillment: ${o.fulfillmentStatus}`,
+        iconType: 'shopping-bag',
+      });
+    });
+
+    // API Keys Issued
+    keys.forEach((k) => {
+      events.push({
+        id: `key_${k.id}`,
+        timestamp: k.createdAt,
+        type: 'API_KEY_ISSUED',
+        title: `API Key Issued (${k.name})`,
+        details: `Prefix: ${k.displayKey}, Plan: ${k.plan}`,
+        iconType: 'key',
+      });
+    });
+
+    // Security Logs
+    securityLogs.forEach((l) => {
+      events.push({
+        id: `sec_${l.id}`,
+        timestamp: l.createdAt,
+        type: l.eventType,
+        title: `Security Event: ${l.eventType}`,
+        details: `IP: ${l.ipAddress || 'Unknown'}, User-Agent: ${l.userAgent || 'Unknown'}`,
+        iconType: 'shield',
+      });
+    });
+
+    // Support Tickets
+    tickets.forEach((t) => {
+      events.push({
+        id: `tkt_${t.id}`,
+        timestamp: t.createdAt,
+        type: 'SUPPORT_TICKET',
+        title: `Support Ticket Opened: ${t.subject}`,
+        details: `Category: ${t.category}, Status: ${t.status}`,
+        iconType: 'help-circle',
+      });
+    });
+
+    // Sort chronologically descending
+    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    res.json({ customer: { id: customer.id, name: customer.name, email: customer.email }, events });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 export default router;
 

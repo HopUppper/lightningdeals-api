@@ -122,7 +122,11 @@ app.get('/api/pricing/packages', async (req, res, next) => {
 
 import { checkoutRouter, handlePaymentWebhook } from './payments/paymentRoutes';
 
-// 4. Checkout, Webhooks, User & Admin Routes
+import { healthRouter } from './health';
+import { notificationsRouter } from './notifications';
+
+app.use('/api', healthRouter);
+app.use('/api/user/notifications', notificationsRouter);
 app.use('/api/checkout', checkoutRouter);
 app.post('/api/webhooks/payment', handlePaymentWebhook);
 

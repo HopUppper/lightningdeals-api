@@ -3,6 +3,8 @@ import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { Zap, LayoutDashboard, Key, Activity, ShieldCheck, LifeBuoy, Settings, LogOut, BookOpen, CreditCard } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
+import { NotificationCenter } from '../../components/NotificationCenter';
+
 export const UserDashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -41,6 +43,7 @@ export const UserDashboardLayout: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <NotificationCenter />
           <div className="flex items-center gap-2.5 border-l border-border pl-3">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-bold text-fg">{user?.name}</p>

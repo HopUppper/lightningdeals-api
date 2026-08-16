@@ -12,7 +12,7 @@ export const StatusPage: React.FC = () => {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/system/status');
+      const res = await fetch('/api/public/status');
       if (res.ok) {
         const data = await res.json();
         setStatusData(data);
@@ -54,7 +54,7 @@ export const StatusPage: React.FC = () => {
               <div className={`w-3.5 h-3.5 rounded-full ${
                 error
                   ? 'bg-red-500'
-                  : statusData?.status === 'OPERATIONAL'
+                  : statusData?.overallStatus === 'operational' || statusData?.status === 'OPERATIONAL'
                   ? 'bg-emerald-500 animate-pulse'
                   : 'bg-amber-500 animate-ping'
               }`} />
@@ -62,18 +62,15 @@ export const StatusPage: React.FC = () => {
                 <h3 className="text-lg font-bold text-fg">
                   {error
                     ? 'System Status Unavailable'
-                    : statusData?.status === 'OPERATIONAL'
+                    : statusData?.overallStatus === 'operational' || statusData?.status === 'OPERATIONAL'
                     ? 'All Systems Operational'
-                    : statusData?.status === 'DEGRADED'
-                    ? 'Degraded System Performance'
-                    : 'System Status Offline'}
+                    : 'Degraded System Performance'}
                 </h3>
                 <p className="text-xs text-muted font-mono mt-0.5">
                   Last checked: {loading && !statusData ? 'Checking live probes...' : statusData?.timestamp ? new Date(statusData.timestamp).toLocaleTimeString() : 'Just now'}
                 </p>
               </div>
             </div>
-
 
             <button
               onClick={fetchSystemStatus}
@@ -88,16 +85,17 @@ export const StatusPage: React.FC = () => {
           {/* Sub-services list */}
           <div className="space-y-3">
             <p className="text-xs font-mono font-bold uppercase tracking-wider text-muted mb-2">Service Health Checks</p>
-            {statusData?.services?.map((s: any, idx: number) => (
+            {(statusData?.subsystems || statusData?.services || []).map((s: any, idx: number) => (
               <div key={idx} className="p-4 rounded-control bg-bg border border-border flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-fg">{s.name}</p>
-                  {s.note && <p className="text-[11px] text-muted font-mono mt-0.5">{s.note}</p>}
+                  {(s.message || s.note) && <p className="text-[11px] text-muted font-mono mt-0.5">{s.message || s.note}</p>}
                 </div>
                 <div className="flex items-center gap-3 font-mono text-xs">
+                  {s.latencyMs !== undefined && <span className="text-muted">{s.latencyMs} ms</span>}
                   {s.latency && <span className="text-muted">{s.latency}</span>}
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    s.status === 'Operational' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                    s.status === 'operational' || s.status === 'Operational' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
                   }`}>
                     {s.status}
                   </span>

@@ -105,9 +105,9 @@ export const UserOrders: React.FC = () => {
               <thead>
                 <tr className="border-b border-border text-muted font-mono uppercase bg-bg/50 text-[11px]">
                   <th className="py-3 px-4">Order ID</th>
-                  <th className="py-3 px-4">Plan Package</th>
-                  <th className="py-3 px-4">Amount</th>
-                  <th className="py-3 px-4">Payment Status</th>
+                  <th className="py-3 px-4">Package</th>
+                  <th className="py-3 px-4 font-mono">Allocation</th>
+                  <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Fulfillment State</th>
                   <th className="py-3 px-4">Date</th>
                 </tr>
@@ -122,8 +122,8 @@ export const UserOrders: React.FC = () => {
                       <div className="font-bold text-fg">{o.planName || 'Claude Max'}</div>
                       <div className="text-[11px] font-mono text-violet-600">+{formatTokens(o.tokenQuantity)} / {o.windowHours || 5}h</div>
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-extrabold text-fg">
-                      ₹{(o.paidAmountInr || o.amountInr || 0).toLocaleString()}
+                    <td className="py-3.5 px-4 font-mono font-bold text-violet-700">
+                      {formatTokens(o.tokenQuantity)}
                     </td>
                     <td className="py-3.5 px-4 font-mono">
                       {getPaymentStatusBadge(o.paymentStatus || o.status)}

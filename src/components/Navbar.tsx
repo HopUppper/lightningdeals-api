@@ -30,7 +30,7 @@ export const Navbar: React.FC = () => {
     { name: 'Why Us', href: isHomePage ? '#why-us' : '/#why-us' },
     { name: 'API Gateway', href: isHomePage ? '#api' : '/#api' },
     { name: 'Models', href: '/models', isPage: true },
-    { name: 'Pricing', href: '/pricing', isPage: true },
+    { name: 'Plans', href: '/pricing', isPage: true },
     { name: 'Check Key', href: '/check-key', isPage: true },
     { name: 'Docs', href: '/docs', isPage: true },
     { name: 'Status', href: '/status', isPage: true },

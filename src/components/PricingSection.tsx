@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Check, Sparkles, MessageSquare, Table, LayoutGrid, ArrowRight, ShoppingCart, ShieldCheck } from 'lucide-react';
+import { Check, Sparkles, MessageSquare, Table, LayoutGrid, ShieldCheck, ExternalLink } from 'lucide-react';
 import { ThreeDCard } from './ThreeDCard';
-import { CheckoutModal } from './CheckoutModal';
 
 export interface PlanItem {
   id: string;
@@ -21,10 +19,13 @@ export interface PlanItem {
 export const PricingSection: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [plans, setPlans] = useState<PlanItem[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<PlanItem | null>(null);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  const WHATSAPP_URL = 'https://wa.me/917695956938?text=Hi%2C%20I%20want%20to%20buy%20a%20custom%20LightningDeals%20API%20key%20package';
+  const getWhatsAppUrl = (planName?: string) => {
+    const text = planName
+      ? `Hi LightningDeals Team! I am interested in the ${planName} package.`
+      : `Hi LightningDeals Team! I am interested in an API token package.`;
+    return `https://wa.me/917695956938?text=${encodeURIComponent(text)}`;
+  };
 
   useEffect(() => {
     fetch('/api/checkout/plans')
@@ -34,13 +35,8 @@ export const PricingSection: React.FC = () => {
           setPlans(data.plans);
         }
       })
-      .catch((err) => console.error('Failed to load pricing plans:', err));
+      .catch((err) => console.error('Failed to load plans:', err));
   }, []);
-
-  const handleBuyClick = (plan: PlanItem) => {
-    setSelectedPlan(plan);
-    setIsCheckoutOpen(true);
-  };
 
   return (
     <section id="pricing" className="py-16 sm:py-24 border-b border-border bg-white">
@@ -49,13 +45,13 @@ export const PricingSection: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div className="max-w-2xl space-y-3">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-200">
-              Automated Online Checkout
+              Token Capacity Packages
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-              Prepaid Token Packages & Instant Activation
+              Prepaid API Token Allocations
             </h2>
             <p className="text-sm text-muted leading-relaxed">
-              Select your plan to start checkout. Payment signatures are independently verified server-side to provision your API key instantly.
+              Select your 5-hour rolling token capacity. Connect directly with our team on WhatsApp for plan setup, custom allocations, and instant key activation.
             </p>
           </div>
 
@@ -106,14 +102,14 @@ export const PricingSection: React.FC = () => {
 
                     <div className="py-3 border-y border-border">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-extrabold tracking-tight font-mono text-fg">
-                          ₹{pkg.priceInr.toLocaleString()}
+                        <span className="text-3xl font-extrabold tracking-tight font-mono text-violet-700">
+                          {pkg.tokenDisplay}
                         </span>
-                        <span className="text-xs text-muted font-medium">/ 30 days</span>
+                        <span className="text-xs text-muted font-medium">/ 5h window</span>
                       </div>
-                      <div className="mt-1 flex items-center gap-1.5 text-xs font-bold text-violet-700 font-mono">
+                      <div className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-600 font-mono">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>{pkg.tokenDisplay} ({pkg.windowHours}h window)</span>
+                        <span>30-Day Pass ({pkg.windowHours}h rolling)</span>
                       </div>
                     </div>
 
@@ -128,32 +124,21 @@ export const PricingSection: React.FC = () => {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span>Instant Server API Key Provisioning</span>
+                        <span>Dedicated Key Activation on WhatsApp</span>
                       </li>
                     </ul>
                   </div>
 
-                  <div className="pt-6 space-y-2">
-                    <button
-                      onClick={() => handleBuyClick(pkg)}
-                      className={`w-full py-2.5 rounded-control font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all ${
-                        pkg.featured
-                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:brightness-110'
-                          : 'bg-fg text-bg hover:bg-slate-800'
-                      }`}
-                    >
-                      <ShoppingCart className="w-3.5 h-3.5" />
-                      <span>Buy Now</span>
-                    </button>
-
+                  <div className="pt-6">
                     <a
-                      href={WHATSAPP_URL}
+                      href={getWhatsAppUrl(pkg.name)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full py-2 rounded-control font-semibold text-[11px] text-muted hover:text-fg hover:bg-subtle border border-border transition-all flex items-center justify-center gap-1.5"
+                      className="w-full py-3 rounded-control font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
-                      <MessageSquare className="w-3 h-3 text-emerald-500" />
-                      <span>WhatsApp Desk</span>
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Contact on WhatsApp</span>
+                      <ExternalLink className="w-3 h-3 opacity-80" />
                     </a>
                   </div>
                 </div>
@@ -171,7 +156,7 @@ export const PricingSection: React.FC = () => {
                   <th className="p-4">Package</th>
                   <th className="p-4">Token Allocation</th>
                   <th className="p-4">Rolling Window</th>
-                  <th className="p-4">Price</th>
+                  <th className="p-4">Validity</th>
                   <th className="p-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -181,14 +166,16 @@ export const PricingSection: React.FC = () => {
                     <td className="p-4 font-bold text-fg">{pkg.name}</td>
                     <td className="p-4 font-mono font-semibold text-violet-700">{pkg.tokenDisplay}</td>
                     <td className="p-4 font-mono text-muted">{pkg.windowHours} Hours</td>
-                    <td className="p-4 font-mono font-extrabold text-fg">₹{pkg.priceInr.toLocaleString()}</td>
+                    <td className="p-4 font-mono text-muted">30 Days</td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => handleBuyClick(pkg)}
-                        className="px-4 py-2 rounded-control bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs inline-flex items-center gap-1.5"
+                      <a
+                        href={getWhatsAppUrl(pkg.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 rounded-control bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center gap-1.5"
                       >
-                        <ShoppingCart className="w-3.5 h-3.5" /> Buy Now
-                      </button>
+                        <MessageSquare className="w-3.5 h-3.5" /> Contact on WhatsApp
+                      </a>
                     </td>
                   </tr>
                 ))}
@@ -197,15 +184,6 @@ export const PricingSection: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Checkout Modal */}
-      {selectedPlan && (
-        <CheckoutModal
-          isOpen={isCheckoutOpen}
-          onClose={() => setIsCheckoutOpen(false)}
-          plan={selectedPlan}
-        />
-      )}
     </section>
   );
 };

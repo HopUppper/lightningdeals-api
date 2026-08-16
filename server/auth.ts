@@ -122,7 +122,7 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
 
 export function hashPasswordScrypt(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
-  const derivedKey = crypto.scryptSync(password, salt, 64);
+  const derivedKey = crypto.scryptSync(password, salt, 64, { N: 1024, r: 8, p: 1 });
   return `scrypt$${salt}$${derivedKey.toString('hex')}`;
 }
 
@@ -143,7 +143,7 @@ export function verifyPasswordScrypt(password: string, storedHash: string): bool
     if (parts.length !== 3) return false;
     const salt = parts[1];
     const hash = parts[2];
-    const derivedKey = crypto.scryptSync(password, salt, 64);
+    const derivedKey = crypto.scryptSync(password, salt, 64, { N: 1024, r: 8, p: 1 });
     return crypto.timingSafeEqual(derivedKey, Buffer.from(hash, 'hex'));
   } catch {
     return false;

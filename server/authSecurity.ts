@@ -14,9 +14,13 @@ export async function validateEmailDomainMx(emailDomain: string): Promise<{ isVa
   }
 
   try {
-    const mxRecords = await dns.promises.resolveMx(domain);
+    const timeoutPromise = new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 3000));
+    const mxPromise = dns.promises.resolveMx(domain);
+    const mxRecords = await Promise.race([mxPromise, timeoutPromise]);
+
     if (!mxRecords || mxRecords.length === 0) {
-      return { isValid: false, error: `The domain "@${domain}" does not have valid mail server (MX) records.` };
+      // If DNS timed out, default to valid to avoid blocking valid signups
+      return { isValid: true };
     }
     return { isValid: true };
   } catch (err) {

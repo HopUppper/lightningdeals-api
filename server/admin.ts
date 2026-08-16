@@ -1702,6 +1702,18 @@ router.post('/tickets/:id/messages', async (req: AuthRequest, res: Response) => 
       data: { status: 'Awaiting Customer', updatedAt: new Date() },
     });
 
+    // Notify Customer of Admin Reply
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: ticket.userId,
+          title: 'New Support Ticket Reply',
+          message: `LightningDeals engineer replied to ticket #${ticket.id.slice(0, 8)} (${ticket.subject})`,
+          type: 'support',
+        },
+      });
+    } catch (_) {}
+
     res.status(201).json(msg);
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

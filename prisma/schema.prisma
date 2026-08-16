@@ -328,15 +328,17 @@ model Lead {
 }
 
 model SupportTicket {
-  id          String          @id @default(uuid())
-  userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subject     String
-  category    String          @default("Technical issue") // "API issue" | "Payment" | "API key" | "Account" | "Technical issue" | "Other"
-  status      String          @default("Open") // "Open" | "Awaiting Customer" | "Awaiting Support" | "Resolved" | "Closed"
-  messages    TicketMessage[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id            String          @id @default(uuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject       String
+  category      String          @default("Technical issue") // "API issue" | "Payment" | "API key" | "Account" | "Technical issue" | "Other"
+  status        String          @default("Open") // "Open" | "Awaiting Customer" | "Awaiting Support" | "Resolved" | "Closed"
+  priority      String          @default("Normal") // "Low" | "Normal" | "High" | "Urgent"
+  assignedAdmin String?
+  messages      TicketMessage[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 }
 
 model TicketMessage {

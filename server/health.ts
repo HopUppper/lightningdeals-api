@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from './db.js';
-import { authenticateAdminJwt } from './adminAuth.js';
+import { authenticateJwt, requireAdmin, AuthRequest } from './auth.js';
 
 export const healthRouter = Router();
 
@@ -132,7 +132,7 @@ healthRouter.get('/public/status', async (req: Request, res: Response) => {
 /**
  * Detailed Admin System Health Audit (/api/admin/health)
  */
-healthRouter.get('/admin/health', authenticateAdminJwt, async (req: Request, res: Response) => {
+healthRouter.get('/admin/health', authenticateJwt, requireAdmin, async (req: AuthRequest, res: Response) => {
   const now = new Date().toISOString();
   const subsystems: any[] = [];
 

@@ -28,9 +28,9 @@ export const ModelsPage: React.FC = () => {
               Access Claude Opus 5, Claude Fable 5, Claude Sonnet 5, Claude Haiku 4.5... and many more through one base URL with 5-hour rolling token windows.
             </p>
             <div className="pt-2 flex justify-center gap-4">
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="ui-button-primary text-xs py-2.5 px-5 font-bold">
-                Get Trial Key on WhatsApp
-              </a>
+              <Link to="/trial" className="ui-button-primary text-xs py-2.5 px-5 font-bold">
+                Claim Free 1M Trial Key
+              </Link>
               <Link to="/docs" className="ui-button-secondary text-xs py-2.5 px-5 font-semibold">
                 Explore Setup Guides
               </Link>

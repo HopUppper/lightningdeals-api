@@ -5,6 +5,7 @@ import { calculateKeyRollingWindow, reserveTokensForRequest, releaseReservedToke
 import { buildProviderRequest, normalizeProviderResponse } from './providerAdapter';
 import { validateVendorBaseUrl } from './ssrf';
 import { checkMasterCapacity, reserveMasterTokens, releaseMasterReservation, settleMasterUsage } from './masterLedger';
+import { recordAuditEvent } from './auditLogger';
 
 const rateLimitMap = new Map<string, number[]>();
 
@@ -93,14 +94,48 @@ export async function validateAndExtractApiKey(req: Request) {
   });
 
   if (!keyRecord) {
+    recordAuditEvent({
+      eventType: 'INVALID_API_KEY',
+      severity: 'LOW',
+      actorType: 'ANONYMOUS',
+      result: 'BLOCKED',
+      statusCode: 401,
+      failureReason: 'Invalid or unknown API key provided',
+      metadata: { keyPrefix: rawKey.substring(0, 8) },
+      req,
+    });
     return { errorStatus: 401, errorType: 'authentication_error', errorMessage: 'Invalid API key provided.' };
   }
 
   if (keyRecord.status !== 'active') {
+    recordAuditEvent({
+      eventType: 'REVOKED_API_KEY_USED',
+      severity: 'LOW',
+      actorType: 'CUSTOMER',
+      actorId: keyRecord.userId,
+      customerId: keyRecord.userId,
+      apiKeyId: keyRecord.id,
+      result: 'BLOCKED',
+      statusCode: 403,
+      failureReason: `API key status is ${keyRecord.status}`,
+      req,
+    });
     return { errorStatus: 403, errorType: 'permission_error', errorMessage: `API key is ${keyRecord.status}. Please reactivate key in your dashboard.` };
   }
 
   if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
+    recordAuditEvent({
+      eventType: 'EXPIRED_KEY_USED',
+      severity: 'LOW',
+      actorType: 'CUSTOMER',
+      actorId: keyRecord.userId,
+      customerId: keyRecord.userId,
+      apiKeyId: keyRecord.id,
+      result: 'BLOCKED',
+      statusCode: 401,
+      failureReason: 'API key has expired',
+      req,
+    });
     return { errorStatus: 401, errorType: 'authentication_error', errorMessage: 'API key has expired.' };
   }
 
@@ -111,6 +146,18 @@ export async function validateAndExtractApiKey(req: Request) {
   const recentTimestamps = timestamps.filter((t) => nowMs - t < windowMs);
 
   if (recentTimestamps.length >= keyRecord.rateLimitRpm) {
+    recordAuditEvent({
+      eventType: 'RATE_LIMIT_EXCEEDED',
+      severity: 'LOW',
+      actorType: 'CUSTOMER',
+      actorId: keyRecord.userId,
+      customerId: keyRecord.userId,
+      apiKeyId: keyRecord.id,
+      result: 'BLOCKED',
+      statusCode: 429,
+      failureReason: `Rate limit exceeded (${keyRecord.rateLimitRpm} RPM)`,
+      req,
+    });
     return { errorStatus: 429, errorType: 'rate_limit_error', errorMessage: `Rate limit exceeded (${keyRecord.rateLimitRpm} RPM). Please slow down requests.` };
   }
   recentTimestamps.push(nowMs);
@@ -122,6 +169,18 @@ export async function validateAndExtractApiKey(req: Request) {
   const effectiveRemaining = windowMetrics.remainingNum - inFlightReserved;
 
   if (effectiveRemaining <= 0) {
+    recordAuditEvent({
+      eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
+      severity: 'LOW',
+      actorType: 'CUSTOMER',
+      actorId: keyRecord.userId,
+      customerId: keyRecord.userId,
+      apiKeyId: keyRecord.id,
+      result: 'BLOCKED',
+      statusCode: 429,
+      failureReason: '5-hour token allowance exhausted (0 tokens remaining)',
+      req,
+    });
     return {
       errorStatus: 429,
       errorType: 'quota_exceeded',

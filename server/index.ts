@@ -86,6 +86,10 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+import { securityThreatDetector } from './securityDetection';
+// Automated Security Threat Detector (SQLi, XSS, Path Traversal, Bot Scanners)
+app.use(securityThreatDetector);
+
 // Realtime Web Analytics Tracker Middleware
 app.use(recordPageview);
 app.post('/api/analytics/beacon', handleAnalyticsBeacon);

@@ -5,6 +5,7 @@ import { AuthRequest, authenticateJwt, requireAdmin } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { checkMasterCapacity, topUpMasterBalance, reconcileMasterLedger, calculateActiveEntitlementExposure } from './masterLedger';
 import { getRealtimeAnalyticsReport } from './analyticsTracker';
+import { recordAuditEvent, getEventCorrelation, getAuditSummary, verifyHashChainIntegrity } from './auditLogger';
 
 const router = Router();
 
@@ -1507,7 +1508,7 @@ router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
       await tx.adminLog.create({
         data: {
           adminUserId: req.user?.id,
-          action: 'UPDATE_CUSTOMER',
+          action: user.status === 'suspended' ? 'CUSTOMER_SUSPENDED' : user.status === 'active' && existing.status === 'suspended' ? 'CUSTOMER_REACTIVATED' : 'CUSTOMER_UPDATED',
           targetType: 'User',
           targetId: user.id,
           metadata: `Updated customer account ${user.name} (${user.email}) - status: ${user.status}, role: ${user.role}`,
@@ -1515,6 +1516,42 @@ router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
       });
 
       return user;
+    });
+
+    const eventType = updated.status === 'suspended' && existing.status !== 'suspended'
+      ? 'CUSTOMER_SUSPENDED'
+      : updated.status === 'active' && existing.status === 'suspended'
+      ? 'CUSTOMER_REACTIVATED'
+      : 'CUSTOMER_UPDATED';
+
+    await recordAuditEvent({
+      eventType,
+      severity: eventType === 'CUSTOMER_SUSPENDED' ? 'HIGH' : 'INFO',
+      actorType: 'ADMIN',
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      adminId: req.user?.id,
+      customerId: updated.id,
+      resourceType: 'CUSTOMER',
+      resourceId: updated.id,
+      action: eventType,
+      result: 'SUCCESS',
+      beforeState: {
+        name: existing.name,
+        email: existing.email,
+        role: existing.role,
+        status: existing.status,
+      },
+      afterState: {
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
+        status: updated.status,
+      },
+      metadata: {
+        customerEmail: updated.email,
+      },
+      req,
     });
 
     res.json({
@@ -1561,15 +1598,336 @@ router.delete('/customers/:id', async (req: AuthRequest, res: Response) => {
 });
 
 
-// 6. Security & Audit Logs (/admin/security, /admin/logs)
+// ============================================================
+// 6. ADVANCED AUDIT LOG + SECURITY EVENT CENTER (/admin/audit, /admin/logs)
+// ============================================================
+
+// GET /api/admin/audit/events — Paginated, Multi-Filtered Server-Side Query
+router.get('/audit/events', async (req: AuthRequest, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
+    const limit = Math.min(100, Math.max(10, parseInt((req.query.limit as string) || '25', 10)));
+    const skip = (page - 1) * limit;
+
+    const q = (req.query.q as string || '').trim();
+    const severity = (req.query.severity as string || '').trim();
+    const eventType = (req.query.eventType as string || '').trim();
+    const actorType = (req.query.actorType as string || '').trim();
+    const result = (req.query.result as string || '').trim();
+    const quickFilter = (req.query.quickFilter as string || 'ALL').toUpperCase();
+    const dateFrom = req.query.dateFrom as string;
+    const dateTo = req.query.dateTo as string;
+
+    const where: any = {};
+
+    // Quick Filter Logic
+    if (quickFilter === 'SECURITY') {
+      where.OR = [
+        { severity: { in: ['MEDIUM', 'HIGH', 'CRITICAL'] } },
+        { result: { in: ['BLOCKED', 'DENIED'] } },
+      ];
+    } else if (quickFilter === 'CRITICAL') {
+      where.severity = 'CRITICAL';
+    } else if (quickFilter === 'HIGH') {
+      where.severity = 'HIGH';
+    } else if (quickFilter === 'FAILED') {
+      where.result = { in: ['FAILED', 'BLOCKED', 'DENIED'] };
+    } else if (quickFilter === 'ADMIN_ACTIONS' || quickFilter === 'ADMIN') {
+      where.actorType = 'ADMIN';
+    } else if (quickFilter === 'CUSTOMER_ACTIONS' || quickFilter === 'CUSTOMER') {
+      where.actorType = 'CUSTOMER';
+    } else if (quickFilter === 'API_ACTIVITY' || quickFilter === 'API') {
+      where.OR = [
+        { actorType: 'API_KEY' },
+        { resourceType: 'API_KEY' },
+        { eventType: { contains: 'API' } },
+      ];
+    } else if (quickFilter === 'ALERTS') {
+      where.severity = { in: ['MEDIUM', 'HIGH', 'CRITICAL'] };
+      where.isResolved = false;
+    }
+
+    // Direct Multi-Filters
+    if (severity && severity !== 'ALL') {
+      where.severity = severity;
+    }
+    if (eventType && eventType !== 'ALL') {
+      where.eventType = { contains: eventType };
+    }
+    if (actorType && actorType !== 'ALL') {
+      where.actorType = actorType;
+    }
+    if (result && result !== 'ALL') {
+      where.result = result;
+    }
+
+    // Date Range
+    if (dateFrom || dateTo) {
+      where.timestamp = {};
+      if (dateFrom) where.timestamp.gte = new Date(dateFrom);
+      if (dateTo) where.timestamp.lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+    }
+
+    // Server-Side Search Query
+    if (q) {
+      where.OR = [
+        { id: { contains: q, mode: 'insensitive' } },
+        { actorEmail: { contains: q, mode: 'insensitive' } },
+        { actorId: { contains: q, mode: 'insensitive' } },
+        { customerId: { contains: q, mode: 'insensitive' } },
+        { adminId: { contains: q, mode: 'insensitive' } },
+        { apiKeyId: { contains: q, mode: 'insensitive' } },
+        { requestId: { contains: q, mode: 'insensitive' } },
+        { ipAddress: { contains: q, mode: 'insensitive' } },
+        { endpoint: { contains: q, mode: 'insensitive' } },
+        { eventType: { contains: q, mode: 'insensitive' } },
+        { failureReason: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const [events, total, summary] = await Promise.all([
+      prisma.auditEvent.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.auditEvent.count({ where }),
+      getAuditSummary(),
+    ]);
+
+    res.json({
+      success: true,
+      events,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      summary,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/admin/audit/events/:id — Single Event with Correlated Timeline
+router.get('/audit/events/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const event = await prisma.auditEvent.findUnique({
+      where: { id },
+    });
+
+    if (!event) {
+      return res.status(404).json({ error: { message: 'Audit event not found.' } });
+    }
+
+    // Fetch related correlated events around this incident
+    const relatedActivity = await getEventCorrelation({
+      eventId: event.id,
+      ipAddress: event.ipAddress,
+      customerId: event.customerId,
+      apiKeyId: event.apiKeyId,
+      timestamp: event.timestamp,
+    });
+
+    res.json({
+      success: true,
+      event,
+      relatedActivity,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/audit/events/:id/resolve — Acknowledge / Resolve Security Alert
+router.post('/audit/events/:id/resolve', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    const adminUser = req.user!;
+
+    const event = await prisma.auditEvent.findUnique({ where: { id } });
+    if (!event) {
+      return res.status(404).json({ error: { message: 'Audit event not found.' } });
+    }
+
+    const updated = await prisma.auditEvent.update({
+      where: { id },
+      data: {
+        isResolved: true,
+        resolvedAt: new Date(),
+        resolvedBy: adminUser.email || adminUser.name || 'Admin',
+        resolutionNotes: notes || 'Acknowledged and reviewed by security admin.',
+      },
+    });
+
+    // Record resolution action
+    await recordAuditEvent({
+      eventType: 'SECURITY_ALERT_RESOLVED',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actorId: adminUser.id,
+      actorEmail: adminUser.email,
+      adminId: adminUser.id,
+      resourceType: 'AUDIT_EVENT',
+      resourceId: event.id,
+      action: 'RESOLVE_ALERT',
+      result: 'SUCCESS',
+      metadata: {
+        resolvedEventId: event.id,
+        resolvedEventType: event.eventType,
+        originalSeverity: event.severity,
+        notes,
+      },
+      req,
+    });
+
+    res.json({ success: true, event: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/admin/audit/summary — Realtime Metrics Cards
+router.get('/audit/summary', async (req: AuthRequest, res: Response) => {
+  try {
+    const summary = await getAuditSummary();
+    res.json({ success: true, summary });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/admin/audit/verify-integrity — Tamper-Evident Hash Chain Verification
+router.get('/audit/verify-integrity', async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await verifyHashChainIntegrity(100);
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/admin/audit/export — Sanitized Audit Export (CSV / JSON)
+router.get('/audit/export', async (req: AuthRequest, res: Response) => {
+  try {
+    const format = (req.query.format as string || 'csv').toLowerCase();
+    const severity = req.query.severity as string;
+    const actorType = req.query.actorType as string;
+    const dateFrom = req.query.dateFrom as string;
+    const dateTo = req.query.dateTo as string;
+
+    const where: any = {};
+    if (severity && severity !== 'ALL') where.severity = severity;
+    if (actorType && actorType !== 'ALL') where.actorType = actorType;
+    if (dateFrom || dateTo) {
+      where.timestamp = {};
+      if (dateFrom) where.timestamp.gte = new Date(dateFrom);
+      if (dateTo) where.timestamp.lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+    }
+
+    const events = await prisma.auditEvent.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+      take: 1000,
+      select: {
+        id: true,
+        timestamp: true,
+        eventType: true,
+        severity: true,
+        actorType: true,
+        actorEmail: true,
+        resourceType: true,
+        resourceId: true,
+        endpoint: true,
+        httpMethod: true,
+        result: true,
+        statusCode: true,
+        ipAddress: true,
+        userAgent: true,
+        failureReason: true,
+        tamperHash: true,
+      },
+    });
+
+    // Log the export action in audit trail (Section 83 requirement)
+    await recordAuditEvent({
+      eventType: 'AUDIT_LOG_EXPORT',
+      severity: 'LOW',
+      actorType: 'ADMIN',
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      adminId: req.user!.id,
+      action: 'EXPORT_AUDIT_LOGS',
+      result: 'SUCCESS',
+      metadata: {
+        format,
+        exportedCount: events.length,
+        filterSeverity: severity,
+        filterActorType: actorType,
+      },
+      req,
+    });
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename=audit-export-${Date.now()}.json`);
+      return res.json(events);
+    }
+
+    // CSV Format
+    const headers = ['Event ID', 'Timestamp', 'Severity', 'Event Type', 'Actor Type', 'Actor Email', 'Resource Type', 'Resource ID', 'Endpoint', 'HTTP Method', 'Result', 'Status Code', 'IP Address', 'Failure Reason'];
+    const csvRows = [headers.join(',')];
+
+    for (const e of events) {
+      const row = [
+        `"${e.id}"`,
+        `"${e.timestamp.toISOString()}"`,
+        `"${e.severity}"`,
+        `"${e.eventType}"`,
+        `"${e.actorType}"`,
+        `"${e.actorEmail || ''}"`,
+        `"${e.resourceType || ''}"`,
+        `"${e.resourceId || ''}"`,
+        `"${e.endpoint || ''}"`,
+        `"${e.httpMethod || ''}"`,
+        `"${e.result}"`,
+        `"${e.statusCode || ''}"`,
+        `"${e.ipAddress || ''}"`,
+        `"${(e.failureReason || '').replace(/"/g, '""')}"`,
+      ];
+      csvRows.push(row.join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=audit-export-${Date.now()}.csv`);
+    return res.send(csvRows.join('\n'));
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// Backward-compatible /api/admin/logs endpoint
 router.get('/logs', async (req: AuthRequest, res: Response) => {
   try {
-    const logs = await prisma.adminLog.findMany({
-      include: { adminUser: true },
-      orderBy: { createdAt: 'desc' },
+    const events = await prisma.auditEvent.findMany({
+      orderBy: { timestamp: 'desc' },
       take: 100,
     });
-    res.json(logs);
+    res.json(events.map((e) => ({
+      id: e.id,
+      action: e.eventType,
+      targetType: e.resourceType || 'SYSTEM',
+      targetId: e.resourceId,
+      metadata: e.metadata,
+      ipAddress: e.ipAddress,
+      createdAt: e.timestamp,
+      adminUser: e.actorType === 'ADMIN' ? { email: e.actorEmail || 'Admin', name: e.actorEmail || 'Admin' } : null,
+      severity: e.severity,
+      result: e.result,
+    })));
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

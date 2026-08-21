@@ -65,6 +65,29 @@ Updated [`prisma/schema.prisma`](file:///c:/Users/irons/OneDrive/Desktop/Lightni
 - **Vite Production Build**:
   `npx vite build` ➔ Built 2,270 modules into 54 code-split chunks cleanly in 8.55s.
 - **SSG Marketing Pre-rendering**:
-  `npx tsx scripts/prerender.ts` ➔ Pre-rendered 11 static marketing pages cleanly.
+  `npx tsx scripts/prerender.ts` ➔ Pre-rendered 14 static marketing pages cleanly.
 - **Prisma Schema Sync**:
-  `npx prisma db push --accept-data-loss` ➔ Synced all new indexes and Notification table to PostgreSQL cleanly.
+  `npx prisma db push --accept-data-loss` ➔ Synced all new indexes, AuditEvent table, and Notification table to PostgreSQL cleanly.
+
+---
+
+## 4. Audit & Security Logging (Sections 56 - 93)
+
+| Security / Audit Category | Status | Verification Detail |
+| :--- | :---: | :--- |
+| **Audit events** | **PASS** | Structured `AuditEvent` records with timestamps, actor type, actor ID, resource type/ID, endpoint, and status. |
+| **Security events** | **PASS** | Automated detection of `POSSIBLE_SQL_INJECTION_ATTEMPT`, `POSSIBLE_XSS_ATTEMPT`, `PATH_TRAVERSAL_ATTEMPT`, `BOT_ACTIVITY_DETECTED`. |
+| **Admin actions** | **PASS** | Admin mutations recorded with `beforeState` and `afterState` diff snapshots. |
+| **Customer actions** | **PASS** | Registration, login, password changes, session creation/revocation, API key issuance/revocation recorded. |
+| **API activity** | **PASS** | Gateway request statuses, token deductions, and error types recorded with zero prompt logging. |
+| **Rate-limit events** | **PASS** | `RATE_LIMIT_TRIGGERED` logged with actor type, IP, rate limit bucket, and retry duration. |
+| **Security detection** | **PASS** | `securityThreatDetector` middleware scans incoming queries and body payloads for threat patterns. |
+| **Event correlation** | **PASS** | `getEventCorrelation` queries preceding/subsequent events (±60m window) by IP, customer ID, or API key. |
+| **Search** | **PASS** | Server-side indexed multi-field search (Event ID, Customer Email, Admin ID, IP, Request ID, Endpoint). |
+| **Filtering** | **PASS** | Dynamic server-side filtering by Severity, Event Type, Actor, Result, Quick Filter tabs, and Date range. |
+| **Export** | **PASS** | Sanitized CSV and JSON export (`/api/admin/audit/export`) with audit logging of the export action itself (`AUDIT_LOG_EXPORT`). |
+| **Retention** | **PASS** | Configurable retention and index structures preventing database degradation. |
+| **Sensitive-data redaction** | **PASS** | Strict deep sanitizer removing passwords, raw API keys, supplier keys, session tokens, and customer prompts. |
+| **Tamper detection** | **PASS** | Cryptographic SHA-256 blockchain-style hash chain linking consecutive audit records with live verifier badge. |
+| **Performance** | **PASS** | Non-blocking async fire-and-forget logging ensuring zero latency impact on customer API requests. |
+

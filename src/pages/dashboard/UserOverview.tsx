@@ -116,22 +116,20 @@ export const UserOverview: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <a
-              href={`https://wa.me/917695956938?text=${encodeURIComponent(`Hi LightningDeals Team! I just created my account (${user?.email || ''}) and need an API key allocation.`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-5 py-2.5 rounded-control font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center gap-2 shadow-md"
-            >
-              <LifeBuoy className="w-4 h-4" />
-              <span>Contact on WhatsApp</span>
-            </a>
-            <a
-              href="/#pricing"
-              className="px-5 py-2.5 rounded-control font-bold text-xs bg-violet-600 hover:bg-violet-700 text-white inline-flex items-center gap-2 shadow-md"
+            <Link
+              to="/dashboard/plan"
+              className="px-5 py-2.5 rounded-control font-bold text-xs bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white inline-flex items-center gap-2 shadow-md shadow-violet-500/20"
             >
               <Key className="w-4 h-4" />
-              <span>Browse Token Plans</span>
-            </a>
+              <span>Claim Free Trial / Activate Plan</span>
+            </Link>
+            <Link
+              to="/pricing"
+              className="px-5 py-2.5 rounded-control font-bold text-xs bg-white text-fg border border-border hover:bg-subtle inline-flex items-center gap-2 shadow-xs"
+            >
+              <Zap className="w-4 h-4 text-violet-600" />
+              <span>Browse Claude Plans</span>
+            </Link>
             <Link
               to="/docs"
               className="px-5 py-2.5 rounded-control font-bold text-xs bg-white text-fg border border-border hover:bg-subtle inline-flex items-center gap-2 shadow-xs"

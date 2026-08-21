@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { recordAuditEvent } from './auditLogger';
 
 interface RateLimitStore {
   count: number;
@@ -54,6 +55,26 @@ export function createRateLimiter(options: { windowMs: number; max: number; mess
       res.setHeader('Retry-After', retryAfterSec);
       res.setHeader('X-RateLimit-Limit', options.max);
       res.setHeader('X-RateLimit-Remaining', 0);
+
+      recordAuditEvent({
+        eventType: 'RATE_LIMIT_TRIGGERED',
+        severity: 'LOW',
+        actorType: (req as any).user ? 'CUSTOMER' : 'ANONYMOUS',
+        actorId: (req as any).user?.id,
+        customerId: (req as any).user?.id,
+        endpoint: req.originalUrl || req.url,
+        action: 'RATE_LIMIT_BLOCK',
+        result: 'BLOCKED',
+        statusCode: 429,
+        failureReason: options.message,
+        metadata: {
+          rateLimitPrefix: options.keyPrefix,
+          maxAllowed: options.max,
+          retryAfterSec,
+        },
+        req,
+      });
+
       return res.status(429).json({
         error: {
           type: 'rate_limit_exceeded',

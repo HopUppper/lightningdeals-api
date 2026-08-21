@@ -436,5 +436,52 @@ model Notification {
   @@index([userId, createdAt])
 }
 
+model AuditEvent {
+  id              String    @id @default(uuid())
+  timestamp       DateTime  @default(now())
+  eventType       String    // e.g. "LOGIN_SUCCESS", "POSSIBLE_SQL_INJECTION_ATTEMPT", "ORDER_CREATED", etc.
+  severity        String    @default("INFO") // "INFO" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  actorType       String    @default("SYSTEM") // "CUSTOMER" | "ADMIN" | "API_KEY" | "SYSTEM" | "ANONYMOUS" | "PAYMENT_PROVIDER" | "SUPPLIER"
+  actorId         String?
+  actorEmail      String?
+  customerId      String?
+  adminId         String?
+  apiKeyId        String?
+  sessionId       String?
+  requestId       String?
+  endpoint        String?
+  httpMethod      String?
+  resourceType    String?   // "USER" | "API_KEY" | "ORDER" | "SUBSCRIPTION" | "SUPPORT_TICKET" | "SUPPLIER" | "PLAN" | "SYSTEM"
+  resourceId      String?
+  action          String?
+  result          String    @default("SUCCESS") // "SUCCESS" | "BLOCKED" | "FAILED" | "DENIED" | "WARNING"
+  statusCode      Int?
+  ipAddress       String?
+  userAgent       String?
+  country         String?
+  metadata        String?   // Safe JSON metadata
+  failureReason   String?
+  beforeState     String?   // JSON snapshot before change
+  afterState      String?   // JSON snapshot after change
+  tamperHash      String?   // SHA-256 hash for tamper evidence
+  previousHash    String?   // Previous record SHA-256 hash
+  isResolved      Boolean   @default(false)
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNotes String?
+
+  @@index([timestamp])
+  @@index([eventType])
+  @@index([severity])
+  @@index([actorType, actorId])
+  @@index([customerId])
+  @@index([adminId])
+  @@index([apiKeyId])
+  @@index([requestId])
+  @@index([ipAddress])
+  @@index([resourceType, resourceId])
+  @@index([isResolved])
+}
+
 
 

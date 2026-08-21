@@ -70,10 +70,10 @@ export const ContextVisualizer: React.FC = () => {
             </p>
 
             <div className="pt-2 flex flex-wrap gap-4">
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="ui-button-primary text-xs py-3 px-6 font-bold gap-2">
+              <Link to="/trial" className="ui-button-primary text-xs py-3 px-6 font-bold gap-2">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Get Trial Key on WhatsApp</span>
-              </a>
+                <span>Claim Free 1M Trial Key</span>
+              </Link>
               <Link to="/docs" className="ui-button-secondary text-xs py-3 px-6 font-semibold">
                 Read Infrastructure Docs
               </Link>

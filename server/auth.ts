@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { prisma } from './db';
 import { hashSecret } from './authSecurity';
+import { recordAuditEvent } from './auditLogger';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
 
@@ -115,6 +116,20 @@ export function requireVerifiedEmail(req: AuthRequest, res: Response, next: Next
 // Strict Server-Side Admin Guard
 export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
   if (!req.user || req.user.role !== 'admin') {
+    recordAuditEvent({
+      eventType: 'UNAUTHORIZED_ADMIN_ACCESS_ATTEMPT',
+      severity: 'HIGH',
+      actorType: req.user ? 'CUSTOMER' : 'ANONYMOUS',
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      customerId: req.user?.id,
+      action: 'ADMIN_ROUTE_ACCESS',
+      result: 'DENIED',
+      statusCode: 403,
+      failureReason: req.user ? `Customer (${req.user.email}) attempted unauthorized access to admin endpoint` : 'Unauthenticated attempt to access admin endpoint',
+      req,
+    });
+
     return res.status(403).json({ error: { type: 'forbidden', message: 'Access denied: Admin privileges required.' } });
   }
   next();

@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { prisma } from './db';
 import { createRateLimiter, clearAuthRateLimit } from './rateLimit';
 import { AuthRequest } from './auth';
+import { recordAuditEvent } from './auditLogger';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
@@ -126,6 +127,19 @@ router.post('/login', adminLoginLimiter, async (req: Request, res: Response) => 
         targetId: adminUser.id,
         metadata: `Successful admin login from IP: ${clientIp}`,
       },
+    });
+
+    await recordAuditEvent({
+      eventType: 'ADMIN_LOGIN_SUCCESS',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actorId: adminUser.id,
+      actorEmail: adminUser.email,
+      adminId: adminUser.id,
+      action: 'ADMIN_LOGIN',
+      result: 'SUCCESS',
+      statusCode: 200,
+      req,
     });
 
     // Clear any background cookies to prevent unintended auto-login on site open

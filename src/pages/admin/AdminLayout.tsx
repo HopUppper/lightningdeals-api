@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe } from 'lucide-react';
+import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
@@ -55,6 +55,7 @@ export const AdminLayout: React.FC = () => {
     { name: 'Overview', path: '/admin', icon: LayoutDashboard, end: true },
     { name: 'Live Analytics', path: '/admin/analytics', icon: Globe, badge: 'REALTIME' },
     { name: 'Customers', path: '/admin/customers', icon: Users },
+    { name: 'Support Tickets', path: '/admin/support', icon: LifeBuoy, badge: 'DESK' },
     { name: 'Orders', path: '/admin/orders', icon: ShoppingBag },
     { name: 'Products / Keys', path: '/admin/keys', icon: Key, badge: 'KEYS' },
     { name: 'Providers', path: '/admin/providers', icon: Server, badge: 'VENDOR' },

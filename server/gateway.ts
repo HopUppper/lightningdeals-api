@@ -12,21 +12,9 @@ const rateLimitMap = new Map<string, number[]>();
 export function mapToUpstreamModel(inputModel: string, providerType = 'anthropic'): string {
   const normalized = (inputModel || '').toLowerCase().trim();
 
-  if (providerType === 'anthropic') {
+  if (providerType === 'anthropic' || providerType === 'custom_http') {
     if (
       normalized.includes('fable') ||
-      normalized.includes('opus-5') ||
-      normalized.includes('opus-4-8') ||
-      normalized.includes('opus-4-7') ||
-      normalized.includes('opus-4-6') ||
-      normalized.includes('opus-4-5') ||
-      normalized.includes('opus-4-1') ||
-      normalized.includes('opus-4')
-    ) {
-      return 'claude-3-opus-20240229';
-    }
-
-    if (
       normalized.includes('sonnet-5') ||
       normalized.includes('sonnet-4-6') ||
       normalized.includes('sonnet-4-5') ||
@@ -34,6 +22,19 @@ export function mapToUpstreamModel(inputModel: string, providerType = 'anthropic
       normalized.includes('sonnet')
     ) {
       return 'claude-3-5-sonnet-20241022';
+    }
+
+    if (
+      normalized.includes('opus-5') ||
+      normalized.includes('opus-4-8') ||
+      normalized.includes('opus-4-7') ||
+      normalized.includes('opus-4-6') ||
+      normalized.includes('opus-4-5') ||
+      normalized.includes('opus-4-1') ||
+      normalized.includes('opus-4') ||
+      normalized.includes('opus')
+    ) {
+      return 'claude-3-opus-20240229';
     }
 
     if (normalized.includes('haiku')) {
@@ -330,7 +331,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       });
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      // LLM streaming & large reasoning requests can legitimately take up to 180s
+      const timeoutId = setTimeout(() => controller.abort(), 180000);
 
       // Handle client disconnect mid-flight
       let clientDisconnected = false;
@@ -351,43 +353,64 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }) as any;
       } catch (fetchErr: any) {
         clearTimeout(timeoutId);
-        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
-        releaseMasterReservation(requestId);
 
-        const isTimeout = fetchErr.name === 'AbortError' || clientDisconnected;
-        const errStatusCode = isTimeout ? 504 : 502;
-        const errCode = isTimeout ? 'gateway_timeout' : 'upstream_connection_failed';
-        const errMessage = isTimeout
-          ? 'Upstream vendor request timed out or client connection closed.'
-          : `Failed to establish connection to upstream vendor gateway.`;
+        // If not a client disconnect, attempt 1 fast retry with fallback
+        if (!clientDisconnected) {
+          console.warn(`[GATEWAY RETRY] Initial upstream fetch failed (${fetchErr.message}). Retrying with fresh controller...`);
+          try {
+            const retryController = new AbortController();
+            const retryTimeoutId = setTimeout(() => retryController.abort(), 180000);
+            upstreamRes = await fetch(prepared.url, {
+              method: 'POST',
+              headers: prepared.headers,
+              body: JSON.stringify(prepared.body),
+              signal: retryController.signal,
+            }) as any;
+            clearTimeout(retryTimeoutId);
+          } catch (retryFetchErr: any) {
+            fetchErr = retryFetchErr;
+          }
+        }
 
-        await prisma.apiRequest.create({
-          data: {
-            apiKeyId: keyRecord.id,
-            userId: keyRecord.userId,
-            model,
-            endpoint: '/v1/messages',
-            statusCode: errStatusCode,
-            errorCode: errCode,
-            errorMessage: errMessage,
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            latencyMs: Date.now() - startTime,
-            streaming: !!stream,
-            providerId: vendor?.id || null,
-            isEstimated: false,
-            usageSource: 'LOCAL_CALCULATED',
-          },
-        });
+        if (!upstreamRes!) {
+          releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+          releaseMasterReservation(requestId);
 
-        return res.status(errStatusCode).json({
-          error: {
-            type: isTimeout ? 'timeout_error' : 'upstream_provider_error',
-            message: errMessage,
-            code: errCode,
-          },
-        });
+          const isTimeout = fetchErr.name === 'AbortError' || clientDisconnected;
+          const errStatusCode = isTimeout ? 504 : 502;
+          const errCode = isTimeout ? 'gateway_timeout' : 'upstream_connection_failed';
+          const errMessage = isTimeout
+            ? 'Upstream vendor request timed out or client connection closed.'
+            : `Failed to establish connection to upstream vendor gateway.`;
+
+          await prisma.apiRequest.create({
+            data: {
+              apiKeyId: keyRecord.id,
+              userId: keyRecord.userId,
+              model,
+              endpoint: '/v1/messages',
+              statusCode: errStatusCode,
+              errorCode: errCode,
+              errorMessage: errMessage,
+              inputTokens: 0,
+              outputTokens: 0,
+              totalTokens: 0,
+              latencyMs: Date.now() - startTime,
+              streaming: !!stream,
+              providerId: vendor?.id || null,
+              isEstimated: false,
+              usageSource: 'LOCAL_CALCULATED',
+            },
+          });
+
+          return res.status(errStatusCode).json({
+            error: {
+              type: isTimeout ? 'timeout_error' : 'upstream_provider_error',
+              message: errMessage,
+              code: errCode,
+            },
+          });
+        }
       }
 
       clearTimeout(timeoutId);
@@ -404,7 +427,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           }
 
           const retryController = new AbortController();
-          const retryTimeoutId = setTimeout(() => retryController.abort(), 30000);
+          const retryTimeoutId = setTimeout(() => retryController.abort(), 180000);
           const retryRes = await fetch(prepared.url, {
             method: 'POST',
             headers: prepared.headers,

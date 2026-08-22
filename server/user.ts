@@ -15,6 +15,7 @@ import {
   hashSecret,
   recordSecurityLog
 } from './authSecurity';
+import { extractClientIp, resolveIpLocation } from './geoService';
 
 const router = Router();
 
@@ -120,7 +121,11 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
       });
     }
 
-    // 3. Create Pending User Record (emailVerified = false, status = 'unverified')
+    // 3. Resolve Client Origin & Geolocation
+    const clientIp = extractClientIp(req);
+    const geo = resolveIpLocation(clientIp, req);
+
+    // 4. Create Pending User Record (emailVerified = false, status = 'unverified')
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
@@ -131,6 +136,14 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
         emailVerified: false,
         phoneVerified: false,
         status: 'unverified',
+        registrationIp: clientIp,
+        lastLoginIp: clientIp,
+        city: geo.city,
+        region: geo.region,
+        country: geo.country,
+        countryCode: geo.countryCode,
+        timezone: geo.timezone,
+        userAgent: geo.userAgent,
       },
     });
 
@@ -739,13 +752,21 @@ router.post('/auth/login', authLimiter, async (req: Request, res: Response) => {
       });
     }
 
-    // Reset Failed Attempts on Successful Authentication
+    // Reset Failed Attempts on Successful Authentication & Backfill Geolocation
+    const geo = resolveIpLocation(ipAddress, req);
     await prisma.user.update({
       where: { id: user.id },
       data: {
         failedLoginAttempts: 0,
         lockedUntil: null,
         lastLoginAt: new Date(),
+        lastLoginIp: ipAddress,
+        city: user.city || geo.city,
+        region: user.region || geo.region,
+        country: user.country || geo.country,
+        countryCode: user.countryCode || geo.countryCode,
+        timezone: user.timezone || geo.timezone,
+        userAgent: user.userAgent || geo.userAgent,
       },
     });
 
@@ -1253,7 +1274,7 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
           tokensRemaining: 1000000n,
           expiresAt: expiryTime,
           plan: 'Free Trial',
-          rateLimitRpm: 30,
+          rateLimitRpm: 100,
           maxConcurrency: 2,
         },
       }),

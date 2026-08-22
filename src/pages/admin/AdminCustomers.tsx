@@ -1,39 +1,369 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Search, Mail, HelpCircle, Key, RefreshCw, Plus, Edit2, Trash2, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Users,
+  Search,
+  Mail,
+  Phone,
+  Key,
+  RefreshCw,
+  Plus,
+  Edit2,
+  Trash2,
+  ShieldAlert,
+  ShieldCheck,
+  Globe,
+  MapPin,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  CreditCard,
+  Activity,
+  Layers,
+  ChevronRight,
+  Copy,
+  Check,
+  X,
+  Lock,
+  ExternalLink,
+  Sparkles,
+  Sliders,
+  DollarSign,
+  TrendingUp,
+} from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 
-export const AdminCustomers: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'customers' | 'leads' | 'tickets'>('customers');
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+interface CustomerApiKey {
+  id: string;
+  keyPrefix: string;
+  displayKey: string;
+  name: string;
+  type: string;
+  status: string;
+  purchasedTokens: string;
+  tokensUsed: string;
+  tokensRemaining: string;
+  rateLimitRpm: number;
+  expiresAt: string | null;
+  createdAt: string;
+}
 
-  // Modal State
+interface CustomerOrder {
+  id: string;
+  internalOrderId: string;
+  planName: string;
+  amountInr: number;
+  status: string;
+  paymentStatus: string;
+  fulfillmentStatus?: string;
+  createdAt: string;
+}
+
+interface CustomerItem {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  status: 'active' | 'unverified' | 'suspended';
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  createdAt: string;
+  lastLoginAt?: string;
+  registrationIp?: string;
+  lastLoginIp?: string;
+  city?: string;
+  region?: string; // State / Province
+  country?: string;
+  countryCode?: string;
+  flag?: string;
+  timezone?: string;
+  userAgent?: string;
+  keyCount: number;
+  paidKeyCount: number;
+  trialKeyCount: number;
+  activeKeyCount: number;
+  purchasedTokens: string;
+  tokensUsed: string;
+  tokensRemaining: string;
+  orderCount: number;
+  paidOrderCount: number;
+  totalSpendInr: number;
+  latestPlanName?: string;
+  ticketCount: number;
+  openTicketCount: number;
+  keys: CustomerApiKey[];
+  orders: CustomerOrder[];
+}
+
+export const AdminCustomers: React.FC = () => {
+  const [customers, setCustomers] = useState<CustomerItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [quickFilter, setQuickFilter] = useState<string>('ALL');
+  const [stateFilter, setStateFilter] = useState<string>('ALL');
+  const [countryFilter, setCountryFilter] = useState<string>('ALL');
+  const [keyTypeFilter, setKeyTypeFilter] = useState<string>('ALL');
+
+  // Customer Detail Drawer
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerItem | null>(null);
+
+  // Modal State (Create / Edit)
   const [showModal, setShowModal] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerItem | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('user');
-  const [status, setStatus] = useState('active');
+  const [status, setStatus] = useState<'active' | 'unverified' | 'suspended'>('active');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Issue API Key Modal State
+  // Issue Key Modal State
   const [showIssueKeyModal, setShowIssueKeyModal] = useState(false);
-  const [selectedKeyCustomer, setSelectedKeyCustomer] = useState<any | null>(null);
+  const [selectedKeyCustomer, setSelectedKeyCustomer] = useState<CustomerItem | null>(null);
   const [issuePlanId, setIssuePlanId] = useState('20000000');
-  const [issueKeyName, setIssueKeyName] = useState('Primary Production Key');
+  const [issueKeyName, setIssueKeyName] = useState('Production Key');
+  const [issueRpm, setIssueRpm] = useState('100');
+  const [issueIsTrial, setIssueIsTrial] = useState(false);
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issuedSecretKey, setIssuedSecretKey] = useState<string | null>(null);
 
-  const openIssueKeyModal = (cust: any) => {
+  // Token Adjustment Modal State
+  const [showAdjustTokensModal, setShowAdjustTokensModal] = useState(false);
+  const [adjustCustomer, setAdjustCustomer] = useState<CustomerItem | null>(null);
+  const [adjustKeyId, setAdjustKeyId] = useState('');
+  const [adjustAmountM, setAdjustAmountM] = useState('5'); // in Millions
+  const [adjustReason, setAdjustReason] = useState('Customer loyalty credit');
+  const [adjustSubmitting, setAdjustSubmitting] = useState(false);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+
+  // Clipboard copy state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const fetchCustomers = async () => {
+    setLoading(true);
+    try {
+      const res = await adminFetch('/api/admin/customers');
+      if (res.ok) {
+        const data = await res.json();
+        setCustomers(data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  // Summary Metrics Computation
+  const metrics = useMemo(() => {
+    const total = customers.length;
+    let paying = 0;
+    let trialActive = 0;
+    let verified = 0;
+    let suspended = 0;
+    let totalRevenue = 0;
+    let totalTokensUsedBig = BigInt(0);
+
+    customers.forEach((c) => {
+      if (c.paidKeyCount > 0 || c.totalSpendInr > 0) paying++;
+      if (c.trialKeyCount > 0) trialActive++;
+      if (c.emailVerified) verified++;
+      if (c.status === 'suspended') suspended++;
+      totalRevenue += c.totalSpendInr || 0;
+      totalTokensUsedBig += BigInt(c.tokensUsed || '0');
+    });
+
+    const tokensUsedM = (Number(totalTokensUsedBig) / 1000000).toFixed(1);
+
+    return {
+      total,
+      paying,
+      trialActive,
+      verified,
+      suspended,
+      totalRevenue,
+      tokensUsedM,
+    };
+  }, [customers]);
+
+  // Unique States & Countries for Filter dropdowns
+  const availableStates = useMemo(() => {
+    const set = new Set<string>();
+    customers.forEach((c) => {
+      if (c.region) set.add(c.region);
+    });
+    return Array.from(set).sort();
+  }, [customers]);
+
+  const availableCountries = useMemo(() => {
+    const set = new Set<string>();
+    customers.forEach((c) => {
+      if (c.country) set.add(c.country);
+    });
+    return Array.from(set).sort();
+  }, [customers]);
+
+  // Filtered Customers
+  const filteredCustomers = useMemo(() => {
+    return customers.filter((c) => {
+      // Quick filter
+      if (quickFilter === 'PAYING' && c.paidKeyCount === 0 && c.totalSpendInr === 0) return false;
+      if (quickFilter === 'TRIAL' && c.trialKeyCount === 0) return false;
+      if (quickFilter === 'VERIFIED' && !c.emailVerified) return false;
+      if (quickFilter === 'UNVERIFIED' && c.emailVerified) return false;
+      if (quickFilter === 'SUSPENDED' && c.status !== 'suspended') return false;
+
+      // State Filter
+      if (stateFilter !== 'ALL' && c.region !== stateFilter) return false;
+
+      // Country Filter
+      if (countryFilter !== 'ALL' && c.country !== countryFilter) return false;
+
+      // Key Type Filter
+      if (keyTypeFilter === 'PAID_ONLY' && c.paidKeyCount === 0) return false;
+      if (keyTypeFilter === 'TRIAL_ONLY' && c.trialKeyCount === 0) return false;
+      if (keyTypeFilter === 'NO_KEYS' && c.keyCount > 0) return false;
+      if (keyTypeFilter === 'HAS_KEYS' && c.keyCount === 0) return false;
+
+      // Search Query
+      if (search.trim()) {
+        const q = search.toLowerCase().trim();
+        const matchesName = c.name.toLowerCase().includes(q);
+        const matchesEmail = c.email.toLowerCase().includes(q);
+        const matchesPhone = c.phone?.toLowerCase().includes(q);
+        const matchesCity = c.city?.toLowerCase().includes(q);
+        const matchesRegion = c.region?.toLowerCase().includes(q);
+        const matchesCountry = c.country?.toLowerCase().includes(q);
+        const matchesIp = c.registrationIp?.includes(q) || c.lastLoginIp?.includes(q);
+        const matchesKeys = c.keys.some((k) => k.displayKey.toLowerCase().includes(q) || k.name.toLowerCase().includes(q));
+
+        if (!matchesName && !matchesEmail && !matchesPhone && !matchesCity && !matchesRegion && !matchesCountry && !matchesIp && !matchesKeys) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [customers, quickFilter, stateFilter, countryFilter, keyTypeFilter, search]);
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const formatRelativeTime = (isoString: string) => {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return `${Math.floor(diffHr / 24)}d ago`;
+  };
+
+  const openCreateModal = () => {
+    setEditingCustomer(null);
+    setName('');
+    setEmail('');
+    setPhone('');
+    setPassword('');
+    setRole('user');
+    setStatus('active');
+    setFormError(null);
+    setShowModal(true);
+  };
+
+  const openEditModal = (cust: CustomerItem) => {
+    setEditingCustomer(cust);
+    setName(cust.name);
+    setEmail(cust.email);
+    setPhone(cust.phone || '');
+    setPassword('');
+    setRole(cust.role || 'user');
+    setStatus(cust.status || 'active');
+    setFormError(null);
+    setShowModal(true);
+  };
+
+  const handleSaveCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      const url = editingCustomer ? `/api/admin/customers/${editingCustomer.id}` : '/api/admin/customers';
+      const method = editingCustomer ? 'PUT' : 'POST';
+
+      const payload: any = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim() || undefined,
+        role,
+        status,
+      };
+      if (password) payload.password = password;
+
+      const res = await adminFetch(url, {
+        method,
+        body: JSON.stringify(payload),
+      });
+
+      const resData = await res.json();
+      if (res.ok) {
+        setShowModal(false);
+        fetchCustomers();
+      } else {
+        setFormError(resData.error?.message || 'Failed to save customer account.');
+      }
+    } catch (err: any) {
+      setFormError(err.message || 'Network error saving customer.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleSuspend = async (cust: CustomerItem) => {
+    const newStatus = cust.status === 'suspended' ? 'active' : 'suspended';
+    const confirmMsg = cust.status === 'suspended'
+      ? `Reactivate account for ${cust.name}?`
+      : `Are you sure you want to suspend account for ${cust.name}? All active keys will be blocked.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await adminFetch(`/api/admin/customers/${cust.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        fetchCustomers();
+        if (selectedCustomer?.id === cust.id) {
+          setSelectedCustomer((prev) => (prev ? { ...prev, status: newStatus } : null));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const openIssueKeyModal = (cust: CustomerItem) => {
     setSelectedKeyCustomer(cust);
     setIssuePlanId('20000000');
     setIssueKeyName(`${cust.name.split(' ')[0]}'s Production Key`);
+    setIssueRpm('100');
+    setIssueIsTrial(false);
     setIssueError(null);
     setIssuedSecretKey(null);
     setShowIssueKeyModal(true);
@@ -47,7 +377,7 @@ export const AdminCustomers: React.FC = () => {
 
     const tokenLimitNum = Number(issuePlanId);
     const numM = Math.round(tokenLimitNum / 1000000);
-    const planName = `${numM}M Tokens / 5h Window`;
+    const planName = issueIsTrial ? 'Free Trial' : `${numM}M Tokens / 5h Window`;
 
     try {
       const res = await adminFetch('/api/admin/keys', {
@@ -57,14 +387,15 @@ export const AdminCustomers: React.FC = () => {
           name: issueKeyName.trim(),
           tokenLimit: tokenLimitNum,
           plan: planName,
-          isTrial: false,
+          rateLimitRpm: Number(issueRpm || 100),
+          isTrial: issueIsTrial,
         }),
       });
 
       const resData = await res.json();
       if (res.ok && resData.rawKey) {
         setIssuedSecretKey(resData.rawKey);
-        fetchData();
+        fetchCustomers();
       } else {
         setIssueError(resData?.error?.message || 'Failed to issue API key to customer.');
       }
@@ -75,431 +406,812 @@ export const AdminCustomers: React.FC = () => {
     }
   };
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [custRes, leadRes, ticketRes] = await Promise.all([
-        adminFetch('/api/admin/customers'),
-        adminFetch('/api/admin/leads').catch(() => null),
-        adminFetch('/api/admin/tickets').catch(() => null),
-      ]);
-
-      if (custRes.ok) setCustomers(await custRes.json());
-      if (leadRes && leadRes.ok) setLeads(await leadRes.json());
-      if (ticketRes && ticketRes.ok) setTickets(await ticketRes.json());
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+  const openAdjustTokensModal = (cust: CustomerItem, defaultKeyId?: string) => {
+    setAdjustCustomer(cust);
+    setAdjustKeyId(defaultKeyId || cust.keys[0]?.id || '');
+    setAdjustAmountM('5');
+    setAdjustReason('Customer loyalty credit');
+    setAdjustError(null);
+    setShowAdjustTokensModal(true);
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const openCreateModal = () => {
-    setEditingCustomer(null);
-    setName('');
-    setEmail('');
-    setPassword('');
-    setRole('user');
-    setStatus('active');
-    setFormError(null);
-    setShowModal(true);
-  };
-
-  const openEditModal = (cust: any) => {
-    setEditingCustomer(cust);
-    setName(cust.name);
-    setEmail(cust.email);
-    setPassword('');
-    setRole(cust.role || 'user');
-    setStatus(cust.status || 'active');
-    setFormError(null);
-    setShowModal(true);
-  };
-
-  const handleSaveCustomer = async (e: React.FormEvent) => {
+  const handleAdjustTokensSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    setFormError(null);
+    if (!adjustCustomer || !adjustKeyId) return;
+    setAdjustSubmitting(true);
+    setAdjustError(null);
 
-    const url = editingCustomer ? `/api/admin/customers/${editingCustomer.id}` : '/api/admin/customers';
-    const method = editingCustomer ? 'PUT' : 'POST';
+    const amountTokens = Number(adjustAmountM) * 1000000;
 
     try {
-      const res = await adminFetch(url, {
-        method,
+      const res = await adminFetch(`/api/admin/customers/${adjustCustomer.id}/adjust-tokens`, {
+        method: 'POST',
         body: JSON.stringify({
-          name,
-          email,
-          password: password || undefined,
-          role,
-          status,
+          apiKeyId: adjustKeyId,
+          amountTokens,
+          reason: adjustReason,
         }),
       });
 
       const resData = await res.json();
-      if (res.ok && resData.success) {
-        setShowModal(false);
-        await fetchData();
-      } else {
-        setFormError(resData?.error?.message || 'Failed to save customer account.');
-      }
-    } catch (e: any) {
-      setFormError(e.message || 'Network error saving customer account.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDeleteCustomer = async (id: string, customerName: string) => {
-    if (!confirm(`Are you sure you want to permanently delete customer "${customerName}"?`)) return;
-
-    try {
-      const res = await adminFetch(`/api/admin/customers/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        await fetchData();
+        setShowAdjustTokensModal(false);
+        fetchCustomers();
       } else {
-        const errJson = await res.json().catch(() => ({}));
-        alert(errJson.error?.message || 'Failed to delete customer.');
+        setAdjustError(resData?.error?.message || 'Failed to adjust token balance.');
       }
-    } catch (e: any) {
-      alert(e.message || 'Network error deleting customer.');
+    } catch (err: any) {
+      setAdjustError(err.message || 'Network error adjusting tokens.');
+    } finally {
+      setAdjustSubmitting(false);
     }
   };
-
-  const formatTokens = (val: string | number) => {
-    const num = Number(val || 0);
-    if (num >= 1000000000) return `${(num / 1000000000).toFixed(2)}B`;
-    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-    return num.toLocaleString();
-  };
-
-  const filteredCustomers = customers.filter(
-    (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const filteredLeads = leads.filter(
-    (l) => l.name?.toLowerCase().includes(search.toLowerCase()) || l.email?.toLowerCase().includes(search.toLowerCase()) || l.company?.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 font-sans">
+      {/* Top Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-fg">Customers & Leads Hub</h1>
+          <h1 className="text-2xl font-extrabold text-fg flex items-center gap-2.5">
+            <Users className="w-6 h-6 text-violet-600" />
+            <span>Customer Intelligence & Accounts Center</span>
+          </h1>
           <p className="text-xs text-muted mt-1">
-            Manage persistent customer accounts, custom quote requests, and incoming support tickets in one place.
+            Complete customer directory tracking geographic origin (State & City by IP), API keys owned, token allowances, and lifetime spend.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={openCreateModal}
-            className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold"
+            className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 font-bold shadow-xs"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add New Customer</span>
+            <Plus className="w-3.5 h-3.5 text-violet-600" />
+            <span>Create Customer</span>
           </button>
+
           <button
-            onClick={fetchData}
-            className="ui-button-secondary text-xs py-2 px-3.5 gap-2"
+            onClick={fetchCustomers}
+            disabled={loading}
+            className="ui-button-primary text-xs py-2 px-3.5 gap-1.5 font-bold shadow-md"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Data</span>
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Sub Tab Buttons */}
-      <div className="flex items-center gap-2 border-b border-border pb-3">
-        <button
-          onClick={() => setActiveSubTab('customers')}
-          className={`px-4 py-2 text-xs font-bold rounded-control transition-all flex items-center gap-2 ${
-            activeSubTab === 'customers' ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'bg-white text-muted hover:text-fg border border-border'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Customer Accounts ({customers.length})</span>
-        </button>
+      {/* Real-Time Metrics Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 font-mono text-xs">
+        <div className="p-3.5 bg-card border border-border rounded-panel space-y-1 shadow-xs">
+          <span className="text-[10px] text-muted uppercase font-bold tracking-wider">Total Accounts</span>
+          <div className="text-lg font-extrabold text-fg">{metrics.total.toLocaleString()}</div>
+        </div>
 
-        <button
-          onClick={() => setActiveSubTab('leads')}
-          className={`px-4 py-2 text-xs font-bold rounded-control transition-all flex items-center gap-2 ${
-            activeSubTab === 'leads' ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'bg-white text-muted hover:text-fg border border-border'
-          }`}
-        >
-          <Mail className="w-4 h-4" />
-          <span>Quote Requests ({leads.length})</span>
-        </button>
+        <div className="p-3.5 bg-card border border-emerald-200 rounded-panel space-y-1 shadow-xs">
+          <span className="text-[10px] text-emerald-700 uppercase font-bold tracking-wider flex items-center gap-1">
+            <span>💎 Paying Customers</span>
+          </span>
+          <div className="text-lg font-extrabold text-emerald-600">{metrics.paying.toLocaleString()}</div>
+        </div>
 
-        <button
-          onClick={() => setActiveSubTab('tickets')}
-          className={`px-4 py-2 text-xs font-bold rounded-control transition-all flex items-center gap-2 ${
-            activeSubTab === 'tickets' ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'bg-white text-muted hover:text-fg border border-border'
-          }`}
-        >
-          <HelpCircle className="w-4 h-4" />
-          <span>Support Inquiries ({tickets.length})</span>
-        </button>
+        <div className="p-3.5 bg-card border border-violet-200 rounded-panel space-y-1 shadow-xs">
+          <span className="text-[10px] text-violet-700 uppercase font-bold tracking-wider">⚡ Free Trial Users</span>
+          <div className="text-lg font-extrabold text-violet-600">{metrics.trialActive.toLocaleString()}</div>
+        </div>
+
+        <div className="p-3.5 bg-card border border-border rounded-panel space-y-1 shadow-xs">
+          <span className="text-[10px] text-muted uppercase font-bold tracking-wider">✓ Verified Emails</span>
+          <div className="text-lg font-extrabold text-fg">{metrics.verified.toLocaleString()}</div>
+        </div>
+
+        <div className="p-3.5 bg-card border border-border rounded-panel space-y-1 shadow-xs">
+          <span className="text-[10px] text-muted uppercase font-bold tracking-wider">Lifetime Spend</span>
+          <div className="text-lg font-extrabold text-emerald-600">₹{metrics.totalRevenue.toLocaleString()}</div>
+        </div>
+
+        <div className="p-3.5 bg-card border border-border rounded-panel space-y-1 shadow-xs">
+          <span className="text-[10px] text-muted uppercase font-bold tracking-wider">Tokens Consumed</span>
+          <div className="text-lg font-extrabold text-fg">{metrics.tokensUsedM}M</div>
+        </div>
       </div>
 
-      {/* Search Input */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filter records by name, email, or details..."
-          className="w-full pl-10 pr-4 py-2 text-xs bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg"
-        />
+      {/* Quick Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-mono">
+        {[
+          { id: 'ALL', label: 'ALL ACCOUNTS' },
+          { id: 'PAYING', label: '💎 PAYING CUSTOMERS' },
+          { id: 'TRIAL', label: '⚡ FREE TRIAL ACTIVE' },
+          { id: 'VERIFIED', label: '✓ EMAIL VERIFIED' },
+          { id: 'UNVERIFIED', label: '⚠️ UNVERIFIED' },
+          { id: 'SUSPENDED', label: '🛑 SUSPENDED' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setQuickFilter(tab.id)}
+            className={`px-3 py-1.5 rounded-control font-bold whitespace-nowrap transition-all ${
+              quickFilter === tab.id
+                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-xs'
+                : 'bg-card border border-border text-muted hover:text-fg hover:bg-subtle'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Subtab Content */}
-      <div className="bg-card border border-border rounded-panel overflow-hidden">
-        {loading ? (
-          <div className="py-12 text-center text-xs text-muted">Loading records...</div>
-        ) : activeSubTab === 'customers' ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted font-mono uppercase bg-bg/50">
-                  <th className="py-3 px-4">Customer</th>
-                  <th className="py-3 px-4">Role</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">API Keys</th>
-                  <th className="py-3 px-4">Purchased</th>
-                  <th className="py-3 px-4">Used</th>
-                  <th className="py-3 px-4">Remaining</th>
-                  <th className="py-3 px-4">Joined</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60 font-mono">
-                {filteredCustomers.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-8 text-center text-muted font-mono">No customers found.</td>
-                  </tr>
-                ) : (
-                  filteredCustomers.map((c) => (
-                    <tr key={c.id} className="hover:bg-bg/40">
-                      <td className="py-3 px-4">
-                        <p className="font-semibold text-fg font-sans">{c.name}</p>
-                        <p className="font-mono text-[11px] text-muted">{c.email}</p>
-                      </td>
-                      <td className="py-3 px-4 font-mono font-bold uppercase">
-                        <span className={`px-2 py-0.5 rounded text-[10px] ${
-                          c.role === 'admin' ? 'bg-amber-500/10 text-amber-600' : 'bg-violet-50 text-violet-700'
-                        }`}>
-                          {c.role}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          c.status === 'active' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'
-                        }`}>
-                          {c.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-fg">{c.keyCount}</td>
-                      <td className="py-3 px-4 font-mono text-fg">{formatTokens(c.purchasedTokens)}</td>
-                      <td className="py-3 px-4 font-mono text-amber-600">{formatTokens(c.tokensUsed)}</td>
-                      <td className="py-3 px-4 font-mono font-bold text-emerald-600">{formatTokens(c.tokensRemaining)}</td>
-                      <td className="py-3 px-4 font-mono text-muted">{new Date(c.createdAt).toLocaleDateString()}</td>
-                      <td className="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
-                        <button
-                          onClick={() => openIssueKeyModal(c)}
-                          className="px-2 py-1 rounded bg-violet-600 hover:bg-violet-700 text-white font-bold text-[11px] inline-flex items-center gap-1 shadow-xs font-mono"
-                          title="Issue API Key & Plan Allocation"
-                        >
-                          <Key className="w-3 h-3" /> Issue Key
-                        </button>
-                        <button
-                          onClick={() => openEditModal(c)}
-                          className="p-1.5 rounded border border-border text-muted hover:text-fg hover:bg-bg transition-colors inline-flex items-center"
-                          title="Edit Customer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCustomer(c.id, c.name)}
-                          className="p-1.5 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors inline-flex items-center"
-                          title="Delete Customer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+      {/* Multi-Filter & Search Bar */}
+      <div className="p-4 bg-card border border-border rounded-panel space-y-3 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          {/* Live Search */}
+          <div className="relative lg:col-span-2">
+            <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search Name, Email, Phone, City, State, Country, IP, or Key ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-bg border border-border rounded-control py-2 pl-9 pr-8 text-xs text-fg focus:outline-none focus:border-violet-500 font-sans"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-fg text-xs"
+              >
+                ✕
+              </button>
+            )}
           </div>
-        ) : activeSubTab === 'leads' ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted font-mono uppercase bg-bg/50">
-                  <th className="py-3 px-4">Contact</th>
-                  <th className="py-3 px-4">Company</th>
-                  <th className="py-3 px-4">Requested Allowance</th>
-                  <th className="py-3 px-4">Message / Requirements</th>
-                  <th className="py-3 px-4">Date Submitted</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {filteredLeads.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted font-mono">No custom quote leads submitted yet.</td>
-                  </tr>
-                ) : (
-                  filteredLeads.map((l: any) => (
-                    <tr key={l.id} className="hover:bg-bg/40">
-                      <td className="py-3 px-4">
-                        <p className="font-semibold text-fg">{l.name}</p>
-                        <p className="font-mono text-[11px] text-muted">{l.email}</p>
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-fg">{l.company || '—'}</td>
-                      <td className="py-3 px-4 font-mono text-violet-700 font-bold">{l.tokenAmount || l.volume || '20M / 5h Window'}</td>
-                      <td className="py-3 px-4 text-muted max-w-xs truncate">{l.notes || l.message || 'Custom enterprise tier request'}</td>
-                      <td className="py-3 px-4 font-mono text-muted">{new Date(l.createdAt || Date.now()).toLocaleDateString()}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+
+          {/* State Filter */}
+          <div>
+            <select
+              value={stateFilter}
+              onChange={(e) => setStateFilter(e.target.value)}
+              className="w-full bg-bg border border-border rounded-control py-2 px-3 text-xs text-fg focus:outline-none focus:border-violet-500 font-mono"
+            >
+              <option value="ALL">All States / Regions</option>
+              {availableStates.map((st) => (
+                <option key={st} value={st}>
+                  📍 {st}
+                </option>
+              ))}
+            </select>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted font-mono uppercase bg-bg/50">
-                  <th className="py-3 px-4">Ticket / Inquiry</th>
-                  <th className="py-3 px-4">Customer</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {tickets.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-muted font-mono">No open support tickets.</td>
-                  </tr>
-                ) : (
-                  tickets.map((t: any) => (
-                    <tr key={t.id} className="hover:bg-bg/40">
-                      <td className="py-3 px-4">
-                        <p className="font-semibold text-fg">{t.subject}</p>
-                        <p className="text-muted text-[11px] max-w-sm truncate">{t.message}</p>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-muted">{t.customerEmail}</td>
-                      <td className="py-3 px-4 font-mono">
-                        <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-500 font-bold">
-                          {t.status?.toUpperCase() || 'OPEN'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-muted">{new Date(t.createdAt).toLocaleDateString()}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+
+          {/* Key Type Filter */}
+          <div>
+            <select
+              value={keyTypeFilter}
+              onChange={(e) => setKeyTypeFilter(e.target.value)}
+              className="w-full bg-bg border border-border rounded-control py-2 px-3 text-xs text-fg focus:outline-none focus:border-violet-500 font-mono"
+            >
+              <option value="ALL">All Key Statuses</option>
+              <option value="HAS_KEYS">Has Active Keys</option>
+              <option value="PAID_ONLY">Has Paid Key 💎</option>
+              <option value="TRIAL_ONLY">Trial Key Only ⚡</option>
+              <option value="NO_KEYS">No Keys Issued</option>
+            </select>
           </div>
-        )}
+        </div>
+
+        {/* Filter Details & Results Count */}
+        <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs font-mono">
+          <span className="text-muted">
+            Showing <strong>{filteredCustomers.length}</strong> of <strong>{customers.length}</strong> customer accounts
+          </span>
+          <button
+            onClick={() => {
+              setSearch('');
+              setQuickFilter('ALL');
+              setStateFilter('ALL');
+              setCountryFilter('ALL');
+              setKeyTypeFilter('ALL');
+            }}
+            className="text-violet-600 hover:text-violet-700 underline font-semibold"
+          >
+            Reset Filters
+          </button>
+        </div>
       </div>
 
-      {/* Add / Edit Customer Modal */}
+      {/* Main Customer Intelligence Table */}
+      <div className="bg-card border border-border rounded-panel overflow-hidden shadow-xs">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-subtle/60 text-muted font-mono uppercase text-[11px] tracking-wider">
+                <th className="py-3 px-4">Customer</th>
+                <th className="py-3 px-4">Origin & Location</th>
+                <th className="py-3 px-4">API Keys & Tokens</th>
+                <th className="py-3 px-4">Lifetime Spend</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Joined / Active</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-xs text-muted font-mono">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto text-violet-600 mb-2" />
+                    <span>Loading customer accounts & geolocation data...</span>
+                  </td>
+                </tr>
+              ) : filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-xs text-muted font-mono space-y-2">
+                    <p className="font-bold text-fg">No customer accounts match your search/filter criteria.</p>
+                    <p className="text-[11px]">Try adjusting your search query, state, or key status filter.</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((cust) => {
+                  const hasKeys = cust.keyCount > 0;
+                  const totalRemNum = Number(BigInt(cust.tokensRemaining || '0'));
+                  const totalPurNum = Number(BigInt(cust.purchasedTokens || '0')) || 1;
+                  const usagePercent = Math.min(100, Math.max(0, Math.round((totalRemNum / totalPurNum) * 100)));
+
+                  return (
+                    <tr
+                      key={cust.id}
+                      onClick={() => setSelectedCustomer(cust)}
+                      className="hover:bg-subtle/50 transition-colors cursor-pointer group"
+                    >
+                      {/* Customer Info */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-xs shrink-0 shadow-xs">
+                            {cust.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-bold text-fg flex items-center gap-1.5">
+                              <span>{cust.name}</span>
+                              {cust.role === 'admin' && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-violet-100 text-violet-800">
+                                  ADMIN
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted font-mono flex items-center gap-1 mt-0.5">
+                              <span>{cust.email}</span>
+                              {cust.emailVerified ? (
+                                <span className="text-emerald-600" title="Email Verified">✓</span>
+                              ) : (
+                                <span className="text-amber-500 text-[10px]" title="Unverified Email">⚠️</span>
+                              )}
+                            </div>
+                            {cust.phone && (
+                              <div className="text-[10px] text-muted font-mono mt-0.5">
+                                📞 {cust.phone}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Origin & Location (City, State, Country, IP) */}
+                      <td className="py-3 px-4 font-mono text-[11px]">
+                        <div className="space-y-0.5">
+                          <div className="font-bold text-fg flex items-center gap-1.5">
+                            <span>{cust.flag || '🇮🇳'}</span>
+                            <span>
+                              {cust.city ? `${cust.city}, ` : ''}{cust.region || 'Maharashtra'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted flex items-center gap-1">
+                            <span className="truncate max-w-[130px]" title={cust.registrationIp || '127.0.0.1'}>
+                              IP: {cust.registrationIp || '127.0.0.1'}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyToClipboard(cust.registrationIp || '127.0.0.1', cust.id);
+                              }}
+                              className="text-violet-600 hover:underline text-[9px]"
+                              title="Copy IP"
+                            >
+                              {copiedId === cust.id ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
+                          {cust.userAgent && (
+                            <div className="text-[9px] text-muted truncate max-w-[150px]" title={cust.userAgent}>
+                              {cust.userAgent}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* API Keys & Token Balances */}
+                      <td className="py-3 px-4 font-mono text-[11px]">
+                        {hasKeys ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-fg">
+                                {cust.keyCount} Key{cust.keyCount > 1 ? 's' : ''}
+                              </span>
+                              {cust.paidKeyCount > 0 && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {cust.paidKeyCount} Paid
+                                </span>
+                              )}
+                              {cust.trialKeyCount > 0 && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-violet-50 text-violet-700 border border-violet-200">
+                                  {cust.trialKeyCount} Trial (100 RPM)
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted">
+                              Remaining: <strong className="text-fg">{(totalRemNum / 1000000).toFixed(2)}M</strong> tokens
+                            </div>
+                            <div className="w-24 bg-subtle rounded-full h-1.5 overflow-hidden border border-border">
+                              <div
+                                className={`h-full rounded-full ${
+                                  usagePercent > 20 ? 'bg-emerald-500' : 'bg-rose-500'
+                                }`}
+                                style={{ width: `${usagePercent}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted text-[11px]">No Keys Issued</span>
+                        )}
+                      </td>
+
+                      {/* Lifetime Spend & Orders */}
+                      <td className="py-3 px-4 font-mono text-[11px]">
+                        <div className="font-extrabold text-emerald-600 text-xs">
+                          ₹{cust.totalSpendInr.toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-muted">
+                          {cust.orderCount} Order{cust.orderCount !== 1 ? 's' : ''}
+                        </div>
+                        {cust.latestPlanName && (
+                          <div className="text-[9px] text-muted truncate max-w-[120px]" title={cust.latestPlanName}>
+                            {cust.latestPlanName}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Account Status */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase inline-flex items-center gap-1 border ${
+                            cust.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : cust.status === 'suspended'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              cust.status === 'active'
+                                ? 'bg-emerald-500'
+                                : cust.status === 'suspended'
+                                ? 'bg-rose-500'
+                                : 'bg-amber-500'
+                            }`}
+                          />
+                          <span>{cust.status}</span>
+                        </span>
+                      </td>
+
+                      {/* Joined / Active */}
+                      <td className="py-3 px-4 font-mono text-[11px] whitespace-nowrap">
+                        <div className="font-bold text-fg">
+                          {new Date(cust.createdAt).toLocaleDateString()}
+                        </div>
+                        <div className="text-[10px] text-muted">
+                          Joined {formatRelativeTime(cust.createdAt)}
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCustomer(cust);
+                            }}
+                            className="px-2.5 py-1 rounded-control bg-subtle hover:bg-violet-600 hover:text-white text-muted font-bold text-[11px] transition-all flex items-center gap-1"
+                          >
+                            <span>Profile</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openIssueKeyModal(cust);
+                            }}
+                            className="p-1.5 rounded-control hover:bg-violet-50 text-violet-600 transition-colors"
+                            title="Issue API Key"
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(cust);
+                            }}
+                            className="p-1.5 rounded-control hover:bg-subtle text-muted hover:text-fg transition-colors"
+                            title="Edit Account"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Deep Customer Intelligence Profile Drawer / Modal */}
+      {selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border border-border rounded-panel w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-y-auto font-sans relative space-y-0">
+            {/* Drawer Header */}
+            <div className="p-6 border-b border-border flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-md z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-base shadow-md">
+                  {selectedCustomer.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-extrabold text-fg">{selectedCustomer.name}</h2>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase ${
+                        selectedCustomer.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : selectedCustomer.status === 'suspended'
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {selectedCustomer.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted font-mono mt-0.5">
+                    {selectedCustomer.email} · Customer ID: <span className="font-bold text-fg">{selectedCustomer.id}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openIssueKeyModal(selectedCustomer)}
+                  className="ui-button-primary text-xs py-1.5 px-3 font-bold gap-1 shadow-sm"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>Issue Key</span>
+                </button>
+                <button
+                  onClick={() => setSelectedCustomer(null)}
+                  className="p-1.5 rounded-full hover:bg-subtle text-muted hover:text-fg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="p-6 space-y-6">
+              {/* Geolocation & Origin Intelligence Card */}
+              <div className="p-4 bg-violet-50/50 border border-violet-200/80 rounded-panel space-y-3">
+                <div className="flex items-center justify-between border-b border-violet-200/60 pb-2">
+                  <span className="text-xs font-bold text-violet-900 uppercase font-mono tracking-wider flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-violet-600" />
+                    <span>Geographic Origin & Device Intelligence (Captured via IP)</span>
+                  </span>
+                  <span className="text-xs font-bold text-violet-700 font-mono">
+                    {selectedCustomer.flag || '🇮🇳'} {selectedCustomer.country || 'India'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                  <div className="p-3 bg-white border border-violet-100 rounded-control space-y-1">
+                    <span className="text-[10px] text-muted uppercase font-bold">State / Province</span>
+                    <div className="font-bold text-fg">{selectedCustomer.region || 'Maharashtra'}</div>
+                  </div>
+
+                  <div className="p-3 bg-white border border-violet-100 rounded-control space-y-1">
+                    <span className="text-[10px] text-muted uppercase font-bold">City / Metro</span>
+                    <div className="font-bold text-fg">{selectedCustomer.city || 'Mumbai'}</div>
+                  </div>
+
+                  <div className="p-3 bg-white border border-violet-100 rounded-control space-y-1">
+                    <span className="text-[10px] text-muted uppercase font-bold">Origin Signup IP</span>
+                    <div className="font-bold text-fg flex items-center justify-between">
+                      <span className="truncate">{selectedCustomer.registrationIp || '127.0.0.1'}</span>
+                      <button
+                        onClick={() => copyToClipboard(selectedCustomer.registrationIp || '127.0.0.1', 'reg_ip')}
+                        className="text-violet-600 hover:underline text-[9px]"
+                      >
+                        {copiedId === 'reg_ip' ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white border border-violet-100 rounded-control space-y-1">
+                    <span className="text-[10px] text-muted uppercase font-bold">Device / Browser</span>
+                    <div className="font-bold text-fg truncate" title={selectedCustomer.userAgent || ''}>
+                      {selectedCustomer.userAgent || 'Web Browser'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* API Keys Portfolio */}
+              <div className="space-y-3 font-mono">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <span className="text-xs font-bold text-fg uppercase tracking-wider flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-violet-600" />
+                    <span>API Key Portfolio ({selectedCustomer.keys.length} Keys Owned)</span>
+                  </span>
+                  {selectedCustomer.keys.length > 0 && (
+                    <button
+                      onClick={() => openAdjustTokensModal(selectedCustomer)}
+                      className="text-xs text-violet-600 hover:underline font-bold"
+                    >
+                      + Adjust Token Allowance
+                    </button>
+                  )}
+                </div>
+
+                {selectedCustomer.keys.length === 0 ? (
+                  <div className="p-6 bg-card border border-border rounded-panel text-center text-xs text-muted">
+                    No API keys have been issued or claimed by this customer yet.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedCustomer.keys.map((k) => (
+                      <div
+                        key={k.id}
+                        className="p-3.5 bg-card border border-border rounded-control flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-fg">{k.name}</span>
+                            <span
+                              className={`px-2 py-0.2 rounded text-[9px] font-bold uppercase ${
+                                k.type === 'trial' ? 'bg-violet-100 text-violet-800' : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {k.type}
+                            </span>
+                            <span className="text-muted text-[11px]">({k.rateLimitRpm} RPM)</span>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono text-[11px] text-muted">
+                            <span>Key: <strong className="text-fg">{k.displayKey}</strong></span>
+                            <button
+                              onClick={() => copyToClipboard(k.displayKey, k.id)}
+                              className="text-violet-600 hover:underline text-[10px]"
+                            >
+                              {copiedId === k.id ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="text-right font-mono">
+                            <div className="font-bold text-fg">
+                              {(Number(BigInt(k.tokensRemaining)) / 1000000).toFixed(2)}M remaining
+                            </div>
+                            <div className="text-[10px] text-muted">
+                              of {(Number(BigInt(k.purchasedTokens)) / 1000000).toFixed(2)}M allowance
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => openAdjustTokensModal(selectedCustomer, k.id)}
+                            className="px-2.5 py-1 rounded-control bg-subtle hover:bg-violet-600 hover:text-white text-muted font-bold text-[10px] transition-all"
+                          >
+                            Adjust
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Order & Payment History */}
+              <div className="space-y-3 font-mono">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <span className="text-xs font-bold text-fg uppercase tracking-wider flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Purchase & Order History ({selectedCustomer.orders.length} Orders)</span>
+                  </span>
+                  <span className="text-xs font-bold text-emerald-700">
+                    Total Spend: ₹{selectedCustomer.totalSpendInr.toLocaleString()}
+                  </span>
+                </div>
+
+                {selectedCustomer.orders.length === 0 ? (
+                  <div className="p-6 bg-card border border-border rounded-panel text-center text-xs text-muted">
+                    No purchase transactions recorded for this customer.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedCustomer.orders.map((o) => (
+                      <div
+                        key={o.id}
+                        className="p-3 bg-card border border-border rounded-control flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-fg">{o.planName}</div>
+                          <div className="text-[10px] text-muted">
+                            Order ID: {o.internalOrderId} · {new Date(o.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+
+                        <div className="text-right font-mono">
+                          <div className="font-extrabold text-emerald-600">₹{o.amountInr}</div>
+                          <span
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
+                              o.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {o.paymentStatus}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Administrative Actions Bar */}
+              <div className="p-4 bg-subtle border border-border rounded-panel flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleSuspend(selectedCustomer)}
+                    className={`px-3.5 py-2 rounded-control font-bold text-xs flex items-center gap-1.5 shadow-xs ${
+                      selectedCustomer.status === 'suspended'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : 'bg-rose-600 hover:bg-rose-700 text-white'
+                    }`}
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>{selectedCustomer.status === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => openEditModal(selectedCustomer)}
+                    className="ui-button-secondary text-xs py-2 px-3 font-bold"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit Profile</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setSelectedCustomer(null)}
+                  className="px-5 py-2 rounded-control bg-fg text-bg hover:bg-fg/90 font-bold text-xs"
+                >
+                  Close Profile
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create / Edit Customer Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-md w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <h3 className="text-base font-bold text-fg font-mono">
-                {editingCustomer ? 'Edit Customer Account' : 'Add New Customer Account'}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-6 space-y-4 font-sans">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-extrabold text-fg flex items-center gap-2">
+                <Users className="w-4 h-4 text-violet-600" />
+                <span>{editingCustomer ? 'Edit Customer Profile' : 'Create Customer Account'}</span>
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-muted hover:text-fg text-sm font-mono">✕</button>
+              <button onClick={() => setShowModal(false)} className="text-muted hover:text-fg">✕</button>
             </div>
 
             {formError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-mono flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 shrink-0" />
-                <span>{formError}</span>
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs">
+                {formError}
               </div>
             )}
 
-            <form onSubmit={handleSaveCustomer} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveCustomer} className="space-y-3.5 text-xs font-mono">
               <div>
-                <label className="block font-semibold text-fg mb-1 font-mono uppercase">Full Name *</label>
+                <label className="block text-muted mb-1 font-bold uppercase">Customer Full Name</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Rahul Developer"
-                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-sans"
+                  placeholder="e.g. John Doe"
+                  className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none focus:border-violet-500 font-sans"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-fg mb-1 font-mono uppercase">Email Address *</label>
+                <label className="block text-muted mb-1 font-bold uppercase">Email Address</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="dev@enterprise.com"
-                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  placeholder="e.g. customer@example.com"
+                  className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none focus:border-violet-500 font-sans"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-fg mb-1 font-mono uppercase">
-                  {editingCustomer ? 'Reset Password (Optional)' : 'Initial Password'}
+                <label className="block text-muted mb-1 font-bold uppercase">Phone Number (Optional)</label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. +91 9876543210"
+                  className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none focus:border-violet-500 font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block text-muted mb-1 font-bold uppercase">
+                  {editingCustomer ? 'New Password (Leave blank to keep current)' : 'Password'}
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={editingCustomer ? 'Leave blank to keep existing password' : '••••••••'}
-                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  placeholder={editingCustomer ? '••••••••' : 'Enter secure password'}
+                  className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none focus:border-violet-500 font-sans"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-fg mb-1 font-mono uppercase">Account Role</label>
+                  <label className="block text-muted mb-1 font-bold uppercase">Role</label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
                   >
-                    <option value="user">Customer (user)</option>
-                    <option value="admin">Administrator (admin)</option>
+                    <option value="user">User / Customer</option>
+                    <option value="admin">Administrator</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-fg mb-1 font-mono uppercase">Status</label>
+                  <label className="block text-muted mb-1 font-bold uppercase">Status</label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
                   >
                     <option value="active">Active</option>
+                    <option value="unverified">Unverified</option>
                     <option value="suspended">Suspended</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-xs bg-bg border border-border text-muted hover:text-fg rounded-control">
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-2.5 rounded-control bg-bg border border-border text-fg font-bold"
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={submitting} className="ui-button-primary text-xs py-2 px-4 font-bold disabled:opacity-50">
-                  {submitting ? 'Saving...' : 'Save Customer'}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-2.5 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold shadow-md"
+                >
+                  {submitting ? 'Saving...' : editingCustomer ? 'Save Changes' : 'Create Account'}
                 </button>
               </div>
             </form>
@@ -509,102 +1221,122 @@ export const AdminCustomers: React.FC = () => {
 
       {/* Issue API Key Modal */}
       {showIssueKeyModal && selectedKeyCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white border border-border rounded-panel p-6 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-6 space-y-4 font-sans">
             <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-violet-600" />
-                <h2 className="text-base font-bold text-fg">Issue API Key & Plan</h2>
-              </div>
+              <h3 className="text-base font-extrabold text-fg flex items-center gap-2">
+                <Key className="w-4 h-4 text-violet-600" />
+                <span>Issue API Key to {selectedKeyCustomer.name}</span>
+              </h3>
               <button onClick={() => setShowIssueKeyModal(false)} className="text-muted hover:text-fg">✕</button>
             </div>
 
+            {issueError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs">
+                {issueError}
+              </div>
+            )}
+
             {issuedSecretKey ? (
-              <div className="space-y-4">
-                <div className="p-4 rounded-control bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs space-y-2">
-                  <p className="font-bold">✅ API Key Generated & Attached to {selectedKeyCustomer.name}!</p>
-                  <p className="font-mono text-[11px]">Send this secret key to the customer on WhatsApp:</p>
-                  <div className="p-2.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded border border-emerald-500/30 flex items-center justify-between select-all">
-                    <span className="truncate max-w-[240px]">{issuedSecretKey}</span>
-                    <button
-                      type="button"
-                      onClick={() => navigator.clipboard.writeText(issuedSecretKey)}
-                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shrink-0 ml-2"
-                    >
-                      Copy Key
-                    </button>
+              <div className="space-y-4 font-mono text-xs">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-control space-y-2">
+                  <p className="font-bold text-emerald-900 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>API Key Issued Successfully!</span>
+                  </p>
+                  <p className="text-[11px] text-emerald-800">
+                    Copy the unmasked key below now. It will not be shown again.
+                  </p>
+                  <div className="p-2.5 bg-slate-900 text-emerald-400 rounded text-xs break-all select-all font-bold">
+                    {issuedSecretKey}
                   </div>
                 </div>
 
-                <a
-                  href={`https://wa.me/917695956938?text=${encodeURIComponent(`Hi ${selectedKeyCustomer.name}! Here is your LightningDeals API key: ${issuedSecretKey}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 rounded-control font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span>Send Key on WhatsApp</span>
-                </a>
-
-                <button
-                  type="button"
-                  onClick={() => { setShowIssueKeyModal(false); setIssuedSecretKey(null); fetchData(); }}
-                  className="w-full py-2 rounded-control text-xs font-bold bg-bg border border-border hover:bg-subtle text-fg"
-                >
-                  Done
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => copyToClipboard(issuedSecretKey, 'issued_key')}
+                    className="flex-1 py-2 rounded-control bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                  >
+                    {copiedId === 'issued_key' ? 'Copied to Clipboard!' : 'Copy Key Secret'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowIssueKeyModal(false);
+                      setIssuedSecretKey(null);
+                    }}
+                    className="px-4 py-2 rounded-control bg-bg border border-border text-fg font-bold"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             ) : (
-              <form onSubmit={handleIssueKeySubmit} className="space-y-4">
-                <div className="p-3 bg-subtle rounded-control border border-border text-xs space-y-1">
-                  <p className="font-bold text-fg">Target Customer: {selectedKeyCustomer.name}</p>
-                  <p className="font-mono text-muted">{selectedKeyCustomer.email}</p>
-                </div>
-
+              <form onSubmit={handleIssueKeySubmit} className="space-y-3.5 text-xs font-mono">
                 <div>
-                  <label className="block text-xs font-semibold text-fg mb-1">Select Plan Capacity</label>
-                  <select
-                    value={issuePlanId}
-                    onChange={(e) => setIssuePlanId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
-                  >
-                    <option value="5000000">5M Tokens / 5h Window (Basic Plan)</option>
-                    <option value="20000000">20M Tokens / 5h Window (Pro Plan)</option>
-                    <option value="40000000">40M Tokens / 5h Window (Max Plan)</option>
-                    <option value="100000000">100M Tokens / 5h Window (Ultra Plan)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-fg mb-1">Key Name / Tag</label>
+                  <label className="block text-muted mb-1 font-bold uppercase">Key Name</label>
                   <input
                     type="text"
                     required
                     value={issueKeyName}
                     onChange={(e) => setIssueKeyName(e.target.value)}
-                    placeholder="e.g. Primary Production Key"
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
                   />
                 </div>
 
-                {issueError && (
-                  <div className="p-3 rounded bg-red-50 border border-red-200 text-red-700 text-xs font-mono">{issueError}</div>
-                )}
+                <div>
+                  <label className="block text-muted mb-1 font-bold uppercase">Token Allowance Plan</label>
+                  <select
+                    value={issuePlanId}
+                    onChange={(e) => setIssuePlanId(e.target.value)}
+                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
+                  >
+                    <option value="1000000">1 Million Tokens (Trial / Starter)</option>
+                    <option value="5000000">5 Million Tokens</option>
+                    <option value="10000000">10 Million Tokens</option>
+                    <option value="20000000">20 Million Tokens (Claude Max 20x)</option>
+                    <option value="40000000">40 Million Tokens (Claude Max 40x)</option>
+                    <option value="100000000">100 Million Tokens (Claude Max 100x)</option>
+                  </select>
+                </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-muted mb-1 font-bold uppercase">Rate Limit (RPM)</label>
+                    <input
+                      type="number"
+                      value={issueRpm}
+                      onChange={(e) => setIssueRpm(e.target.value)}
+                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-muted mb-1 font-bold uppercase">Key Type</label>
+                    <select
+                      value={issueIsTrial ? 'trial' : 'production'}
+                      onChange={(e) => setIssueIsTrial(e.target.value === 'trial')}
+                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
+                    >
+                      <option value="production">Production (ld_live_)</option>
+                      <option value="trial">Free Trial (ld_trial_)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowIssueKeyModal(false)}
-                    className="px-4 py-2 rounded-control text-xs font-semibold text-muted hover:text-fg"
+                    className="flex-1 py-2.5 rounded-control bg-bg border border-border text-fg font-bold"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={issueSubmitting}
-                    className="px-4 py-2 rounded-control text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-1.5 disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold shadow-md"
                   >
-                    {issueSubmitting ? 'Generating...' : 'Generate & Attach API Key'}
+                    {issueSubmitting ? 'Generating...' : 'Issue Key Now'}
                   </button>
                 </div>
               </form>
@@ -612,6 +1344,104 @@ export const AdminCustomers: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Adjust Token Allowance Modal */}
+      {showAdjustTokensModal && adjustCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-6 space-y-4 font-sans">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-extrabold text-fg flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-violet-600" />
+                <span>Adjust Token Balance for {adjustCustomer.name}</span>
+              </h3>
+              <button onClick={() => setShowAdjustTokensModal(false)} className="text-muted hover:text-fg">✕</button>
+            </div>
+
+            {adjustError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs">
+                {adjustError}
+              </div>
+            )}
+
+            <form onSubmit={handleAdjustTokensSubmit} className="space-y-3.5 text-xs font-mono">
+              <div>
+                <label className="block text-muted mb-1 font-bold uppercase">Select Customer API Key</label>
+                <select
+                  value={adjustKeyId}
+                  onChange={(e) => setAdjustKeyId(e.target.value)}
+                  className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
+                >
+                  {adjustCustomer.keys.map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.name} ({k.displayKey}) — Remaining: {(Number(BigInt(k.tokensRemaining)) / 1000000).toFixed(2)}M
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-muted mb-1 font-bold uppercase">Tokens Delta Amount (in Millions)</label>
+                <div className="flex gap-2">
+                  {['+1', '+5', '+10', '+20', '-5'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setAdjustAmountM(preset.replace('+', ''))}
+                      className={`px-3 py-1 rounded border text-xs font-bold ${
+                        adjustAmountM === preset.replace('+', '')
+                          ? 'bg-violet-600 text-white border-violet-600'
+                          : 'bg-subtle text-fg border-border'
+                      }`}
+                    >
+                      {preset}M
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  step="0.5"
+                  required
+                  value={adjustAmountM}
+                  onChange={(e) => setAdjustAmountM(e.target.value)}
+                  placeholder="e.g. 5 or -5"
+                  className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none mt-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-muted mb-1 font-bold uppercase">Reason / Admin Note</label>
+                <input
+                  type="text"
+                  required
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  placeholder="e.g. Loyalty credit or balance adjustment"
+                  className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-sans"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdjustTokensModal(false)}
+                  className="flex-1 py-2.5 rounded-control bg-bg border border-border text-fg font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adjustSubmitting}
+                  className="flex-1 py-2.5 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold shadow-md"
+                >
+                  {adjustSubmitting ? 'Adjusting...' : 'Confirm Balance Adjustment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default AdminCustomers;

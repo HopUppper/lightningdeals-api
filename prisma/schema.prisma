@@ -25,6 +25,15 @@ model User {
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   lastLoginAt         DateTime?
+  registrationIp      String?
+  lastLoginIp         String?
+  city                String?
+  region              String?                  // State / Province (e.g. Maharashtra, California)
+  country             String?                  // Country Name (e.g. India, United States)
+  countryCode         String?                  // 2-Letter Code (e.g. IN, US)
+  timezone            String?                  // e.g. Asia/Kolkata
+  userAgent           String?                  // Device / Browser metadata
+  org                 String?                  // ISP / Org
   apiKeys             ApiKey[]
   apiRequests         ApiRequest[]
   adminLogs           AdminLog[]

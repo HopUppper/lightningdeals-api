@@ -51,7 +51,7 @@ export const AdminKeys: React.FC = () => {
   const [trialCustomerEmail, setTrialCustomerEmail] = useState('');
   const [trialTokens, setTrialTokens] = useState('1000000'); // 1M default
   const [trialExpiryDays, setTrialExpiryDays] = useState('7');
-  const [trialRpm, setTrialRpm] = useState('30');
+  const [trialRpm, setTrialRpm] = useState('100');
 
   // Output generated raw key state
   const [createdRawKey, setCreatedRawKey] = useState<string | null>(null);

@@ -6,6 +6,7 @@ import { calculateKeyRollingWindow } from './window';
 import { checkMasterCapacity, topUpMasterBalance, reconcileMasterLedger, calculateActiveEntitlementExposure } from './masterLedger';
 import { getRealtimeAnalyticsReport } from './analyticsTracker';
 import { recordAuditEvent, getEventCorrelation, getAuditSummary, verifyHashChainIntegrity } from './auditLogger';
+import { resolveIpLocation } from './geoService';
 
 const router = Router();
 
@@ -1126,7 +1127,7 @@ router.post('/keys/trial', async (req: AuthRequest, res: Response) => {
         purchasedTokens: initialTokens,
         tokensUsed: BigInt(0),
         tokensRemaining: initialTokens,
-        rateLimitRpm: Number(rateLimitRpm || 30),
+        rateLimitRpm: Number(rateLimitRpm || 100),
         expiresAt,
         plan: 'Trial Key',
       },
@@ -1381,13 +1382,20 @@ router.delete('/keys/:id', async (req: AuthRequest, res: Response) => {
 });
 
 
-// 5. Customer Account Management (/admin/customers)
+// 5. Customer Account & Intelligence Management (/admin/customers)
 router.get('/customers', async (req: AuthRequest, res: Response) => {
   try {
     const users = await prisma.user.findMany({
       include: {
-        apiKeys: true,
-        orders: true,
+        apiKeys: {
+          orderBy: { createdAt: 'desc' },
+        },
+        orders: {
+          orderBy: { createdAt: 'desc' },
+        },
+        supportTickets: {
+          select: { id: true, status: true, priority: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -1396,25 +1404,113 @@ router.get('/customers', async (req: AuthRequest, res: Response) => {
       let totalPurchased = BigInt(0);
       let totalUsed = BigInt(0);
       let totalRemaining = BigInt(0);
+      let paidKeyCount = 0;
+      let trialKeyCount = 0;
+      let activeKeyCount = 0;
 
-      u.apiKeys.forEach((k) => {
+      const keys = u.apiKeys.map((k) => {
         totalPurchased += k.purchasedTokens;
         totalUsed += k.tokensUsed;
         totalRemaining += k.tokensRemaining;
+
+        if (k.type === 'trial' || k.plan === 'Free Trial' || k.name.toLowerCase().includes('trial')) {
+          trialKeyCount++;
+        } else {
+          paidKeyCount++;
+        }
+
+        if (k.status === 'active') activeKeyCount++;
+
+        return {
+          id: k.id,
+          keyPrefix: k.keyPrefix,
+          displayKey: k.displayKey,
+          name: k.name,
+          type: k.type,
+          status: k.status,
+          purchasedTokens: k.purchasedTokens.toString(),
+          tokensUsed: k.tokensUsed.toString(),
+          tokensRemaining: k.tokensRemaining.toString(),
+          rateLimitRpm: k.rateLimitRpm,
+          expiresAt: k.expiresAt,
+          createdAt: k.createdAt,
+        };
       });
+
+      let totalSpendInr = 0;
+      let paidOrderCount = 0;
+      let latestPlanName = '';
+
+      const orders = u.orders.map((o) => {
+        if (o.paymentStatus === 'PAID' || o.status === 'PAID') {
+          totalSpendInr += o.amountInr || 0;
+          paidOrderCount++;
+        }
+        if (!latestPlanName && o.planName) {
+          latestPlanName = o.planName;
+        }
+
+        return {
+          id: o.id,
+          internalOrderId: o.internalOrderId,
+          planName: o.planName,
+          amountInr: o.amountInr,
+          status: o.status,
+          paymentStatus: o.paymentStatus,
+          fulfillmentStatus: o.fulfillmentStatus,
+          createdAt: o.createdAt,
+        };
+      });
+
+      const openTicketCount = u.supportTickets.filter(
+        (t) => t.status === 'OPEN' || t.status === 'IN_PROGRESS' || t.status === 'AWAITING_SUPPORT'
+      ).length;
+
+      // Geolocation fallback resolution if not stored
+      const ip = u.registrationIp || u.lastLoginIp || '127.0.0.1';
+      const geoFallback = resolveIpLocation(ip);
+
+      const city = u.city || geoFallback.city;
+      const region = u.region || geoFallback.region;
+      const country = u.country || geoFallback.country;
+      const countryCode = u.countryCode || geoFallback.countryCode;
+      const flag = countryCode === 'IN' ? '🇮🇳' : countryCode === 'US' ? '🇺🇸' : geoFallback.flag || '🌐';
 
       return {
         id: u.id,
         name: u.name,
         email: u.email,
+        phone: u.phone,
         role: u.role,
         status: u.status,
+        emailVerified: u.emailVerified,
+        phoneVerified: u.phoneVerified,
+        createdAt: u.createdAt,
+        lastLoginAt: u.lastLoginAt,
+        registrationIp: u.registrationIp || ip,
+        lastLoginIp: u.lastLoginIp,
+        city,
+        region,
+        country,
+        countryCode,
+        flag,
+        timezone: u.timezone || geoFallback.timezone,
+        userAgent: u.userAgent || geoFallback.userAgent || 'Web Browser',
         keyCount: u.apiKeys.length,
-        orderCount: u.orders.length,
+        paidKeyCount,
+        trialKeyCount,
+        activeKeyCount,
         purchasedTokens: totalPurchased.toString(),
         tokensUsed: totalUsed.toString(),
         tokensRemaining: totalRemaining.toString(),
-        createdAt: u.createdAt,
+        orderCount: u.orders.length,
+        paidOrderCount,
+        totalSpendInr,
+        latestPlanName: latestPlanName || (trialKeyCount > 0 ? 'Free Trial' : 'No Active Plan'),
+        ticketCount: u.supportTickets.length,
+        openTicketCount,
+        keys,
+        orders,
       };
     });
 
@@ -1592,6 +1688,78 @@ router.delete('/customers/:id', async (req: AuthRequest, res: Response) => {
     });
 
     res.json({ success: true, message: `Customer ${existing.name} deleted.` });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /admin/customers/:id/adjust-tokens — Adjust Token Balance
+router.post('/customers/:id/adjust-tokens', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { apiKeyId, amountTokens, reason } = req.body;
+
+  if (!apiKeyId || amountTokens === undefined) {
+    return res.status(400).json({ error: { message: 'apiKeyId and amountTokens are required.' } });
+  }
+
+  try {
+    const key = await prisma.apiKey.findFirst({ where: { id: apiKeyId, userId: id } });
+    if (!key) return res.status(404).json({ error: { message: 'API key not found for this customer.' } });
+
+    const delta = BigInt(amountTokens);
+    const newRemaining = key.tokensRemaining + delta;
+    if (newRemaining < BigInt(0)) {
+      return res.status(400).json({ error: { message: 'Adjustment would result in negative token balance.' } });
+    }
+
+    const newPurchased = delta > BigInt(0) ? key.purchasedTokens + delta : key.purchasedTokens;
+
+    await prisma.$transaction([
+      prisma.apiKey.update({
+        where: { id: key.id },
+        data: {
+          tokensRemaining: newRemaining,
+          purchasedTokens: newPurchased,
+        },
+      }),
+      prisma.tokenLedger.create({
+        data: {
+          userId: id,
+          apiKeyId: key.id,
+          amount: delta,
+          balanceAfter: newRemaining,
+          type: delta >= BigInt(0) ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT',
+          description: reason || `Admin adjusted tokens by ${delta.toString()}`,
+        },
+      }),
+    ]);
+
+    await recordAuditEvent({
+      eventType: 'CUSTOMER_TOKENS_ADJUSTED',
+      severity: 'MEDIUM',
+      actorType: 'ADMIN',
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      adminId: req.user?.id,
+      customerId: id,
+      apiKeyId: key.id,
+      resourceType: 'API_KEY',
+      resourceId: key.id,
+      action: 'ADJUST_TOKENS',
+      result: 'SUCCESS',
+      metadata: {
+        amountTokens: delta.toString(),
+        newRemaining: newRemaining.toString(),
+        reason: reason || 'Manual Admin Adjustment',
+      },
+      req,
+    });
+
+    res.json({
+      success: true,
+      newRemaining: newRemaining.toString(),
+      message: `Successfully adjusted balance by ${delta.toString()} tokens.`,
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

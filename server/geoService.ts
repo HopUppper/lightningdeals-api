@@ -9,8 +9,12 @@ export interface GeoLocationResult {
   countryCode: string;
   timezone: string;
   userAgent?: string;
+  org?: string;
   flag: string;
+  isPrivate?: boolean;
 }
+
+const geoCache = new Map<string, GeoLocationResult>();
 
 const INDIAN_STATES: Record<string, string> = {
   AN: 'Andaman and Nicobar Islands',
@@ -55,32 +59,22 @@ const INDIAN_STATES: Record<string, string> = {
   WB: 'West Bengal',
 };
 
-const US_STATES: Record<string, string> = {
-  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
-  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
-  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
-  KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
-  MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
-  MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
-  NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
-  OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
-  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
-  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
-};
-
-const COUNTRY_NAMES: Record<string, { name: string; flag: string }> = {
-  IN: { name: 'India', flag: '🇮🇳' },
-  US: { name: 'United States', flag: '🇺🇸' },
-  GB: { name: 'United Kingdom', flag: '🇬🇧' },
-  SG: { name: 'Singapore', flag: '🇸🇬' },
-  AE: { name: 'United Arab Emirates', flag: '🇦🇪' },
-  DE: { name: 'Germany', flag: '🇩🇪' },
-  CA: { name: 'Canada', flag: '🇨🇦' },
-  AU: { name: 'Australia', flag: '🇦🇺' },
-  FR: { name: 'France', flag: '🇫🇷' },
-  JP: { name: 'Japan', flag: '🇯🇵' },
-  NL: { name: 'Netherlands', flag: '🇳🇱' },
-  BR: { name: 'Brazil', flag: '🇧🇷' },
+const COUNTRY_FLAGS: Record<string, string> = {
+  IN: '🇮🇳',
+  US: '🇺🇸',
+  GB: '🇬🇧',
+  SG: '🇸🇬',
+  AE: '🇦🇪',
+  DE: '🇩🇪',
+  CA: '🇨🇦',
+  AU: '🇦🇺',
+  FR: '🇫🇷',
+  JP: '🇯🇵',
+  NL: '🇳🇱',
+  BR: '🇧🇷',
+  CH: '🇨🇭',
+  RU: '🇷🇺',
+  CN: '🇨🇳',
 };
 
 export function extractClientIp(req: Request): string {
@@ -94,7 +88,7 @@ export function extractClientIp(req: Request): string {
   if (xForwardedFor) {
     const ips = xForwardedFor.split(',').map((s) => s.trim());
     for (const candidate of ips) {
-      if (candidate && !candidate.startsWith('127.') && !candidate.startsWith('10.') && !candidate.startsWith('192.168.')) {
+      if (candidate && !candidate.startsWith('127.') && !candidate.startsWith('10.') && !candidate.startsWith('192.168.') && !candidate.startsWith('172.16.')) {
         return candidate;
       }
     }
@@ -126,98 +120,194 @@ export function parseDeviceSummary(userAgent?: string): string {
   return `${browser} on ${os}`;
 }
 
-export function resolveIpLocation(ip: string, req?: Request): GeoLocationResult {
-  const cleanIp = (ip || '127.0.0.1').replace(/^::ffff:/, '').trim();
-
-  // 1. Check Cloudflare Edge Headers if request is present
-  if (req) {
-    const cfCountry = req.headers['cf-ipcountry']?.toString();
-    const cfCity = req.headers['cf-ipcity']?.toString();
-    const cfRegionCode = req.headers['cf-region-code']?.toString() || req.headers['cf-region']?.toString();
-    const cfTimezone = req.headers['cf-timezone']?.toString();
-    const ua = req.headers['user-agent']?.toString();
-
-    if (cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1') {
-      const countryMeta = COUNTRY_NAMES[cfCountry.toUpperCase()] || { name: cfCountry, flag: '🌐' };
-      let stateName = cfRegionCode || '';
-      if (cfCountry.toUpperCase() === 'IN' && INDIAN_STATES[cfRegionCode?.toUpperCase() || '']) {
-        stateName = INDIAN_STATES[cfRegionCode.toUpperCase()];
-      } else if (cfCountry.toUpperCase() === 'US' && US_STATES[cfRegionCode?.toUpperCase() || '']) {
-        stateName = US_STATES[cfRegionCode.toUpperCase()];
-      }
-
-      return {
-        ip: cleanIp,
-        city: cfCity || 'Local City',
-        region: stateName || 'Direct Region',
-        country: countryMeta.name,
-        countryCode: cfCountry.toUpperCase(),
-        timezone: cfTimezone || 'Asia/Kolkata',
-        userAgent: parseDeviceSummary(ua),
-        flag: countryMeta.flag,
-      };
-    }
-  }
-
-  // 2. Local / Private IP Handling
-  if (
+export function isPrivateIp(ip: string): boolean {
+  const cleanIp = (ip || '').replace(/^::ffff:/, '').trim();
+  return (
+    !cleanIp ||
     cleanIp === '127.0.0.1' ||
     cleanIp === 'localhost' ||
     cleanIp === '::1' ||
     cleanIp.startsWith('10.') ||
     cleanIp.startsWith('192.168.') ||
-    cleanIp.startsWith('172.16.')
-  ) {
+    cleanIp.startsWith('172.16.') ||
+    cleanIp.startsWith('172.17.') ||
+    cleanIp.startsWith('172.18.') ||
+    cleanIp.startsWith('172.19.') ||
+    cleanIp.startsWith('172.2') ||
+    cleanIp.startsWith('172.3') ||
+    cleanIp.startsWith('169.254.')
+  );
+}
+
+/**
+ * Real, accurate IP Geolocation lookup
+ */
+export async function resolveRealIpLocation(ip: string, req?: Request): Promise<GeoLocationResult> {
+  const cleanIp = (ip || '127.0.0.1').replace(/^::ffff:/, '').trim();
+
+  // 1. Private / Local IP
+  if (isPrivateIp(cleanIp)) {
     return {
       ip: cleanIp,
-      city: 'Mumbai',
-      region: 'Maharashtra',
-      country: 'India',
-      countryCode: 'IN',
+      city: 'Localhost',
+      region: 'Development',
+      country: 'Private Network',
+      countryCode: 'DEV',
       timezone: 'Asia/Kolkata',
-      userAgent: req ? parseDeviceSummary(req.headers['user-agent']?.toString()) : 'Localhost Dev Client',
-      flag: '🇮🇳',
+      userAgent: req ? parseDeviceSummary(req.headers['user-agent']?.toString()) : 'Local Machine',
+      flag: '💻',
+      isPrivate: true,
     };
   }
 
-  // 3. Fast 0ms Local MaxMind GeoIP Lookup
+  // 2. Check Cache
+  if (geoCache.has(cleanIp)) {
+    const cached = geoCache.get(cleanIp)!;
+    if (req) cached.userAgent = parseDeviceSummary(req.headers['user-agent']?.toString());
+    return cached;
+  }
+
+  // 3. Live High-Accuracy IP-API Lookup
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+
+    const res = await fetch(
+      `http://ip-api.com/json/${cleanIp}?fields=status,message,country,countryCode,region,regionName,city,zip,timezone,isp,org`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.status === 'success') {
+        const countryCode = data.countryCode || 'IN';
+        let regionName = data.regionName || '';
+        if (countryCode === 'IN' && INDIAN_STATES[data.region?.toUpperCase()]) {
+          regionName = INDIAN_STATES[data.region.toUpperCase()];
+        }
+
+        const result: GeoLocationResult = {
+          ip: cleanIp,
+          city: data.city || 'Unknown City',
+          region: regionName || data.region || 'Unknown Region',
+          country: data.country || 'India',
+          countryCode,
+          timezone: data.timezone || 'Asia/Kolkata',
+          userAgent: req ? parseDeviceSummary(req.headers['user-agent']?.toString()) : undefined,
+          org: data.isp || data.org || undefined,
+          flag: COUNTRY_FLAGS[countryCode.toUpperCase()] || '🌐',
+          isPrivate: false,
+        };
+
+        geoCache.set(cleanIp, result);
+        return result;
+      }
+    }
+  } catch (err) {
+    // Network timeout, proceed to offline geoip-lite fallback
+  }
+
+  // 4. Offline geoip-lite fallback
   try {
     const geo = geoip.lookup(cleanIp);
     if (geo) {
       const countryCode = geo.country?.toUpperCase() || 'IN';
-      const countryMeta = COUNTRY_NAMES[countryCode] || { name: geo.country || 'Global', flag: '🌐' };
-
       let regionName = geo.region || '';
       if (countryCode === 'IN' && INDIAN_STATES[geo.region?.toUpperCase()]) {
         regionName = INDIAN_STATES[geo.region.toUpperCase()];
-      } else if (countryCode === 'US' && US_STATES[geo.region?.toUpperCase()]) {
-        regionName = US_STATES[geo.region.toUpperCase()];
       }
 
-      return {
+      const result: GeoLocationResult = {
         ip: cleanIp,
-        city: geo.city || (countryCode === 'IN' ? 'Bengaluru' : 'City Area'),
-        region: regionName || 'State Area',
-        country: countryMeta.name,
+        city: geo.city || '',
+        region: regionName || geo.region || '',
+        country: countryCode === 'IN' ? 'India' : countryCode === 'US' ? 'United States' : geo.country || 'Unknown',
         countryCode,
-        timezone: geo.timezone || (countryCode === 'IN' ? 'Asia/Kolkata' : 'UTC'),
+        timezone: geo.timezone || 'Asia/Kolkata',
         userAgent: req ? parseDeviceSummary(req.headers['user-agent']?.toString()) : undefined,
-        flag: countryMeta.flag,
+        flag: COUNTRY_FLAGS[countryCode] || '🌐',
+        isPrivate: false,
       };
+
+      geoCache.set(cleanIp, result);
+      return result;
     }
   } catch (err) {
-    console.warn('[GeoIP Lookup Error]', err);
+    // fallback below
   }
 
-  // Fallback for unidentified public IP
-  return {
+  const fallback: GeoLocationResult = {
     ip: cleanIp,
-    city: 'India Region',
-    region: 'Maharashtra',
+    city: 'Location Pending',
+    region: 'Region Pending',
     country: 'India',
     countryCode: 'IN',
     timezone: 'Asia/Kolkata',
     userAgent: req ? parseDeviceSummary(req.headers['user-agent']?.toString()) : undefined,
     flag: '🇮🇳',
+    isPrivate: false,
+  };
+  return fallback;
+}
+
+// Synchronous fast fallback wrapper
+export function resolveIpLocation(ip: string, req?: Request): GeoLocationResult {
+  const cleanIp = (ip || '127.0.0.1').replace(/^::ffff:/, '').trim();
+
+  if (isPrivateIp(cleanIp)) {
+    return {
+      ip: cleanIp,
+      city: 'Localhost',
+      region: 'Development',
+      country: 'Private Network',
+      countryCode: 'DEV',
+      timezone: 'Asia/Kolkata',
+      userAgent: req ? parseDeviceSummary(req.headers['user-agent']?.toString()) : 'Local Machine',
+      flag: '💻',
+      isPrivate: true,
+    };
+  }
+
+  if (geoCache.has(cleanIp)) {
+    return geoCache.get(cleanIp)!;
+  }
+
+  // Trigger background real lookup to populate cache
+  resolveRealIpLocation(cleanIp, req).catch(() => {});
+
+  try {
+    const geo = geoip.lookup(cleanIp);
+    if (geo) {
+      const countryCode = geo.country?.toUpperCase() || 'IN';
+      let regionName = geo.region || '';
+      if (countryCode === 'IN' && INDIAN_STATES[geo.region?.toUpperCase()]) {
+        regionName = INDIAN_STATES[geo.region.toUpperCase()];
+      }
+
+      return {
+        ip: cleanIp,
+        city: geo.city || '',
+        region: regionName || geo.region || '',
+        country: countryCode === 'IN' ? 'India' : countryCode === 'US' ? 'United States' : geo.country || '',
+        countryCode,
+        timezone: geo.timezone || 'Asia/Kolkata',
+        userAgent: req ? parseDeviceSummary(req.headers['user-agent']?.toString()) : undefined,
+        flag: COUNTRY_FLAGS[countryCode] || '🌐',
+        isPrivate: false,
+      };
+    }
+  } catch {}
+
+  return {
+    ip: cleanIp,
+    city: 'Location Pending',
+    region: 'Region Pending',
+    country: 'India',
+    countryCode: 'IN',
+    timezone: 'Asia/Kolkata',
+    userAgent: req ? parseDeviceSummary(req.headers['user-agent']?.toString()) : undefined,
+    flag: '🇮🇳',
+    isPrivate: false,
   };
 }

@@ -696,11 +696,13 @@ export const AdminCustomers: React.FC = () => {
                           <div className="font-bold text-fg flex items-center gap-1.5">
                             <span>{cust.flag || '🇮🇳'}</span>
                             <span>
-                              {cust.city ? `${cust.city}, ` : ''}{cust.region || 'Maharashtra'}
+                              {cust.city && cust.region
+                                ? `${cust.city}, ${cust.region}`
+                                : cust.region || cust.city || (cust.country ? cust.country : 'Location Pending')}
                             </span>
                           </div>
                           <div className="text-[10px] text-muted flex items-center gap-1">
-                            <span className="truncate max-w-[130px]" title={cust.registrationIp || '127.0.0.1'}>
+                            <span className="truncate max-w-[140px]" title={cust.registrationIp || '127.0.0.1'}>
                               IP: {cust.registrationIp || '127.0.0.1'}
                             </span>
                             <button

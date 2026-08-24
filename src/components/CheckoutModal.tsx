@@ -63,57 +63,92 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
         return;
       }
 
-      const { internalOrderId, gatewayOrderId, checkoutUrl } = data.order;
+      const { internalOrderId, gatewayOrderId, checkoutUrl, metadata } = data.order;
 
       setPaymentState('PENDING');
 
-      // Execute Cashfree Checkout or Test verification
-      if (checkoutUrl && !checkoutUrl.includes('TEST_FALLBACK')) {
-        // Direct to Cashfree Gateway Checkout URL
-        window.location.href = checkoutUrl;
-      } else {
-        // Simulate/Execute Server Verification for local/staging
-        setTimeout(async () => {
-          try {
-            const verifyRes = await adminFetch('/api/checkout/verify', {
-              method: 'POST',
-              body: JSON.stringify({
-                internalOrderId,
-                gatewayOrderId: gatewayOrderId || internalOrderId,
-              }),
-            });
+      // 1. PayU Hosted Checkout Form Submission
+      if (metadata?.paymentGateway === 'PAYU' && metadata?.action) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = metadata.action;
 
-            const verifyData = await verifyRes.json();
+        const fields: Record<string, string> = {
+          key: metadata.key,
+          txnid: metadata.txnid,
+          amount: metadata.amount,
+          productinfo: metadata.productinfo,
+          firstname: metadata.firstname,
+          email: metadata.email,
+          phone: metadata.phone || '9999999999',
+          surl: metadata.surl,
+          furl: metadata.furl,
+          hash: metadata.hash,
+          udf1: metadata.udf1 || '',
+          udf2: metadata.udf2 || '',
+          udf3: metadata.udf3 || '',
+        };
 
-            if (verifyRes.ok && verifyData.success) {
-              setPaymentState('SUCCESSFUL');
-              if (typeof window !== 'undefined' && (window as any).gtag) {
-                (window as any).gtag('event', 'purchase', {
-                  transaction_id: internalOrderId,
-                  value: plan.priceInr,
-                  currency: 'INR',
-                  items: [{ item_id: plan.id, item_name: plan.name }],
-                });
-              }
-              const keySecret = verifyData.fulfillment?.rawKeySecret || verifyData.rawKeySecret;
-              if (keySecret) {
-                setRevealedKey(keySecret);
-              } else {
-                setTimeout(() => {
-                  onClose();
-                  navigate('/dashboard/plan');
-                }, 1200);
-              }
-            } else {
-              setPaymentState('VERIFICATION_FAILED');
-              setErrorMessage(verifyData.error || 'We couldn\'t verify the payment. Please contact support.');
-            }
-          } catch (err: any) {
-            setPaymentState('VERIFICATION_FAILED');
-            setErrorMessage('Payment verification error. Contact support if charged.');
-          }
-        }, 1200);
+        for (const [k, val] of Object.entries(fields)) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = k;
+          input.value = val;
+          form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+        return;
       }
+
+      // 2. Direct Checkout URL (Cashfree or Hosted URL)
+      if (checkoutUrl && !checkoutUrl.includes('TEST_FALLBACK')) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      // 3. Simulate/Execute Server Verification for local/staging
+      setTimeout(async () => {
+        try {
+          const verifyRes = await adminFetch('/api/checkout/verify', {
+            method: 'POST',
+            body: JSON.stringify({
+              internalOrderId,
+              gatewayOrderId: gatewayOrderId || internalOrderId,
+            }),
+          });
+
+          const verifyData = await verifyRes.json();
+
+          if (verifyRes.ok && verifyData.success) {
+            setPaymentState('SUCCESSFUL');
+            if (typeof window !== 'undefined' && (window as any).gtag) {
+              (window as any).gtag('event', 'purchase', {
+                transaction_id: internalOrderId,
+                value: plan.priceInr,
+                currency: 'INR',
+                items: [{ item_id: plan.id, item_name: plan.name }],
+              });
+            }
+            const keySecret = verifyData.fulfillment?.rawKeySecret || verifyData.rawKeySecret;
+            if (keySecret) {
+              setRevealedKey(keySecret);
+            } else {
+              setTimeout(() => {
+                onClose();
+                navigate('/dashboard/plan');
+              }, 1200);
+            }
+          } else {
+            setPaymentState('VERIFICATION_FAILED');
+            setErrorMessage(verifyData.error || 'We couldn\'t verify the payment. Please contact support.');
+          }
+        } catch (err: any) {
+          setPaymentState('VERIFICATION_FAILED');
+          setErrorMessage('Payment verification error. Contact support if charged.');
+        }
+      }, 1200);
     } catch (err: any) {
       setPaymentState('FAILED');
       setErrorMessage(err.message || 'Network error initializing payment gateway.');
@@ -131,7 +166,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
             </div>
             <div>
               <h2 className="text-base font-bold text-fg">Claude Max Checkout</h2>
-              <p className="text-[11px] text-muted font-mono">Secured by Cashfree Payments</p>
+              <p className="text-[11px] text-muted font-mono">Secured by PayU Payments (UPI · Cards · NetBanking)</p>
             </div>
           </div>
           <button
@@ -142,40 +177,37 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
           </button>
         </div>
 
-        {/* Body Content based on Payment State */}
+        {/* Content */}
         <div className="p-6 space-y-6">
           {paymentState === 'IDLE' && (
             <>
               {/* Plan Summary Card */}
-              <div className="p-4 rounded-panel bg-violet-500/5 border border-violet-200/80 space-y-3">
+              <div className="p-4 rounded-control bg-subtle/70 border border-border/80 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-100 px-2.5 py-0.5 rounded">
-                    Selected Plan
-                  </span>
-                  <span className="text-xs font-mono text-muted">{plan.validityDays} Days Validity</span>
+                  <span className="font-extrabold text-sm text-fg">{plan.name}</span>
+                  <span className="text-base font-extrabold text-violet-700 font-mono">₹{plan.priceInr.toLocaleString()}</span>
                 </div>
 
-                <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
-                  <div>
-                    <h3 className="text-xl font-extrabold text-fg">{plan.name}</h3>
-                    <p className="text-xs text-muted font-mono mt-0.5">{plan.tokenDisplay}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-extrabold font-mono text-violet-700">
-                      ₹{plan.priceInr.toLocaleString()}
-                    </span>
-                    <p className="text-[10px] text-muted uppercase font-mono">All inclusive</p>
-                  </div>
-                </div>
+                <p className="text-xs text-muted leading-relaxed">
+                  {plan.tagline || `Includes ${plan.tokenDisplay} Tokens with ${plan.windowHours}-hour refresh window.`}
+                </p>
 
-                <div className="space-y-1.5 text-xs text-muted">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Automatic {plan.windowHours}-Hour Quota Refresh</span>
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60 text-[11px] font-mono text-muted">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Allowance: <strong>{plan.tokenDisplay}</strong></span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Instant Automated API Key Provisioning</span>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Window: <strong>{plan.windowHours} Hours</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Instant API Key Issue</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>All Claude 3.5 & 3.7 Models</span>
                   </div>
                 </div>
               </div>
@@ -187,7 +219,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                   <span>₹{plan.priceInr.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Payment Gateway Fee</span>
+                  <span>Payment Gateway Fee (PayU)</span>
                   <span className="text-emerald-600">FREE</span>
                 </div>
                 <div className="flex justify-between text-fg font-bold text-sm pt-2 border-t border-border">
@@ -202,7 +234,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                 className="w-full py-3.5 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>PAY ₹{plan.priceInr.toLocaleString()} (Cashfree Payments)</span>
+                <span>PAY ₹{plan.priceInr.toLocaleString()} (PayU Payments)</span>
               </button>
             </>
           )}
@@ -211,7 +243,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
             <div className="py-12 text-center space-y-3">
               <RefreshCw className="w-8 h-8 text-violet-600 animate-spin mx-auto" />
               <h3 className="text-sm font-bold text-fg">Initializing Secure Checkout...</h3>
-              <p className="text-xs text-muted font-mono">Connecting to Cashfree Payments gateway</p>
+              <p className="text-xs text-muted font-mono">Redirecting to PayU Payments Gateway</p>
             </div>
           )}
 
@@ -220,7 +252,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
               <RefreshCw className="w-8 h-8 text-amber-500 animate-spin mx-auto" />
               <h3 className="text-sm font-bold text-fg">Your payment is being verified</h3>
               <p className="text-xs text-muted font-mono leading-relaxed">
-                Please do not close or refresh this page. Confirming transaction with Cashfree Payments...
+                Please do not close or refresh this page. Confirming transaction with PayU Payments...
               </p>
             </div>
           )}

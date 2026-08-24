@@ -215,6 +215,65 @@ checkoutRouter.post('/verify', authenticateJwt, async (req: AuthRequest, res: Re
   }
 });
 
+// 5. POST /api/checkout/payu/response — PayU Redirection Callback (surl / furl)
+checkoutRouter.all('/payu/response', async (req: Request, res: Response) => {
+  const body = req.body || {};
+  const query = req.query || {};
+  const internalOrderId = body.txnid || body.udf3 || query.txnid?.toString();
+
+  const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://lightningapi.pro').replace(/\/$/, '');
+
+  if (!internalOrderId) {
+    return res.redirect(`${appUrl}/dashboard/orders?payment=failed&error=missing_transaction_id`);
+  }
+
+  try {
+    const order = await prisma.order.findUnique({ where: { internalOrderId } });
+    if (!order) {
+      return res.redirect(`${appUrl}/dashboard/orders?payment=failed&error=order_not_found`);
+    }
+
+    const provider = getPaymentProvider();
+    const verification = await provider.verifyPayment({
+      internalOrderId,
+      gatewayOrderId: internalOrderId,
+      gatewayPaymentId: body.mihpayid || body.payuMoneyId || `payu_${Date.now()}`,
+      payload: body,
+    });
+
+    if (verification.isVerified) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: 'CAPTURED',
+          paidAmountInr: verification.paidAmount || order.amountInr,
+          gatewayPaymentId: verification.gatewayPaymentId,
+          paidAt: new Date(),
+        },
+      });
+
+      const fulfillment = await fulfillOrder(order.internalOrderId);
+
+      // Redirect to orders dashboard with key revealed parameter
+      return res.redirect(`${appUrl}/dashboard/orders?order_id=${order.internalOrderId}&payment=success&key_revealed=true`);
+    } else {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: 'FAILED',
+          failureReason: verification.failureReason || body.error_Message || 'PayU transaction cancelled or failed.',
+        },
+      });
+
+      const reason = encodeURIComponent(verification.failureReason || body.error_Message || 'Payment cancelled');
+      return res.redirect(`${appUrl}/dashboard/orders?order_id=${order.internalOrderId}&payment=failed&error=${reason}`);
+    }
+  } catch (err: any) {
+    console.error('PayU callback handling error:', err);
+    return res.redirect(`${appUrl}/dashboard/orders?order_id=${internalOrderId}&payment=failed&error=system_error`);
+  }
+});
+
 // 5. POST /api/webhooks/payment — Generic Webhook Architecture (Signature Verified & Idempotent)
 export async function handlePaymentWebhook(req: Request, res: Response) {
   try {

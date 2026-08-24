@@ -133,6 +133,7 @@ app.use('/api', healthRouter);
 app.use('/api/user/notifications', notificationsRouter);
 app.use('/api/checkout', checkoutRouter);
 app.post('/api/webhooks/payment', handlePaymentWebhook);
+app.post('/api/webhooks/payu', handlePaymentWebhook);
 app.post('/api/webhooks/cashfree', handlePaymentWebhook);
 
 app.use('/api/admin/auth', adminAuthRouter);

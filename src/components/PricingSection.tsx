@@ -215,7 +215,7 @@ export const PricingSection: React.FC = () => {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span>Instant Cashfree Payments Gateway</span>
+                        <span>Instant PayU Secured Gateway (UPI / Cards)</span>
                       </li>
                     </ul>
                   </div>

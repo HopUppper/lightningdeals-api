@@ -3196,5 +3196,450 @@ router.post('/trials/:id/revoke', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// ==========================================
+// 34. Dynamic Plans Catalog CRUD
+// ==========================================
+
+// GET /api/admin/plans-catalog — List all plans with subscriber counts
+router.get('/plans-catalog', async (req: AuthRequest, res: Response) => {
+  try {
+    const plans = await prisma.plan.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    // Enriched with subscriber counts
+    const enrichedPlans = await Promise.all(
+      plans.map(async (p) => {
+        const activeSubCount = await prisma.subscription.count({
+          where: {
+            planId: p.slug || p.id,
+            status: 'ACTIVE',
+            expiryTime: { gt: new Date() },
+          },
+        });
+        const totalSalesCount = await prisma.order.count({
+          where: {
+            planId: p.slug || p.id,
+            paymentStatus: 'CAPTURED',
+          },
+        });
+
+        let features: string[] = [];
+        if (p.featuresJson) {
+          try {
+            features = JSON.parse(p.featuresJson);
+          } catch (e) {}
+        }
+
+        return {
+          id: p.id,
+          slug: p.slug,
+          name: p.name,
+          displayName: p.displayName,
+          tokenAllowance: p.tokenAllowance.toString(),
+          tokenDisplay: p.tokenDisplay,
+          windowHours: p.windowHours,
+          validityDays: p.validityDays,
+          rateLimitRpm: p.rateLimitRpm,
+          priceInr: p.priceInr,
+          originalPriceInr: p.originalPriceInr,
+          currency: p.currency,
+          tagline: p.tagline,
+          badge: p.badge,
+          features,
+          featured: p.featured,
+          enabled: p.enabled,
+          sortOrder: p.sortOrder,
+          status: p.status,
+          activeSubCount,
+          totalSalesCount,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+        };
+      })
+    );
+
+    res.json({ success: true, plans: enrichedPlans });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/plans-catalog — Create a new subscription plan
+router.post('/plans-catalog', async (req: AuthRequest, res: Response) => {
+  const {
+    name,
+    displayName,
+    tokenAllowance,
+    tokenDisplay,
+    windowHours,
+    validityDays,
+    rateLimitRpm,
+    priceInr,
+    originalPriceInr,
+    tagline,
+    badge,
+    features,
+    featured,
+    enabled,
+    sortOrder,
+  } = req.body;
+
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ error: { message: 'Plan name is required.' } });
+  }
+
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+  try {
+    const newPlan = await prisma.plan.create({
+      data: {
+        slug,
+        name: name.trim(),
+        displayName: displayName || name.trim(),
+        tokenAllowance: BigInt(tokenAllowance || 5000000),
+        tokenDisplay: tokenDisplay || `${Number(tokenAllowance || 5000000) / 1000000}M TOKENS / ${windowHours || 5} HOURS`,
+        windowHours: Number(windowHours) || 5,
+        validityDays: Number(validityDays) || 30,
+        rateLimitRpm: Number(rateLimitRpm) || 100,
+        priceInr: Number(priceInr) || 2499,
+        originalPriceInr: originalPriceInr ? Number(originalPriceInr) : null,
+        tagline: tagline || null,
+        badge: badge || null,
+        featuresJson: features && Array.isArray(features) ? JSON.stringify(features) : null,
+        featured: Boolean(featured),
+        enabled: enabled !== undefined ? Boolean(enabled) : true,
+        sortOrder: Number(sortOrder) || 0,
+        status: 'active',
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'CREATE_PLAN',
+        targetType: 'Plan',
+        targetId: newPlan.id,
+        metadata: `Created plan ${newPlan.name} at ₹${newPlan.priceInr}`,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      plan: {
+        ...newPlan,
+        tokenAllowance: newPlan.tokenAllowance.toString(),
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// PUT /api/admin/plans-catalog/:id — Update an existing subscription plan
+router.put('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const {
+    name,
+    displayName,
+    tokenAllowance,
+    tokenDisplay,
+    windowHours,
+    validityDays,
+    rateLimitRpm,
+    priceInr,
+    originalPriceInr,
+    tagline,
+    badge,
+    features,
+    featured,
+    enabled,
+    sortOrder,
+  } = req.body;
+
+  try {
+    const existing = await prisma.plan.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: { message: 'Plan not found.' } });
+    }
+
+    const updated = await prisma.plan.update({
+      where: { id },
+      data: {
+        name: name ? name.trim() : existing.name,
+        displayName: displayName || existing.displayName,
+        tokenAllowance: tokenAllowance !== undefined ? BigInt(tokenAllowance) : existing.tokenAllowance,
+        tokenDisplay: tokenDisplay !== undefined ? tokenDisplay : existing.tokenDisplay,
+        windowHours: windowHours !== undefined ? Number(windowHours) : existing.windowHours,
+        validityDays: validityDays !== undefined ? Number(validityDays) : existing.validityDays,
+        rateLimitRpm: rateLimitRpm !== undefined ? Number(rateLimitRpm) : existing.rateLimitRpm,
+        priceInr: priceInr !== undefined ? Number(priceInr) : existing.priceInr,
+        originalPriceInr: originalPriceInr !== undefined ? (originalPriceInr ? Number(originalPriceInr) : null) : existing.originalPriceInr,
+        tagline: tagline !== undefined ? tagline : existing.tagline,
+        badge: badge !== undefined ? badge : existing.badge,
+        featuresJson: features !== undefined ? (Array.isArray(features) ? JSON.stringify(features) : null) : existing.featuresJson,
+        featured: featured !== undefined ? Boolean(featured) : existing.featured,
+        enabled: enabled !== undefined ? Boolean(enabled) : existing.enabled,
+        sortOrder: sortOrder !== undefined ? Number(sortOrder) : existing.sortOrder,
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'UPDATE_PLAN',
+        targetType: 'Plan',
+        targetId: updated.id,
+        metadata: `Updated plan ${updated.name} (Price: ₹${updated.priceInr})`,
+      },
+    });
+
+    res.json({
+      success: true,
+      plan: {
+        ...updated,
+        tokenAllowance: updated.tokenAllowance.toString(),
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// PATCH /api/admin/plans-catalog/:id/toggle — Toggle enable/disable plan
+router.patch('/plans-catalog/:id/toggle', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const existing = await prisma.plan.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Plan not found.' } });
+
+    const updated = await prisma.plan.update({
+      where: { id },
+      data: { enabled: !existing.enabled },
+    });
+
+    res.json({ success: true, enabled: updated.enabled });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// DELETE /api/admin/plans-catalog/:id — Delete / Archive a plan
+router.delete('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const existing = await prisma.plan.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Plan not found.' } });
+
+    // Check if there are active subscriptions on this plan
+    const activeSubs = await prisma.subscription.count({
+      where: { planId: existing.slug || existing.id, status: 'ACTIVE' },
+    });
+
+    if (activeSubs > 0) {
+      // Soft-archive if active subscribers exist
+      await prisma.plan.update({
+        where: { id },
+        data: { enabled: false, status: 'archived' },
+      });
+      return res.json({ success: true, message: `Plan archived (${activeSubs} active subscriptions preserved).` });
+    }
+
+    await prisma.plan.delete({ where: { id } });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'DELETE_PLAN',
+        targetType: 'Plan',
+        targetId: id,
+        metadata: `Deleted plan ${existing.name}`,
+      },
+    });
+
+    res.json({ success: true, message: 'Plan deleted successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// ==========================================
+// 35. Coupons & Promo Codes CRUD
+// ==========================================
+
+// GET /api/admin/coupons — List all promo codes with stats
+router.get('/coupons', async (req: AuthRequest, res: Response) => {
+  try {
+    const coupons = await prisma.coupon.findMany({
+      include: {
+        _count: {
+          select: { usages: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ success: true, coupons });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/coupons — Create a new promo code
+router.post('/coupons', async (req: AuthRequest, res: Response) => {
+  const {
+    code,
+    discountType,
+    discountValue,
+    minOrderAmountInr,
+    maxDiscountInr,
+    applicablePlanIds,
+    maxUses,
+    maxUsesPerUser,
+    status,
+    expiresAt,
+    description,
+  } = req.body;
+
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: { message: 'Coupon code is required.' } });
+  }
+
+  const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+
+  try {
+    const existing = await prisma.coupon.findUnique({ where: { code: cleanCode } });
+    if (existing) {
+      return res.status(400).json({ error: { message: `Coupon code '${cleanCode}' already exists.` } });
+    }
+
+    const coupon = await prisma.coupon.create({
+      data: {
+        code: cleanCode,
+        discountType: discountType === 'FLAT_INR' ? 'FLAT_INR' : 'PERCENTAGE',
+        discountValue: Number(discountValue) || 10,
+        minOrderAmountInr: Number(minOrderAmountInr) || 0,
+        maxDiscountInr: maxDiscountInr ? Number(maxDiscountInr) : null,
+        applicablePlanIds: applicablePlanIds || 'ALL',
+        maxUses: maxUses ? Number(maxUses) : null,
+        maxUsesPerUser: Number(maxUsesPerUser) || 1,
+        status: status || 'ACTIVE',
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        description: description || null,
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'CREATE_COUPON',
+        targetType: 'Coupon',
+        targetId: coupon.id,
+        metadata: `Created coupon ${coupon.code} (${coupon.discountValue}${coupon.discountType === 'PERCENTAGE' ? '%' : '₹'} off)`,
+      },
+    });
+
+    res.status(201).json({ success: true, coupon });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// PUT /api/admin/coupons/:id — Update a promo code
+router.put('/coupons/:id', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const {
+    discountType,
+    discountValue,
+    minOrderAmountInr,
+    maxDiscountInr,
+    applicablePlanIds,
+    maxUses,
+    maxUsesPerUser,
+    status,
+    expiresAt,
+    description,
+  } = req.body;
+
+  try {
+    const existing = await prisma.coupon.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Coupon not found.' } });
+
+    const updated = await prisma.coupon.update({
+      where: { id },
+      data: {
+        discountType: discountType !== undefined ? (discountType === 'FLAT_INR' ? 'FLAT_INR' : 'PERCENTAGE') : existing.discountType,
+        discountValue: discountValue !== undefined ? Number(discountValue) : existing.discountValue,
+        minOrderAmountInr: minOrderAmountInr !== undefined ? Number(minOrderAmountInr) : existing.minOrderAmountInr,
+        maxDiscountInr: maxDiscountInr !== undefined ? (maxDiscountInr ? Number(maxDiscountInr) : null) : existing.maxDiscountInr,
+        applicablePlanIds: applicablePlanIds !== undefined ? applicablePlanIds : existing.applicablePlanIds,
+        maxUses: maxUses !== undefined ? (maxUses ? Number(maxUses) : null) : existing.maxUses,
+        maxUsesPerUser: maxUsesPerUser !== undefined ? Number(maxUsesPerUser) : existing.maxUsesPerUser,
+        status: status !== undefined ? status : existing.status,
+        expiresAt: expiresAt !== undefined ? (expiresAt ? new Date(expiresAt) : null) : existing.expiresAt,
+        description: description !== undefined ? description : existing.description,
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'UPDATE_COUPON',
+        targetType: 'Coupon',
+        targetId: updated.id,
+        metadata: `Updated coupon ${updated.code}`,
+      },
+    });
+
+    res.json({ success: true, coupon: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// PATCH /api/admin/coupons/:id/toggle — Toggle coupon status
+router.patch('/coupons/:id/toggle', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const existing = await prisma.coupon.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Coupon not found.' } });
+
+    const newStatus = existing.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+    const updated = await prisma.coupon.update({
+      where: { id },
+      data: { status: newStatus },
+    });
+
+    res.json({ success: true, status: updated.status });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// DELETE /api/admin/coupons/:id — Delete promo code
+router.delete('/coupons/:id', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const existing = await prisma.coupon.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Coupon not found.' } });
+
+    await prisma.coupon.delete({ where: { id } });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'DELETE_COUPON',
+        targetType: 'Coupon',
+        targetId: id,
+        metadata: `Deleted coupon ${existing.code}`,
+      },
+    });
+
+    res.json({ success: true, message: 'Coupon deleted successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 export default router;
 

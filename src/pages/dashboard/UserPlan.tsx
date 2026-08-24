@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag } from 'lucide-react';
+import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 import { adminFetch } from '../../utils/api';
 import { CheckoutModal } from '../../components/CheckoutModal';
 import { ApiKeyRevealModal } from '../../components/ApiKeyRevealModal';
 
 export const UserPlan: React.FC = () => {
   const { user } = useAuth();
+  const { addToCart } = useCart();
   const [data, setData] = useState<any>(null);
   const [trialStatus, setTrialStatus] = useState<any>(null);
+  const [availablePlans, setAvailablePlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [claimingTrial, setClaimingTrial] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
@@ -27,9 +30,10 @@ export const UserPlan: React.FC = () => {
 
   const fetchSubscriptions = async () => {
     try {
-      const [subRes, trialRes] = await Promise.all([
+      const [subRes, trialRes, plansRes] = await Promise.all([
         adminFetch('/api/user/subscriptions'),
         adminFetch('/api/user/trial/status').catch(() => null),
+        fetch('/api/checkout/plans').catch(() => null),
       ]);
 
       if (subRes.ok) {
@@ -40,6 +44,13 @@ export const UserPlan: React.FC = () => {
       if (trialRes && trialRes.ok) {
         const tData = await trialRes.json();
         setTrialStatus(tData);
+      }
+
+      if (plansRes && plansRes.ok) {
+        const pData = await plansRes.json();
+        if (pData.plans && Array.isArray(pData.plans)) {
+          setAvailablePlans(pData.plans);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -304,162 +315,162 @@ export const UserPlan: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* PRO PLAN */}
-          <div className="p-6 rounded-panel bg-card border border-border flex flex-col justify-between space-y-5 shadow-xs hover:border-violet-300 transition-all">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200/60">
-                  Daily Coding
-                </span>
-                <span className="text-xs font-mono text-muted">30 Days</span>
-              </div>
-              <div>
-                <h3 className="text-xl font-extrabold text-fg">PRO</h3>
-                <p className="text-xs text-muted font-mono mt-0.5">5M Tokens / 5 Hours</p>
-              </div>
-              <div className="pt-2 border-t border-border">
-                <span className="text-2xl font-extrabold font-mono text-fg">₹2,499</span>
-                <span className="text-xs text-muted font-mono"> / month</span>
-              </div>
-              <ul className="space-y-2 text-xs font-mono text-muted pt-2">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>5,000,000 Tokens / 5h</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Claude 3.5 Sonnet & Haiku</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Instant Automated Delivery</span>
-                </li>
-              </ul>
-            </div>
-
-            <button
-              onClick={() =>
-                setSelectedPlanForCheckout({
+          {(availablePlans.length > 0
+            ? availablePlans
+            : [
+                {
                   id: 'pro',
                   name: 'PRO',
-                  priceInr: 2499,
+                  displayName: 'PRO (5M / 5h Window)',
+                  tokenAllowance: '5000000',
                   tokenDisplay: '5M TOKENS / 5 HOURS',
                   windowHours: 5,
                   validityDays: 30,
-                })
-              }
-              className="w-full py-3 rounded-control bg-fg text-bg hover:bg-fg/90 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs"
-            >
-              <Zap className="w-4 h-4" />
-              <span>BUY PRO — ₹2,499</span>
-            </button>
-          </div>
-
-          {/* MAX PLAN (FEATURED) */}
-          <div className="p-6 rounded-panel bg-card border-2 border-violet-500 relative flex flex-col justify-between space-y-5 shadow-lg shadow-violet-500/10">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white text-[10px] font-mono font-extrabold uppercase px-3 py-0.5 rounded-full shadow-sm">
-              MOST POPULAR
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200/60">
-                  Power Users
-                </span>
-                <span className="text-xs font-mono text-muted">30 Days</span>
-              </div>
-              <div>
-                <h3 className="text-xl font-extrabold text-fg">MAX (20x)</h3>
-                <p className="text-xs text-muted font-mono mt-0.5">20M Tokens / 5 Hours</p>
-              </div>
-              <div className="pt-2 border-t border-border">
-                <span className="text-2xl font-extrabold font-mono text-violet-700">₹4,999</span>
-                <span className="text-xs text-muted font-mono"> / month</span>
-              </div>
-              <ul className="space-y-2 text-xs font-mono text-muted pt-2">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>20,000,000 Tokens / 5h</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Claude 3.5 Sonnet, Opus & Fable</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Sub-50ms Gateway Routing</span>
-                </li>
-              </ul>
-            </div>
-
-            <button
-              onClick={() =>
-                setSelectedPlanForCheckout({
+                  priceInr: 2499,
+                  originalPriceInr: 3499,
+                  badge: 'STARTER CHOICE',
+                  featured: false,
+                  features: ['5,000,000 Tokens / 5h', 'Claude 3.5 Sonnet & Haiku', 'Instant Automated Delivery'],
+                },
+                {
                   id: 'max',
-                  name: 'MAX (20x)',
-                  priceInr: 4999,
+                  name: 'MAX',
+                  displayName: 'MAX (20M / 5h Window)',
+                  tokenAllowance: '20000000',
                   tokenDisplay: '20M TOKENS / 5 HOURS',
                   windowHours: 5,
                   validityDays: 30,
-                })
-              }
-              className="w-full py-3 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-violet-500/25"
-            >
-              <Zap className="w-4 h-4 fill-current" />
-              <span>BUY MAX — ₹4,999</span>
-            </button>
-          </div>
-
-          {/* ULTRA PLAN */}
-          <div className="p-6 rounded-panel bg-card border border-border flex flex-col justify-between space-y-5 shadow-xs hover:border-violet-300 transition-all">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200/60">
-                  Engineering Teams
-                </span>
-                <span className="text-xs font-mono text-muted">30 Days</span>
-              </div>
-              <div>
-                <h3 className="text-xl font-extrabold text-fg">ULTRA</h3>
-                <p className="text-xs text-muted font-mono mt-0.5">40M Tokens / 5 Hours</p>
-              </div>
-              <div className="pt-2 border-t border-border">
-                <span className="text-2xl font-extrabold font-mono text-fg">₹8,999</span>
-                <span className="text-xs text-muted font-mono"> / month</span>
-              </div>
-              <ul className="space-y-2 text-xs font-mono text-muted pt-2">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>40,000,000 Tokens / 5h</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Max Concurrency & Dedicated Throughput</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>VIP Priority Support</span>
-                </li>
-              </ul>
-            </div>
-
-            <button
-              onClick={() =>
-                setSelectedPlanForCheckout({
+                  priceInr: 4999,
+                  originalPriceInr: 7499,
+                  badge: 'MOST POPULAR',
+                  featured: true,
+                  features: ['20,000,000 Tokens / 5h', 'Claude 3.5 Sonnet, Opus & Fable', 'Sub-50ms Gateway Routing'],
+                },
+                {
                   id: 'ultra',
                   name: 'ULTRA',
-                  priceInr: 8999,
+                  displayName: 'ULTRA (40M / 5h Window)',
+                  tokenAllowance: '40000000',
                   tokenDisplay: '40M TOKENS / 5 HOURS',
                   windowHours: 5,
                   validityDays: 30,
-                })
-              }
-              className="w-full py-3 rounded-control bg-fg text-bg hover:bg-fg/90 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs"
+                  priceInr: 8999,
+                  originalPriceInr: 12999,
+                  badge: 'BEST VALUE',
+                  featured: false,
+                  features: ['40,000,000 Tokens / 5h', 'Max Concurrency & Throughput', 'VIP Priority Support'],
+                },
+              ]
+          ).map((p: any) => (
+            <div
+              key={p.id}
+              className={`p-6 rounded-panel bg-card border flex flex-col justify-between space-y-5 shadow-xs relative transition-all ${
+                p.featured
+                  ? 'border-2 border-violet-500 shadow-lg shadow-violet-500/10'
+                  : 'border-border hover:border-violet-300'
+              }`}
             >
-              <Zap className="w-4 h-4" />
-              <span>BUY ULTRA — ₹8,999</span>
-            </button>
-          </div>
+              {p.badge && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white text-[10px] font-mono font-extrabold uppercase px-3 py-0.5 rounded-full shadow-sm">
+                  {p.badge}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200/60">
+                    {p.name}
+                  </span>
+                  <span className="text-xs font-mono text-muted">{p.validityDays || 30} Days</span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-extrabold text-fg">{p.displayName || p.name}</h3>
+                  <p className="text-xs text-muted font-mono mt-0.5">{p.tokenDisplay}</p>
+                </div>
+                <div className="pt-2 border-t border-border flex items-baseline gap-2">
+                  <span className={`text-2xl font-extrabold font-mono ${p.featured ? 'text-violet-700' : 'text-fg'}`}>
+                    ₹{p.priceInr.toLocaleString()}
+                  </span>
+                  {p.originalPriceInr && (
+                    <span className="text-xs text-muted line-through font-mono">
+                      ₹{p.originalPriceInr.toLocaleString()}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted font-mono"> / month</span>
+                </div>
+
+                <ul className="space-y-2 text-xs font-mono text-muted pt-2">
+                  {p.features && p.features.length > 0 ? (
+                    p.features.map((feat: string, idx: number) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{feat}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{p.tokenDisplay}</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{p.windowHours || 5}h Refresh Window</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Instant Automated Delivery</span>
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={() =>
+                    setSelectedPlanForCheckout({
+                      id: p.id,
+                      name: p.name,
+                      priceInr: p.priceInr,
+                      tokenDisplay: p.tokenDisplay,
+                      windowHours: p.windowHours || 5,
+                      validityDays: p.validityDays || 30,
+                    })
+                  }
+                  className={`w-full py-3 rounded-control font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs ${
+                    p.featured
+                      ? 'bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white shadow-violet-500/25'
+                      : 'bg-fg text-bg hover:bg-fg/90'
+                  }`}
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>BUY {p.name} — ₹{p.priceInr.toLocaleString()}</span>
+                </button>
+
+                <button
+                  onClick={() =>
+                    addToCart({
+                      id: p.id,
+                      planId: p.id,
+                      name: p.name,
+                      priceInr: p.priceInr,
+                      originalPriceInr: p.originalPriceInr,
+                      tokenDisplay: p.tokenDisplay,
+                      windowHours: p.windowHours || 5,
+                      validityDays: p.validityDays || 30,
+                      tagline: p.tagline,
+                      badge: p.badge,
+                    })
+                  }
+                  className="w-full py-2 rounded-control font-bold text-xs border border-border text-muted hover:text-fg hover:bg-subtle flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>ADD TO CART</span>
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

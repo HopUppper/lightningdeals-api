@@ -2,32 +2,73 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../db';
 import { authenticateJwt, AuthRequest } from '../auth';
-import { getAllActivePlans, getPlanById } from './plans';
+import { getAllActivePlansAsync, getPlanByIdAsync } from './plans';
 import { getPaymentProvider } from './index';
 import { fulfillOrder } from './fulfillment';
 import { recordSecurityLog } from '../authSecurity';
+import { validateCoupon, recordCouponUsage } from '../couponService';
 
 export const checkoutRouter = Router();
 
-// 1. GET /api/checkout/plans — Authoritative Active Server-Side Plans
-checkoutRouter.get('/plans', (req: Request, res: Response) => {
-  const plans = getAllActivePlans().map((p) => ({
-    id: p.id,
-    name: p.name,
-    displayName: p.displayName,
-    tokenAllowance: p.tokenAllowance.toString(),
-    tokenDisplay: p.tokenDisplay,
-    windowHours: p.windowHours,
-    validityDays: p.validityDays,
-    priceInr: p.priceInr,
-    currency: p.currency,
-    tagline: p.tagline,
-    featured: p.featured,
-  }));
-  res.json({ success: true, plans });
+// 1. GET /api/checkout/plans — Authoritative Active Server-Side Plans (DB backed + fallback)
+checkoutRouter.get('/plans', async (req: Request, res: Response) => {
+  try {
+    const plansList = await getAllActivePlansAsync();
+    const plans = plansList.map((p) => ({
+      id: p.id,
+      slug: p.slug || p.id,
+      name: p.name,
+      displayName: p.displayName,
+      tokenAllowance: p.tokenAllowance.toString(),
+      tokenDisplay: p.tokenDisplay,
+      windowHours: p.windowHours,
+      validityDays: p.validityDays,
+      priceInr: p.priceInr,
+      originalPriceInr: p.originalPriceInr,
+      currency: p.currency,
+      tagline: p.tagline,
+      badge: p.badge,
+      features: p.features,
+      featured: p.featured,
+    }));
+    res.json({ success: true, plans });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
 });
 
-// 2. GET /api/checkout/provider-health — Real Payment Provider Health Status
+// 2. POST /api/checkout/validate-coupon — Realtime Server-Side Coupon Verification
+checkoutRouter.post('/validate-coupon', async (req: Request, res: Response) => {
+  const { code, planId } = req.body;
+
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: { type: 'invalid_request', message: 'Coupon code is required.' } });
+  }
+
+  let priceInr = 4999;
+  if (planId) {
+    const plan = await getPlanByIdAsync(planId);
+    if (plan) {
+      priceInr = plan.priceInr;
+    }
+  }
+
+  const userId = (req as any).user?.id;
+  const result = await validateCoupon(code, priceInr, userId, planId);
+
+  if (!result.valid) {
+    return res.status(400).json({ success: false, error: result.error });
+  }
+
+  res.json({
+    success: true,
+    coupon: result.coupon,
+    discountAmountInr: result.discountAmountInr,
+    finalAmountInr: result.finalAmountInr,
+  });
+});
+
+// 3. GET /api/checkout/provider-health — Real Payment Provider Health Status
 checkoutRouter.get('/provider-health', async (req: Request, res: Response) => {
   try {
     const provider = getPaymentProvider();
@@ -38,21 +79,37 @@ checkoutRouter.get('/provider-health', async (req: Request, res: Response) => {
   }
 });
 
-// 3. POST /api/checkout/create-order — Create Internal Order & Gateway Order (Zero Frontend Price Trust)
+// 4. POST /api/checkout/create-order — Create Internal Order & Gateway Order (With Coupon Support)
 checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, res: Response) => {
-  const { planId } = req.body;
+  const { planId, couponCode } = req.body;
 
   if (!planId || typeof planId !== 'string') {
     return res.status(400).json({ error: { type: 'invalid_request', message: 'Plan ID is required.' } });
   }
 
   // Authoritative Server-Side Plan Lookup
-  const plan = getPlanById(planId);
+  const plan = await getPlanByIdAsync(planId);
   if (!plan) {
     return res.status(400).json({ error: { type: 'invalid_plan', message: 'The selected plan is unavailable or invalid.' } });
   }
 
   const user = req.user!;
+  let payableAmountInr = plan.priceInr;
+  let discountAmountInr = 0;
+  let appliedCouponId: string | null = null;
+  let verifiedCouponCode: string | null = null;
+
+  // Authoritative Server-Side Coupon Verification
+  if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
+    const couponValidation = await validateCoupon(couponCode, plan.priceInr, user.id, plan.id);
+    if (couponValidation.valid && couponValidation.coupon) {
+      discountAmountInr = couponValidation.discountAmountInr;
+      payableAmountInr = couponValidation.finalAmountInr;
+      appliedCouponId = couponValidation.coupon.id;
+      verifiedCouponCode = couponValidation.coupon.code;
+    }
+  }
+
   const internalOrderId = `LD-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
   try {
@@ -65,7 +122,10 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
         planName: plan.name,
         tokenQuantity: plan.tokenAllowance,
         windowHours: plan.windowHours,
-        amountInr: plan.priceInr,
+        amountInr: payableAmountInr,
+        originalAmountInr: plan.priceInr,
+        discountAmountInr: discountAmountInr,
+        couponCode: verifiedCouponCode,
         currency: plan.currency,
         paymentStatus: 'CREATED',
         fulfillmentStatus: 'NOT_FULFILLED',
@@ -73,11 +133,11 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
       },
     });
 
-    // 2. Create Gateway Order via Abstraction Layer
+    // 2. Create Gateway Order via Abstraction Layer with payableAmountInr
     const provider = getPaymentProvider();
     const gatewayResult = await provider.createOrder({
       internalOrderId: order.internalOrderId,
-      amountInr: plan.priceInr,
+      amountInr: payableAmountInr,
       currency: plan.currency,
       planId: plan.id,
       planName: plan.name,
@@ -102,6 +162,17 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
       },
     });
 
+    // If coupon was applied, record usage tracking
+    if (appliedCouponId) {
+      await recordCouponUsage({
+        couponId: appliedCouponId,
+        userId: user.id,
+        orderId: order.id,
+        discountAmount: discountAmountInr,
+        finalAmount: payableAmountInr,
+      });
+    }
+
     await recordSecurityLog({
       userId: user.id,
       email: user.email,
@@ -111,7 +182,10 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
         internalOrderId: order.internalOrderId,
         gatewayOrderId: gatewayResult.gatewayOrderId,
         planId: plan.id,
-        amountInr: plan.priceInr,
+        amountInr: payableAmountInr,
+        originalAmountInr: plan.priceInr,
+        discountAmountInr,
+        couponCode: verifiedCouponCode,
       },
     });
 
@@ -122,7 +196,10 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
         gatewayOrderId: gatewayResult.gatewayOrderId,
         planId: plan.id,
         planName: plan.name,
-        amountInr: plan.priceInr,
+        amountInr: payableAmountInr,
+        originalAmountInr: plan.priceInr,
+        discountAmountInr,
+        couponCode: verifiedCouponCode,
         currency: plan.currency,
         checkoutUrl: gatewayResult.checkoutUrl,
         metadata: gatewayResult.metadata,

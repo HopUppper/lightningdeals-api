@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
+import { CheckoutCartDrawer } from './components/CheckoutCartDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const ScrollToHash: React.FC = () => {
@@ -184,8 +186,9 @@ export function App() {
     <ErrorBoundary>
       <AuthProvider>
         <BrowserRouter>
-          <ScrollToHash />
-          <Suspense fallback={<PageLoader />}>
+          <CartProvider>
+            <ScrollToHash />
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />
@@ -273,7 +276,9 @@ export function App() {
               {/* Catch-all 404 Route */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            <CheckoutCartDrawer />
           </Suspense>
+          </CartProvider>
         </BrowserRouter>
       </AuthProvider>
     </ErrorBoundary>

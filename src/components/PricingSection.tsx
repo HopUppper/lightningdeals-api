@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Sparkles, MessageSquare, Table, LayoutGrid, ShieldCheck, Zap, ArrowRight, Gift } from 'lucide-react';
+import { Check, Sparkles, MessageSquare, Table, LayoutGrid, ShieldCheck, Zap, ArrowRight, Gift, ShoppingBag } from 'lucide-react';
 import { ThreeDCard } from './ThreeDCard';
 import { CheckoutModal } from './CheckoutModal';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import { useNavigate, Link } from 'react-router-dom';
 
 export interface PlanItem {
@@ -14,13 +15,17 @@ export interface PlanItem {
   windowHours: number;
   validityDays: number;
   priceInr: number;
+  originalPriceInr?: number;
   currency: string;
   tagline: string;
+  badge?: string;
+  features?: string[];
   featured: boolean;
 }
 
 export const PricingSection: React.FC = () => {
   const { user } = useAuth();
+  const { addToCart } = useCart();
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [plans, setPlans] = useState<PlanItem[]>([]);
@@ -36,9 +41,11 @@ export const PricingSection: React.FC = () => {
       windowHours: 5,
       validityDays: 30,
       priceInr: 2499,
+      originalPriceInr: 3499,
       currency: 'INR',
       tagline: 'High-performance access for active daily coding assistance',
-      featured: true,
+      badge: 'STARTER CHOICE',
+      featured: false,
     },
     {
       id: 'max',
@@ -168,10 +175,10 @@ export const PricingSection: React.FC = () => {
                     pkg.featured ? 'border-violet-500 shadow-2xl ring-2 ring-violet-500/20 bg-violet-500/5' : ''
                   }`}
                 >
-                  {pkg.featured && (
+                  {pkg.badge && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 text-white font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-md">
                       <Sparkles className="w-3 h-3 fill-current" />
-                      <span>MOST POPULAR</span>
+                      <span>{pkg.badge}</span>
                     </div>
                   )}
 
@@ -182,45 +189,57 @@ export const PricingSection: React.FC = () => {
                     </div>
 
                     <div className="py-4 border-y border-border space-y-1">
-                      <div className="flex items-baseline gap-1">
+                      <div className="flex items-baseline gap-2">
                         <span className="text-3xl sm:text-4xl font-extrabold tracking-tight font-mono text-violet-700">
                           ₹{pkg.priceInr.toLocaleString()}
                         </span>
+                        {pkg.originalPriceInr && (
+                          <span className="text-sm font-mono text-muted line-through">
+                            ₹{pkg.originalPriceInr.toLocaleString()}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs font-mono font-bold text-fg">
                         {pkg.tokenDisplay}
                       </div>
                       <div className="text-[11px] font-mono text-muted flex items-center gap-1 pt-1">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>30 DAYS VALIDITY</span>
+                        <span>{pkg.validityDays} DAYS VALIDITY</span>
                       </div>
                     </div>
 
                     <ul className="space-y-2.5 text-xs text-muted">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span className="font-semibold text-fg">AUTOMATIC QUOTA REFRESH</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span>Every {pkg.windowHours} Hours Reset Window</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span>Claude Opus 5, Fable 5, Sonnet 5 & Haiku 4.5</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span className="font-semibold text-fg">...and Many More Top Models</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span>Instant Automated API Key Delivery (UPI / Cards)</span>
-                      </li>
+                      {pkg.features && pkg.features.length > 0 ? (
+                        pkg.features.map((f, i) => (
+                          <li key={i} className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span>{f}</span>
+                          </li>
+                        ))
+                      ) : (
+                        <>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="font-semibold text-fg">AUTOMATIC QUOTA REFRESH</span>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span>Every {pkg.windowHours} Hours Reset Window</span>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span>Claude 3.5 Sonnet, Opus & Haiku Models</span>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span>Instant Automated API Key Delivery (UPI / Cards)</span>
+                          </li>
+                        </>
+                      )}
                     </ul>
                   </div>
 
-                  <div className="pt-6">
+                  <div className="pt-6 space-y-2">
                     <button
                       onClick={() => handleSelectPlan(pkg)}
                       className={`w-full py-3.5 rounded-control font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all ${
@@ -230,7 +249,28 @@ export const PricingSection: React.FC = () => {
                       }`}
                     >
                       <Zap className="w-4 h-4" />
-                      <span>BUY NOW</span>
+                      <span>BUY NOW — ₹{pkg.priceInr.toLocaleString()}</span>
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        addToCart({
+                          id: pkg.id,
+                          planId: pkg.id,
+                          name: pkg.name,
+                          priceInr: pkg.priceInr,
+                          originalPriceInr: pkg.originalPriceInr,
+                          tokenDisplay: pkg.tokenDisplay,
+                          windowHours: pkg.windowHours,
+                          validityDays: pkg.validityDays,
+                          tagline: pkg.tagline,
+                          badge: pkg.badge,
+                        })
+                      }
+                      className="w-full py-2.5 rounded-control font-bold text-xs border border-border text-muted hover:text-fg hover:bg-subtle flex items-center justify-center gap-2 transition-all"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>ADD TO CART</span>
                     </button>
                   </div>
                 </div>

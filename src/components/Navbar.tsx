@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut, User as UserIcon } from 'lucide-react';
+import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut, User as UserIcon, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 
 export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { cartItems, openCart } = useCart();
   const location = useLocation();
   const navigate = useNavigate();
   const isHomePage = location.pathname === '/';
@@ -87,6 +89,20 @@ export const Navbar: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="hidden items-center gap-2 md:flex">
+          {/* Cart Trigger */}
+          <button
+            onClick={openCart}
+            className="relative p-2 rounded-control text-muted hover:text-fg hover:bg-subtle transition-colors flex items-center gap-1.5"
+            title="Shopping Cart"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            {cartItems.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-violet-600 text-white font-mono font-extrabold text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+                {cartItems.length}
+              </span>
+            )}
+          </button>
+
           {user ? (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-2xl p-1 pl-3 text-xs">
               <span className="font-bold text-slate-700 font-mono truncate max-w-[130px]" title={user.email}>
@@ -129,6 +145,19 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile Menu Toggle */}
         <div className="flex items-center gap-2 md:hidden">
+          <button
+            onClick={openCart}
+            className="relative p-2 rounded-control text-muted hover:text-fg hover:bg-subtle"
+            title="Shopping Cart"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            {cartItems.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-violet-600 text-white font-mono font-extrabold text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+                {cartItems.length}
+              </span>
+            )}
+          </button>
+
           {!user ? (
             <Link
               to="/login"

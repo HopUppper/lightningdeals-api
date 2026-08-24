@@ -49,6 +49,7 @@ model User {
   securityLogs        SecurityLog[]
   notifications       Notification[]
   subscriptions       Subscription[]
+  couponUsages        CouponUsage[]
 }
 
 
@@ -182,6 +183,9 @@ model Order {
   tokenQuantity     BigInt        @default(5000000)
   windowHours       Int           @default(5)
   amountInr         Float
+  originalAmountInr Float?
+  discountAmountInr Float?        @default(0)
+  couponCode        String?
   paidAmountInr     Float?
   currency          String        @default("INR")
   status            String        @default("PENDING") // "PENDING" | "PAID" | "FAILED" | "CANCELLED" (Legacy compatibility)
@@ -274,17 +278,62 @@ model Subscription {
 }
 
 model Plan {
-  id              String   @id @default(uuid())
-  name            String   @unique
-  displayName     String
-  tokenAllowance  BigInt   @default(20000000)
-  windowHours     Int      @default(5)
-  validityDays    Int      @default(30)
-  rateLimitRpm    Int      @default(60)
-  status          String   @default("active") // "active" | "archived"
-  description     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(uuid())
+  slug             String?  @unique
+  name             String   @unique
+  displayName      String
+  tokenAllowance   BigInt   @default(20000000)
+  tokenDisplay     String?
+  windowHours      Int      @default(5)
+  validityDays     Int      @default(30)
+  rateLimitRpm     Int      @default(100)
+  priceInr         Float    @default(4999)
+  originalPriceInr Float?
+  currency         String   @default("INR")
+  tagline          String?
+  badge            String?
+  featuresJson     String?
+  featured         Boolean  @default(false)
+  enabled          Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  status           String   @default("active") // "active" | "archived"
+  description      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Coupon {
+  id                String        @id @default(uuid())
+  code              String        @unique
+  discountType      String        @default("PERCENTAGE") // "PERCENTAGE" | "FLAT_INR"
+  discountValue     Float
+  minOrderAmountInr Float         @default(0)
+  maxDiscountInr    Float?
+  applicablePlanIds String?       // JSON array or "ALL"
+  maxUses           Int?
+  usedCount         Int           @default(0)
+  maxUsesPerUser    Int           @default(1)
+  status            String        @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "DISABLED"
+  expiresAt         DateTime?
+  description       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  usages            CouponUsage[]
+}
+
+model CouponUsage {
+  id             String   @id @default(uuid())
+  couponId       String
+  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId        String?
+  discountAmount Float
+  finalAmount    Float
+  usedAt         DateTime @default(now())
+
+  @@index([couponId, userId])
+  @@index([userId])
 }
 
 model Model {

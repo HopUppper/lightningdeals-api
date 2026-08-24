@@ -3,6 +3,8 @@ import path from 'path';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router';
+import { AuthProvider } from '../src/context/AuthContext';
+import { CartProvider } from '../src/context/CartContext';
 
 // Component imports
 import { LandingPage, PublicPricingPage } from '../src/App';
@@ -259,7 +261,15 @@ console.log('⚡ Starting SSG Pre-rendering for LightningDeals marketing pages..
 for (const route of routes) {
   try {
     const appHtml = renderToString(
-      React.createElement(StaticRouter, { location: route.path }, React.createElement(route.component))
+      React.createElement(
+        AuthProvider,
+        null,
+        React.createElement(
+          CartProvider,
+          null,
+          React.createElement(StaticRouter, { location: route.path }, React.createElement(route.component))
+        )
+      )
     );
 
     let html = template.replace(

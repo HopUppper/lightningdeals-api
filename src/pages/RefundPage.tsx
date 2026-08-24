@@ -92,9 +92,9 @@ export const RefundPage: React.FC = () => {
               <p>To request a refund:</p>
               <ol className="list-decimal pl-5 space-y-2 text-xs font-mono">
                 <li>Submit a support ticket in your Customer Portal or email <a href="mailto:support@lightningdeals.in" className="text-violet-600 underline font-bold">support@lightningdeals.in</a>.</li>
-                <li>Provide your <strong>Order ID</strong> (e.g., `ORD_...` or PayU transaction reference) and registered email address.</li>
+                <li>Provide your <strong>Order ID</strong> (e.g., `ORD_...` or payment transaction reference) and registered email address.</li>
                 <li>Our team will inspect transaction records and key token consumption metrics within 24 hours.</li>
-                <li>If approved, refunds are initiated directly to your original payment method via PayU Payments. Refund crediting timing depends on your bank (typically 3–7 business days).</li>
+                <li>If approved, refunds are processed directly to your original payment method. Refund crediting timing depends on your bank (typically 3–7 business days).</li>
               </ol>
             </section>
 

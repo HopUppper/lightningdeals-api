@@ -145,7 +145,7 @@ export const TermsPage: React.FC = () => {
                 <span>6. Payments, Checkout & Currency</span>
               </h2>
               <p>
-                All product prices are displayed in Indian Rupees (INR ₹) on the website checkout page. Payments are securely processed through encrypted third-party payment processors (including <strong>PayU Payments</strong>). Lightning Deals does NOT store complete credit card numbers, CVV codes, or banking passwords on our servers. The price presented at final checkout is the binding purchase price.
+                All product prices are displayed in Indian Rupees (INR ₹) on the website checkout page. Payments are securely processed through encrypted third-party payment processors and certified banking gateways. Lightning Deals does NOT store complete credit card numbers, CVV codes, or banking passwords on our servers. The price presented at final checkout is the binding purchase price.
               </p>
             </section>
 

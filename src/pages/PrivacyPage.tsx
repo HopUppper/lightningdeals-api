@@ -55,7 +55,7 @@ export const PrivacyPage: React.FC = () => {
               <ul className="list-disc pl-5 space-y-2 text-xs font-mono">
                 <li><strong>Account Credentials:</strong> Full name, account email address, phone number (where provided), and scrypt-hashed passwords.</li>
                 <li><strong>Telemetry & Usage Data:</strong> Token consumption totals (input, output, and aggregate tokens), request latency (ms), model identifiers, and API status codes.</li>
-                <li><strong>Order & Payment Identifiers:</strong> Internal Order IDs, PayU transaction references, payment status, purchase amounts, and subscription validity timestamps.</li>
+                <li><strong>Order & Payment Identifiers:</strong> Internal Order IDs, payment transaction references, payment status, purchase amounts, and subscription validity timestamps.</li>
                 <li><strong>Security & Technical Identifiers:</strong> IP addresses and browser User-Agent strings recorded strictly for rate limiting, audit logging, and anti-abuse protection.</li>
                 <li><strong>Google Analytics Data:</strong> Aggregated interaction events and traffic analytics (via property ID `G-GBRR7YHWVM`).</li>
               </ul>
@@ -74,7 +74,7 @@ export const PrivacyPage: React.FC = () => {
                 <li>We do NOT store full credit card or debit card numbers.</li>
                 <li>We do NOT store CVV codes or card expiration dates.</li>
                 <li>We do NOT store net banking passwords or UPI PINs.</li>
-                <li>All payment processing is handled externally by encrypted payment gateways (e.g., <strong>PayU Payments</strong>).</li>
+                <li>All payment processing is handled externally by encrypted, certified payment gateways.</li>
               </ul>
             </section>
 
@@ -126,7 +126,7 @@ export const PrivacyPage: React.FC = () => {
                 We do <strong>NOT sell or rent personal information</strong> to third parties or data brokers. Information is shared only with trusted infrastructure providers required to operate our service:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-xs">
-                <li><strong>Payment Processors:</strong> PayU Payments (for processing checkout orders).</li>
+                <li><strong>Payment Processors:</strong> Certified Banking & Payment Gateway Processors (for processing checkout orders).</li>
                 <li><strong>Cloud Hosting & Database:</strong> Encrypted Supabase PostgreSQL database infrastructure and Render cloud hosting.</li>
                 <li><strong>Transactional Email:</strong> Resend API (for verification and password resets).</li>
                 <li><strong>Analytics Providers:</strong> Google Analytics.</li>

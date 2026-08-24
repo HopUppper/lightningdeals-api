@@ -141,7 +141,7 @@ export const UserOrders: React.FC = () => {
                 {orders.map((o) => (
                   <tr key={o.id} className="hover:bg-bg/40 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-fg">
-                      {o.internalOrderId || o.cashfreeOrderId || o.id?.slice(0, 12)}
+                      {o.internalOrderId || o.gatewayOrderId || o.id?.slice(0, 12)}
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-fg">{o.planName || (o.planId?.toUpperCase()) || 'Claude Max'}</div>
@@ -212,7 +212,7 @@ export const UserOrders: React.FC = () => {
               </div>
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted">Payment Gateway:</span>
-                <span className="font-bold text-emerald-600">PayU Payments (Verified)</span>
+                <span className="font-bold text-emerald-600">Secure Instant Checkout (Verified)</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted">Validity Duration:</span>
@@ -238,7 +238,7 @@ export const UserOrders: React.FC = () => {
 
       <div className="p-4 rounded-panel bg-subtle/50 border border-border text-xs text-muted flex items-center gap-2">
         <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-        <span>All transactions are secured with TLS 1.3 encryption and settled via PayU Payments gateway.</span>
+        <span>All transactions are secured with TLS 1.3 encryption and automated instant key provisioning.</span>
       </div>
     </div>
   );

@@ -166,7 +166,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
             </div>
             <div>
               <h2 className="text-base font-bold text-fg">Claude Max Checkout</h2>
-              <p className="text-[11px] text-muted font-mono">Secured by PayU Payments (UPI · Cards · NetBanking)</p>
+              <p className="text-[11px] text-muted font-mono">Instant Automated Activation · 256-Bit Encrypted Checkout</p>
             </div>
           </div>
           <button
@@ -219,7 +219,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                   <span>₹{plan.priceInr.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Payment Gateway Fee (PayU)</span>
+                  <span>Processing & Gateway Fee</span>
                   <span className="text-emerald-600">FREE</span>
                 </div>
                 <div className="flex justify-between text-fg font-bold text-sm pt-2 border-t border-border">
@@ -234,7 +234,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                 className="w-full py-3.5 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>PAY ₹{plan.priceInr.toLocaleString()} (PayU Payments)</span>
+                <span>PAY ₹{plan.priceInr.toLocaleString()} — PROCEED TO PAYMENT</span>
               </button>
             </>
           )}
@@ -243,7 +243,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
             <div className="py-12 text-center space-y-3">
               <RefreshCw className="w-8 h-8 text-violet-600 animate-spin mx-auto" />
               <h3 className="text-sm font-bold text-fg">Initializing Secure Checkout...</h3>
-              <p className="text-xs text-muted font-mono">Redirecting to PayU Payments Gateway</p>
+              <p className="text-xs text-muted font-mono">Connecting to secure payment gateway...</p>
             </div>
           )}
 
@@ -252,7 +252,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
               <RefreshCw className="w-8 h-8 text-amber-500 animate-spin mx-auto" />
               <h3 className="text-sm font-bold text-fg">Your payment is being verified</h3>
               <p className="text-xs text-muted font-mono leading-relaxed">
-                Please do not close or refresh this page. Confirming transaction with PayU Payments...
+                Please do not close or refresh this page. Confirming transaction and activating API key...
               </p>
             </div>
           )}

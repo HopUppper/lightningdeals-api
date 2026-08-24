@@ -280,16 +280,63 @@ export const UserPlan: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="p-8 bg-card border border-border rounded-panel text-center space-y-4 max-w-xl mx-auto my-6 shadow-xs">
-          <div className="w-12 h-12 rounded-full bg-violet-500/10 text-violet-600 flex items-center justify-center mx-auto border border-violet-500/20">
-            <Zap className="w-6 h-6" />
+        <div className="p-6 bg-card border border-border rounded-panel text-center space-y-3 max-w-xl mx-auto my-2 shadow-xs">
+          <div className="w-10 h-10 rounded-full bg-violet-500/10 text-violet-600 flex items-center justify-center mx-auto border border-violet-500/20">
+            <Zap className="w-5 h-5" />
           </div>
-          <h2 className="text-xl font-bold text-fg">No Active Claude Plan</h2>
+          <h2 className="text-lg font-bold text-fg">No Active Subscription</h2>
           <p className="text-xs text-muted leading-relaxed">
-            You currently have no active Claude Max plan. Choose from PRO (5M/5h), MAX (20M/5h), or ULTRA (40M/5h) to get instant API access.
+            Select a plan below to activate your high-speed Claude 3.5 & 3.7 API key instantly.
           </p>
+        </div>
+      )}
 
-          <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+      {/* AVAILABLE PLANS CATALOG */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-base font-bold text-fg flex items-center gap-2">
+            <Zap className="w-4 h-4 text-violet-600" />
+            Available Claude Max Plans
+          </h2>
+          <p className="text-xs text-muted font-mono">
+            30-day fixed validity · 5-hour rolling token refresh · Instant automated key delivery
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* PRO PLAN */}
+          <div className="p-6 rounded-panel bg-card border border-border flex flex-col justify-between space-y-5 shadow-xs hover:border-violet-300 transition-all">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200/60">
+                  Daily Coding
+                </span>
+                <span className="text-xs font-mono text-muted">30 Days</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold text-fg">PRO</h3>
+                <p className="text-xs text-muted font-mono mt-0.5">5M Tokens / 5 Hours</p>
+              </div>
+              <div className="pt-2 border-t border-border">
+                <span className="text-2xl font-extrabold font-mono text-fg">₹2,499</span>
+                <span className="text-xs text-muted font-mono"> / month</span>
+              </div>
+              <ul className="space-y-2 text-xs font-mono text-muted pt-2">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>5,000,000 Tokens / 5h</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Claude 3.5 Sonnet & Haiku</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Instant Automated Delivery</span>
+                </li>
+              </ul>
+            </div>
+
             <button
               onClick={() =>
                 setSelectedPlanForCheckout({
@@ -301,13 +348,120 @@ export const UserPlan: React.FC = () => {
                   validityDays: 30,
                 })
               }
-              className="ui-button-primary text-xs py-3 px-6 font-bold"
+              className="w-full py-3 rounded-control bg-fg text-bg hover:bg-fg/90 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs"
             >
-              BROWSE PAID PLANS
+              <Zap className="w-4 h-4" />
+              <span>BUY PRO — ₹2,499</span>
+            </button>
+          </div>
+
+          {/* MAX PLAN (FEATURED) */}
+          <div className="p-6 rounded-panel bg-card border-2 border-violet-500 relative flex flex-col justify-between space-y-5 shadow-lg shadow-violet-500/10">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white text-[10px] font-mono font-extrabold uppercase px-3 py-0.5 rounded-full shadow-sm">
+              MOST POPULAR
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200/60">
+                  Power Users
+                </span>
+                <span className="text-xs font-mono text-muted">30 Days</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold text-fg">MAX (20x)</h3>
+                <p className="text-xs text-muted font-mono mt-0.5">20M Tokens / 5 Hours</p>
+              </div>
+              <div className="pt-2 border-t border-border">
+                <span className="text-2xl font-extrabold font-mono text-violet-700">₹4,999</span>
+                <span className="text-xs text-muted font-mono"> / month</span>
+              </div>
+              <ul className="space-y-2 text-xs font-mono text-muted pt-2">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>20,000,000 Tokens / 5h</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Claude 3.5 Sonnet, Opus & Fable</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Sub-50ms Gateway Routing</span>
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() =>
+                setSelectedPlanForCheckout({
+                  id: 'max',
+                  name: 'MAX (20x)',
+                  priceInr: 4999,
+                  tokenDisplay: '20M TOKENS / 5 HOURS',
+                  windowHours: 5,
+                  validityDays: 30,
+                })
+              }
+              className="w-full py-3 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-violet-500/25"
+            >
+              <Zap className="w-4 h-4 fill-current" />
+              <span>BUY MAX — ₹4,999</span>
+            </button>
+          </div>
+
+          {/* ULTRA PLAN */}
+          <div className="p-6 rounded-panel bg-card border border-border flex flex-col justify-between space-y-5 shadow-xs hover:border-violet-300 transition-all">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200/60">
+                  Engineering Teams
+                </span>
+                <span className="text-xs font-mono text-muted">30 Days</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold text-fg">ULTRA</h3>
+                <p className="text-xs text-muted font-mono mt-0.5">40M Tokens / 5 Hours</p>
+              </div>
+              <div className="pt-2 border-t border-border">
+                <span className="text-2xl font-extrabold font-mono text-fg">₹8,999</span>
+                <span className="text-xs text-muted font-mono"> / month</span>
+              </div>
+              <ul className="space-y-2 text-xs font-mono text-muted pt-2">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>40,000,000 Tokens / 5h</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Max Concurrency & Dedicated Throughput</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>VIP Priority Support</span>
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() =>
+                setSelectedPlanForCheckout({
+                  id: 'ultra',
+                  name: 'ULTRA',
+                  priceInr: 8999,
+                  tokenDisplay: '40M TOKENS / 5 HOURS',
+                  windowHours: 5,
+                  validityDays: 30,
+                })
+              }
+              className="w-full py-3 rounded-control bg-fg text-bg hover:bg-fg/90 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs"
+            >
+              <Zap className="w-4 h-4" />
+              <span>BUY ULTRA — ₹8,999</span>
             </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* PURCHASE HISTORY TABLE */}
       <div className="space-y-4">

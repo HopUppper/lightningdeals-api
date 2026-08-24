@@ -146,6 +146,20 @@ const routes: RouteConfig[] = [
     },
   },
   {
+    path: '/plans',
+    outFile: 'plans.html',
+    component: PublicPricingPage,
+    title: 'Prepaid Token Packages & Pricing — LightningDeals AI Gateway',
+    description: 'Explore prepaid token package allocations for Claude 3.5 Sonnet, Opus, and Haiku. Contact our WhatsApp help desk for custom developer quotes.',
+  },
+  {
+    path: '/checkout',
+    outFile: 'checkout.html',
+    component: PublicPricingPage,
+    title: 'Checkout & Subscription Activation — LightningDeals AI Gateway',
+    description: 'Activate your Claude Max subscription with instant automated API Key delivery.',
+  },
+  {
     path: '/models',
     outFile: 'models.html',
     component: ModelsPage,

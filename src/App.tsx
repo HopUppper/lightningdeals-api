@@ -190,6 +190,9 @@ export function App() {
               {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/pricing" element={<PublicPricingPage />} />
+              <Route path="/plans" element={<PublicPricingPage />} />
+              <Route path="/checkout" element={<PublicPricingPage />} />
+              <Route path="/buy" element={<PublicPricingPage />} />
               <Route path="/models" element={<ModelsPage />} />
               <Route path="/docs" element={<DocsPage />} />
               <Route path="/status" element={<StatusPage />} />

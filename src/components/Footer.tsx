@@ -111,7 +111,7 @@ export const Footer: React.FC = () => {
             <span>·</span>
             <span>Zero Prompt Retention</span>
             <span>·</span>
-            <span>PayU Payments</span>
+            <span>Instant Key Delivery</span>
           </div>
         </div>
       </div>

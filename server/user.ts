@@ -1213,6 +1213,88 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
   }
 });
 
+// GET /api/user/orders — Fetch customer's full purchase and order history
+router.get('/orders', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const orders = await prisma.order.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        subscriptions: {
+          include: { apiKey: true },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      orders: orders.map((o) => {
+        const activeSub = o.subscriptions.find((s) => s.status === 'ACTIVE') || o.subscriptions[0];
+        return {
+          id: o.id,
+          internalOrderId: o.internalOrderId,
+          planId: o.planId,
+          planName: o.planName,
+          tokenQuantity: o.tokenQuantity.toString(),
+          windowHours: o.windowHours,
+          amountInr: o.amountInr,
+          originalAmountInr: o.originalAmountInr,
+          discountAmountInr: o.discountAmountInr,
+          couponCode: o.couponCode,
+          paidAmountInr: o.paidAmountInr,
+          currency: o.currency,
+          paymentStatus: o.paymentStatus,
+          fulfillmentStatus: o.fulfillmentStatus,
+          paymentGateway: o.paymentGateway,
+          gatewayPaymentId: o.gatewayPaymentId,
+          fulfilledApiKeyId: o.fulfilledApiKeyId,
+          displayKey: activeSub?.apiKey?.displayKey || null,
+          createdAt: o.createdAt,
+          paidAt: o.paidAt,
+          fulfilledAt: o.fulfilledAt,
+        };
+      }),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/orders/:orderId/retry-fulfill — Re-trigger atomic fulfillment for a captured order
+router.post('/orders/:orderId/retry-fulfill', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const { orderId } = req.params;
+
+    const order = await prisma.order.findFirst({
+      where: {
+        userId: user.id,
+        OR: [{ id: orderId }, { internalOrderId: orderId }],
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: { message: 'Order not found.' } });
+    }
+
+    const { fulfillOrder } = await import('./payments/fulfillment');
+    const result = await fulfillOrder(order.internalOrderId);
+
+    if (!result.success) {
+      return res.status(400).json({ error: { message: result.error || 'Fulfillment failed.' } });
+    }
+
+    res.json({
+      success: true,
+      message: 'API Key provisioned successfully!',
+      fulfillment: result,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // POST /api/user/trial/claim — Activate Server-Side 1-Day Free Trial
 router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {

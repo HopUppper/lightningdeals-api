@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { prisma } from '../db';
-import { getPlanById } from './plans';
+import { getPlanByIdAsync } from './plans';
 import { recordSecurityLog } from '../authSecurity';
 
 export interface FulfillmentResult {
@@ -64,8 +64,8 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
       };
     }
 
-    // Server-Side Plan & Price Verification
-    const plan = getPlanById(order.planId);
+    // Server-Side Plan & Price Verification (DB-backed async lookup)
+    const plan = await getPlanByIdAsync(order.planId);
     if (!plan) {
       await prisma.order.update({
         where: { id: order.id },
@@ -84,14 +84,15 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
       };
     }
 
-    // Verify Amount Integrity: Actual Paid Amount must match Server Plan Price
-    if (order.paidAmountInr !== null && order.paidAmountInr !== undefined && order.paidAmountInr < plan.priceInr) {
+    // Verify Amount Integrity: Actual Paid Amount must match Server Plan Price minus discount
+    const expectedAmount = Math.max(1, plan.priceInr - (order.discountAmountInr || 0));
+    if (order.paidAmountInr !== null && order.paidAmountInr !== undefined && order.paidAmountInr < expectedAmount) {
       await prisma.order.update({
         where: { id: order.id },
         data: {
           paymentStatus: 'VERIFICATION_FAILED',
           fulfillmentStatus: 'FULFILLMENT_FAILED',
-          failureReason: `Paid amount (₹${order.paidAmountInr}) is less than required plan price (₹${plan.priceInr}).`,
+          failureReason: `Paid amount (₹${order.paidAmountInr}) is less than required plan price (₹${expectedAmount}).`,
         },
       });
       return {
@@ -100,7 +101,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         internalOrderId: order.internalOrderId,
         planId: order.planId,
         tokenAllowance: '0',
-        error: `Payment amount mismatch. Expected ₹${plan.priceInr}, received ₹${order.paidAmountInr}.`,
+        error: `Payment amount mismatch. Expected ₹${expectedAmount}, received ₹${order.paidAmountInr}.`,
       };
     }
 
@@ -132,7 +133,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           tokensRemaining: tokenAllowanceBigInt,
           expiresAt: expiryTime,
           plan: plan.name,
-          rateLimitRpm: 60,
+          rateLimitRpm: plan.rateLimitRpm || 100,
           maxConcurrency: 5,
         },
       }),

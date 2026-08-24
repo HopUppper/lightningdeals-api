@@ -110,13 +110,20 @@ export const AdminOverview: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link to="/admin/providers" className="ui-button-secondary text-xs py-2 px-3.5 gap-2 border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100">
-            <Server className="w-3.5 h-3.5" />
-            <span>Manage Vendor Master Keys</span>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Link to="/admin/plans" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-bold">
+            <Zap className="w-3.5 h-3.5" />
+            <span>Plans & Offers</span>
           </Link>
-          <Link to="/admin/keys" className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold">
-            + Create API Key
+          <Link to="/admin/orders" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 font-bold">
+            <span>Orders & Sales</span>
+          </Link>
+          <Link to="/admin/providers" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-slate-200 text-slate-700 bg-slate-50 hover:bg-slate-100">
+            <Server className="w-3.5 h-3.5" />
+            <span>Vendor Keys</span>
+          </Link>
+          <Link to="/admin/keys" className="ui-button-primary text-xs py-2 px-4 gap-1.5 font-bold">
+            + Create Key
           </Link>
         </div>
       </div>

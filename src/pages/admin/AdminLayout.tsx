@@ -53,10 +53,11 @@ export const AdminLayout: React.FC = () => {
 
   const primaryNavItems: NavItem[] = [
     { name: 'Overview', path: '/admin', icon: LayoutDashboard, end: true },
-    { name: 'Live Analytics', path: '/admin/analytics', icon: Globe, badge: 'REALTIME' },
+    { name: 'Plans & Offers', path: '/admin/plans', icon: Zap, badge: 'OFFERS' },
+    { name: 'Orders & Sales', path: '/admin/orders', icon: ShoppingBag, badge: 'ORDERS' },
     { name: 'Customers', path: '/admin/customers', icon: Users },
+    { name: 'Live Analytics', path: '/admin/analytics', icon: Globe, badge: 'REALTIME' },
     { name: 'Support Tickets', path: '/admin/support', icon: LifeBuoy, badge: 'DESK' },
-    { name: 'Orders', path: '/admin/orders', icon: ShoppingBag },
     { name: 'Products / Keys', path: '/admin/keys', icon: Key, badge: 'KEYS' },
     { name: 'Providers', path: '/admin/providers', icon: Server, badge: 'VENDOR' },
     { name: 'Usage', path: '/admin/usage', icon: Activity },

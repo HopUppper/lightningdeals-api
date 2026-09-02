@@ -131,18 +131,34 @@ export const UserOrders: React.FC = () => {
           </p>
 
           {latestFulfilledOrder && (
-            <div className="p-3 bg-white border border-emerald-200 rounded-control flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="p-3.5 bg-white border border-emerald-200 rounded-control flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
               <div className="space-y-0.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted font-bold">Your Live API Key ({latestFulfilledOrder.planName})</span>
-                <p className="font-mono text-xs font-bold text-fg">{latestFulfilledOrder.displayKey}</p>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-800 font-bold">Your Live API Key ({latestFulfilledOrder.planName})</span>
+                <p className="font-mono text-xs font-bold text-fg select-all">{latestFulfilledOrder.secretKey || latestFulfilledOrder.displayKey}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => handleCopyKey(latestFulfilledOrder.secretKey || latestFulfilledOrder.displayKey, 'banner-key')}
+                  className="px-3 py-1.5 rounded-control bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                >
+                  {copiedKeyId === 'banner-key' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>Copied Full Key!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Full API Key</span>
+                    </>
+                  )}
+                </button>
                 <Link
                   to="/dashboard/keys"
                   className="px-3 py-1.5 rounded-control bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
                 >
                   <Key className="w-3.5 h-3.5" />
-                  <span>Go to API Keys</span>
+                  <span>Manage Keys</span>
                 </Link>
                 <Link
                   to="/docs"
@@ -268,9 +284,26 @@ export const UserOrders: React.FC = () => {
                       {o.displayKey ? (
                         <div className="space-y-1">
                           {getFulfillmentStatusBadge('FULFILLED')}
-                          <div className="text-[11px] font-mono text-muted flex items-center gap-1">
-                            <Key className="w-3 h-3 text-violet-500" />
-                            <span>{o.displayKey}</span>
+                          <div className="text-[11px] font-mono text-muted flex items-center gap-1.5">
+                            <Key className="w-3 h-3 text-violet-500 shrink-0" />
+                            <span className="font-bold text-fg">{o.displayKey}</span>
+                            <button
+                              onClick={() => handleCopyKey(o.secretKey || o.displayKey, o.id)}
+                              className="px-1.5 py-0.5 rounded bg-violet-50 hover:bg-violet-100 text-violet-700 font-bold text-[10px] border border-violet-200 shrink-0 flex items-center gap-0.5 transition-colors"
+                              title="Copy Full API Key"
+                            >
+                              {copiedKeyId === o.id ? (
+                                <>
+                                  <Check className="w-2.5 h-2.5 text-emerald-600" />
+                                  <span className="text-emerald-700">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-2.5 h-2.5" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
                           </div>
                         </div>
                       ) : o.paymentStatus === 'CAPTURED' && o.fulfillmentStatus !== 'FULFILLED' ? (

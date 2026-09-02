@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag, Sparkles } from 'lucide-react';
+import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag, Sparkles, Copy, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { adminFetch } from '../../utils/api';
@@ -16,6 +16,7 @@ export const UserPlan: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [claimingTrial, setClaimingTrial] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<any | null>(null);
   const [revealedKeyData, setRevealedKeyData] = useState<{
     key: string;
@@ -271,13 +272,38 @@ export const UserPlan: React.FC = () => {
               <p className="text-[10px] text-muted font-mono">Refreshes every {activeSub.quotaWindowHours}h</p>
             </div>
 
-            <div className="p-4 bg-bg border border-border rounded-control space-y-1">
-              <p className="text-[11px] text-muted font-mono flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> ASSIGNED KEY
-              </p>
+            <div className="p-4 bg-bg border border-border rounded-control space-y-1.5">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-muted font-mono flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> ASSIGNED KEY
+                </p>
+                <button
+                  onClick={() => {
+                    const keyToCopy = activeSub.apiKeySecret || activeSub.apiKeyDisplay;
+                    if (keyToCopy) {
+                      navigator.clipboard.writeText(keyToCopy);
+                      setCopiedKey(true);
+                      setTimeout(() => setCopiedKey(false), 2000);
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded bg-violet-600 hover:bg-violet-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs"
+                >
+                  {copiedKey ? (
+                    <>
+                      <Check className="w-2.5 h-2.5 text-emerald-300" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Copy Full Key</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <p className="text-sm font-bold font-mono text-fg">{activeSub.apiKeyDisplay || 'Key Issued'}</p>
               <Link to="/dashboard/keys" className="text-[11px] text-violet-600 font-bold hover:underline">
-                Manage Keys →
+                Manage & Reveal Keys →
               </Link>
             </div>
 

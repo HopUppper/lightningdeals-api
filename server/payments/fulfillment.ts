@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { prisma } from '../db';
+import { prisma, encryptText } from '../db';
 import { getPlanByIdAsync } from './plans';
 import { recordSecurityLog } from '../authSecurity';
 
@@ -125,6 +125,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           keyPrefix,
           keyHash,
           displayKey,
+          keyEncrypted: encryptText(rawKeySecret),
           name: `Claude Max ${plan.name} (${order.internalOrderId.substring(0, 8)})`,
           type: 'production',
           status: 'active',

@@ -60,6 +60,7 @@ model ApiKey {
   keyPrefix         String        // "ld_live_" or "ld_trial_"
   keyHash           String        @unique
   displayKey        String
+  keyEncrypted      String?
   name              String
   type              String        @default("production") // "production" | "trial"
   status            String        @default("active") // "active" | "suspended" | "revoked"

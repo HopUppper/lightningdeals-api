@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { prisma } from './db';
+import { prisma, encryptText, decryptText } from './db';
 import { generateToken, authenticateJwt, requireVerifiedEmail, AuthRequest, hashPasswordScrypt, verifyPasswordScrypt } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { authLimiter, trialLimiter } from './rateLimit';
@@ -1038,6 +1038,7 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
         keyPrefix: 'ld_live_',
         keyHash,
         displayKey,
+        keyEncrypted: encryptText(rawKey),
         name: name.trim(),
         purchasedTokens: BigInt(1000000),
         tokensRemaining: BigInt(1000000),
@@ -1185,6 +1186,7 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
             quotaWindowHours: activeSub.quotaWindowHours,
             nextResetTime: activeSub.nextResetTime,
             apiKeyDisplay: activeSub.apiKey?.displayKey || null,
+            apiKeySecret: activeSub.apiKey?.keyEncrypted ? decryptText(activeSub.apiKey.keyEncrypted) : activeSub.apiKey?.displayKey || null,
             orderId: activeSub.orderId,
           }
         : null,
@@ -1250,6 +1252,7 @@ router.get('/orders', authenticateJwt, async (req: AuthRequest, res: Response) =
           gatewayPaymentId: o.gatewayPaymentId,
           fulfilledApiKeyId: o.fulfilledApiKeyId,
           displayKey: activeSub?.apiKey?.displayKey || null,
+          secretKey: activeSub?.apiKey?.keyEncrypted ? decryptText(activeSub.apiKey.keyEncrypted) : activeSub?.apiKey?.displayKey || null,
           createdAt: o.createdAt,
           paidAt: o.paidAt,
           fulfilledAt: o.fulfilledAt,
@@ -1348,6 +1351,7 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
           keyPrefix,
           keyHash,
           displayKey,
+          keyEncrypted: encryptText(rawKeySecret),
           name: `Claude Max Free Trial (24h)`,
           type: 'trial',
           status: 'active',
@@ -1464,14 +1468,26 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
     });
 
     res.json({
-      keys: keys.map((k) => ({
-        ...k,
-        purchasedTokens: k.purchasedTokens.toString(),
-        tokensUsed: k.tokensUsed.toString(),
-        tokensRemaining: k.tokensRemaining.toString(),
-        totalInputTokens: k.totalInputTokens.toString(),
-        totalOutputTokens: k.totalOutputTokens.toString(),
-      })),
+      keys: keys.map((k) => {
+        const decrypted = k.keyEncrypted ? decryptText(k.keyEncrypted) : null;
+        return {
+          id: k.id,
+          name: k.name,
+          displayKey: k.displayKey,
+          secretKey: decrypted || k.displayKey,
+          keyPrefix: k.keyPrefix,
+          type: k.type,
+          status: k.status,
+          plan: k.plan,
+          purchasedTokens: k.purchasedTokens.toString(),
+          tokensUsed: k.tokensUsed.toString(),
+          tokensRemaining: k.tokensRemaining.toString(),
+          totalInputTokens: k.totalInputTokens.toString(),
+          totalOutputTokens: k.totalOutputTokens.toString(),
+          expiresAt: k.expiresAt,
+          createdAt: k.createdAt,
+        };
+      }),
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

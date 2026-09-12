@@ -16,7 +16,7 @@ export const UserApiTestConsole: React.FC = () => {
   useEffect(() => {
     async function loadKeys() {
       try {
-        const res = await fetch('/api/user/keys');
+        const res = await adminFetch('/api/user/keys');
         if (res.ok) {
           const data = await res.json();
           setKeys(data);

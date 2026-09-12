@@ -217,14 +217,23 @@ export const AdminProviders: React.FC = () => {
     }
   };
 
-  const handleReconcileLedger = async () => {
+  const handleReconcileLedger = async (autoFix = false) => {
     const primary = providers.find((p) => p.isPrimary) || providers[0];
     if (!primary) return;
 
     try {
-      const res = await adminFetch(`/api/admin/providers/${primary.id}/reconcile`, { method: 'POST' });
+      const res = await adminFetch(`/api/admin/providers/${primary.id}/reconcile`, {
+        method: 'POST',
+        body: JSON.stringify({ autoFix }),
+      });
       if (res.ok) {
-        setReconcileResult(await res.json());
+        const data = await res.json();
+        setReconcileResult(data);
+        if (data.fixed) {
+          await fetchProviders();
+          await fetchBalanceMetrics(primary.id);
+          await fetchLedger(primary.id);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -365,7 +374,7 @@ export const AdminProviders: React.FC = () => {
               </button>
             )}
             <button
-              onClick={handleReconcileLedger}
+              onClick={() => handleReconcileLedger(false)}
               className="ui-button-secondary text-xs py-1.5 px-3 gap-1.5 font-mono"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -411,18 +420,51 @@ export const AdminProviders: React.FC = () => {
 
 
         {reconcileResult && (
-          <div className={`p-3.5 rounded-control border text-xs font-mono flex items-center justify-between gap-3 ${
+          <div className={`p-3.5 rounded-control border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
             reconcileResult.isReconciled ? 'bg-emerald-500/5 border-emerald-500/30 text-emerald-700' : 'bg-red-500/5 border-red-500/30 text-red-700'
           }`}>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>
-                {reconcileResult.isReconciled
+                {reconcileResult.fixed
+                  ? `✅ Ledger auto-reconciled! Database balance adjusted to ${formatTokens(reconcileResult.dbBalance)} with verified ledger records.`
+                  : reconcileResult.isReconciled
                   ? `Ledger Reconciled Perfectly! Database Balance: ${formatTokens(reconcileResult.dbBalance)} matches sum of ${reconcileResult.transactionCount} transactions.`
                   : `Ledger Discrepancy Detected! DB: ${formatTokens(reconcileResult.dbBalance)}, Calculated: ${formatTokens(reconcileResult.calculatedBalance)}.`}
               </span>
             </div>
-            <button onClick={() => setReconcileResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              {!reconcileResult.isReconciled && !reconcileResult.fixed && (
+                <button
+                  onClick={() => handleReconcileLedger(true)}
+                  className="px-2.5 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs font-bold font-mono transition-colors shadow-xs"
+                >
+                  ⚡ Auto-Fix Discrepancy
+                </button>
+              )}
+              <button onClick={() => setReconcileResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
+            </div>
+          </div>
+        )}
+
+        {/* Upstream Key Expired / Actionable Warning Alert */}
+        {syncResult?.probeResults?.some((p: any) => p.body && typeof p.body === 'object' && p.body.error?.code === 'key_expired') && (
+          <div className="p-4 rounded-control border border-amber-500/40 bg-amber-500/10 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs">
+            <div className="space-y-1">
+              <p className="font-bold flex items-center gap-2 text-amber-800">
+                <ShieldAlert className="w-4 h-4 text-amber-600" />
+                <span>Upstream Master API Key Expired on Provider ({primaryProvider?.name})</span>
+              </p>
+              <p className="text-[11px] text-amber-700">
+                The master vendor key (<code className="bg-amber-500/20 px-1 py-0.5 rounded">{primaryProvider?.displayMasterKey}</code>) returned <code>403 key_expired</code> from {primaryProvider?.baseUrl}. Click &quot;Edit Vendor&quot; below to update the master API key.
+              </p>
+            </div>
+            <button
+              onClick={() => primaryProvider && openEditModal(primaryProvider)}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-xs shrink-0 self-start sm:self-auto"
+            >
+              Update Master Key
+            </button>
           </div>
         )}
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Search, Filter, RefreshCw, CheckCircle2, AlertCircle, ShieldCheck, Zap, ArrowUpRight } from 'lucide-react';
+import { adminFetch } from '../../utils/api';
 
 export const AdminOrders: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -15,8 +16,8 @@ export const AdminOrders: React.FC = () => {
     setLoading(true);
     try {
       const [ordersRes, healthRes] = await Promise.all([
-        fetch('/api/admin/orders'),
-        fetch('/api/checkout/provider-health'),
+        adminFetch('/api/admin/orders'),
+        adminFetch('/api/checkout/provider-health'),
       ]);
 
       if (ordersRes.ok) {
@@ -44,7 +45,7 @@ export const AdminOrders: React.FC = () => {
     setActionMessage(null);
 
     try {
-      const res = await fetch(`/api/admin/orders/${internalOrderId}/fulfill`, {
+      const res = await adminFetch(`/api/admin/orders/${internalOrderId}/fulfill`, {
         method: 'POST',
       });
       const data = await res.json();

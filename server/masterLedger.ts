@@ -179,7 +179,7 @@ export async function topUpMasterBalance({
   });
 }
 
-export async function reconcileMasterLedger(providerId: string) {
+export async function reconcileMasterLedger(providerId: string, autoFix = false, adminUserId?: string) {
   const provider = await prisma.vendorProvider.findUnique({
     where: { id: providerId },
     include: { masterTokenLedgers: true },
@@ -198,38 +198,86 @@ export async function reconcileMasterLedger(providerId: string) {
   const isReconciled = calculatedSum === dbBalance;
   const discrepancy = calculatedSum - dbBalance;
 
+  let fixed = false;
+  let newDbBalance = dbBalance;
+
+  if (autoFix && (!isReconciled || calculatedSum < BigInt(0))) {
+    const targetBalance = calculatedSum > BigInt(0) ? calculatedSum : BigInt(0);
+    const adjustmentAmount = targetBalance - dbBalance;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.vendorProvider.update({
+        where: { id: providerId },
+        data: { availableTokens: targetBalance },
+      });
+
+      if (adjustmentAmount !== BigInt(0)) {
+        await tx.masterTokenLedger.create({
+          data: {
+            providerId,
+            type: 'RECONCILIATION_ADJUSTMENT',
+            amount: adjustmentAmount,
+            balanceAfter: targetBalance,
+            reference: 'AUDIT_AUTO_FIX',
+            notes: `Automated ledger reconciliation adjustment (${adjustmentAmount > BigInt(0) ? '+' : ''}${adjustmentAmount.toString()} tokens)`,
+            adminUserId,
+          },
+        });
+      }
+
+      await tx.adminLog.create({
+        data: {
+          adminUserId,
+          action: 'RECONCILE_MASTER_LEDGER',
+          targetType: 'VendorProvider',
+          targetId: providerId,
+          metadata: `Reconciled master ledger. Old DB balance: ${dbBalance.toString()}, target: ${targetBalance.toString()}, discrepancy was ${discrepancy.toString()}`,
+        },
+      });
+    });
+
+    fixed = true;
+    newDbBalance = targetBalance;
+  }
+
   return {
     providerId: provider.id,
     providerName: provider.name,
-    isReconciled,
+    isReconciled: isReconciled || fixed,
+    fixed,
     calculatedBalance: calculatedSum.toString(),
-    dbBalance: dbBalance.toString(),
-    discrepancy: discrepancy.toString(),
-    transactionCount: provider.masterTokenLedgers.length,
+    dbBalance: newDbBalance.toString(),
+    discrepancy: fixed ? '0' : discrepancy.toString(),
+    transactionCount: provider.masterTokenLedgers.length + (fixed ? 1 : 0),
   };
 }
 
 export async function calculateActiveEntitlementExposure() {
-  const activeKeys = await prisma.apiKey.findMany({
-    where: { status: 'active' },
-  });
+  const fiveHoursAgo = new Date(Date.now() - 5 * 3600 * 1000);
 
-  let sumActiveWindowAllowance = BigInt(0);
-  let sumActiveWindowUsed = BigInt(0);
-  let sumActiveWindowRemaining = BigInt(0);
+  const [activeKeysAgg, windowUsageAgg, activeKeyCount] = await Promise.all([
+    prisma.apiKey.aggregate({
+      _sum: { purchasedTokens: true },
+      where: { status: 'active' },
+    }),
+    prisma.apiRequest.aggregate({
+      _sum: { totalTokens: true },
+      where: { createdAt: { gte: fiveHoursAgo } },
+    }),
+    prisma.apiKey.count({ where: { status: 'active' } }),
+  ]);
 
-  for (const key of activeKeys) {
-    const windowMetrics = await calculateKeyRollingWindow(key);
-    sumActiveWindowAllowance += key.purchasedTokens;
-    sumActiveWindowUsed += BigInt(windowMetrics.windowTokensUsed);
-    sumActiveWindowRemaining += BigInt(windowMetrics.remainingNum);
-  }
+  const sumActiveWindowAllowance = activeKeysAgg._sum.purchasedTokens || BigInt(0);
+  const sumActiveWindowUsed = windowUsageAgg._sum.totalTokens ? BigInt(windowUsageAgg._sum.totalTokens) : BigInt(0);
+  const sumActiveWindowRemaining = sumActiveWindowAllowance > sumActiveWindowUsed
+    ? sumActiveWindowAllowance - sumActiveWindowUsed
+    : BigInt(0);
 
   // Theoretical 30-day exposure = (sumActiveWindowAllowance * (30 days * 24 hours / 5 hours)) = sumActiveWindowAllowance * 144
   const theoretical30DayExposure = sumActiveWindowAllowance * BigInt(144);
 
   return {
-    activeKeyCount: activeKeys.length,
+    activeKeyCount,
     active5hWindowAllowance: sumActiveWindowAllowance.toString(),
     active5hWindowUsed: sumActiveWindowUsed.toString(),
     active5hWindowRemaining: sumActiveWindowRemaining.toString(),

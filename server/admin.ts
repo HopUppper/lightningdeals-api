@@ -772,8 +772,9 @@ router.get('/providers/:id/ledger', async (req: AuthRequest, res: Response) => {
 // POST /admin/providers/:id/reconcile — Master Token Ledger Audit Reconciliation
 router.post('/providers/:id/reconcile', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  const { autoFix } = req.body || {};
   try {
-    const reconciliation = await reconcileMasterLedger(id);
+    const reconciliation = await reconcileMasterLedger(id, !!autoFix, req.user?.id);
     res.json(reconciliation);
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { AdminLoginPage } from './AdminLoginPage';
 import { Shield } from 'lucide-react';
 
 export const AdminAuthGuard: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -26,7 +25,7 @@ export const AdminAuthGuard: React.FC<{ children: React.ReactElement }> = ({ chi
   }
 
   if (!adminUser || adminUser.role !== 'admin') {
-    return <AdminLoginPage />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   return children;

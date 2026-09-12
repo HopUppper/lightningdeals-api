@@ -100,6 +100,20 @@ function scanValueForAttacks(val: any, depth: number = 0): {
  * Security Threat Detection & Block Middleware
  */
 export function securityThreatDetector(req: Request, res: Response, next: NextFunction) {
+  // Fast path: skip static files, assets, and images
+  if (
+    req.path.startsWith('/assets/') ||
+    req.path.endsWith('.js') ||
+    req.path.endsWith('.css') ||
+    req.path.endsWith('.svg') ||
+    req.path.endsWith('.png') ||
+    req.path.endsWith('.ico') ||
+    req.path.endsWith('.woff2') ||
+    req.path.endsWith('.html')
+  ) {
+    return next();
+  }
+
   const userAgent = req.headers['user-agent'] || '';
 
   // 1. Check for known scanner/exploit bots

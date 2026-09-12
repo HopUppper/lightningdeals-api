@@ -3,10 +3,15 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 
-// Determine authoritative SQLite database path with persistent disk fallback & auto-backup
+// Determine authoritative database path with connection pool tuning & auto-backup
 function resolveDatabaseUrl(): string {
   if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://'))) {
-    return process.env.DATABASE_URL;
+    let pgUrl = process.env.DATABASE_URL;
+    if (!pgUrl.includes('connection_limit=')) {
+      const sep = pgUrl.includes('?') ? '&' : '?';
+      pgUrl = `${pgUrl}${sep}connection_limit=15&pool_timeout=20`;
+    }
+    return pgUrl;
   }
 
   const defaultLocalDb = path.join(process.cwd(), 'prisma', 'dev.db');

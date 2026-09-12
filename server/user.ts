@@ -1130,38 +1130,30 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
     const user = req.user!;
 
     // Find active subscription
-    const activeSub = await prisma.subscription.findFirst({
-      where: {
-        userId: user.id,
-        status: 'ACTIVE',
-        expiryTime: { gt: new Date() },
-      },
-      include: {
-        apiKey: true,
-        order: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // Check & mark expired subscriptions
-    await prisma.subscription.updateMany({
-      where: { userId: user.id, status: 'ACTIVE', expiryTime: { lte: new Date() } },
-      data: { status: 'EXPIRED' },
-    });
-
-    // Past subscriptions
-    const pastSubs = await prisma.subscription.findMany({
-      where: { userId: user.id, id: activeSub ? { not: activeSub.id } : undefined },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-    });
-
-    // Orders history
-    const orders = await prisma.order.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
+    const [activeSub, pastSubs, orders] = await Promise.all([
+      prisma.subscription.findFirst({
+        where: {
+          userId: user.id,
+          status: 'ACTIVE',
+          expiryTime: { gt: new Date() },
+        },
+        include: {
+          apiKey: true,
+          order: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.subscription.findMany({
+        where: { userId: user.id, status: { not: 'ACTIVE' } },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+      prisma.order.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
+    ]);
 
     let currentUsageStr = '0';
     let quotaLimitStr = activeSub ? activeSub.quotaLimit.toString() : '0';

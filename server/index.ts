@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import path from 'path';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -12,6 +13,28 @@ import userRouter from './user';
 import { prisma } from './db';
 import { globalErrorHandler, NotFoundError } from './errors';
 import { recordPageview, handleAnalyticsBeacon } from './analyticsTracker';
+
+// 0. In-Memory Micro-Cache for High-Traffic Public Endpoints
+interface CacheItem<T> {
+  data: T;
+  expiresAt: number;
+}
+const apiMemoryCache = new Map<string, CacheItem<any>>();
+
+export function getMemoryCached<T>(key: string): T | null {
+  const item = apiMemoryCache.get(key);
+  if (item && Date.now() < item.expiresAt) {
+    return item.data;
+  }
+  return null;
+}
+
+export function setMemoryCached<T>(key: string, data: T, ttlSeconds: number = 30): void {
+  apiMemoryCache.set(key, {
+    data,
+    expiresAt: Date.now() + ttlSeconds * 1000,
+  });
+}
 
 // 0. Startup Configuration Integrity Checks
 function validateEnvironmentOnStartup() {
@@ -31,6 +54,17 @@ validateEnvironmentOnStartup();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Global HTTP Response Compression (Gzip / Brotli for JS, CSS, HTML, JSON)
+app.use(
+  compression({
+    threshold: 512, // Compress anything larger than 512 bytes
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) return false;
+      return compression.filter(req, res);
+    },
+  })
+);
 
 // Trust reverse proxy (Render / Cloudflare) to extract true client IP
 app.set('trust proxy', true);
@@ -111,14 +145,22 @@ import { keyCheckLimiter } from './rateLimit';
 app.get('/api/key-status', keyCheckLimiter, handleCheckKeyStatus);
 app.get('/api/system/status', handleSystemStatus);
 
-// Public Pricing Packages for Frontend
+// Public Pricing Packages for Frontend (Cached for 60s)
 app.get('/api/pricing/packages', async (req, res, next) => {
   try {
+    const cacheKey = 'pricing_packages_enabled';
+    const cached = getMemoryCached<any[]>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const packages = await prisma.tokenPackage.findMany({
       where: { enabled: true },
       orderBy: { sortOrder: 'asc' },
     });
-    res.json(packages.map((p) => ({ ...p, tokenAmount: p.tokenAmount.toString() })));
+    const serialized = packages.map((p) => ({ ...p, tokenAmount: p.tokenAmount.toString() }));
+    setMemoryCached(cacheKey, serialized, 60);
+    res.json(serialized);
   } catch (err: any) {
     next(err);
   }
@@ -167,12 +209,25 @@ Write-Host "Run 'claude' to start coding with LightningDeals."
 
 import fs from 'fs';
 
-// 6. Static Web Application & SSG / SSR Pre-rendered Route Serving
+// 6. Static Web Application & High-Performance Asset Serving
 const distPath = path.resolve(import.meta.dirname, '../dist');
 console.log('⚡ Static web assets path:', distPath);
 
-app.use('/assets', express.static(path.join(distPath, 'assets')));
-app.use(express.static(distPath));
+// Fast-served immutable hashed bundles (1 year cache)
+app.use(
+  '/assets',
+  express.static(path.join(distPath, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+  })
+);
+
+// General public assets (1 hour cache)
+app.use(
+  express.static(distPath, {
+    maxAge: '1h',
+  })
+);
 
 // 7. Standard 404 & SPA Catch-all Handler
 app.get('*', (req, res, next) => {
@@ -184,6 +239,8 @@ app.get('*', (req, res, next) => {
   const sectionName = cleanPath.split('/')[0];
   const htmlFileName = sectionName ? `${sectionName}.html` : 'index.html';
   const targetHtmlPath = path.join(distPath, htmlFileName);
+
+  res.setHeader('Cache-Control', 'public, max-age=3600');
 
   if (fs.existsSync(targetHtmlPath)) {
     return res.sendFile(targetHtmlPath);

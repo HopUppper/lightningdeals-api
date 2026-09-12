@@ -7,14 +7,9 @@ export const FinalCta: React.FC = () => {
   return (
     <section className="relative border-b border-border bg-slate-950 py-20 text-white overflow-hidden">
       
-      {/* Background Animated Gradient Light Orbs */}
-      <motion.div
-        animate={{
-          scale: [1, 1.25, 1],
-          opacity: [0.2, 0.35, 0.2],
-        }}
-        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-600/30 via-indigo-600/10 to-transparent pointer-events-none"
+      {/* Background Subtle Gradient Light Orbs (Hardware-Accelerated) */}
+      <div
+        className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-600/30 via-indigo-600/10 to-transparent pointer-events-none transform-gpu"
       />
 
       <div className="relative mx-auto max-w-page px-5 text-center sm:px-6 z-10 space-y-6">

@@ -17,24 +17,12 @@ export const HeroSection: React.FC = () => {
   return (
     <section className="relative overflow-hidden py-16 sm:py-24 border-b border-border bg-bg hero-grid-3d">
       
-      {/* Background Animated Gradient Glowing Blobs */}
-      <motion.div
-        animate={{
-          scale: [1, 1.25, 1],
-          opacity: [0.12, 0.25, 0.12],
-          rotate: [0, 45, 0],
-        }}
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 blur-3xl pointer-events-none"
+      {/* Background Subtle Gradient Glowing Blobs (Hardware-Accelerated) */}
+      <div
+        className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-tr from-violet-600/15 via-indigo-600/15 to-cyan-500/15 blur-3xl pointer-events-none transform-gpu"
       />
-      <motion.div
-        animate={{
-          scale: [1.2, 1, 1.2],
-          opacity: [0.1, 0.2, 0.1],
-          rotate: [0, -45, 0],
-        }}
-        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute top-1/2 -right-32 w-96 h-96 rounded-full bg-gradient-to-br from-cyan-500 via-indigo-600 to-violet-600 blur-3xl pointer-events-none"
+      <div
+        className="absolute top-1/2 -right-32 w-96 h-96 rounded-full bg-gradient-to-br from-cyan-500/15 via-indigo-600/15 to-violet-600/15 blur-3xl pointer-events-none transform-gpu"
       />
 
       <div className="max-w-page mx-auto px-5 sm:px-6 relative z-10">

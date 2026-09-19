@@ -16,6 +16,7 @@ import {
   recordSecurityLog
 } from './authSecurity';
 import { extractClientIp, resolveIpLocation } from './geoService';
+import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
 
 const router = Router();
 
@@ -49,6 +50,23 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
   const mxCheck = await validateEmailDomainMx(domain);
   if (!mxCheck.isValid) {
     return res.status(400).json({ error: { type: 'invalid_email_domain', message: mxCheck.error } });
+  }
+
+  // Anti-Abuse: Reject disposable, burner, and temporary email domains
+  const disposableCheck = await isDisposableOrBurnerEmail(cleanEmail);
+  if (disposableCheck.isDisposable) {
+    await recordSecurityLog({
+      email: cleanEmail,
+      req,
+      eventType: 'DISPOSABLE_EMAIL_REGISTRATION_BLOCKED',
+      metadata: { reason: disposableCheck.reason, domain },
+    });
+    return res.status(400).json({
+      error: {
+        type: 'disposable_email_rejected',
+        message: disposableCheck.reason || 'Temporary, burner, or disposable email addresses are not permitted. Please use a permanent email address (such as Gmail, Outlook, iCloud, or custom corporate domain).',
+      },
+    });
   }
 
   let cleanPhone: string | null = null;
@@ -1295,6 +1313,23 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
   try {
     const user = req.user!;
 
+    // 1. Emergency Killswitch Check
+    const killswitch = await prisma.systemSetting.findUnique({ where: { key: 'trials_disabled' } });
+    if (killswitch?.value === 'true') {
+      return res.status(403).json({
+        success: false,
+        error: { message: 'Free trial claims are temporarily suspended for system maintenance.' },
+      });
+    }
+
+    // 2. Account Status Verification
+    if (user.status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        error: { message: 'Account is suspended. Please contact support.' },
+      });
+    }
+
     if (!user.emailVerified) {
       return res.status(400).json({
         success: false,
@@ -1302,6 +1337,35 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
       });
     }
 
+    // 3. Email Disposable / Burner Check
+    const disposableCheck = await isDisposableOrBurnerEmail(user.email);
+    if (disposableCheck.isDisposable) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { status: 'suspended' },
+      });
+      await recordSecurityLog({
+        userId: user.id,
+        email: user.email,
+        req,
+        eventType: 'TRIAL_DISPOSABLE_EMAIL_BLOCKED',
+        metadata: { reason: disposableCheck.reason },
+      });
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Temporary or burner email addresses are not eligible for free trial keys. Please use a permanent email address.' },
+      });
+    }
+
+    // 4. Browser / Device Cookie Duplicate Check
+    if ((req as any).cookies?.ld_tc || (req as any).cookies?.ld_trial_id) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'A Free 1-Day Trial key has already been issued on this browser or device.' },
+      });
+    }
+
+    // 5. Account Level Claim Check
     const existingClaim = await prisma.trialClaim.findFirst({
       where: { userId: user.id },
     });
@@ -1324,7 +1388,59 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
       });
     }
 
-    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
+    // 6. Strict IP and Subnet Anti-Abuse Rate Limiting
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '127.0.0.1').split(',')[0].trim();
+
+    if (clientIp && clientIp !== '127.0.0.1' && clientIp !== '::1') {
+      // Limit 1 approved free trial per IP address
+      const existingIpClaim = await prisma.trialClaim.findFirst({
+        where: {
+          ipAddress: clientIp,
+          decision: 'APPROVED',
+        },
+      });
+
+      if (existingIpClaim) {
+        await recordSecurityLog({
+          userId: user.id,
+          email: user.email,
+          req,
+          eventType: 'TRIAL_DUPLICATE_IP_BLOCKED',
+          metadata: { ipAddress: clientIp, existingClaimId: existingIpClaim.id },
+        });
+        return res.status(400).json({
+          success: false,
+          error: { message: 'A Free 1-Day Trial key has already been claimed from this network or IP address. Only 1 trial is permitted per network.' },
+        });
+      }
+
+      // Subnet rate limit (/24 prefix, max 2 claims per week)
+      const subnetPrefix = getSubnetPrefix(clientIp);
+      if (subnetPrefix) {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+        const subnetClaims = await prisma.trialClaim.count({
+          where: {
+            ipAddress: { startsWith: subnetPrefix },
+            decision: 'APPROVED',
+            createdAt: { gte: sevenDaysAgo },
+          },
+        });
+
+        if (subnetClaims >= 2) {
+          await recordSecurityLog({
+            userId: user.id,
+            email: user.email,
+            req,
+            eventType: 'TRIAL_SUBNET_LIMIT_EXCEEDED',
+            metadata: { ipAddress: clientIp, subnetPrefix, subnetClaims },
+          });
+          return res.status(400).json({
+            success: false,
+            error: { message: 'Free trial limit exceeded for your network block. Free trials are limited to 2 per network block per week.' },
+          });
+        }
+      }
+    }
 
     const keyPrefix = 'ld_trial_';
     const randomEntropy = crypto.randomBytes(24).toString('hex');
@@ -1400,6 +1516,14 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
       },
     });
 
+    // Set persistent device cookie to prevent multi-account browser abuse
+    res.cookie('ld_tc', '1', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 365 * 24 * 3600 * 1000,
+    });
+
     res.json({
       success: true,
       message: 'Free Trial activated successfully!',
@@ -1420,12 +1544,41 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
 router.get('/trial/status', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user!;
+
+    // Check emergency killswitch
+    const killswitch = await prisma.systemSetting.findUnique({ where: { key: 'trials_disabled' } });
+    if (killswitch?.value === 'true') {
+      return res.json({
+        isEligible: false,
+        hasClaimed: false,
+        trialsDisabled: true,
+        status: 'PAUSED',
+        message: 'Free trial claims are temporarily suspended for system maintenance.',
+      });
+    }
+
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
     const claim = await prisma.trialClaim.findFirst({
       where: { userId: user.id },
       include: { apiKey: true },
     });
 
     if (!claim) {
+      // Check if IP already claimed
+      if (clientIp && clientIp !== '127.0.0.1' && clientIp !== '::1') {
+        const ipClaim = await prisma.trialClaim.findFirst({
+          where: { ipAddress: clientIp, decision: 'APPROVED' },
+        });
+        if (ipClaim) {
+          return res.json({
+            isEligible: false,
+            hasClaimed: true,
+            status: 'IP_ALREADY_CLAIMED',
+            message: 'A trial key has already been issued from this network/IP address.',
+          });
+        }
+      }
+
       return res.json({
         isEligible: true,
         hasClaimed: false,
@@ -1740,93 +1893,6 @@ router.post(['/support/:id/reply', '/tickets/:id/messages', '/support/:id/messag
     });
 
     res.status(201).json({ success: true, message: msg });
-  } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
-  }
-});
-
-// 5. Risk-Scored Trial Anti-Abuse Key Claim (/api/trial/claim)
-router.post('/trial/claim', trialLimiter, async (req: Request, res: Response) => {
-  const { email, name, deviceHash } = req.body;
-  const ipAddress = req.ip || req.socket.remoteAddress || '127.0.0.1';
-  const existingCookie = req.cookies?.ld_trial_id;
-
-  const emailCheck = validateAndNormalizeEmail(email);
-  if (!emailCheck.isValid) {
-    return res.status(400).json({ error: { message: 'Valid email address required for trial verification.' } });
-  }
-
-  try {
-    let riskScore = 0;
-    const existingEmailClaim = await prisma.trialClaim.findFirst({ where: { email: emailCheck.email } });
-    if (existingEmailClaim) riskScore += 60;
-    if (existingCookie) riskScore += 50;
-
-    const ipTrialCount = await prisma.trialClaim.count({ where: { ipAddress: String(ipAddress) } });
-    if (ipTrialCount >= 2) riskScore += 40;
-
-    if (riskScore >= 50) {
-      await prisma.trialClaim.create({
-        data: {
-          email: emailCheck.email,
-          ipAddress: String(ipAddress),
-          deviceHash,
-          riskScore,
-          decision: 'REJECTED',
-        },
-      });
-
-      return res.status(403).json({
-        error: {
-          type: 'trial_abuse_prevention',
-          message: 'Trial eligibility could not be verified for this request.',
-        },
-      });
-    }
-
-    const rawKey = 'ld_trial_' + crypto.randomBytes(18).toString('hex');
-    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
-    const displayKey = `${rawKey.slice(0, 12)}...${rawKey.slice(-4)}`;
-
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    const key = await prisma.apiKey.create({
-      data: {
-        keyPrefix: 'ld_trial_',
-        keyHash,
-        displayKey,
-        name: `Trial Key - ${emailCheck.email.split('@')[0]}`,
-        type: 'trial',
-        purchasedTokens: BigInt(1000000),
-        tokensRemaining: BigInt(1000000),
-        expiresAt,
-        plan: 'Trial',
-      },
-    });
-
-    await prisma.trialClaim.create({
-      data: {
-        email: emailCheck.email,
-        ipAddress: String(ipAddress),
-        deviceHash,
-        riskScore,
-        decision: 'APPROVED',
-        apiKeyId: key.id,
-      },
-    });
-
-    res.cookie('ld_trial_id', key.id, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 30 * 24 * 3600 * 1000 });
-
-    res.json({
-      key: {
-        id: key.id,
-        displayKey: key.displayKey,
-        secretKey: rawKey,
-        expiresAt: key.expiresAt,
-        purchasedTokens: key.purchasedTokens.toString(),
-      },
-    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

@@ -7,6 +7,7 @@ import { checkMasterCapacity, topUpMasterBalance, reconcileMasterLedger, calcula
 import { getRealtimeAnalyticsReport } from './analyticsTracker';
 import { recordAuditEvent, getEventCorrelation, getAuditSummary, verifyHashChainIntegrity } from './auditLogger';
 import { resolveIpLocation } from './geoService';
+import { isDisposableDomain } from './antiAbuse';
 
 const router = Router();
 
@@ -2653,6 +2654,174 @@ router.post('/emergency/toggle-global-api', async (req: AuthRequest, res: Respon
     });
 
     res.json({ success: true, globalApiDisabled: !!disabled });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.post('/emergency/toggle-trials', async (req: AuthRequest, res: Response) => {
+  const { disabled } = req.body;
+  try {
+    await prisma.systemSetting.upsert({
+      where: { key: 'trials_disabled' },
+      update: { value: disabled ? 'true' : 'false' },
+      create: { key: 'trials_disabled', value: disabled ? 'true' : 'false' },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'EMERGENCY_TRIALS_TOGGLE',
+        targetType: 'SystemSetting',
+        metadata: `Set trials_disabled = ${disabled}`,
+      },
+    });
+
+    res.json({ success: true, trialsDisabled: !!disabled });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.post('/emergency/purge-tempmail-trials', async (req: AuthRequest, res: Response) => {
+  try {
+    // 1. Fetch all users and inspect domains
+    const allUsers = await prisma.user.findMany({
+      select: { id: true, email: true, status: true },
+    });
+
+    const flaggedUserIds = new Set<string>();
+    const flaggedDomains = new Set<string>();
+
+    for (const u of allUsers) {
+      if (!u.email || !u.email.includes('@')) continue;
+      const domain = u.email.split('@')[1].trim().toLowerCase();
+      if (isDisposableDomain(domain)) {
+        flaggedUserIds.add(u.id);
+        flaggedDomains.add(domain);
+      }
+    }
+
+    // 2. Fetch all trial claims to identify repeat IP abusers
+    const allClaims = await prisma.trialClaim.findMany({
+      select: { id: true, userId: true, email: true, ipAddress: true, apiKeyId: true, decision: true },
+    });
+
+    const ipCountMap = new Map<string, number>();
+    for (const c of allClaims) {
+      if (c.ipAddress && c.ipAddress !== '127.0.0.1' && c.ipAddress !== '::1') {
+        ipCountMap.set(c.ipAddress, (ipCountMap.get(c.ipAddress) || 0) + 1);
+      }
+    }
+
+    const repeatIps = new Set<string>();
+    for (const [ip, count] of ipCountMap.entries()) {
+      if (count > 1) {
+        repeatIps.add(ip);
+      }
+    }
+
+    for (const c of allClaims) {
+      if (repeatIps.has(c.ipAddress) && c.userId) {
+        flaggedUserIds.add(c.userId);
+      }
+    }
+
+    const targetUserIds = Array.from(flaggedUserIds);
+
+    // 3. Find all trial API keys or keys belonging to flagged users
+    const keysToSuspend = await prisma.apiKey.findMany({
+      where: {
+        OR: [
+          { userId: { in: targetUserIds } },
+          { type: 'trial' },
+        ],
+      },
+      select: { id: true, userId: true, type: true },
+    });
+
+    const targetApiKeyIds = keysToSuspend
+      .filter((k) => (k.userId && targetUserIds.includes(k.userId)) || (k.type === 'trial' && targetUserIds.length > 0 && k.userId && targetUserIds.includes(k.userId)))
+      .map((k) => k.id);
+
+    // If any trial claim was linked to repeat IPs, include its apiKeyId
+    for (const c of allClaims) {
+      if ((repeatIps.has(c.ipAddress) || (c.userId && targetUserIds.includes(c.userId))) && c.apiKeyId) {
+        if (!targetApiKeyIds.includes(c.apiKeyId)) {
+          targetApiKeyIds.push(c.apiKeyId);
+        }
+      }
+    }
+
+    // 4. Batch suspend abusers
+    const txOps: any[] = [];
+    if (targetUserIds.length > 0) {
+      txOps.push(
+        prisma.user.updateMany({
+          where: { id: { in: targetUserIds } },
+          data: { status: 'suspended' },
+        })
+      );
+      txOps.push(
+        prisma.subscription.updateMany({
+          where: { userId: { in: targetUserIds } },
+          data: { status: 'SUSPENDED' },
+        })
+      );
+    }
+
+    if (targetApiKeyIds.length > 0) {
+      txOps.push(
+        prisma.apiKey.updateMany({
+          where: { id: { in: targetApiKeyIds } },
+          data: { status: 'suspended' },
+        })
+      );
+    }
+
+    if (targetUserIds.length > 0 || repeatIps.size > 0) {
+      txOps.push(
+        prisma.trialClaim.updateMany({
+          where: {
+            OR: [
+              ...(targetUserIds.length > 0 ? [{ userId: { in: targetUserIds } }] : []),
+              ...(repeatIps.size > 0 ? [{ ipAddress: { in: Array.from(repeatIps) } }] : []),
+            ],
+          },
+          data: { decision: 'REJECTED' },
+        })
+      );
+    }
+
+    if (txOps.length > 0) {
+      await prisma.$transaction(txOps);
+    }
+
+    // 5. Record Admin Audit Log
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'EMERGENCY_PURGE_TEMPMAIL_TRIALS',
+        targetType: 'AbusePrevention',
+        metadata: JSON.stringify({
+          suspendedUsersCount: targetUserIds.length,
+          suspendedKeysCount: targetApiKeyIds.length,
+          flaggedDomains: Array.from(flaggedDomains),
+          repeatIpsCount: repeatIps.size,
+        }),
+      },
+    });
+
+    res.json({
+      success: true,
+      message: `Anti-abuse scan complete. Suspended ${targetUserIds.length} abusive account(s) and revoked ${targetApiKeyIds.length} trial key(s).`,
+      stats: {
+        suspendedUsersCount: targetUserIds.length,
+        suspendedKeysCount: targetApiKeyIds.length,
+        flaggedDomains: Array.from(flaggedDomains),
+        repeatIps: Array.from(repeatIps),
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

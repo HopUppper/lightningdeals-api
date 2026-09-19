@@ -33,15 +33,8 @@ export const Navbar: React.FC = () => {
     { name: 'API Gateway', href: isHomePage ? '#api' : '/#api' },
     { name: 'Models', href: '/models', isPage: true },
     { name: 'Plans', href: '/pricing', isPage: true },
-    { name: 'Check Key', href: '/check-key', isPage: true },
     { name: 'Docs', href: '/docs', isPage: true },
     { name: 'Status', href: '/status', isPage: true },
-    ...(user ? [
-      { name: 'Dashboard', href: '/dashboard', isPage: true, isHighlight: true }
-    ] : [
-      { name: 'Sign In', href: '/login', isPage: true, isHighlight: true },
-      { name: 'Sign Up', href: '/register', isPage: true, isHighlight: true }
-    ])
   ];
 
   return (
@@ -58,17 +51,15 @@ export const Navbar: React.FC = () => {
           </span>
         </Link>
 
-        {/* Navigation Links — Dynamic according to auth state */}
+        {/* Navigation Links */}
         <div className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (
             link.isPage ? (
               <Link
                 key={link.name}
                 to={link.href}
-                className={`inline-flex min-h-[36px] items-center rounded-control px-3 text-xs font-bold transition-all ${
-                  link.isHighlight
-                    ? 'bg-violet-600 text-white shadow-xs hover:bg-violet-700 font-extrabold px-3.5 ml-1'
-                    : location.pathname === link.href
+                className={`inline-flex min-h-[36px] items-center rounded-control px-3 text-xs font-semibold transition-all ${
+                  location.pathname === link.href
                     ? 'bg-violet-50 text-violet-700 font-bold border border-violet-200/60'
                     : 'text-muted hover:text-fg hover:bg-subtle'
                 }`}
@@ -124,12 +115,19 @@ export const Navbar: React.FC = () => {
               </button>
             </div>
           ) : (
-            <>
+            <div className="flex items-center gap-2">
               <Link
                 to="/check-key"
-                className="ui-button-secondary text-xs px-3 py-1.5 font-semibold"
+                className="text-xs font-semibold text-muted hover:text-fg px-2.5 py-1.5 rounded-control transition-colors"
               >
                 Check Key
+              </Link>
+
+              <Link
+                to="/login"
+                className="text-xs font-bold text-fg hover:text-violet-600 px-3 py-1.5 rounded-control border border-border hover:border-violet-300 transition-colors"
+              >
+                Sign In
               </Link>
 
               <Link
@@ -139,7 +137,7 @@ export const Navbar: React.FC = () => {
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Get Free Trial</span>
               </Link>
-            </>
+            </div>
           )}
         </div>
 

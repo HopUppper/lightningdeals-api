@@ -55,10 +55,12 @@ export const PricingSection: React.FC = () => {
       tokenDisplay: '20M TOKENS / 5 HOURS',
       windowHours: 5,
       validityDays: 30,
-      priceInr: 5499,
+      priceInr: 5999,
+      originalPriceInr: 22999,
       currency: 'INR',
       tagline: 'Best value for heavy IDE power users & builders',
-      featured: false,
+      badge: 'MOST POPULAR',
+      featured: true,
     },
     {
       id: 'ultra',
@@ -68,24 +70,55 @@ export const PricingSection: React.FC = () => {
       tokenDisplay: '40M TOKENS / 5 HOURS',
       windowHours: 5,
       validityDays: 30,
-      priceInr: 9999,
+      priceInr: 8999,
+      originalPriceInr: 12999,
       currency: 'INR',
       tagline: 'Maximum high-volume capacity for engineering teams',
+      badge: 'BEST VALUE',
       featured: false,
     },
   ];
 
   useEffect(() => {
-    fetch('/api/checkout/plans')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.plans && Array.isArray(data.plans) && data.plans.length > 0) {
-          setPlans(data.plans);
-        } else {
-          setPlans(fallbackPlans);
+    let isMounted = true;
+
+    const fetchLivePlans = async () => {
+      try {
+        const res = await fetch(`/api/checkout/plans?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.plans && Array.isArray(data.plans) && data.plans.length > 0) {
+            setPlans(data.plans);
+          }
         }
-      })
-      .catch(() => setPlans(fallbackPlans));
+      } catch (e) {
+        console.warn('Could not refresh live plans from API:', e);
+      }
+    };
+
+    fetchLivePlans();
+
+    // Re-sync whenever user returns to this browser tab or window
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchLivePlans();
+      }
+    };
+
+    window.addEventListener('focus', fetchLivePlans);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', fetchLivePlans);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const displayPlans = plans.length > 0 ? plans : fallbackPlans;

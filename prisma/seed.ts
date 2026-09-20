@@ -85,19 +85,95 @@ async function main() {
   }
 
   // ──────────────────────────────────────────────
-  // 4. Plan Definitions (entitlement tiers)
+  // 4. Plan Definitions (authoritative entitlement tiers)
   // ──────────────────────────────────────────────
   const defaultPlans = [
-    { name: 'Claude Max 5x', displayName: 'Claude Max 5x (5M / 5h)', tokenAllowance: BigInt(5000000), windowHours: 5, validityDays: 30, rateLimitRpm: 30, description: '5 Million tokens per 5-hour rolling window' },
-    { name: 'Claude Max 10x', displayName: 'Claude Max 10x (10M / 5h)', tokenAllowance: BigInt(10000000), windowHours: 5, validityDays: 30, rateLimitRpm: 45, description: '10 Million tokens per 5-hour rolling window' },
-    { name: 'Claude Max 20x', displayName: 'Claude Max 20x (20M / 5h)', tokenAllowance: BigInt(20000000), windowHours: 5, validityDays: 30, rateLimitRpm: 60, description: '20 Million tokens per 5-hour rolling window' },
-    { name: 'Claude Max 40x', displayName: 'Claude Max 40x (40M / 5h)', tokenAllowance: BigInt(40000000), windowHours: 5, validityDays: 30, rateLimitRpm: 100, description: '40 Million tokens per 5-hour rolling window' },
-    { name: 'Claude Max 100x', displayName: 'Claude Max 100x (100M / 5h)', tokenAllowance: BigInt(100000000), windowHours: 5, validityDays: 30, rateLimitRpm: 150, description: '100 Million tokens per 5-hour rolling window' },
-    { name: 'Trial Key', displayName: 'Free Trial Key (1M / 5h)', tokenAllowance: BigInt(1000000), windowHours: 5, validityDays: 7, rateLimitRpm: 30, description: '1 Million trial tokens per 5-hour rolling window' },
+    {
+      id: 'pro',
+      slug: 'pro',
+      name: 'PRO',
+      displayName: 'PRO (5M / 5h Window)',
+      tokenAllowance: BigInt(5000000),
+      tokenDisplay: '5M TOKENS / 5 HOURS',
+      windowHours: 5,
+      validityDays: 30,
+      rateLimitRpm: 100,
+      priceInr: 2499,
+      originalPriceInr: 3499,
+      currency: 'INR',
+      tagline: 'High-performance access for active daily coding assistance',
+      badge: 'STARTER CHOICE',
+      featuresJson: JSON.stringify([
+        '5,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Claude 3.5 Sonnet & Haiku',
+        'Sub-50ms Gateway Routing',
+        'Instant Automated Delivery',
+      ]),
+      featured: false,
+      enabled: true,
+      sortOrder: 1,
+    },
+    {
+      id: 'max',
+      slug: 'max',
+      name: 'MAX',
+      displayName: 'MAX (20M / 5h Window)',
+      tokenAllowance: BigInt(20000000),
+      tokenDisplay: '20M TOKENS / 5 HOURS',
+      windowHours: 5,
+      validityDays: 30,
+      rateLimitRpm: 100,
+      priceInr: 5999,
+      originalPriceInr: 22999,
+      currency: 'INR',
+      tagline: 'Best value for heavy IDE power users & builders',
+      badge: 'MOST POPULAR',
+      featuresJson: JSON.stringify([
+        '20,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Claude 3.5 Sonnet, Opus & Fable',
+        'Cursor, Windsurf & CLI Ready',
+        'Instant Automated Delivery',
+      ]),
+      featured: true,
+      enabled: true,
+      sortOrder: 2,
+    },
+    {
+      id: 'ultra',
+      slug: 'ultra',
+      name: 'ULTRA',
+      displayName: 'ULTRA (40M / 5h Window)',
+      tokenAllowance: BigInt(40000000),
+      tokenDisplay: '40M TOKENS / 5 HOURS',
+      windowHours: 5,
+      validityDays: 30,
+      rateLimitRpm: 100,
+      priceInr: 8999,
+      originalPriceInr: 12999,
+      currency: 'INR',
+      tagline: 'Maximum high-volume capacity for engineering teams',
+      badge: 'BEST VALUE',
+      featuresJson: JSON.stringify([
+        '40,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Max Concurrency & Throughput',
+        'All Top Claude 3.5 & 3.7 Models',
+        'VIP Priority Support',
+      ]),
+      featured: false,
+      enabled: true,
+      sortOrder: 3,
+    },
   ];
 
   for (const p of defaultPlans) {
-    const existingPlan = await prisma.plan.findUnique({ where: { name: p.name } });
+    const existingPlan = await prisma.plan.findFirst({
+      where: {
+        OR: [{ id: p.id }, { slug: p.slug }, { name: p.name }],
+      },
+    });
     if (!existingPlan) {
       await prisma.plan.create({ data: p });
     }

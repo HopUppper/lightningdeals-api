@@ -34,7 +34,10 @@ export const UserPlan: React.FC = () => {
       const [subRes, trialRes, plansRes] = await Promise.all([
         adminFetch('/api/user/subscriptions'),
         adminFetch('/api/user/trial/status').catch(() => null),
-        fetch('/api/checkout/plans').catch(() => null),
+        fetch(`/api/checkout/plans?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        }).catch(() => null),
       ]);
 
       if (subRes.ok) {
@@ -63,7 +66,18 @@ export const UserPlan: React.FC = () => {
   useEffect(() => {
     fetchSubscriptions();
     const interval = setInterval(fetchSubscriptions, 30000); // Poll every 30s
-    return () => clearInterval(interval);
+    const handleSync = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSubscriptions();
+      }
+    };
+    window.addEventListener('focus', handleSync);
+    document.addEventListener('visibilitychange', handleSync);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', handleSync);
+    };
   }, []);
 
   // Live timer tick for reset and expiry countdowns
@@ -160,16 +174,17 @@ export const UserPlan: React.FC = () => {
         </div>
 
         <button
-          onClick={() =>
-            setSelectedPlanForCheckout({
+          onClick={() => {
+            const planToSelect = (availablePlans.length > 0 ? availablePlans.find((p: any) => p.priceInr > 0) : null) || {
               id: 'pro',
               name: 'PRO',
               priceInr: 2499,
               tokenDisplay: '5M TOKENS / 5 HOURS',
               windowHours: 5,
               validityDays: 30,
-            })
-          }
+            };
+            setSelectedPlanForCheckout(planToSelect);
+          }}
           className="ui-button-primary text-xs py-2.5 px-4 gap-2 font-bold self-start sm:self-auto shadow-md"
         >
           <Zap className="w-4 h-4" />
@@ -366,7 +381,7 @@ export const UserPlan: React.FC = () => {
                   tokenDisplay: '20M TOKENS / 5 HOURS',
                   windowHours: 5,
                   validityDays: 30,
-                  priceInr: 4999,
+                  priceInr: 5999,
                   originalPriceInr: 7499,
                   badge: 'MOST POPULAR',
                   featured: true,

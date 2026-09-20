@@ -13,6 +13,11 @@ export const checkoutRouter = Router();
 // 1. GET /api/checkout/plans — Authoritative Active Server-Side Plans (DB backed + fallback)
 checkoutRouter.get('/plans', async (req: Request, res: Response) => {
   try {
+    // Explicitly prevent browser/proxy caching so updates in admin panel reflect immediately
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const plansList = await getAllActivePlansAsync();
     const plans = plansList.map((p) => ({
       id: p.id,

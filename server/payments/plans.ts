@@ -58,8 +58,8 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     windowHours: 5,
     validityDays: 30,
     rateLimitRpm: 100,
-    priceInr: 4999,
-    originalPriceInr: 7499,
+    priceInr: 5999,
+    originalPriceInr: 22999,
     currency: 'INR',
     tagline: 'Best value for heavy IDE power users & builders',
     badge: 'MOST POPULAR',
@@ -131,6 +131,10 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
       where: {
         status: 'active',
         enabled: true,
+        priceInr: { gt: 0 },
+        NOT: {
+          name: { contains: 'Trial', mode: 'insensitive' },
+        },
       },
       orderBy: { sortOrder: 'asc' },
     });

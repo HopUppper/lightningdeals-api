@@ -240,7 +240,10 @@ app.get('*', (req, res, next) => {
   const htmlFileName = sectionName ? `${sectionName}.html` : 'index.html';
   const targetHtmlPath = path.join(distPath, htmlFileName);
 
-  res.setHeader('Cache-Control', 'public, max-age=3600');
+  // Never cache HTML responses so live database pricing and plan changes reflect immediately
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
 
   if (fs.existsSync(targetHtmlPath)) {
     return res.sendFile(targetHtmlPath);

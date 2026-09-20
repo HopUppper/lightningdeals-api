@@ -870,16 +870,43 @@ router.get('/plans', async (req: AuthRequest, res: Response) => {
 });
 
 router.post('/plans', async (req: AuthRequest, res: Response) => {
-  const { name, displayName, tokenAllowance, windowHours, validityDays, rateLimitRpm, description } = req.body;
+  const {
+    name,
+    displayName,
+    tokenAllowance,
+    tokenDisplay,
+    windowHours,
+    validityDays,
+    rateLimitRpm,
+    priceInr,
+    originalPriceInr,
+    tagline,
+    badge,
+    features,
+    featuresJson,
+    featured,
+    enabled,
+    sortOrder,
+    description,
+  } = req.body;
   try {
     const plan = await prisma.plan.create({
       data: {
         name,
         displayName: displayName || `${name} (${Math.round(Number(tokenAllowance || 0) / 1000000)}M / ${windowHours || 5}h)`,
         tokenAllowance: BigInt(tokenAllowance || 20000000),
+        tokenDisplay: tokenDisplay || null,
         windowHours: Number(windowHours || 5),
         validityDays: Number(validityDays || 30),
         rateLimitRpm: Number(rateLimitRpm || 60),
+        priceInr: Number(priceInr || 0),
+        originalPriceInr: originalPriceInr ? Number(originalPriceInr) : null,
+        tagline: tagline || null,
+        badge: badge || null,
+        featuresJson: features ? JSON.stringify(features) : (featuresJson || null),
+        featured: Boolean(featured || false),
+        enabled: enabled !== undefined ? Boolean(enabled) : true,
+        sortOrder: Number(sortOrder || 0),
         status: 'active',
         description,
       },
@@ -892,15 +919,44 @@ router.post('/plans', async (req: AuthRequest, res: Response) => {
 
 router.put('/plans/:id', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { name, displayName, tokenAllowance, windowHours, validityDays, rateLimitRpm, status, description } = req.body;
+  const {
+    name,
+    displayName,
+    tokenAllowance,
+    tokenDisplay,
+    windowHours,
+    validityDays,
+    rateLimitRpm,
+    priceInr,
+    originalPriceInr,
+    tagline,
+    badge,
+    features,
+    featuresJson,
+    featured,
+    enabled,
+    sortOrder,
+    status,
+    description,
+  } = req.body;
   try {
     const updateData: any = {};
     if (name) updateData.name = name;
     if (displayName) updateData.displayName = displayName;
-    if (tokenAllowance) updateData.tokenAllowance = BigInt(tokenAllowance);
-    if (windowHours) updateData.windowHours = Number(windowHours);
-    if (validityDays) updateData.validityDays = Number(validityDays);
-    if (rateLimitRpm) updateData.rateLimitRpm = Number(rateLimitRpm);
+    if (tokenAllowance !== undefined) updateData.tokenAllowance = BigInt(tokenAllowance);
+    if (tokenDisplay !== undefined) updateData.tokenDisplay = tokenDisplay;
+    if (windowHours !== undefined) updateData.windowHours = Number(windowHours);
+    if (validityDays !== undefined) updateData.validityDays = Number(validityDays);
+    if (rateLimitRpm !== undefined) updateData.rateLimitRpm = Number(rateLimitRpm);
+    if (priceInr !== undefined) updateData.priceInr = Number(priceInr);
+    if (originalPriceInr !== undefined) updateData.originalPriceInr = originalPriceInr ? Number(originalPriceInr) : null;
+    if (tagline !== undefined) updateData.tagline = tagline;
+    if (badge !== undefined) updateData.badge = badge;
+    if (features !== undefined) updateData.featuresJson = Array.isArray(features) ? JSON.stringify(features) : null;
+    if (featuresJson !== undefined && features === undefined) updateData.featuresJson = featuresJson;
+    if (featured !== undefined) updateData.featured = Boolean(featured);
+    if (enabled !== undefined) updateData.enabled = Boolean(enabled);
+    if (sortOrder !== undefined) updateData.sortOrder = Number(sortOrder);
     if (status) updateData.status = status;
     if (description !== undefined) updateData.description = description;
 

@@ -137,7 +137,7 @@ const routes: RouteConfig[] = [
     outFile: 'pricing.html',
     component: PublicPricingPage,
     title: 'Prepaid Token Packages & Pricing — LightningDeals AI Gateway',
-    description: 'Explore prepaid token package allocations for Claude 3.5 Sonnet, Opus, and Haiku. Contact our WhatsApp help desk for custom developer quotes.',
+    description: 'Explore prepaid token package allocations for Claude Opus 5, Fable 5, and Sonnet 5. Contact our WhatsApp help desk for custom developer quotes.',
     schemaJson: {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
@@ -152,7 +152,7 @@ const routes: RouteConfig[] = [
     outFile: 'plans.html',
     component: PublicPricingPage,
     title: 'Prepaid Token Packages & Pricing — LightningDeals AI Gateway',
-    description: 'Explore prepaid token package allocations for Claude 3.5 Sonnet, Opus, and Haiku. Contact our WhatsApp help desk for custom developer quotes.',
+    description: 'Explore prepaid token package allocations for Claude Opus 5, Fable 5, and Sonnet 5. Contact our WhatsApp help desk for custom developer quotes.',
   },
   {
     path: '/checkout',

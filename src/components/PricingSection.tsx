@@ -43,9 +43,16 @@ export const PricingSection: React.FC = () => {
       priceInr: 2499,
       originalPriceInr: 3499,
       currency: 'INR',
-      tagline: 'High-performance access for active daily coding assistance',
+      tagline: 'High-performance access for active daily coding assistance with Sonnet 5',
       badge: 'STARTER CHOICE',
       featured: false,
+      features: [
+        '5,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Claude Sonnet 5 & Haiku 4.5 Access',
+        'Sub-50ms Gateway Routing',
+        'Instant Automated Delivery',
+      ],
     },
     {
       id: 'max',
@@ -58,9 +65,16 @@ export const PricingSection: React.FC = () => {
       priceInr: 5999,
       originalPriceInr: 22999,
       currency: 'INR',
-      tagline: 'Best value for heavy IDE power users & builders',
+      tagline: 'Best value for heavy IDE power users & builders with Opus 5 & Fable 5',
       badge: 'MOST POPULAR',
       featured: true,
+      features: [
+        '20,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Claude Opus 5, Fable 5 & Sonnet 5 Access',
+        'Cursor, Windsurf & CLI Ready',
+        'Instant Automated Delivery',
+      ],
     },
     {
       id: 'ultra',
@@ -73,9 +87,16 @@ export const PricingSection: React.FC = () => {
       priceInr: 8999,
       originalPriceInr: 12999,
       currency: 'INR',
-      tagline: 'Maximum high-volume capacity for engineering teams',
+      tagline: 'Maximum high-volume capacity for engineering teams with all Claude 5 models',
       badge: 'BEST VALUE',
       featured: false,
+      features: [
+        '40,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Max Concurrency & Throughput',
+        'All Top Claude Opus 5, Fable 5 & Sonnet 5 Models',
+        'VIP Priority Support',
+      ],
     },
   ];
 
@@ -261,7 +282,7 @@ export const PricingSection: React.FC = () => {
                           </li>
                           <li className="flex items-center gap-2">
                             <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                            <span>Claude 3.5 Sonnet, Opus & Haiku Models</span>
+                            <span>Claude Opus 5, Fable 5 & Sonnet 5 Models</span>
                           </li>
                           <li className="flex items-center gap-2">
                             <Check className="w-4 h-4 text-emerald-500 shrink-0" />

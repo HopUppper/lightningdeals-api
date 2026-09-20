@@ -252,7 +252,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>All Claude 3.5 & 3.7 Models</span>
+                    <span>Claude Opus 5, Fable 5 & Sonnet 5</span>
                   </div>
                 </div>
               </div>

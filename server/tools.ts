@@ -231,7 +231,7 @@ export async function handleWebSearch(req: Request, res: Response) {
         {
           title: `Documentation & API Contract — ${query}`,
           url: 'https://lightningapi.pro/models',
-          snippet: `Access Claude 3.5 Sonnet, Claude Opus 5, and Claude Fable 5 with sub-50ms routing latency and 5-hour rolling token windows.`,
+          snippet: `Access Claude Opus 5, Claude Fable 5, and Claude Sonnet 5 with sub-50ms routing latency and 5-hour rolling token windows.`,
         },
       ],
     });

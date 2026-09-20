@@ -187,9 +187,9 @@ export const configureClient = (
       const models = Array.isArray(existingData.models) ? [...existingData.models] : [];
       const modelIndex = models.findIndex((m: any) => m.title?.includes('LightningDeals') || m.apiBase?.includes('lightningapi.pro'));
       const ldModel = {
-        title: 'Claude 3.5 Sonnet (LightningDeals)',
+        title: 'Claude Sonnet 5 (LightningDeals)',
         provider: 'anthropic',
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-5',
         apiKey: apiKey,
         apiBase: gatewayUrl,
       };
@@ -201,9 +201,9 @@ export const configureClient = (
       }
       updatedData.models = models;
       updatedData.tabAutocompleteModel = {
-        title: 'Claude 3.5 Haiku Autocomplete (LightningDeals)',
+        title: 'Claude Haiku 4.5 Autocomplete (LightningDeals)',
         provider: 'anthropic',
-        model: 'claude-3-5-haiku-20241022',
+        model: 'claude-haiku-4-5',
         apiKey: apiKey,
         apiBase: gatewayUrl,
       };

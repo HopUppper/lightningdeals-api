@@ -101,12 +101,12 @@ async function main() {
       priceInr: 2499,
       originalPriceInr: 3499,
       currency: 'INR',
-      tagline: 'High-performance access for active daily coding assistance',
+      tagline: 'High-performance access for active daily coding assistance with Sonnet 5',
       badge: 'STARTER CHOICE',
       featuresJson: JSON.stringify([
         '5,000,000 Tokens / 5h Window',
         '30-Day Fixed Validity',
-        'Claude 3.5 Sonnet & Haiku',
+        'Claude Sonnet 5 & Haiku 4.5 Access',
         'Sub-50ms Gateway Routing',
         'Instant Automated Delivery',
       ]),
@@ -127,12 +127,12 @@ async function main() {
       priceInr: 5999,
       originalPriceInr: 22999,
       currency: 'INR',
-      tagline: 'Best value for heavy IDE power users & builders',
+      tagline: 'Best value for heavy IDE power users & builders with Opus 5 & Fable 5',
       badge: 'MOST POPULAR',
       featuresJson: JSON.stringify([
         '20,000,000 Tokens / 5h Window',
         '30-Day Fixed Validity',
-        'Claude 3.5 Sonnet, Opus & Fable',
+        'Claude Opus 5, Fable 5 & Sonnet 5 Access',
         'Cursor, Windsurf & CLI Ready',
         'Instant Automated Delivery',
       ]),
@@ -153,13 +153,13 @@ async function main() {
       priceInr: 8999,
       originalPriceInr: 12999,
       currency: 'INR',
-      tagline: 'Maximum high-volume capacity for engineering teams',
+      tagline: 'Maximum high-volume capacity for engineering teams with all Claude 5 models',
       badge: 'BEST VALUE',
       featuresJson: JSON.stringify([
         '40,000,000 Tokens / 5h Window',
         '30-Day Fixed Validity',
         'Max Concurrency & Throughput',
-        'All Top Claude 3.5 & 3.7 Models',
+        'All Top Claude Opus 5, Fable 5 & Sonnet 5 Models',
         'VIP Priority Support',
       ]),
       featured: false,
@@ -176,6 +176,20 @@ async function main() {
     });
     if (!existingPlan) {
       await prisma.plan.create({ data: p });
+    } else {
+      await prisma.plan.update({
+        where: { id: existingPlan.id },
+        data: {
+          featuresJson: p.featuresJson,
+          tagline: p.tagline,
+          priceInr: p.priceInr,
+          originalPriceInr: p.originalPriceInr,
+          sortOrder: p.sortOrder,
+          tokenDisplay: p.tokenDisplay,
+          displayName: p.displayName,
+          badge: p.badge,
+        },
+      });
     }
   }
 

@@ -338,7 +338,7 @@ export const UserPlan: React.FC = () => {
           </div>
           <h2 className="text-lg font-bold text-fg">No Active Subscription</h2>
           <p className="text-xs text-muted leading-relaxed">
-            Select a plan below to activate your high-speed Claude 3.5 & 3.7 API key instantly.
+            Select a plan below to activate your high-speed Claude Opus 5, Fable 5 & Sonnet 5 API key instantly.
           </p>
         </div>
       )}
@@ -371,7 +371,7 @@ export const UserPlan: React.FC = () => {
                   originalPriceInr: 3499,
                   badge: 'STARTER CHOICE',
                   featured: false,
-                  features: ['5,000,000 Tokens / 5h', 'Claude 3.5 Sonnet & Haiku', 'Instant Automated Delivery'],
+                  features: ['5,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Sonnet 5 & Haiku 4.5 Access', 'Sub-50ms Gateway Routing', 'Instant Automated Delivery'],
                 },
                 {
                   id: 'max',
@@ -382,10 +382,10 @@ export const UserPlan: React.FC = () => {
                   windowHours: 5,
                   validityDays: 30,
                   priceInr: 5999,
-                  originalPriceInr: 7499,
+                  originalPriceInr: 22999,
                   badge: 'MOST POPULAR',
                   featured: true,
-                  features: ['20,000,000 Tokens / 5h', 'Claude 3.5 Sonnet, Opus & Fable', 'Sub-50ms Gateway Routing'],
+                  features: ['20,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Opus 5, Fable 5 & Sonnet 5 Access', 'Cursor, Windsurf & CLI Ready', 'Instant Automated Delivery'],
                 },
                 {
                   id: 'ultra',
@@ -399,7 +399,7 @@ export const UserPlan: React.FC = () => {
                   originalPriceInr: 12999,
                   badge: 'BEST VALUE',
                   featured: false,
-                  features: ['40,000,000 Tokens / 5h', 'Max Concurrency & Throughput', 'VIP Priority Support'],
+                  features: ['40,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Max Concurrency & Throughput', 'All Top Claude Opus 5, Fable 5 & Sonnet 5 Models', 'VIP Priority Support'],
                 },
               ]
           ).map((p: any) => (

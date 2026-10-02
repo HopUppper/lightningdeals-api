@@ -138,6 +138,28 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
       },
     });
 
+    // Extract and sanitize customer phone
+    let rawPhone = (req.body.phone || user.phone || '').toString().trim();
+    let sanitizedPhone = rawPhone.replace(/\D/g, '');
+    if (sanitizedPhone.length === 12 && sanitizedPhone.startsWith('91')) {
+      sanitizedPhone = sanitizedPhone.slice(2);
+    }
+    if (sanitizedPhone.length > 10) {
+      sanitizedPhone = sanitizedPhone.slice(-10);
+    }
+
+    // If user provided a phone and doesn't have one saved, save it to their profile
+    if (sanitizedPhone && /^[6-9]\d{9}$/.test(sanitizedPhone) && !user.phone) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { phone: sanitizedPhone },
+        });
+      } catch (e) {
+        // Non-blocking update failure
+      }
+    }
+
     // 2. Create Gateway Order via Abstraction Layer with payableAmountInr
     const provider = getPaymentProvider();
     const gatewayResult = await provider.createOrder({
@@ -148,6 +170,7 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
       planName: plan.name,
       customerEmail: user.email,
       customerName: user.name,
+      customerPhone: sanitizedPhone || undefined,
     });
 
     if (!gatewayResult.success) {

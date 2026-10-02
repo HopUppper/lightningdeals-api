@@ -121,6 +121,18 @@ export class PayUAdapter implements PaymentProviderAdapter {
     const surl = `${appUrl}/api/checkout/payu/response`;
     const furl = `${appUrl}/api/checkout/payu/response`;
 
+    // Ensure phone is a valid 10-digit Indian mobile number (NPCI UPI requirement)
+    let cleanPhone = (params.customerPhone || '').replace(/\D/g, '');
+    if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+      cleanPhone = cleanPhone.slice(2);
+    }
+    if (cleanPhone.length > 10) {
+      cleanPhone = cleanPhone.slice(-10);
+    }
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      cleanPhone = '9876543210';
+    }
+
     return {
       success: true,
       gatewayOrderId: params.internalOrderId,
@@ -135,7 +147,7 @@ export class PayUAdapter implements PaymentProviderAdapter {
         productinfo: cleanProductInfo,
         firstname: cleanFirstName,
         email: params.customerEmail,
-        phone: params.customerPhone || '9999999999',
+        phone: cleanPhone,
         surl,
         furl,
         hash,

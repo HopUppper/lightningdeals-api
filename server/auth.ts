@@ -13,6 +13,7 @@ export interface AuthRequest extends Request {
     email: string;
     role: string;
     name: string;
+    phone?: string | null;
     emailVerified: boolean;
     phoneVerified: boolean;
   };
@@ -83,6 +84,7 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
       email: user.email,
       role: user.role,
       name: user.name,
+      phone: user.phone,
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
     };

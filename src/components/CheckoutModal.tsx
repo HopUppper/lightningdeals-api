@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, CreditCard, ExternalLink, Tag } from 'lucide-react';
+import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, CreditCard, ExternalLink, Tag, Phone } from 'lucide-react';
 import { adminFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
   >('IDLE');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
+
+  // Phone state (Required for UPI by NPCI & PayU)
+  const [phone, setPhone] = useState(user?.phone ? user.phone.replace(/\D/g, '').slice(-10) : '');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -78,6 +82,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
       return;
     }
 
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setPhoneError('Please enter a valid 10-digit Indian mobile number for UPI confirmation.');
+      return;
+    }
+    setPhoneError(null);
+
     setPaymentState('PROCESSING');
     setErrorMessage(null);
 
@@ -97,6 +108,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
         body: JSON.stringify({
           planId: plan.id,
           couponCode: appliedCoupon?.code,
+          phone: cleanPhone,
         }),
       });
 
@@ -257,6 +269,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                 </div>
               </div>
 
+              {/* Customer Mobile Number Field (Required by UPI & NPCI) */}
+              <div className="p-3.5 rounded-control bg-bg border border-border space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-fg">
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-violet-600" />
+                    <span>Mobile Number</span>
+                  </div>
+                  <span className="text-[10px] text-muted font-mono uppercase">Required for UPI</span>
+                </div>
+                <div className={`flex rounded-control border overflow-hidden bg-white focus-within:border-violet-500 transition-colors ${phoneError ? 'border-rose-400' : 'border-border'}`}>
+                  <span className="px-3 py-1.5 bg-subtle text-xs font-mono font-bold text-muted border-r border-border flex items-center">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Enter 10-digit mobile number"
+                    value={phone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setPhone(val);
+                      if (phoneError) setPhoneError(null);
+                    }}
+                    className="flex-1 text-xs font-mono py-1.5 px-3 bg-transparent outline-none text-fg"
+                  />
+                </div>
+                {phoneError ? (
+                  <p className="text-[11px] text-rose-600 font-mono flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    <span>{phoneError}</span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted font-mono">
+                    Used by NPCI & PayU to deliver instant UPI collect requests & key confirmation.
+                  </p>
+                )}
+              </div>
+
               {/* Coupon / Promo Code Field */}
               <div className="p-3.5 rounded-control bg-bg border border-border space-y-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-fg">
@@ -335,13 +385,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
               </div>
 
               {/* Action Button */}
-              <button
-                onClick={handleInitiatePayment}
-                className="w-full py-3.5 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>PAY ₹{totalPayable.toLocaleString()} — PROCEED TO PAYMENT</span>
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={handleInitiatePayment}
+                  className="w-full py-3.5 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>PAY ₹{totalPayable.toLocaleString()} — PROCEED TO PAYMENT</span>
+                </button>
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted font-mono pt-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Supports UPI (GPay, PhonePe, Paytm, BHIM), Cards & Net Banking</span>
+                </div>
+              </div>
             </>
           )}
 

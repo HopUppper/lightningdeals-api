@@ -265,10 +265,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+      <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans relative my-auto flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50">
+        <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-violet-600 text-white shadow-md shadow-violet-500/20">
               <Zap className="w-4 h-4 fill-current" />
@@ -281,13 +281,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
           <button
             onClick={onClose}
             className="p-1.5 rounded-control text-muted hover:text-fg hover:bg-subtle transition-colors"
+            title="Close checkout"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
           {paymentState === 'IDLE' && (
             <>
               {/* Plan Summary Card */}
@@ -580,7 +581,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
         </div>
 
         {/* Legal Links & Agreement Footer */}
-        <div className="p-4 border-t border-border bg-bg/50 text-[10px] text-muted space-y-2 font-mono">
+        <div className="p-3 sm:p-4 border-t border-border bg-bg/50 text-[10px] text-muted space-y-1.5 font-mono shrink-0">
           <p className="text-center text-muted">
             By completing your purchase, you agree to our{' '}
             <a href="/terms-and-conditions" target="_blank" className="text-violet-600 underline font-bold">

@@ -152,14 +152,14 @@ export const AdminModels: React.FC = () => {
 
       {/* Modal for Adding Model */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-md w-full p-6 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-6 my-auto max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-lg font-bold text-fg">Add Model to Catalog</h3>
               <button onClick={() => setShowModal(false)} className="text-muted hover:text-fg text-sm">✕</button>
             </div>
 
-            <form onSubmit={handleCreateModel} className="space-y-4">
+            <form onSubmit={handleCreateModel} className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="block text-xs font-semibold text-fg mb-1">Model ID</label>
                 <input
@@ -225,7 +225,7 @@ export const AdminModels: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-3 pt-2 shrink-0">
                 <button type="button" onClick={() => setShowModal(false)} className="ui-button-secondary text-xs py-2 px-4">
                   Cancel
                 </button>

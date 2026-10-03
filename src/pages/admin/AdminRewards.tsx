@@ -992,9 +992,9 @@ export const AdminRewards: React.FC = () => {
 
       {/* Manual Credit / Debit Adjustment Modal */}
       {showAdjustModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative">
-            <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative flex flex-col max-h-[92vh] my-auto">
+            <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-violet-600 text-white">
                   <Zap className="w-4 h-4 fill-current" />
@@ -1014,7 +1014,7 @@ export const AdminRewards: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitAdjustment} className="p-6 space-y-4">
+            <form onSubmit={handleSubmitAdjustment} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {adjustError && (
                 <div className="p-3 rounded-control bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />

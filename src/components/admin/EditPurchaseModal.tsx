@@ -112,10 +112,10 @@ export const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+      <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative flex flex-col max-h-[92vh] my-auto">
         {/* Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50">
+        <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
           <div>
             <h3 className="text-base font-extrabold text-fg tracking-tight">
               Manage Purchase: {purchase.productName}
@@ -133,7 +133,7 @@ export const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
         </div>
 
         {/* Tab Selection */}
-        <div className="flex border-b border-border text-xs font-mono font-bold bg-subtle/30 px-6 pt-3 gap-4">
+        <div className="flex border-b border-border text-xs font-mono font-bold bg-subtle/30 px-6 pt-3 gap-4 shrink-0">
           <button
             type="button"
             onClick={() => { setActiveTab('amount'); setError(null); }}
@@ -161,7 +161,7 @@ export const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-control bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />

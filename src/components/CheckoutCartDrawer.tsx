@@ -127,11 +127,11 @@ export const CheckoutCartDrawer: React.FC = () => {
         onClick={closeCart}
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white border-l border-border shadow-2xl flex flex-col font-sans">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
+        <div className="w-screen max-w-md bg-white border-l border-border shadow-2xl flex flex-col font-sans h-full max-h-screen">
           
           {/* Header */}
-          <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50">
+          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-violet-600 text-white shadow-md shadow-violet-500/20">
                 <ShoppingBag className="w-4 h-4" />
@@ -309,7 +309,7 @@ export const CheckoutCartDrawer: React.FC = () => {
 
           {/* Footer Checkout Action */}
           {cartItems.length > 0 && (
-            <div className="p-5 border-t border-border bg-bg/50 space-y-3">
+            <div className="p-4 sm:p-5 border-t border-border bg-bg/50 space-y-3 shrink-0">
               <button
                 onClick={handleCheckout}
                 disabled={checkoutLoading}

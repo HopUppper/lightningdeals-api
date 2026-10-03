@@ -201,8 +201,8 @@ export const RecordPurchaseModal: React.FC<RecordPurchaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white border border-border rounded-panel w-full max-w-xl shadow-2xl overflow-hidden font-sans space-y-0 relative max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+      <div className="bg-white border border-border rounded-panel w-full max-w-xl shadow-2xl overflow-hidden font-sans space-y-0 relative max-h-[92vh] flex flex-col my-auto">
         {/* Header */}
         <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0">
           <div className="flex items-center gap-2.5">

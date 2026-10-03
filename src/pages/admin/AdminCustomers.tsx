@@ -857,8 +857,8 @@ export const AdminCustomers: React.FC = () => {
 
       {/* Deep Customer Intelligence Profile Drawer / Modal */}
       {selectedCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white border border-border rounded-panel w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-y-auto font-sans relative space-y-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel w-full max-w-4xl max-h-[92vh] shadow-2xl overflow-y-auto font-sans relative space-y-0 my-auto">
             {/* Drawer Header */}
             <div className="p-6 border-b border-border flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-md z-10">
               <div className="flex items-center gap-4">
@@ -1108,9 +1108,9 @@ export const AdminCustomers: React.FC = () => {
 
       {/* Create / Edit Customer Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-6 space-y-4 font-sans">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-4 sm:p-6 space-y-4 font-sans my-auto max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-base font-extrabold text-fg flex items-center gap-2">
                 <Users className="w-4 h-4 text-violet-600" />
                 <span>{editingCustomer ? 'Edit Customer Profile' : 'Create Customer Account'}</span>
@@ -1119,12 +1119,12 @@ export const AdminCustomers: React.FC = () => {
             </div>
 
             {formError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs shrink-0">
                 {formError}
               </div>
             )}
 
-            <form onSubmit={handleSaveCustomer} className="space-y-3.5 text-xs font-mono">
+            <form onSubmit={handleSaveCustomer} className="space-y-3.5 text-xs font-mono overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="block text-muted mb-1 font-bold uppercase">Customer Full Name</label>
                 <input
@@ -1200,7 +1200,7 @@ export const AdminCustomers: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -1223,9 +1223,9 @@ export const AdminCustomers: React.FC = () => {
 
       {/* Issue API Key Modal */}
       {showIssueKeyModal && selectedKeyCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-6 space-y-4 font-sans">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-4 sm:p-6 space-y-4 font-sans my-auto max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-base font-extrabold text-fg flex items-center gap-2">
                 <Key className="w-4 h-4 text-violet-600" />
                 <span>Issue API Key to {selectedKeyCustomer.name}</span>
@@ -1234,13 +1234,13 @@ export const AdminCustomers: React.FC = () => {
             </div>
 
             {issueError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs shrink-0">
                 {issueError}
               </div>
             )}
 
             {issuedSecretKey ? (
-              <div className="space-y-4 font-mono text-xs">
+              <div className="space-y-4 font-mono text-xs overflow-y-auto flex-1 pr-1">
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-control space-y-2">
                   <p className="font-bold text-emerald-900 flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -1273,7 +1273,7 @@ export const AdminCustomers: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleIssueKeySubmit} className="space-y-3.5 text-xs font-mono">
+              <form onSubmit={handleIssueKeySubmit} className="space-y-3.5 text-xs font-mono overflow-y-auto flex-1 pr-1">
                 <div>
                   <label className="block text-muted mb-1 font-bold uppercase">Key Name</label>
                   <input
@@ -1325,7 +1325,7 @@ export const AdminCustomers: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setShowIssueKeyModal(false)}
@@ -1349,9 +1349,9 @@ export const AdminCustomers: React.FC = () => {
 
       {/* Adjust Token Allowance Modal */}
       {showAdjustTokensModal && adjustCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-6 space-y-4 font-sans">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-4 sm:p-6 space-y-4 font-sans my-auto max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-base font-extrabold text-fg flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-violet-600" />
                 <span>Adjust Token Balance for {adjustCustomer.name}</span>
@@ -1360,12 +1360,12 @@ export const AdminCustomers: React.FC = () => {
             </div>
 
             {adjustError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-control text-rose-700 text-xs shrink-0">
                 {adjustError}
               </div>
             )}
 
-            <form onSubmit={handleAdjustTokensSubmit} className="space-y-3.5 text-xs font-mono">
+            <form onSubmit={handleAdjustTokensSubmit} className="space-y-3.5 text-xs font-mono overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="block text-muted mb-1 font-bold uppercase">Select Customer API Key</label>
                 <select
@@ -1422,7 +1422,7 @@ export const AdminCustomers: React.FC = () => {
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAdjustTokensModal(false)}

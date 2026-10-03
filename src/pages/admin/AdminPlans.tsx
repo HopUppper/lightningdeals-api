@@ -833,9 +833,9 @@ export const AdminPlans: React.FC = () => {
 
       {/* MODAL: PLAN CREATE / EDIT */}
       {isPlanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs">
-          <div className="bg-white border border-border rounded-panel max-w-xl w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel max-w-xl w-full p-4 sm:p-6 shadow-xl my-auto flex flex-col max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h2 className="text-base font-bold text-fg flex items-center gap-2">
                 <Zap className="w-4 h-4 text-violet-600" />
                 {selectedPlanForEdit ? `Edit Plan: ${selectedPlanForEdit.name}` : 'Create New Subscription Plan'}
@@ -845,7 +845,7 @@ export const AdminPlans: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSavePlan} className="space-y-4 text-xs font-mono">
+            <form onSubmit={handleSavePlan} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-muted mb-1">Plan Identifier (Name)</label>
@@ -977,7 +977,7 @@ export const AdminPlans: React.FC = () => {
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-border">
+              <div className="flex justify-end gap-2 pt-3 border-t border-border shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsPlanModalOpen(false)}
@@ -1000,9 +1000,9 @@ export const AdminPlans: React.FC = () => {
 
       {/* MODAL: COUPON CREATE / EDIT */}
       {isCouponModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs">
-          <div className="bg-white border border-border rounded-panel max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel max-w-lg w-full p-4 sm:p-6 shadow-xl my-auto flex flex-col max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h2 className="text-base font-bold text-fg flex items-center gap-2">
                 <Tag className="w-4 h-4 text-emerald-600" />
                 {selectedCouponForEdit ? `Edit Promo Code: ${selectedCouponForEdit.code}` : 'Create Promo Code'}
@@ -1012,7 +1012,7 @@ export const AdminPlans: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveCoupon} className="space-y-4 text-xs font-mono">
+            <form onSubmit={handleSaveCoupon} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-muted mb-1">Coupon Code</label>
@@ -1108,7 +1108,7 @@ export const AdminPlans: React.FC = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-border">
+              <div className="flex justify-end gap-2 pt-3 border-t border-border shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsCouponModalOpen(false)}
@@ -1131,8 +1131,8 @@ export const AdminPlans: React.FC = () => {
 
       {/* EXTEND SUBSCRIPTION MODAL */}
       {selectedSubForExtend && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs">
-          <div className="bg-white border border-border rounded-panel max-w-sm w-full p-5 space-y-4 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel max-w-sm w-full p-4 sm:p-5 space-y-4 shadow-xl my-auto max-h-[92vh] overflow-y-auto">
             <h3 className="text-sm font-bold text-fg">Extend Customer Subscription</h3>
             <p className="text-xs text-muted">Customer: {selectedSubForExtend.user?.email}</p>
             <form onSubmit={handleExtendSubscription} className="space-y-3">
@@ -1170,8 +1170,8 @@ export const AdminPlans: React.FC = () => {
 
       {/* STATUS UPDATE MODAL */}
       {selectedSubForStatus && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs">
-          <div className="bg-white border border-border rounded-panel max-w-sm w-full p-5 space-y-4 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel max-w-sm w-full p-4 sm:p-5 space-y-4 shadow-xl my-auto max-h-[92vh] overflow-y-auto">
             <h3 className="text-sm font-bold text-fg">Update Subscription Status</h3>
             <form onSubmit={handleUpdateStatus} className="space-y-3">
               <div>

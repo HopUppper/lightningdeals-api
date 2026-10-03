@@ -205,9 +205,9 @@ export const AdminRequests: React.FC = () => {
 
       {/* Request Details Drawer / Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-2xl w-full p-6 space-y-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-sans">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-2xl w-full p-4 sm:p-6 space-y-4 sm:space-y-6 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col font-sans my-auto">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-fg flex items-center gap-2">
                   <Activity className="w-5 h-5 text-violet-600" />
@@ -299,7 +299,7 @@ export const AdminRequests: React.FC = () => {
               </div>
             </div>
 
-            <div className="border-t border-border pt-4 text-right">
+            <div className="border-t border-border pt-3 text-right shrink-0">
               <button
                 onClick={() => setSelectedRequest(null)}
                 className="ui-button-secondary py-2 px-4 text-xs font-mono"

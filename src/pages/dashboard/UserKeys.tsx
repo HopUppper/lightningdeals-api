@@ -305,8 +305,8 @@ export const UserKeys: React.FC = () => {
 
       {/* Revoke Key Modal */}
       {revokingKey && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto">
             <h3 className="text-base font-bold text-fg flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-600" /> Confirm Key Revocation
             </h3>

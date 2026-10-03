@@ -351,9 +351,9 @@ export const UserOrders: React.FC = () => {
 
       {/* Order Details Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-md w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-5 my-auto max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-base font-bold text-fg flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5 text-violet-600" />
                 <span>Order Receipt & Key Details</span>
@@ -363,7 +363,7 @@ export const UserOrders: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-3 font-mono text-xs">
+            <div className="space-y-3 font-mono text-xs overflow-y-auto flex-1 pr-1">
               <div className="flex justify-between py-1 border-b border-border/50">
                 <span className="text-muted">Order Reference:</span>
                 <span className="font-bold text-fg">{selectedOrder.internalOrderId || selectedOrder.id}</span>
@@ -420,7 +420,7 @@ export const UserOrders: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between pt-2 shrink-0">
               {selectedOrder.displayKey ? (
                 <Link
                   to="/dashboard/keys"

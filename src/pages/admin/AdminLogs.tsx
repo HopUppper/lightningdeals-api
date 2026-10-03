@@ -780,8 +780,8 @@ export const AdminLogs: React.FC = () => {
 
       {/* Deep Event Investigation Drawer / Modal (Sections 71 & 72) */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white border border-border rounded-panel w-full max-w-3xl max-h-[90vh] shadow-2xl overflow-y-auto font-sans relative space-y-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel w-full max-w-3xl max-h-[92vh] shadow-2xl overflow-y-auto font-sans relative space-y-0 my-auto">
             {/* Header */}
             <div className="p-6 border-b border-border flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-md z-10">
               <div className="space-y-1">
@@ -1023,9 +1023,9 @@ export const AdminLogs: React.FC = () => {
 
       {/* Export Modal (Section 83) */}
       {showExportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-6 space-y-5 font-sans">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 font-sans my-auto max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-base font-extrabold text-fg flex items-center gap-2">
                 <Download className="w-4 h-4 text-violet-600" />
                 <span>Export Sanitized Audit Logs</span>
@@ -1033,7 +1033,7 @@ export const AdminLogs: React.FC = () => {
               <button onClick={() => setShowExportModal(false)} className="text-muted hover:text-fg">✕</button>
             </div>
 
-            <div className="space-y-4 text-xs font-mono">
+            <div className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
               <div className="p-3 bg-violet-50 border border-violet-200 rounded-control text-violet-900 space-y-1">
                 <p className="font-bold">🔒 Privacy & Compliance Assurance</p>
                 <p className="text-[11px]">
@@ -1075,7 +1075,7 @@ export const AdminLogs: React.FC = () => {
                 {dateFrom && <p className="text-muted">From: {dateFrom} To: {dateTo || 'Present'}</p>}
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 shrink-0">
                 <button
                   onClick={() => setShowExportModal(false)}
                   className="flex-1 py-2.5 rounded-control bg-bg border border-border text-fg font-bold"

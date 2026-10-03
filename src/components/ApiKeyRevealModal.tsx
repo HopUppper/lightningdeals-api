@@ -44,10 +44,10 @@ export const ApiKeyRevealModal: React.FC<ApiKeyRevealModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white border border-border rounded-panel w-full max-w-xl shadow-2xl overflow-hidden font-sans space-y-0 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+      <div className="bg-white border border-border rounded-panel w-full max-w-xl shadow-2xl overflow-hidden font-sans space-y-0 relative flex flex-col max-h-[92vh] my-auto">
         {/* Modal Top Header */}
-        <div className="p-6 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 text-white flex items-center justify-between">
+        <div className="p-5 sm:p-6 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 text-white flex items-center justify-between shrink-0 sticky top-0 z-10">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white font-mono text-[10px] font-bold uppercase tracking-wider">
               <Sparkles className="w-3 h-3" />
@@ -70,7 +70,7 @@ export const ApiKeyRevealModal: React.FC<ApiKeyRevealModalProps> = ({
         </div>
 
         {/* Modal Content Body */}
-        <div className="p-6 sm:p-8 space-y-6">
+        <div className="p-5 sm:p-8 space-y-5 overflow-y-auto flex-1">
           {/* CRITICAL SECURITY WARNING NOTICE */}
           <div className="p-4 rounded-panel bg-amber-500/10 border-2 border-amber-500/30 text-amber-900 space-y-2">
             <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-amber-700">

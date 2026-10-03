@@ -489,9 +489,9 @@ export const AdminKeys: React.FC = () => {
 
       {/* Usage Activity Modal */}
       {showUsageModal && selectedUsageKey && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-4xl w-full p-6 shadow-2xl space-y-6 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-4xl w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-6 max-h-[92vh] flex flex-col my-auto overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-4 shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-fg flex items-center gap-2">
                   <Activity className="w-5 h-5 text-amber-500" />
@@ -617,22 +617,22 @@ export const AdminKeys: React.FC = () => {
 
       {/* Modal 1: Create Standard API Key */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-lg w-full p-6 shadow-2xl space-y-6">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-6 my-auto max-h-[92vh] flex flex-col overflow-hidden">
             {!createdRawKey ? (
               <>
-                <div className="flex items-center justify-between border-b border-border pb-4">
+                <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
                   <h3 className="text-lg font-bold text-fg">Create Custom API Key</h3>
                   <button onClick={() => setShowCreateModal(false)} className="text-muted hover:text-fg text-sm">✕</button>
                 </div>
 
                 {modalError && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-control text-red-600 text-xs font-semibold">
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-control text-red-600 text-xs font-semibold shrink-0">
                     {modalError}
                   </div>
                 )}
 
-                <form onSubmit={handleCreateApiKey} className="space-y-4">
+                <form onSubmit={handleCreateApiKey} className="space-y-4 overflow-y-auto flex-1 pr-1">
 
                   <div>
                     <label className="block text-xs font-semibold text-fg mb-1">Key Name / Description</label>
@@ -734,7 +734,7 @@ export const AdminKeys: React.FC = () => {
                   </div>
 
 
-                  <div className="flex justify-end gap-3 pt-2">
+                  <div className="flex justify-end gap-3 pt-2 shrink-0">
                     <button type="button" onClick={() => setShowCreateModal(false)} className="ui-button-secondary text-xs py-2 px-4">
                       Cancel
                     </button>
@@ -772,11 +772,11 @@ export const AdminKeys: React.FC = () => {
 
       {/* Modal 2: Create Dedicated Trial Key */}
       {showTrialModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-lg w-full p-6 shadow-2xl space-y-6">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-6 my-auto max-h-[92vh] flex flex-col overflow-hidden">
             {!createdRawKey ? (
               <>
-                <div className="flex items-center justify-between border-b border-border pb-4">
+                <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-amber-500" />
                     <h3 className="text-lg font-bold text-fg">Create Dedicated Trial Key</h3>
@@ -785,12 +785,12 @@ export const AdminKeys: React.FC = () => {
                 </div>
 
                 {modalError && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-control text-red-600 text-xs font-semibold">
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-control text-red-600 text-xs font-semibold shrink-0">
                     {modalError}
                   </div>
                 )}
 
-                <form onSubmit={handleCreateTrialKey} className="space-y-4">
+                <form onSubmit={handleCreateTrialKey} className="space-y-4 overflow-y-auto flex-1 pr-1">
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -862,7 +862,7 @@ export const AdminKeys: React.FC = () => {
                   </div>
 
 
-                  <div className="flex justify-end gap-3 pt-2">
+                  <div className="flex justify-end gap-3 pt-2 shrink-0">
                     <button type="button" onClick={() => setShowTrialModal(false)} className="ui-button-secondary text-xs py-2 px-4">
                       Cancel
                     </button>
@@ -900,9 +900,9 @@ export const AdminKeys: React.FC = () => {
 
       {/* Modal 3: Complete API Key Editor (Add/Withdraw Tokens, Modify Expiry/Validity, Status & Settings) */}
       {showEditModal && editingKey && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-6 max-h-[92vh] overflow-y-auto my-auto">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0 sticky top-0 bg-card z-10">
               <div>
                 <h3 className="text-lg font-bold text-fg flex items-center gap-2">
                   <Key className="w-5 h-5 text-amber-500" />

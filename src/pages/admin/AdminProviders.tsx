@@ -664,9 +664,9 @@ export const AdminProviders: React.FC = () => {
 
       {/* Top Up Master Balance Modal */}
       {showTopUpModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-md w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 my-auto max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-base font-bold text-fg font-mono flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-600" />
                 <span>Top Up Master Vendor Balance</span>
@@ -675,13 +675,13 @@ export const AdminProviders: React.FC = () => {
             </div>
 
             {topUpError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-mono flex items-center gap-2">
+              <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-mono flex items-center gap-2 shrink-0">
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 <span>{topUpError}</span>
               </div>
             )}
 
-            <form onSubmit={handleTopUpSubmit} className="space-y-4 text-xs font-mono">
+            <form onSubmit={handleTopUpSubmit} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="block font-bold text-fg mb-1 uppercase">Top-Up Token Amount (Exact Integer) *</label>
                 <input
@@ -722,7 +722,7 @@ export const AdminProviders: React.FC = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border font-sans">
+              <div className="flex justify-end gap-3 pt-3 border-t border-border font-sans shrink-0">
                 <button type="button" onClick={() => setShowTopUpModal(false)} className="px-4 py-2 text-xs bg-bg border border-border text-muted hover:text-fg rounded-control">
                   Cancel
                 </button>
@@ -737,9 +737,9 @@ export const AdminProviders: React.FC = () => {
 
       {/* Edit Provider Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-panel max-w-lg w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-card border border-border rounded-panel max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 my-auto max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h3 className="text-base font-bold text-fg font-mono">
                 {editingProvider ? 'Edit Vendor Credentials' : 'Add Custom Vendor Provider'}
               </h3>
@@ -747,13 +747,13 @@ export const AdminProviders: React.FC = () => {
             </div>
 
             {formError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-mono flex items-center gap-2">
+              <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-mono flex items-center gap-2 shrink-0">
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
             )}
 
-            <form onSubmit={handleSaveProvider} className="space-y-4 text-xs font-mono">
+            <form onSubmit={handleSaveProvider} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="block font-bold text-fg mb-1 uppercase">Vendor Name *</label>
                 <input
@@ -838,7 +838,7 @@ export const AdminProviders: React.FC = () => {
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border font-sans">
+              <div className="flex justify-end gap-3 pt-3 border-t border-border font-sans shrink-0">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-xs bg-bg border border-border text-muted hover:text-fg rounded-control">
                   Cancel
                 </button>

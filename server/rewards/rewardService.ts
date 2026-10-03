@@ -1451,18 +1451,20 @@ export async function getUniversalPurchases(options: {
  * Search Customers for Purchase Recording
  */
 export async function searchCustomersForPurchase(query: string) {
-  const q = query.trim();
-  if (!q) return [];
+  const q = (query || '').trim();
+  const where = q
+    ? {
+        OR: [
+          { email: { contains: q, mode: 'insensitive' } },
+          { name: { contains: q, mode: 'insensitive' } },
+          { phone: { contains: q, mode: 'insensitive' } },
+          { id: { equals: q } },
+        ],
+      }
+    : {};
 
   return await prisma.user.findMany({
-    where: {
-      OR: [
-        { email: { contains: q, mode: 'insensitive' } },
-        { name: { contains: q, mode: 'insensitive' } },
-        { phone: { contains: q, mode: 'insensitive' } },
-        { id: { equals: q } },
-      ],
-    },
+    where: where as any,
     take: 15,
     select: {
       id: true,

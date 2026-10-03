@@ -30,6 +30,15 @@ export const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !purchase) return null;
 
   const currentAmount = purchase.amountPaid || 0;
@@ -112,56 +121,65 @@ export const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-      <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative flex flex-col max-h-[92vh] my-auto">
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
-          <div>
-            <h3 className="text-base font-extrabold text-fg tracking-tight">
-              Manage Purchase: {purchase.productName}
-            </h3>
-            <p className="text-[11px] text-muted font-mono mt-0.5">
-              Customer: {purchase.user?.name} ({purchase.user?.email})
-            </p>
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-sm p-3 sm:p-4 animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="min-h-full flex items-center justify-center py-4">
+        <div
+          className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
+            <div>
+              <h3 className="text-base font-extrabold text-fg tracking-tight">
+                Manage Purchase: {purchase.productName}
+              </h3>
+              <p className="text-[11px] text-muted font-mono mt-0.5">
+                Customer: {purchase.user?.name} ({purchase.user?.email})
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded hover:bg-subtle text-muted hover:text-fg transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-subtle text-muted hover:text-fg transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
-        {/* Tab Selection */}
-        <div className="flex border-b border-border text-xs font-mono font-bold bg-subtle/30 px-6 pt-3 gap-4 shrink-0">
-          <button
-            type="button"
-            onClick={() => { setActiveTab('amount'); setError(null); }}
-            className={`pb-2.5 border-b-2 flex items-center gap-1.5 ${
-              activeTab === 'amount'
-                ? 'border-violet-600 text-violet-700'
-                : 'border-transparent text-muted hover:text-fg'
-            }`}
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>Adjust Amount & Rewards</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setActiveTab('status'); setError(null); }}
-            className={`pb-2.5 border-b-2 flex items-center gap-1.5 ${
-              activeTab === 'status'
-                ? 'border-violet-600 text-violet-700'
-                : 'border-transparent text-muted hover:text-fg'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Change Status / Refund</span>
-          </button>
-        </div>
+          {/* Tab Selection */}
+          <div className="flex border-b border-border text-xs font-mono font-bold bg-subtle/30 px-6 pt-3 gap-4 shrink-0">
+            <button
+              type="button"
+              onClick={() => { setActiveTab('amount'); setError(null); }}
+              className={`pb-2.5 border-b-2 flex items-center gap-1.5 ${
+                activeTab === 'amount'
+                  ? 'border-violet-600 text-violet-700'
+                  : 'border-transparent text-muted hover:text-fg'
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Adjust Amount & Rewards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('status'); setError(null); }}
+              className={`pb-2.5 border-b-2 flex items-center gap-1.5 ${
+                activeTab === 'status'
+                  ? 'border-violet-600 text-violet-700'
+                  : 'border-transparent text-muted hover:text-fg'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Change Status / Refund</span>
+            </button>
+          </div>
 
-        {/* Form Body */}
-        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+          {/* Form Body */}
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           {error && (
             <div className="p-3 rounded-control bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -303,5 +321,6 @@ export const EditPurchaseModal: React.FC<EditPurchaseModalProps> = ({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

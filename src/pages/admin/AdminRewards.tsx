@@ -94,6 +94,16 @@ export const AdminRewards: React.FC = () => {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Escape key to close adjustment modal
+  useEffect(() => {
+    if (!showAdjustModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowAdjustModal(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showAdjustModal]);
+
   // Load Overview Data
   const loadOverview = async () => {
     try {
@@ -992,29 +1002,38 @@ export const AdminRewards: React.FC = () => {
 
       {/* Manual Credit / Debit Adjustment Modal */}
       {showAdjustModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative flex flex-col max-h-[92vh] my-auto">
-            <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-violet-600 text-white">
-                  <Zap className="w-4 h-4 fill-current" />
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-sm p-3 sm:p-4 animate-fadeIn"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAdjustModal(false);
+          }}
+        >
+          <div className="min-h-full flex items-center justify-center py-4">
+            <div
+              className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans space-y-0 relative flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-violet-600 text-white">
+                    <Zap className="w-4 h-4 fill-current" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-fg">Manual Credit / Debit Adjustment</h3>
+                    <p className="text-[11px] text-muted font-mono">
+                      Mandatory reason logged for compliance audit trail
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-fg">Manual Credit / Debit Adjustment</h3>
-                  <p className="text-[11px] text-muted font-mono">
-                    Mandatory reason logged for compliance audit trail
-                  </p>
-                </div>
+                <button
+                  onClick={() => setShowAdjustModal(false)}
+                  className="p-1 rounded hover:bg-subtle text-muted hover:text-fg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={() => setShowAdjustModal(false)}
-                className="p-1 rounded hover:bg-subtle text-muted hover:text-fg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <form onSubmit={handleSubmitAdjustment} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              <form onSubmit={handleSubmitAdjustment} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               {adjustError && (
                 <div className="p-3 rounded-control bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1087,6 +1106,7 @@ export const AdminRewards: React.FC = () => {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') e.preventDefault();
                         }}
+                        autoComplete="off"
                         className="ui-input text-xs font-mono pl-8 pr-8 py-2 w-full"
                         autoFocus
                       />
@@ -1237,9 +1257,10 @@ export const AdminRewards: React.FC = () => {
             </form>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 };
 
 export default AdminRewards;

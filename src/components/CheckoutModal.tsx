@@ -64,6 +64,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
     fetchBalance();
   }, [user]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   if (!plan) return null;
 
   const subtotal = plan.priceInr;
@@ -265,31 +273,40 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-      <div className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans relative my-auto flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-violet-600 text-white shadow-md shadow-violet-500/20">
-              <Zap className="w-4 h-4 fill-current" />
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-sm p-3 sm:p-4 animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="min-h-full flex items-center justify-center py-4">
+        <div
+          className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans relative flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-violet-600 text-white shadow-md shadow-violet-500/20">
+                <Zap className="w-4 h-4 fill-current" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-fg">Claude Max Checkout</h2>
+                <p className="text-[11px] text-muted font-mono">Instant Automated Activation · 256-Bit Encrypted Checkout</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-bold text-fg">Claude Max Checkout</h2>
-              <p className="text-[11px] text-muted font-mono">Instant Automated Activation · 256-Bit Encrypted Checkout</p>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-control text-muted hover:text-fg hover:bg-subtle transition-colors"
+              title="Close checkout"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-control text-muted hover:text-fg hover:bg-subtle transition-colors"
-            title="Close checkout"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
-        {/* Content */}
-        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
-          {paymentState === 'IDLE' && (
+          {/* Content */}
+          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
+            {paymentState === 'IDLE' && (
             <>
               {/* Plan Summary Card */}
               <div className="p-4 rounded-control bg-subtle/70 border border-border/80 space-y-3">
@@ -504,9 +521,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                       : `PAY ₹${totalPayable.toLocaleString()} — PROCEED TO PAYMENT`}
                   </span>
                 </button>
-                <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted font-mono pt-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Supports UPI (GPay, PhonePe, Paytm, BHIM), Cards & Net Banking</span>
+                <div className="flex items-center justify-between text-[11px] text-muted font-mono pt-1">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="hover:text-fg underline transition-colors cursor-pointer"
+                  >
+                    ← Cancel & Close
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Supports UPI, Cards & Net Banking</span>
+                  </div>
                 </div>
               </div>
             </>
@@ -613,8 +639,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
           </div>
         </div>
       </div>
+    </div>
 
-      {/* Render Key Revealed Modal upon successful verification */}
+    {/* Render Key Revealed Modal upon successful verification */}
       {revealedKey && (
         <ApiKeyRevealModal
           isOpen={!!revealedKey}

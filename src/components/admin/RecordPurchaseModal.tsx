@@ -92,9 +92,19 @@ export const RecordPurchaseModal: React.FC<RecordPurchaseModalProps> = ({
     }
   }, [productName, channel]);
 
+  // Escape key to close
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Debounced Customer Search
   useEffect(() => {
-    if (!customerSearch.trim() || customerSearch.trim().length < 2) {
+    if (!customerSearch.trim()) {
       setSearchResults([]);
       setSearchAttempted(false);
       return;
@@ -106,7 +116,7 @@ export const RecordPurchaseModal: React.FC<RecordPurchaseModalProps> = ({
         const res = await adminFetch(`/api/admin/rewards/customers-search?q=${encodeURIComponent(customerSearch.trim())}`);
         if (res.ok) {
           const data = await res.json();
-          setSearchResults(data.users || []);
+          setSearchResults(data.users || data.customers || []);
           setSearchAttempted(true);
         }
       } catch (err) {
@@ -114,7 +124,7 @@ export const RecordPurchaseModal: React.FC<RecordPurchaseModalProps> = ({
       } finally {
         setSearchingCustomer(false);
       }
-    }, 250);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [customerSearch]);
@@ -201,40 +211,49 @@ export const RecordPurchaseModal: React.FC<RecordPurchaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-      <div className="bg-white border border-border rounded-panel w-full max-w-xl shadow-2xl overflow-hidden font-sans space-y-0 relative max-h-[92vh] flex flex-col my-auto">
-        {/* Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/20">
-              <Zap className="w-5 h-5 fill-current" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-extrabold text-fg tracking-tight">
-                  + Record Universal Purchase
-                </h3>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                  Step {step} of 2
-                </span>
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-sm p-3 sm:p-4 animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="min-h-full flex items-center justify-center py-4">
+        <div
+          className="bg-white border border-border rounded-panel w-full max-w-xl shadow-2xl overflow-hidden font-sans space-y-0 relative flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/20">
+                <Zap className="w-5 h-5 fill-current" />
               </div>
-              <p className="text-[11px] text-muted font-mono mt-0.5">
-                {step === 1
-                  ? 'Connect any WhatsApp or manual sale to a customer and award Lightning Credits'
-                  : 'Review purchase details and confirm automatic credit allocation'}
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-extrabold text-fg tracking-tight">
+                    + Record Universal Purchase
+                  </h3>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    Step {step} of 2
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted font-mono mt-0.5">
+                  {step === 1
+                    ? 'Connect any WhatsApp or manual sale to a customer and award Lightning Credits'
+                    : 'Review purchase details and confirm automatic credit allocation'}
+                </p>
+              </div>
             </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded hover:bg-subtle text-muted hover:text-fg transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-subtle text-muted hover:text-fg transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+          {/* Modal Body */}
+          <div className="p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
           {errorMessage && (
             <div className="p-3.5 rounded-control bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono flex items-start gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -287,6 +306,7 @@ export const RecordPurchaseModal: React.FC<RecordPurchaseModalProps> = ({
                         placeholder="Search customer by email, name, phone, or ID..."
                         value={customerSearch}
                         onChange={(e) => setCustomerSearch(e.target.value)}
+                        autoComplete="off"
                         className="ui-input text-xs font-mono pl-8 py-2 w-full"
                         autoFocus
                       />
@@ -670,5 +690,6 @@ export const RecordPurchaseModal: React.FC<RecordPurchaseModalProps> = ({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

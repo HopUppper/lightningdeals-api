@@ -58,6 +58,15 @@ export const CustomerRewardsDrawer: React.FC<CustomerRewardsDrawerProps> = ({
     }
   }, [isOpen, userId]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !userId) return null;
 
   const stats = data?.stats || {};
@@ -65,8 +74,16 @@ export const CustomerRewardsDrawer: React.FC<CustomerRewardsDrawerProps> = ({
   const purchases = data?.purchases || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col font-sans border-l border-border animate-slideLeft">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div 
+        className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col font-sans border-l border-border animate-slideLeft"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0">
           <div className="flex items-center gap-3">

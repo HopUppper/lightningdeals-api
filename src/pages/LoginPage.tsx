@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, AlertCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -126,6 +126,15 @@ export const LoginPage: React.FC = () => {
               {loading ? 'Authenticating...' : 'Sign In'}
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            <div className="pt-2 text-center">
+              <Link
+                to={`/forgot-password?step=code${email ? `&email=${encodeURIComponent(email)}` : ''}`}
+                className="text-xs text-violet-600 hover:text-violet-700 font-medium font-mono inline-flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Sign in with 6-digit one-time code →
+              </Link>
+            </div>
           </form>
 
           <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-muted">

@@ -538,6 +538,99 @@ router.post('/auth/reset-password', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/user/auth/login-with-code — Instant 1-Time 6-Digit Code Authentication
+router.post('/auth/login-with-code', authLimiter, async (req: Request, res: Response) => {
+  const { email, code } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: { type: 'invalid_email', message: 'Email address is required.' } });
+  }
+
+  const cleanCode = typeof code === 'string' ? code.trim().replace(/\s+/g, '') : '';
+  if (!cleanCode || cleanCode.length !== 6) {
+    return res.status(400).json({ error: { type: 'invalid_code', message: 'Please enter a valid 6-digit verification code.' } });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (!user) {
+      return res.status(400).json({
+        error: {
+          type: 'invalid_code',
+          message: 'The 6-digit code is invalid or has expired. Please request a new code.',
+        },
+      });
+    }
+
+    const candidateOtpHash = hashSecret(cleanCode);
+    const record = await prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        otpHash: candidateOtpHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { user: true },
+    });
+
+    if (!record) {
+      return res.status(400).json({
+        error: {
+          type: 'invalid_code',
+          message: 'The 6-digit code is invalid or has expired. Please request a new code.',
+        },
+      });
+    }
+
+    // Mark token as used, unlock account, set active
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          emailVerified: true,
+          status: 'active',
+        },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    // Issue fresh JWT session
+    const jwtToken = generateToken({ id: user.id, email: user.email, role: user.role });
+
+    await recordSecurityLog({
+      userId: user.id,
+      email: user.email,
+      req,
+      eventType: 'OTP_LOGIN_COMPLETED',
+    });
+
+    res.json({
+      success: true,
+      message: 'Successfully authenticated with 1-time code.',
+      token: jwtToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: true,
+        status: 'active',
+      },
+    });
+  } catch (err: any) {
+    console.error('[LOGIN-WITH-CODE ERROR]', err);
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // POST /api/user/auth/resend-verification — Resend Verification Email (60s Cooldown Enforced)
 router.post('/auth/resend-verification', authLimiter, async (req: Request, res: Response) => {
   const { email } = req.body;

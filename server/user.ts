@@ -368,17 +368,24 @@ router.post('/auth/forgot-password', authLimiter, async (req: Request, res: Resp
       return res.json(genericResponse);
     }
 
+    // Invalidate any older unused password reset tokens for this user
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
     // Generate Cryptographic Token & 6-Digit Code
     const { rawToken, tokenHash } = generateCryptographicToken();
     const { rawOtp, otpHash } = generateSecureOtpCode();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Store in PasswordResetToken table
+    // Store in PasswordResetToken table with both tokenHash and otpHash
     await prisma.passwordResetToken.create({
       data: {
         userId: user.id,
         email: user.email,
         tokenHash,
+        otpHash,
         expiresAt,
       },
     });
@@ -391,24 +398,35 @@ router.post('/auth/forgot-password', authLimiter, async (req: Request, res: Resp
       });
     }
 
-    // Send Real Transactional Reset Email via Resend
-    await sendPasswordResetEmail({
+    // Send Real Transactional Reset Email
+    const emailResult = await sendPasswordResetEmail({
       email: user.email,
       name: user.name,
       rawToken,
       otpCode: rawOtp,
     });
 
+    if (!emailResult.success && process.env.NODE_ENV === 'production') {
+      console.error('[FORGOT-PASSWORD] Email delivery failed:', emailResult.error);
+      return res.status(503).json({
+        error: {
+          type: 'email_delivery_failed',
+          message: emailResult.error || 'Email delivery failed. Please verify your mail settings or contact support.',
+        },
+      });
+    }
+
     await recordSecurityLog({
       userId: user.id,
       email: user.email,
       req,
       eventType: 'PASSWORD_RESET_REQUESTED',
-      metadata: { expiresAt },
+      metadata: { expiresAt, providerUsed: emailResult.providerUsed },
     });
 
     res.json(genericResponse);
   } catch (err: any) {
+    console.error('[FORGOT-PASSWORD ERROR]', err);
     res.status(500).json({ error: { message: err.message } });
   }
 });
@@ -429,18 +447,28 @@ router.post('/auth/reset-password', async (req: Request, res: Response) => {
   try {
     let record: any = null;
 
-    if (token && typeof token === 'string') {
+    if (token && typeof token === 'string' && token.trim().length > 0) {
       const tokenHash = hashSecret(token.trim());
-      record = await prisma.passwordResetToken.findUnique({
-        where: { tokenHash },
+      record = await prisma.passwordResetToken.findFirst({
+        where: {
+          tokenHash,
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
         include: { user: true },
       });
     } else if (code && email) {
       const cleanEmail = email.trim().toLowerCase();
       const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
       if (user) {
+        const candidateOtpHash = hashSecret(code.trim());
         record = await prisma.passwordResetToken.findFirst({
-          where: { userId: user.id, usedAt: null },
+          where: {
+            userId: user.id,
+            otpHash: candidateOtpHash,
+            usedAt: null,
+            expiresAt: { gt: new Date() },
+          },
           orderBy: { createdAt: 'desc' },
           include: { user: true },
         });
@@ -451,7 +479,7 @@ router.post('/auth/reset-password', async (req: Request, res: Response) => {
       return res.status(400).json({
         error: {
           type: 'invalid_token',
-          message: 'The password reset link or code is invalid or has expired. Please request a new password reset.',
+          message: 'The password reset link or 6-digit code is invalid or has expired. Please request a new password reset.',
         },
       });
     }
@@ -459,7 +487,7 @@ router.post('/auth/reset-password', async (req: Request, res: Response) => {
     const user = record.user;
     const newPasswordHash = hashPasswordScrypt(newPassword);
 
-    // Update password, unlock account, and mark token as used atomically
+    // Update password, unlock account, revoke prior tokens and sessions atomically
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
@@ -469,10 +497,11 @@ router.post('/auth/reset-password', async (req: Request, res: Response) => {
           lockedUntil: null,
           emailVerified: true,
           status: 'active',
+          passwordChangedAt: new Date(),
         },
       }),
-      prisma.passwordResetToken.update({
-        where: { id: record.id },
+      prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
         data: { usedAt: new Date() },
       }),
       prisma.userSession.updateMany({

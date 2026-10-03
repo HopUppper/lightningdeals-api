@@ -455,9 +455,13 @@ model PasswordResetToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   email     String
   tokenHash String    @unique
+  otpHash   String?
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([otpHash])
+  @@index([userId, expiresAt])
 }
 
 model UserSession {

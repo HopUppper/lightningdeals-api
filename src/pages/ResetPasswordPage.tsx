@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { Lock, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Lock, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Mail, KeyRound } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-
 import { useAuth } from '../context/AuthContext';
 
 export const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const initialToken = searchParams.get('token') || '';
+  const initialEmail = searchParams.get('email') || '';
+  const initialCode = searchParams.get('code') || '';
+
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  const [mode, setMode] = useState<'token' | 'code'>(initialToken ? 'token' : 'code');
+  const [token, setToken] = useState(initialToken);
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState(initialCode);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,9 +26,30 @@ export const ResetPasswordPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) {
-      setError('Invalid or missing password reset token.');
-      return;
+    setError(null);
+
+    const payload: { token?: string; code?: string; email?: string; newPassword: string } = {
+      newPassword,
+    };
+
+    if (mode === 'token') {
+      if (!token.trim()) {
+        setError('Password reset token is missing. Please click the link in your email or enter your 6-digit code below.');
+        return;
+      }
+      payload.token = token.trim();
+    } else {
+      if (!email.trim()) {
+        setError('Please enter your registered account email.');
+        return;
+      }
+      const cleanCode = code.trim().replace(/\s+/g, '');
+      if (!cleanCode || cleanCode.length !== 6) {
+        setError('Please enter the 6-digit verification code sent to your email.');
+        return;
+      }
+      payload.email = email.trim();
+      payload.code = cleanCode;
     }
 
     if (newPassword !== confirmPassword) {
@@ -36,13 +63,12 @@ export const ResetPasswordPage: React.FC = () => {
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const res = await fetch('/api/user/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -54,12 +80,12 @@ export const ResetPasswordPage: React.FC = () => {
         }
         setTimeout(() => {
           navigate('/dashboard');
-        }, 2000);
+        }, 2200);
       } else {
-        setError(data.error?.message || 'Failed to reset password. Link may be expired.');
+        setError(data.error?.message || 'Failed to reset password. Link or code may be expired.');
       }
     } catch {
-      setError('Error connecting to security server.');
+      setError('Error connecting to security server. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -80,6 +106,32 @@ export const ResetPasswordPage: React.FC = () => {
             </p>
           </div>
 
+          {/* Mode Selector Tabs */}
+          <div className="flex bg-slate-100 p-1 rounded-2xl text-xs font-mono">
+            <button
+              type="button"
+              onClick={() => { setMode('code'); setError(null); }}
+              className={`flex-1 py-2 rounded-xl font-bold transition-all ${
+                mode === 'code'
+                  ? 'bg-white text-violet-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              6-Digit Code
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('token'); setError(null); }}
+              className={`flex-1 py-2 rounded-xl font-bold transition-all ${
+                mode === 'token'
+                  ? 'bg-white text-violet-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Direct Link / Token
+            </button>
+          </div>
+
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" /> {error}
@@ -90,11 +142,71 @@ export const ResetPasswordPage: React.FC = () => {
             <div className="space-y-6 text-center">
               <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-mono flex items-center gap-2 text-left">
                 <CheckCircle2 className="w-5 h-5 shrink-0" />
-                Password reset successfully! All existing active sessions have been revoked. Redirecting to dashboard...
+                Password reset successfully! All prior active sessions have been securely revoked. Redirecting to your dashboard...
               </div>
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="w-full py-3 rounded-2xl bg-violet-600 text-white font-bold text-xs shadow-md"
+              >
+                Go to Dashboard Now →
+              </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {mode === 'code' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
+                      Account Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@example.com"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono focus:outline-none focus:border-violet-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
+                      6-Digit Password Reset Code
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        required
+                        maxLength={6}
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="123456"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono tracking-widest font-bold focus:outline-none focus:border-violet-500"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
+                    Reset Token (from email link)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    placeholder="Enter cryptographic token from email URL"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
                   New Password (min 8 chars)
@@ -104,6 +216,7 @@ export const ResetPasswordPage: React.FC = () => {
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono focus:outline-none focus:border-violet-500"
                 />
               </div>
@@ -117,6 +230,7 @@ export const ResetPasswordPage: React.FC = () => {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono focus:outline-none focus:border-violet-500"
                 />
               </div>
@@ -126,8 +240,17 @@ export const ResetPasswordPage: React.FC = () => {
                 disabled={loading}
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {loading ? 'Resetting Password...' : 'Update Password'} <ArrowRight className="w-4 h-4" />
+                {loading ? 'Updating Password...' : 'Update Password & Sign In'} <ArrowRight className="w-4 h-4" />
               </button>
+
+              <div className="text-center pt-2">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-violet-600 hover:text-violet-700 font-medium font-mono"
+                >
+                  Need a new reset link or code? Request here →
+                </Link>
+              </div>
             </form>
           )}
 

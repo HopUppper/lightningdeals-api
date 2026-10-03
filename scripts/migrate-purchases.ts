@@ -59,6 +59,14 @@ async function migrate() {
 
   console.log('✓ CreditTransaction columns and index updated.');
 
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "PasswordResetToken" ADD COLUMN IF NOT EXISTS "otpHash" TEXT;
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "PasswordResetToken_otpHash_idx" ON "PasswordResetToken"("otpHash");
+  `);
+  console.log('✓ PasswordResetToken otpHash column and index updated.');
+
   // Backfill existing completed Orders into Purchase table if they are not already there
   const completedOrders = await prisma.order.findMany({
     where: {

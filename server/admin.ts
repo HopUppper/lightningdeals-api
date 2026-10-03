@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { prisma, encryptText, decryptText } from './db';
-import { AuthRequest, authenticateJwt, requireAdmin } from './auth';
+import { AuthRequest, authenticateJwt, requireAdmin, hashPasswordScrypt } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { checkMasterCapacity, topUpMasterBalance, reconcileMasterLedger, calculateActiveEntitlementExposure } from './masterLedger';
 import { getRealtimeAnalyticsReport } from './analyticsTracker';
@@ -1593,7 +1593,7 @@ router.post('/customers', async (req: AuthRequest, res: Response) => {
     }
 
     const defaultPass = password || 'lightningdev2026';
-    const passwordHash = crypto.createHash('sha256').update(defaultPass).digest('hex');
+    const passwordHash = hashPasswordScrypt(defaultPass);
 
     const result = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -1650,7 +1650,7 @@ router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
     if (role !== undefined) updateData.role = role;
     if (status !== undefined) updateData.status = status;
     if (password) {
-      updateData.passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+      updateData.passwordHash = hashPasswordScrypt(password);
     }
 
     const updated = await prisma.$transaction(async (tx) => {

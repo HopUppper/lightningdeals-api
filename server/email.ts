@@ -126,11 +126,21 @@ export interface SendEmailResult {
   error?: string;
 }
 
-// Enterprise Multi-Provider Transactional Email Dispatcher
-export async function sendVerificationEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-  const { email, name, rawToken, otpCode } = options;
-  const htmlContent = generateVerificationEmailHtml(name, rawToken, otpCode);
-  const subject = '⚡ Verify Your LightningDeals Account';
+// Internal Enterprise Multi-Provider Transactional Dispatcher
+interface DispatchEmailOptions {
+  email: string;
+  subject: string;
+  htmlContent: string;
+  contextName: string;
+  devDetails?: {
+    token?: string;
+    code?: string;
+    link?: string;
+  };
+}
+
+async function dispatchEmailTransport(options: DispatchEmailOptions): Promise<SendEmailResult> {
+  const { email, subject, htmlContent, contextName, devDetails } = options;
   let lastError = '';
 
   // 1. Resend API
@@ -157,21 +167,40 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
       });
 
       const data = await res.json();
-
       if (res.ok && data.id) {
         return { success: true, providerUsed: 'RESEND', messageId: data.id };
       }
 
       const resendMsg = data.message || data.error?.message || JSON.stringify(data);
-      console.error('[EMAIL DELIVERY ERROR] Resend API failed:', resendMsg);
+      console.warn(`[EMAIL DELIVERY WARNING] Resend initial attempt for ${email} failed: ${resendMsg}`);
 
-      if (res.status === 403 && resendMsg.includes('testing emails')) {
-        lastError = `Resend Account Test Restriction: Your Resend API key is currently using the free testing domain (onboarding@resend.dev), which can ONLY send emails to the account owner (sidhjain9002@gmail.com). To send verification emails to any address (${email}), please verify your custom domain in Resend Dashboard (resend.com/domains) or use sidhjain9002@gmail.com.`;
-      } else {
-        lastError = `Resend API Error: ${resendMsg}`;
+      // If domain verification failed on Resend (e.g. sending from unverified domain), try fallback to onboarding@resend.dev
+      if (res.status === 403 || resendMsg.toLowerCase().includes('domain') || resendMsg.toLowerCase().includes('verify')) {
+        console.info(`[EMAIL DELIVERY] Resend custom domain restricted. Retrying with onboarding@resend.dev...`);
+        const retryRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'LightningDeals <onboarding@resend.dev>',
+            to: [email],
+            subject,
+            html: htmlContent,
+          }),
+        });
+        const retryData = await retryRes.json();
+        if (retryRes.ok && retryData.id) {
+          return { success: true, providerUsed: 'RESEND', messageId: retryData.id };
+        }
       }
+
+      lastError = `Resend API Error: ${resendMsg}`;
+      console.error(`[EMAIL DELIVERY ERROR] Resend ${contextName} failed:`, resendMsg);
     } catch (err: any) {
-      console.error('[EMAIL DELIVERY ERROR] Resend fetch exception:', err.message);
+      console.error(`[EMAIL DELIVERY ERROR] Resend fetch exception:`, err.message);
       lastError = `Resend exception: ${err.message}`;
     }
   }
@@ -179,6 +208,10 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
   // 2. SendGrid API Fallback
   if (process.env.SENDGRID_API_KEY) {
     try {
+      const fromEmail = process.env.EMAIL_FROM?.includes('<')
+        ? process.env.EMAIL_FROM.match(/<([^>]+)>/)?.[1]
+        : (process.env.EMAIL_FROM || 'support@lightningapi.pro');
+
       const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         signal: AbortSignal.timeout(8000),
@@ -188,7 +221,7 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
         },
         body: JSON.stringify({
           personalizations: [{ to: [{ email }] }],
-          from: { email: DEFAULT_FROM.includes('<') ? DEFAULT_FROM.match(/<([^>]+)>/)?.[1] : DEFAULT_FROM },
+          from: { email: fromEmail },
           subject,
           content: [{ type: 'text/html', value: htmlContent }],
         }),
@@ -197,8 +230,12 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
       if (res.ok) {
         return { success: true, providerUsed: 'SENDGRID' };
       }
+      const sgErr = await res.text();
+      console.error(`[EMAIL DELIVERY ERROR] SendGrid failed (${res.status}):`, sgErr);
+      lastError = `SendGrid Error (${res.status}): ${sgErr}`;
     } catch (err: any) {
-      console.error('[EMAIL DELIVERY ERROR] SendGrid exception:', err.message);
+      console.error(`[EMAIL DELIVERY ERROR] SendGrid exception:`, err.message);
+      lastError = `SendGrid exception: ${err.message}`;
     }
   }
 
@@ -224,18 +261,19 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
 
       return { success: true, providerUsed: 'SMTP', messageId: info.messageId };
     } catch (err: any) {
-      console.error('[EMAIL DELIVERY ERROR] SMTP Nodemailer exception:', err.message);
+      console.error(`[EMAIL DELIVERY ERROR] SMTP Nodemailer exception:`, err.message);
+      lastError = `SMTP exception: ${err.message}`;
     }
   }
 
   // 4. Fallback: Development Mode only
   if (process.env.NODE_ENV !== 'production') {
     console.log(`\n==================================================`);
-    console.log(`[DEV VERIFICATION EMAIL LOG] To: ${email}`);
+    console.log(`[DEV ${contextName.toUpperCase()} EMAIL LOG] To: ${email}`);
     console.log(`Subject: ${subject}`);
-    console.log(`Verification Token: ${rawToken}`);
-    console.log(`6-Digit OTP Code: ${otpCode}`);
-    console.log(`Verify Link: ${APP_BASE_URL}/verify-email?token=${rawToken}`);
+    if (devDetails?.token) console.log(`Token: ${devDetails.token}`);
+    if (devDetails?.code) console.log(`6-Digit Code: ${devDetails.code}`);
+    if (devDetails?.link) console.log(`Action Link: ${devDetails.link}`);
     console.log(`==================================================\n`);
 
     return {
@@ -253,12 +291,28 @@ export async function sendVerificationEmail(options: SendEmailOptions): Promise<
   };
 }
 
-export async function sendPasswordResetEmail(options: { email: string; name: string; rawToken: string; otpCode: string }): Promise<SendEmailResult> {
+// Enterprise Multi-Provider Transactional Email Dispatcher for Verification
+export async function sendVerificationEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   const { email, name, rawToken, otpCode } = options;
-  const resetUrl = `${APP_BASE_URL}/reset-password?token=${encodeURIComponent(rawToken)}`;
-  const subject = '🔒 Reset Your LightningDeals Password';
+  const htmlContent = generateVerificationEmailHtml(name, rawToken, otpCode);
+  const subject = '⚡ Verify Your LightningDeals Account';
+  const verifyUrl = `${APP_BASE_URL}/verify-email?token=${encodeURIComponent(rawToken)}`;
 
-  const htmlContent = `
+  return dispatchEmailTransport({
+    email,
+    subject,
+    htmlContent,
+    contextName: 'Verification',
+    devDetails: {
+      token: rawToken,
+      code: otpCode,
+      link: verifyUrl,
+    },
+  });
+}
+
+function generatePasswordResetEmailHtml(name: string, resetUrl: string, otpCode: string): string {
+  return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -290,39 +344,31 @@ export async function sendPasswordResetEmail(options: { email: string; name: str
         <div class="code-digits">${otpCode}</div>
       </div>
       <div class="expiry-note">
-        🔒 This single-use reset link expires in <strong>15 minutes</strong>. If you did not request a password reset, please ignore this email.
+        🔒 This single-use reset link and 6-digit code expire in <strong>15 minutes</strong>. If you did not request a password reset, please ignore this email.
       </div>
     </div>
   </div>
 </body>
 </html>
   `;
+}
 
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        signal: AbortSignal.timeout(8000),
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: DEFAULT_FROM,
-          to: [email],
-          subject,
-          html: htmlContent,
-        }),
-      });
+// Enterprise Multi-Provider Transactional Email Dispatcher for Password Reset
+export async function sendPasswordResetEmail(options: { email: string; name: string; rawToken: string; otpCode: string }): Promise<SendEmailResult> {
+  const { email, name, rawToken, otpCode } = options;
+  const resetUrl = `${APP_BASE_URL}/reset-password?token=${encodeURIComponent(rawToken)}`;
+  const subject = '🔒 Reset Your LightningDeals Password';
+  const htmlContent = generatePasswordResetEmailHtml(name, resetUrl, otpCode);
 
-      const data = await res.json();
-      if (res.ok && data.id) {
-        return { success: true, providerUsed: 'RESEND', messageId: data.id };
-      }
-    } catch (err: any) {
-      console.error('[EMAIL DELIVERY ERROR] Resend password reset exception:', err.message);
-    }
-  }
-
-  return { success: true, providerUsed: 'DEVELOPMENT_LOG' };
+  return dispatchEmailTransport({
+    email,
+    subject,
+    htmlContent,
+    contextName: 'Password Reset',
+    devDetails: {
+      token: rawToken,
+      code: otpCode,
+      link: resetUrl,
+    },
+  });
 }

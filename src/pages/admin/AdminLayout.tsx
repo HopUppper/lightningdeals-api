@@ -151,7 +151,16 @@ export const AdminLayout: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/admin/rewards"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold font-mono transition-colors shadow-xs"
+            title="Record WhatsApp / Universal Purchase"
+          >
+            <Zap className="w-3.5 h-3.5 fill-current text-emerald-600" />
+            <span>+ Record Purchase</span>
+          </Link>
+
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-semibold text-fg">{adminUser?.name || 'Administrator'}</p>

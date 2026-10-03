@@ -35,6 +35,7 @@ interface RewardSummary {
   };
   transactions: any[];
   orders: any[];
+  purchases?: any[];
 }
 
 export const UserRewards: React.FC = () => {
@@ -434,12 +435,14 @@ export const UserRewards: React.FC = () => {
               <tbody className="divide-y divide-border/60">
                 {data.transactions.map((tx: any) => {
                   const isPositive = tx.amount > 0;
+                  const channel = tx.purchase?.channel || tx.channel;
+                  const ref = tx.purchase?.referenceId || tx.referenceId || tx.order?.internalOrderId;
                   return (
                     <tr key={tx.id} className="hover:bg-subtle/50 transition-colors">
-                      <td className="py-3 px-3 text-muted">
+                      <td className="py-3 px-3 text-muted whitespace-nowrap">
                         {new Date(tx.createdAt).toLocaleDateString()} {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td className="py-3 px-3">
+                      <td className="py-3 px-3 whitespace-nowrap">
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             tx.type === 'PURCHASE_REWARD'
@@ -454,16 +457,27 @@ export const UserRewards: React.FC = () => {
                           {tx.type.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-fg max-w-xs truncate">
-                        {tx.description}
+                      <td className="py-3 px-3 text-fg max-w-sm">
+                        <div className="font-medium text-fg">{tx.description}</div>
+                        <div className="text-[10px] text-muted flex items-center gap-2 mt-0.5">
+                          {channel && (
+                            <span className={`px-1.5 py-0.2 rounded font-bold ${
+                              channel === 'WHATSAPP' ? 'bg-emerald-50 text-emerald-700' : 'bg-violet-50 text-violet-700'
+                            }`}>
+                              {channel === 'WHATSAPP' ? '💬 WhatsApp' : channel === 'WEBSITE' ? '🌐 LightningAPI.pro' : channel}
+                            </span>
+                          )}
+                          {ref && <span>Ref: {ref}</span>}
+                          {tx.reason && <span className="italic">Reason: {tx.reason}</span>}
+                        </div>
                       </td>
-                      <td className={`py-3 px-3 text-right font-extrabold ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <td className={`py-3 px-3 text-right font-extrabold whitespace-nowrap ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {isPositive ? `+₹${tx.amount.toLocaleString()}` : `-₹${Math.abs(tx.amount).toLocaleString()}`}
                       </td>
-                      <td className="py-3 px-3 text-right text-fg font-bold">
+                      <td className="py-3 px-3 text-right text-fg font-bold whitespace-nowrap">
                         ₹{tx.balanceAfter.toLocaleString()}
                       </td>
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
                         <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                           {tx.status}
                         </span>
@@ -477,59 +491,86 @@ export const UserRewards: React.FC = () => {
         )}
       </div>
 
-      {/* Eligible Purchases History */}
-      {data?.orders && data.orders.length > 0 && (
+      {/* Universal Purchase History (Section 12) */}
+      {((data?.purchases && data.purchases.length > 0) || (data?.orders && data.orders.length > 0)) && (
         <div className="rounded-panel border border-border bg-white p-6 shadow-xs space-y-4">
-          <div className="flex justify-between items-center border-b border-border pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
             <div>
-              <h2 className="text-base font-extrabold text-fg">Eligible Purchases History</h2>
+              <h2 className="text-base font-extrabold text-fg flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-violet-600" />
+                <span>Universal Purchase History</span>
+              </h2>
               <p className="text-xs text-muted font-mono mt-0.5">
-                Breakdown of purchase amounts, eligible portions, and rewards earned.
+                Every purchase made through WhatsApp, Website, or direct sales with rewards earned.
               </p>
             </div>
+            <span className="text-xs font-mono text-muted">
+              {(data.purchases?.length || data.orders?.length || 0)} Purchases Recorded
+            </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left font-mono text-xs">
               <thead>
                 <tr className="border-b border-border text-[11px] text-muted uppercase">
-                  <th className="py-2.5 px-3">Order ID</th>
-                  <th className="py-2.5 px-3">Plan</th>
                   <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3 text-right">Purchase Value</th>
+                  <th className="py-2.5 px-3">Product / Service</th>
+                  <th className="py-2.5 px-3 text-center">Channel</th>
+                  <th className="py-2.5 px-3 text-right">Amount Paid</th>
                   <th className="py-2.5 px-3 text-right">Eligible Amount</th>
                   <th className="py-2.5 px-3 text-right">Credits Earned</th>
                   <th className="py-2.5 px-3 text-center">Status</th>
+                  <th className="py-2.5 px-3">Reference</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {data.orders.map((o: any) => (
-                  <tr key={o.id} className="hover:bg-subtle/50 transition-colors">
-                    <td className="py-3 px-3 text-violet-700 font-bold">
-                      {o.internalOrderId}
-                    </td>
-                    <td className="py-3 px-3 text-fg font-semibold">
-                      {o.planName}
-                    </td>
-                    <td className="py-3 px-3 text-muted">
-                      {new Date(o.date).toLocaleDateString()}
-                    </td>
-                    <td className="py-3 px-3 text-right text-fg font-bold">
-                      ₹{o.purchaseAmount?.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-3 text-right text-muted">
-                      ₹{o.eligibleAmount?.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-3 text-right text-emerald-600 font-extrabold">
-                      {o.creditsEarned > 0 ? `+₹${o.creditsEarned.toLocaleString()}` : '—'}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-bold">
-                        {o.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {(data.purchases || data.orders).map((p: any) => {
+                  const channel = p.channel || 'WEBSITE';
+                  return (
+                    <tr key={p.id} className="hover:bg-subtle/50 transition-colors">
+                      <td className="py-3 px-3 text-muted whitespace-nowrap">
+                        {new Date(p.date || p.purchaseDate || p.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-3 text-fg font-bold">
+                        {p.productName || p.planName}
+                      </td>
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            channel === 'WHATSAPP'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : channel === 'WEBSITE'
+                              ? 'bg-violet-50 text-violet-700 border border-violet-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}
+                        >
+                          {channel === 'WHATSAPP'
+                            ? '💬 WhatsApp'
+                            : channel === 'WEBSITE'
+                            ? '🌐 LightningAPI.pro'
+                            : channel}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right text-fg font-bold whitespace-nowrap">
+                        ₹{(p.amountPaid ?? p.purchaseAmount)?.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3 text-right text-muted whitespace-nowrap">
+                        ₹{p.eligibleAmount?.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3 text-right text-emerald-600 font-extrabold whitespace-nowrap">
+                        {p.creditsEarned > 0 ? `+₹${p.creditsEarned.toLocaleString()}` : '—'}
+                      </td>
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-bold">
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-muted text-[11px] whitespace-nowrap">
+                        {p.referenceId || p.internalOrderId || '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

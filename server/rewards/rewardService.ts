@@ -197,10 +197,48 @@ export async function awardOrderCredits(params: {
     const newLifetimeEarned = Math.round(((user.lifetimeCreditsEarned || 0) + calculation.rewardCredits) * 100) / 100;
 
     // Create Credit Ledger Entry
+    // Find or create Universal Purchase record for this website order
+    let purchase = await tx.purchase.findFirst({
+      where: {
+        OR: [{ orderId }, { referenceId: orderId }],
+      },
+    });
+
+    const orderRecord = await tx.order.findUnique({ where: { id: orderId } });
+    if (!purchase && orderRecord) {
+      purchase = await tx.purchase.create({
+        data: {
+          userId,
+          orderId,
+          productName: orderRecord.planName || 'API Subscription',
+          description: `Website purchase - ${orderRecord.planName || 'API Plan'}`,
+          amountPaid: calculation.purchaseAmount,
+          channel: 'WEBSITE',
+          status: 'COMPLETED',
+          creditsEarned: calculation.rewardCredits,
+          creditsRedeemed: orderRecord.creditsRedeemed || 0,
+          referenceId: orderRecord.internalOrderId,
+          createdBy: 'SYSTEM',
+        },
+      });
+    } else if (purchase) {
+      await tx.purchase.update({
+        where: { id: purchase.id },
+        data: {
+          creditsEarned: calculation.rewardCredits,
+          status: 'COMPLETED',
+        },
+      });
+    }
+
+    // Create Credit Ledger Entry
     const creditTx = await tx.creditTransaction.create({
       data: {
         userId,
         orderId,
+        purchaseId: purchase?.id || null,
+        channel: 'WEBSITE',
+        referenceId: orderRecord?.internalOrderId || null,
         type: 'PURCHASE_REWARD',
         amount: calculation.rewardCredits,
         balanceBefore: currentBalance,
@@ -242,6 +280,7 @@ export async function awardOrderCredits(params: {
       alreadyAwarded: false,
       creditsAwarded: calculation.rewardCredits,
       transactionId: creditTx.id,
+      purchaseId: purchase?.id,
       balanceBefore: currentBalance,
       balanceAfter,
     };
@@ -520,9 +559,10 @@ export async function reverseOrderCredits(params: {
 
 /**
  * Customer Rewards Summary for `/dashboard/rewards` & `/api/user/rewards/summary`
+ * Unified across ALL purchase channels (WhatsApp, Website, Manual, etc.)
  */
 export async function getCustomerRewardsSummary(userId: string) {
-  const [user, settings, transactions, eligibleOrdersCount, recentOrders] = await Promise.all([
+  const [user, settings, transactions, eligiblePurchasesCount, recentPurchases] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -538,7 +578,36 @@ export async function getCustomerRewardsSummary(userId: string) {
     prisma.creditTransaction.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      take: 25,
+      take: 30,
+      include: {
+        order: {
+          select: {
+            internalOrderId: true,
+            amountInr: true,
+            planName: true,
+          },
+        },
+        purchase: {
+          select: {
+            id: true,
+            productName: true,
+            channel: true,
+            referenceId: true,
+            amountPaid: true,
+          },
+        },
+      },
+    }),
+    prisma.purchase.count({
+      where: {
+        userId,
+        status: 'COMPLETED',
+      },
+    }),
+    prisma.purchase.findMany({
+      where: { userId },
+      orderBy: { purchaseDate: 'desc' },
+      take: 20,
       include: {
         order: {
           select: {
@@ -549,42 +618,31 @@ export async function getCustomerRewardsSummary(userId: string) {
         },
       },
     }),
-    prisma.order.count({
-      where: {
-        userId,
-        paymentStatus: { in: ['CAPTURED', 'PAID'] },
-      },
-    }),
-    prisma.order.findMany({
-      where: {
-        userId,
-        paymentStatus: { in: ['CAPTURED', 'PAID'] },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-      select: {
-        id: true,
-        internalOrderId: true,
-        planName: true,
-        amountInr: true,
-        paidAmountInr: true,
-        creditsEarned: true,
-        creditsRedeemed: true,
-        paymentStatus: true,
-        createdAt: true,
-      },
-    }),
   ]);
 
   if (!user) {
-    throw new Error('User not found.');
+    throw new Error('Customer account not found.');
   }
+
+  const purchasesMapped = recentPurchases.map((p) => ({
+    id: p.id,
+    productName: p.productName,
+    description: p.description,
+    amountPaid: p.amountPaid,
+    channel: p.channel,
+    status: p.status,
+    creditsEarned: p.creditsEarned,
+    creditsRedeemed: p.creditsRedeemed,
+    referenceId: p.referenceId,
+    date: p.purchaseDate,
+    eligibleAmount: Math.min(p.amountPaid, settings.maxEligiblePurchaseAmount),
+  }));
 
   return {
     availableCredits: user.availableCredits || 0,
     lifetimeCreditsEarned: user.lifetimeCreditsEarned || 0,
     lifetimeCreditsRedeemed: user.lifetimeCreditsRedeemed || 0,
-    eligiblePurchasesCount: eligibleOrdersCount,
+    eligiblePurchasesCount,
     settings: {
       rewardPercentage: settings.rewardPercentage,
       maxEligiblePurchaseAmount: settings.maxEligiblePurchaseAmount,
@@ -593,16 +651,19 @@ export async function getCustomerRewardsSummary(userId: string) {
       isActive: settings.isActive,
     },
     transactions,
-    orders: recentOrders.map((o) => ({
-      id: o.id,
-      internalOrderId: o.internalOrderId,
-      planName: o.planName,
-      purchaseAmount: o.paidAmountInr ?? o.amountInr,
-      eligibleAmount: Math.min(o.paidAmountInr ?? o.amountInr, settings.maxEligiblePurchaseAmount),
-      creditsEarned: o.creditsEarned || 0,
-      creditsRedeemed: o.creditsRedeemed || 0,
-      status: o.paymentStatus,
-      date: o.createdAt,
+    purchases: purchasesMapped,
+    // Keep orders array for backward compatibility with existing components
+    orders: purchasesMapped.map((p) => ({
+      id: p.id,
+      internalOrderId: p.referenceId || p.id.substring(0, 8),
+      planName: p.productName,
+      purchaseAmount: p.amountPaid,
+      eligibleAmount: p.eligibleAmount,
+      creditsEarned: p.creditsEarned,
+      creditsRedeemed: p.creditsRedeemed,
+      status: p.status,
+      date: p.date,
+      channel: p.channel,
     })),
   };
 }
@@ -616,6 +677,8 @@ export async function getAdminRewardsOverview() {
     totalCustomersWithCredits,
     usersAggregates,
     txAggregates,
+    purchasesAggregates,
+    channelAggregates,
     thisMonthTxs,
     recentTransactions,
   ] = await Promise.all([
@@ -636,6 +699,17 @@ export async function getAdminRewardsOverview() {
       _sum: { amountInr: true },
       _count: { id: true },
     }),
+    prisma.purchase.aggregate({
+      where: { status: 'COMPLETED' },
+      _sum: { amountPaid: true, creditsEarned: true },
+      _count: { id: true },
+    }),
+    prisma.purchase.groupBy({
+      by: ['channel'],
+      where: { status: 'COMPLETED' },
+      _sum: { amountPaid: true },
+      _count: { id: true },
+    }),
     prisma.creditTransaction.findMany({
       where: {
         createdAt: {
@@ -650,6 +724,7 @@ export async function getAdminRewardsOverview() {
       include: {
         user: { select: { id: true, name: true, email: true } },
         order: { select: { internalOrderId: true, amountInr: true } },
+        purchase: { select: { id: true, productName: true, channel: true, referenceId: true } },
       },
     }),
   ]);
@@ -662,18 +737,33 @@ export async function getAdminRewardsOverview() {
     if (tx.amount < 0) thisMonthRedeemed += Math.abs(tx.amount);
   }
 
+  const channelBreakdown: Record<string, { count: number; volume: number }> = {
+    WEBSITE: { count: 0, volume: 0 },
+    WHATSAPP: { count: 0, volume: 0 },
+    MANUAL: { count: 0, volume: 0 },
+    OTHER: { count: 0, volume: 0 },
+  };
+
+  for (const item of channelAggregates) {
+    channelBreakdown[item.channel] = {
+      count: item._count.id || 0,
+      volume: item._sum.amountPaid || 0,
+    };
+  }
+
   return {
     settings,
     kpis: {
       totalCustomers: usersAggregates._count.id || 0,
       totalCustomersWithCredits,
-      totalEligiblePurchaseVolume: txAggregates._sum.amountInr || 0,
-      totalEligibleOrders: txAggregates._count.id || 0,
+      totalEligiblePurchaseVolume: purchasesAggregates._sum.amountPaid || txAggregates._sum.amountInr || 0,
+      totalEligiblePurchases: purchasesAggregates._count.id || 0,
       totalCreditsIssued: usersAggregates._sum.lifetimeCreditsEarned || 0,
       totalCreditsRedeemed: usersAggregates._sum.lifetimeCreditsRedeemed || 0,
       totalOutstandingLiability: usersAggregates._sum.availableCredits || 0,
       thisMonthIssued: Math.round(thisMonthIssued * 100) / 100,
       thisMonthRedeemed: Math.round(thisMonthRedeemed * 100) / 100,
+      channelBreakdown,
     },
     recentTransactions,
   };
@@ -704,8 +794,11 @@ export async function getGlobalCreditLedger(options: {
       { user: { email: { contains: s, mode: 'insensitive' } } },
       { user: { name: { contains: s, mode: 'insensitive' } } },
       { order: { internalOrderId: { contains: s, mode: 'insensitive' } } },
+      { purchase: { productName: { contains: s, mode: 'insensitive' } } },
+      { purchase: { referenceId: { contains: s, mode: 'insensitive' } } },
       { description: { contains: s, mode: 'insensitive' } },
       { reason: { contains: s, mode: 'insensitive' } },
+      { referenceId: { contains: s, mode: 'insensitive' } },
     ];
   }
 
@@ -723,6 +816,9 @@ export async function getGlobalCreditLedger(options: {
         order: {
           select: { internalOrderId: true, amountInr: true, planName: true },
         },
+        purchase: {
+          select: { id: true, productName: true, channel: true, referenceId: true },
+        },
       },
     }),
   ]);
@@ -739,57 +835,695 @@ export async function getGlobalCreditLedger(options: {
 }
 
 /**
- * Customer Credit Inspection for Admin
+ * Customer Credit & Universal Purchase Details for Admin
  */
-export async function getAdminCustomerCreditDetails(userId: string) {
-  const [user, transactions, orders] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        status: true,
-        availableCredits: true,
-        lifetimeCreditsEarned: true,
-        lifetimeCreditsRedeemed: true,
-        createdAt: true,
-      },
+export async function getAdminCustomerProfileDetails(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      status: true,
+      availableCredits: true,
+      lifetimeCreditsEarned: true,
+      lifetimeCreditsRedeemed: true,
+      createdAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error('Customer account not found.');
+  }
+
+  const [purchases, transactions, aggregates] = await Promise.all([
+    prisma.purchase.findMany({
+      where: { userId },
+      orderBy: { purchaseDate: 'desc' },
     }),
     prisma.creditTransaction.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: {
+        purchase: { select: { id: true, productName: true, channel: true, referenceId: true } },
         order: { select: { internalOrderId: true, amountInr: true } },
       },
     }),
-    prisma.order.findMany({
+    prisma.purchase.groupBy({
+      by: ['channel'],
       where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        internalOrderId: true,
-        planName: true,
-        amountInr: true,
-        paidAmountInr: true,
-        creditsEarned: true,
-        creditsRedeemed: true,
-        paymentStatus: true,
-        createdAt: true,
-      },
+      _count: { id: true },
+      _sum: { amountPaid: true, creditsEarned: true },
     }),
   ]);
 
-  if (!user) {
-    throw new Error('Customer not found.');
+  let totalPurchasesCount = 0;
+  let totalPurchaseValue = 0;
+  let websitePurchasesCount = 0;
+  let websitePurchaseValue = 0;
+  let whatsappPurchasesCount = 0;
+  let whatsappPurchaseValue = 0;
+  let manualPurchasesCount = 0;
+  let manualPurchaseValue = 0;
+
+  for (const group of aggregates) {
+    const count = group._count.id || 0;
+    const value = group._sum.amountPaid || 0;
+    totalPurchasesCount += count;
+    totalPurchaseValue += value;
+
+    if (group.channel === 'WEBSITE') {
+      websitePurchasesCount = count;
+      websitePurchaseValue = value;
+    } else if (group.channel === 'WHATSAPP') {
+      whatsappPurchasesCount = count;
+      whatsappPurchaseValue = value;
+    } else if (group.channel === 'MANUAL') {
+      manualPurchasesCount = count;
+      manualPurchaseValue = value;
+    }
   }
 
   return {
     customer: user,
+    stats: {
+      availableCredits: user.availableCredits || 0,
+      lifetimeCreditsEarned: user.lifetimeCreditsEarned || 0,
+      lifetimeCreditsRedeemed: user.lifetimeCreditsRedeemed || 0,
+      totalPurchases: totalPurchasesCount,
+      totalPurchaseValue,
+      websitePurchases: websitePurchasesCount,
+      websitePurchaseValue,
+      whatsappPurchases: whatsappPurchasesCount,
+      whatsappPurchaseValue,
+      manualPurchases: manualPurchasesCount,
+      manualPurchaseValue,
+    },
+    purchases,
     transactions,
-    orders,
   };
 }
+
+export const getAdminCustomerCreditDetails = getAdminCustomerProfileDetails;
+
+/**
+ * Universal Purchase Creation
+ * Authoritatively calculates rewards and updates customer wallet balance.
+ */
+export async function createUniversalPurchase(params: {
+  userId: string;
+  productName: string;
+  description?: string;
+  amountPaid: number;
+  channel?: string;
+  purchaseDate?: Date | string;
+  status?: string;
+  referenceId?: string;
+  orderId?: string;
+  notes?: string;
+  createdBy?: string;
+}) {
+  const {
+    userId,
+    productName,
+    description,
+    amountPaid,
+    channel = 'WHATSAPP',
+    purchaseDate,
+    status = 'COMPLETED',
+    referenceId,
+    orderId,
+    notes,
+    createdBy = 'ADMIN',
+  } = params;
+
+  const cleanAmount = Math.max(0, Math.round(Number(amountPaid) * 100) / 100);
+  const cleanChannel = (channel || 'WHATSAPP').toUpperCase().trim();
+  const cleanStatus = (status || 'COMPLETED').toUpperCase().trim();
+  const cleanRef = referenceId?.trim() || null;
+
+  if (!userId) {
+    throw new Error('Customer ID is required.');
+  }
+
+  if (!productName || !productName.trim()) {
+    throw new Error('Product / Subscription name is required.');
+  }
+
+  if (cleanAmount <= 0) {
+    throw new Error('Purchase amount must be greater than zero.');
+  }
+
+  // 1. Verify Customer Exists
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, phone: true, availableCredits: true, lifetimeCreditsEarned: true },
+  });
+
+  if (!user) {
+    throw new Error('Customer account not found.');
+  }
+
+  // 2. Duplicate Check / Idempotency
+  if (cleanRef) {
+    const existing = await prisma.purchase.findUnique({
+      where: { referenceId: cleanRef },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    });
+
+    if (existing) {
+      return {
+        success: true,
+        isDuplicate: true,
+        message: `Purchase already exists for reference ${cleanRef}.`,
+        purchase: existing,
+        creditsAwarded: existing.creditsEarned,
+        currentBalance: user.availableCredits,
+        newBalance: user.availableCredits,
+      };
+    }
+  }
+
+  // 3. Calculate Reward
+  const calculation = await calculateReward(cleanAmount);
+  const shouldAwardCredits = cleanStatus === 'COMPLETED' && calculation.rewardCredits > 0;
+  const creditsToAward = shouldAwardCredits ? calculation.rewardCredits : 0;
+
+  // 4. Atomic Interactive Database Transaction
+  return await prisma.$transaction(async (tx) => {
+    // Secondary check inside lock
+    if (cleanRef) {
+      const race = await tx.purchase.findUnique({ where: { referenceId: cleanRef } });
+      if (race) {
+        return {
+          success: true,
+          isDuplicate: true,
+          message: `Purchase already exists for reference ${cleanRef}.`,
+          purchase: race,
+          creditsAwarded: race.creditsEarned,
+          currentBalance: user.availableCredits,
+          newBalance: user.availableCredits,
+        };
+      }
+    }
+
+    const currentBalance = user.availableCredits || 0;
+    const balanceAfter = shouldAwardCredits
+      ? Math.round((currentBalance + creditsToAward) * 100) / 100
+      : currentBalance;
+    const newLifetimeEarned = shouldAwardCredits
+      ? Math.round(((user.lifetimeCreditsEarned || 0) + creditsToAward) * 100) / 100
+      : user.lifetimeCreditsEarned || 0;
+
+    const channelReadable = cleanChannel === 'WHATSAPP' ? 'WhatsApp' : cleanChannel === 'WEBSITE' ? 'Website' : cleanChannel;
+    const purchaseDesc = description?.trim() || `${productName.trim()} purchased via ${channelReadable}`;
+
+    // Create Universal Purchase Record
+    const purchase = await tx.purchase.create({
+      data: {
+        userId,
+        orderId: orderId || null,
+        productName: productName.trim(),
+        description: purchaseDesc,
+        amountPaid: cleanAmount,
+        channel: cleanChannel,
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
+        status: cleanStatus,
+        creditsEarned: creditsToAward,
+        creditsRedeemed: 0,
+        referenceId: cleanRef,
+        notes: notes?.trim() || null,
+        createdBy,
+      },
+    });
+
+    let creditTx: any = null;
+
+    if (shouldAwardCredits) {
+      // Create Credit Transaction
+      creditTx = await tx.creditTransaction.create({
+        data: {
+          userId,
+          purchaseId: purchase.id,
+          orderId: orderId || null,
+          channel: cleanChannel,
+          referenceId: cleanRef,
+          type: 'PURCHASE_REWARD',
+          amount: creditsToAward,
+          balanceBefore: currentBalance,
+          balanceAfter,
+          description: `${productName.trim()} purchased via ${channelReadable} - 10% Lightning Credits earned`,
+          status: 'COMPLETED',
+        },
+      });
+
+      // Update User Balance
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          availableCredits: balanceAfter,
+          lifetimeCreditsEarned: newLifetimeEarned,
+        },
+      });
+
+      // Customer Notification
+      await tx.notification.create({
+        data: {
+          userId,
+          title: '⚡ Lightning Rewards',
+          message: `You earned ₹${creditsToAward.toLocaleString()} Lightning Credits from your ${productName.trim()} purchase. Current balance: ₹${balanceAfter.toLocaleString()}. Purchased via ${channelReadable}.`,
+          type: 'success',
+        },
+      });
+    }
+
+    // Audit Logging
+    await recordAuditEvent({
+      eventType: 'PURCHASE_CREATED',
+      severity: 'MEDIUM',
+      actorType: createdBy.startsWith('WHATSAPP') ? 'SYSTEM' : 'ADMIN',
+      actorId: createdBy,
+      customerId: userId,
+      resourceType: 'PURCHASE',
+      resourceId: purchase.id,
+      action: 'CREATE_PURCHASE',
+      metadata: JSON.stringify({
+        productName: purchase.productName,
+        amountPaid: purchase.amountPaid,
+        channel: purchase.channel,
+        creditsEarned: purchase.creditsEarned,
+        referenceId: purchase.referenceId,
+        newBalance: balanceAfter,
+      }),
+    });
+
+    return {
+      success: true,
+      isDuplicate: false,
+      purchase,
+      calculation,
+      creditTransaction: creditTx,
+      creditsAwarded: creditsToAward,
+      currentBalance,
+      newBalance: balanceAfter,
+    };
+  });
+}
+
+/**
+ * Universal Purchase Amount Editing (Strict Ledger Preserving)
+ * Reverses original reward and awards new calculated reward.
+ */
+export async function updateUniversalPurchaseAmount(params: {
+  purchaseId: string;
+  newAmount: number;
+  reason?: string;
+  adminUserId?: string;
+}) {
+  const { purchaseId, newAmount, reason, adminUserId } = params;
+  const cleanNewAmount = Math.max(0, Math.round(Number(newAmount) * 100) / 100);
+
+  return await prisma.$transaction(async (tx) => {
+    const purchase = await tx.purchase.findUnique({
+      where: { id: purchaseId },
+      include: { user: true },
+    });
+
+    if (!purchase) {
+      throw new Error(`Purchase ${purchaseId} not found.`);
+    }
+
+    if (purchase.amountPaid === cleanNewAmount) {
+      return { success: true, message: 'Amount is unchanged.', purchase };
+    }
+
+    const oldCredits = purchase.creditsEarned || 0;
+    const oldAmount = purchase.amountPaid;
+    const user = purchase.user;
+    let currentBalance = user.availableCredits || 0;
+
+    let newCalculation = { rewardCredits: 0, eligibleAmount: 0, purchaseAmount: cleanNewAmount };
+    if (purchase.status === 'COMPLETED') {
+      newCalculation = await calculateReward(cleanNewAmount);
+    }
+    const newCredits = newCalculation.rewardCredits;
+
+    // 1. Reverse original credits if any were earned
+    if (oldCredits > 0) {
+      const balanceAfterReversal = Math.max(0, Math.round((currentBalance - oldCredits) * 100) / 100);
+      await tx.creditTransaction.create({
+        data: {
+          userId: user.id,
+          purchaseId: purchase.id,
+          orderId: purchase.orderId,
+          type: 'REFUND_REVERSAL',
+          amount: -oldCredits,
+          balanceBefore: currentBalance,
+          balanceAfter: balanceAfterReversal,
+          description: `Adjustment reversal: Original reward on ${purchase.productName} (₹${oldAmount.toLocaleString()}) reversed`,
+          reason: reason || 'Purchase amount adjusted by admin',
+          adminUserId,
+          status: 'COMPLETED',
+        },
+      });
+      currentBalance = balanceAfterReversal;
+    }
+
+    // 2. Award new credits
+    const finalBalance = Math.round((currentBalance + newCredits) * 100) / 100;
+    if (newCredits > 0) {
+      await tx.creditTransaction.create({
+        data: {
+          userId: user.id,
+          purchaseId: purchase.id,
+          orderId: purchase.orderId,
+          type: 'PURCHASE_REWARD',
+          amount: newCredits,
+          balanceBefore: currentBalance,
+          balanceAfter: finalBalance,
+          description: `Adjustment award: Recalculated reward on ${purchase.productName} (₹${cleanNewAmount.toLocaleString()}) awarded`,
+          reason: reason || 'Purchase amount adjusted by admin',
+          adminUserId,
+          status: 'COMPLETED',
+        },
+      });
+    }
+
+    // 3. Update User balance
+    const netCreditDelta = newCredits - oldCredits;
+    const newLifetimeEarned = Math.max(0, Math.round(((user.lifetimeCreditsEarned || 0) + netCreditDelta) * 100) / 100);
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        availableCredits: finalBalance,
+        lifetimeCreditsEarned: newLifetimeEarned,
+      },
+    });
+
+    // 4. Update Purchase
+    const updatedPurchase = await tx.purchase.update({
+      where: { id: purchase.id },
+      data: {
+        amountPaid: cleanNewAmount,
+        creditsEarned: newCredits,
+      },
+    });
+
+    // 5. Audit Log
+    await recordAuditEvent({
+      eventType: 'PURCHASE_AMOUNT_ADJUSTED',
+      severity: 'MEDIUM',
+      actorType: 'ADMIN',
+      actorId: adminUserId,
+      customerId: user.id,
+      resourceType: 'PURCHASE',
+      resourceId: purchase.id,
+      metadata: JSON.stringify({
+        oldAmount,
+        newAmount: cleanNewAmount,
+        oldCredits,
+        newCredits,
+        netDelta: netCreditDelta,
+        reason,
+      }),
+    });
+
+    return {
+      success: true,
+      purchase: updatedPurchase,
+      oldAmount,
+      newAmount: cleanNewAmount,
+      oldCredits,
+      newCredits,
+      netCreditDelta,
+      newBalance: finalBalance,
+    };
+  });
+}
+
+/**
+ * Universal Purchase Status Updating
+ * Handles COMPLETED (awards rewards) and REFUNDED/CANCELLED (reverses rewards).
+ */
+export async function updateUniversalPurchaseStatus(params: {
+  purchaseId: string;
+  status: string;
+  reason?: string;
+  adminUserId?: string;
+}) {
+  const { purchaseId, status, reason, adminUserId } = params;
+  const newStatus = status.toUpperCase().trim();
+
+  return await prisma.$transaction(async (tx) => {
+    const purchase = await tx.purchase.findUnique({
+      where: { id: purchaseId },
+      include: { user: true },
+    });
+
+    if (!purchase) {
+      throw new Error(`Purchase ${purchaseId} not found.`);
+    }
+
+    if (purchase.status === newStatus) {
+      return { success: true, message: 'Status is unchanged.', purchase };
+    }
+
+    const user = purchase.user;
+    let currentBalance = user.availableCredits || 0;
+    let creditsEarned = purchase.creditsEarned || 0;
+
+    // Moving to REFUNDED or CANCELLED from COMPLETED: reverse credits
+    if ((newStatus === 'REFUNDED' || newStatus === 'CANCELLED') && purchase.status === 'COMPLETED' && creditsEarned > 0) {
+      const balanceAfter = Math.max(0, Math.round((currentBalance - creditsEarned) * 100) / 100);
+      await tx.creditTransaction.create({
+        data: {
+          userId: user.id,
+          purchaseId: purchase.id,
+          type: 'REFUND_REVERSAL',
+          amount: -creditsEarned,
+          balanceBefore: currentBalance,
+          balanceAfter,
+          description: `Reward reversal for ${newStatus.toLowerCase()} purchase (${purchase.productName})`,
+          reason: reason || `Purchase marked as ${newStatus}`,
+          adminUserId,
+          status: 'COMPLETED',
+        },
+      });
+
+      await tx.user.update({
+        where: { id: user.id },
+        data: { availableCredits: balanceAfter },
+      });
+
+      currentBalance = balanceAfter;
+    }
+
+    // Moving to COMPLETED from PENDING: award credits
+    if (newStatus === 'COMPLETED' && purchase.status !== 'COMPLETED') {
+      const calculation = await calculateReward(purchase.amountPaid);
+      if (calculation.rewardCredits > 0) {
+        creditsEarned = calculation.rewardCredits;
+        const balanceAfter = Math.round((currentBalance + creditsEarned) * 100) / 100;
+        const newLifetime = Math.round(((user.lifetimeCreditsEarned || 0) + creditsEarned) * 100) / 100;
+
+        await tx.creditTransaction.create({
+          data: {
+            userId: user.id,
+            purchaseId: purchase.id,
+            type: 'PURCHASE_REWARD',
+            amount: creditsEarned,
+            balanceBefore: currentBalance,
+            balanceAfter,
+            description: `${purchase.productName} completed - 10% Lightning Credits earned`,
+            status: 'COMPLETED',
+          },
+        });
+
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            availableCredits: balanceAfter,
+            lifetimeCreditsEarned: newLifetime,
+          },
+        });
+
+        currentBalance = balanceAfter;
+      }
+    }
+
+    const updated = await tx.purchase.update({
+      where: { id: purchase.id },
+      data: {
+        status: newStatus,
+        creditsEarned,
+      },
+    });
+
+    await recordAuditEvent({
+      eventType: 'PURCHASE_STATUS_UPDATED',
+      severity: 'MEDIUM',
+      actorType: 'ADMIN',
+      actorId: adminUserId,
+      customerId: user.id,
+      resourceType: 'PURCHASE',
+      resourceId: purchase.id,
+      metadata: JSON.stringify({ oldStatus: purchase.status, newStatus, reason }),
+    });
+
+    return {
+      success: true,
+      purchase: updated,
+      newBalance: currentBalance,
+    };
+  });
+}
+
+/**
+ * Universal Purchases Query with Filtering and Pagination
+ */
+export async function getUniversalPurchases(options: {
+  page?: number;
+  limit?: number;
+  channel?: string;
+  status?: string;
+  search?: string;
+  userId?: string;
+}) {
+  const page = Math.max(1, Number(options.page) || 1);
+  const limit = Math.min(100, Math.max(5, Number(options.limit) || 20));
+  const skip = (page - 1) * limit;
+
+  const where: any = {};
+
+  if (options.channel && options.channel !== 'ALL') {
+    where.channel = options.channel.toUpperCase();
+  }
+
+  if (options.status && options.status !== 'ALL') {
+    where.status = options.status.toUpperCase();
+  }
+
+  if (options.userId) {
+    where.userId = options.userId;
+  }
+
+  if (options.search && options.search.trim()) {
+    const s = options.search.trim();
+    where.OR = [
+      { productName: { contains: s, mode: 'insensitive' } },
+      { referenceId: { contains: s, mode: 'insensitive' } },
+      { description: { contains: s, mode: 'insensitive' } },
+      { user: { email: { contains: s, mode: 'insensitive' } } },
+      { user: { name: { contains: s, mode: 'insensitive' } } },
+      { user: { phone: { contains: s, mode: 'insensitive' } } },
+    ];
+  }
+
+  const [total, purchases] = await Promise.all([
+    prisma.purchase.count({ where }),
+    prisma.purchase.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { purchaseDate: 'desc' },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, phone: true, availableCredits: true },
+        },
+      },
+    }),
+  ]);
+
+  return {
+    purchases,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+/**
+ * Search Customers for Purchase Recording
+ */
+export async function searchCustomersForPurchase(query: string) {
+  const q = query.trim();
+  if (!q || q.length < 2) return [];
+
+  return await prisma.user.findMany({
+    where: {
+      OR: [
+        { email: { contains: q, mode: 'insensitive' } },
+        { name: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q, mode: 'insensitive' } },
+        { id: { equals: q } },
+      ],
+    },
+    take: 10,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      status: true,
+      availableCredits: true,
+      lifetimeCreditsEarned: true,
+      lifetimeCreditsRedeemed: true,
+    },
+  });
+}
+
+/**
+ * Available Products Catalog for Dropdown
+ * Merges website plans with popular external subscriptions
+ */
+export async function getAvailableProductsCatalog() {
+  const [plans, packages] = await Promise.all([
+    prisma.plan.findMany({
+      where: { enabled: true },
+      select: { id: true, displayName: true, name: true, priceInr: true },
+      orderBy: { sortOrder: 'asc' },
+    }),
+    prisma.tokenPackage.findMany({
+      where: { enabled: true },
+      select: { id: true, displayName: true, priceInr: true },
+      orderBy: { sortOrder: 'asc' },
+    }),
+  ]);
+
+  const websiteProducts = [
+    ...plans.map((p) => ({
+      name: p.displayName || p.name,
+      suggestedPrice: p.priceInr,
+      category: 'Website Plan',
+    })),
+    ...packages.map((pkg) => ({
+      name: pkg.displayName,
+      suggestedPrice: pkg.priceInr,
+      category: 'Token Package',
+    })),
+  ];
+
+  const externalSubscriptions = [
+    { name: 'LinkedIn Premium', suggestedPrice: 3500, category: 'Subscription' },
+    { name: 'Canva Pro (1 Year)', suggestedPrice: 2000, category: 'Subscription' },
+    { name: 'Adobe Creative Cloud', suggestedPrice: 5000, category: 'Subscription' },
+    { name: 'Claude Pro (Monthly)', suggestedPrice: 2000, category: 'AI Tools' },
+    { name: 'Microsoft 365 Family', suggestedPrice: 4200, category: 'Productivity' },
+    { name: 'Perplexity Pro (Annual)', suggestedPrice: 4999, category: 'AI Tools' },
+    { name: 'TradingView Premium', suggestedPrice: 4500, category: 'Finance' },
+    { name: 'Coursera Plus (Annual)', suggestedPrice: 5000, category: 'Education' },
+    { name: 'YouTube Premium Family', suggestedPrice: 1890, category: 'Media' },
+    { name: 'Spotify Family (1 Year)', suggestedPrice: 1799, category: 'Media' },
+  ];
+
+  return {
+    websiteProducts,
+    externalSubscriptions,
+  };
+}
+

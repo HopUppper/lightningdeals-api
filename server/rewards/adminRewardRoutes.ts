@@ -8,6 +8,12 @@ import {
   getAdminCustomerCreditDetails,
   adjustCustomerCredits,
   reverseOrderCredits,
+  createUniversalPurchase,
+  updateUniversalPurchaseAmount,
+  updateUniversalPurchaseStatus,
+  getUniversalPurchases,
+  searchCustomersForPurchase,
+  getAvailableProductsCatalog,
 } from './rewardService';
 import { prisma } from '../db';
 import { recordAuditEvent } from '../auditLogger';
@@ -195,3 +201,155 @@ adminRewardsRouter.post('/reverse-order', async (req: AuthRequest, res: Response
     res.status(400).json({ error: { message: err.message } });
   }
 });
+
+/**
+ * GET /api/admin/rewards/purchases
+ * Universal Purchases list with pagination and multi-dimensional filters
+ */
+adminRewardsRouter.get('/purchases', async (req: AuthRequest, res: Response) => {
+  try {
+    const { page, limit, channel, status, search, userId } = req.query;
+    const data = await getUniversalPurchases({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      channel: channel ? String(channel) : undefined,
+      status: status ? String(status) : undefined,
+      search: search ? String(search) : undefined,
+      userId: userId ? String(userId) : undefined,
+    });
+    res.json({ success: true, ...data });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+/**
+ * POST /api/admin/rewards/purchases
+ * Fast "+ Record Purchase" creation from WhatsApp, Manual, etc.
+ */
+adminRewardsRouter.post('/purchases', async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      userId,
+      productName,
+      description,
+      amountPaid,
+      channel,
+      purchaseDate,
+      status,
+      referenceId,
+      notes,
+    } = req.body;
+
+    const result = await createUniversalPurchase({
+      userId,
+      productName,
+      description,
+      amountPaid: Number(amountPaid),
+      channel,
+      purchaseDate,
+      status,
+      referenceId,
+      notes,
+      createdBy: req.user?.id || 'ADMIN',
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: { message: err.message } });
+  }
+});
+
+/**
+ * PUT /api/admin/rewards/purchases/:purchaseId/amount
+ * Edit purchase amount with authoritative reward reversal & recalculation
+ */
+adminRewardsRouter.put('/purchases/:purchaseId/amount', async (req: AuthRequest, res: Response) => {
+  try {
+    const { purchaseId } = req.params;
+    const { newAmount, reason } = req.body;
+
+    if (newAmount === undefined || isNaN(Number(newAmount))) {
+      return res.status(400).json({ error: { message: 'Valid numerical newAmount is required.' } });
+    }
+
+    const result = await updateUniversalPurchaseAmount({
+      purchaseId,
+      newAmount: Number(newAmount),
+      reason,
+      adminUserId: req.user?.id,
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: { message: err.message } });
+  }
+});
+
+/**
+ * PUT /api/admin/rewards/purchases/:purchaseId/status
+ * Update status (COMPLETED, REFUNDED, CANCELLED) with automatic credit handling
+ */
+adminRewardsRouter.put('/purchases/:purchaseId/status', async (req: AuthRequest, res: Response) => {
+  try {
+    const { purchaseId } = req.params;
+    const { status, reason } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: { message: 'Status is required.' } });
+    }
+
+    const result = await updateUniversalPurchaseStatus({
+      purchaseId,
+      status,
+      reason,
+      adminUserId: req.user?.id,
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: { message: err.message } });
+  }
+});
+
+/**
+ * GET /api/admin/rewards/customers-search
+ * Fast customer lookup by email, name, phone, or ID
+ */
+adminRewardsRouter.get('/customers-search', async (req: AuthRequest, res: Response) => {
+  try {
+    const q = String(req.query.q || '');
+    const users = await searchCustomersForPurchase(q);
+    res.json({ success: true, users });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+/**
+ * GET /api/admin/rewards/customer-profile/:userId
+ * Complete customer profile with all channel breakdown & quick actions
+ */
+adminRewardsRouter.get('/customer-profile/:userId', async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const details = await getAdminCustomerCreditDetails(userId);
+    res.json({ success: true, ...details });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+/**
+ * GET /api/admin/rewards/products-catalog
+ * Available products for auto-complete dropdown
+ */
+adminRewardsRouter.get('/products-catalog', async (req: AuthRequest, res: Response) => {
+  try {
+    const catalog = await getAvailableProductsCatalog();
+    res.json({ success: true, ...catalog });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+

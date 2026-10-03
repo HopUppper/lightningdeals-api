@@ -55,6 +55,7 @@ model User {
   lifetimeCreditsEarned   Float                    @default(0)
   lifetimeCreditsRedeemed Float                    @default(0)
   creditTransactions      CreditTransaction[]
+  purchases               Purchase[]
 }
 
 
@@ -213,6 +214,7 @@ model Order {
   updatedAt         DateTime      @updatedAt
   subscriptions     Subscription[]
   creditTransactions CreditTransaction[]
+  purchases         Purchase[]
 
   @@index([userId, createdAt])
   @@index([paymentStatus])
@@ -556,6 +558,10 @@ model CreditTransaction {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   orderId       String?
   order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  purchaseId    String?
+  purchase      Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  channel       String?   @default("WEBSITE") // "WEBSITE" | "WHATSAPP" | "MANUAL" | "OTHER"
+  referenceId   String?
   type          String    // "PURCHASE_REWARD" | "CREDIT_REDEMPTION" | "MANUAL_CREDIT" | "MANUAL_DEBIT" | "REFUND_REVERSAL" | "ADMIN_ADJUSTMENT" | "CREDIT_EXPIRY"
   amount        Float     // Positive for credit added, negative for credit deducted
   balanceBefore Float
@@ -569,6 +575,35 @@ model CreditTransaction {
   @@index([userId, createdAt])
   @@index([type])
   @@index([orderId])
+  @@index([purchaseId])
+  @@index([createdAt])
+}
+
+model Purchase {
+  id              String              @id @default(uuid())
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId         String?
+  order           Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  productName     String
+  description     String?
+  amountPaid      Float
+  channel         String              @default("WHATSAPP") // "WEBSITE" | "WHATSAPP" | "MANUAL" | "OTHER"
+  purchaseDate    DateTime            @default(now())
+  status          String              @default("COMPLETED") // "COMPLETED" | "PENDING" | "CANCELLED" | "REFUNDED"
+  creditsEarned   Float               @default(0)
+  creditsRedeemed Float               @default(0)
+  referenceId     String?             @unique
+  notes           String?
+  createdBy       String?             // Admin ID, "SYSTEM", "WHATSAPP_INTEGRATION", "PAYMENT_WEBHOOK"
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  creditTransactions CreditTransaction[]
+
+  @@index([userId, purchaseDate])
+  @@index([channel])
+  @@index([status])
+  @@index([referenceId])
   @@index([createdAt])
 }
 

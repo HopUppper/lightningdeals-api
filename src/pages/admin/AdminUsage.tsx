@@ -216,8 +216,21 @@ export const AdminUsage: React.FC = () => {
               <tbody className="divide-y divide-border/60 font-mono">
                 {data.recentRequests.map((r) => (
                   <tr key={r.id} className="hover:bg-subtle">
-                    <td className="py-3 px-4 text-muted whitespace-nowrap">
-                      {new Date(r.createdAt).toLocaleTimeString()}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <div className="font-bold text-fg text-xs font-mono">
+                        {new Date(r.createdAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </div>
+                      <div className="text-[10px] text-muted font-mono">
+                        {new Date(r.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </div>
                     </td>
                     <td className="py-3 px-4 font-bold text-violet-700">{r.model}</td>
                     <td className="py-3 px-4">

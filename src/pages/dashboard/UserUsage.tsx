@@ -165,7 +165,22 @@ export const UserUsage: React.FC = () => {
                 <tbody className="divide-y divide-border">
                   {stats.recentRequests.map((req: any, i: number) => (
                     <tr key={i} className="hover:bg-bg/40">
-                      <td className="py-2.5 px-3 text-muted text-[11px]">{new Date(req.createdAt).toLocaleTimeString()}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <div className="font-bold text-fg text-xs font-mono">
+                          {new Date(req.createdAt).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </div>
+                        <div className="text-[10px] text-muted font-mono">
+                          {new Date(req.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </div>
+                      </td>
                       <td className="py-2.5 px-3 text-fg font-bold">{req.model}</td>
                       <td className="py-2.5 px-3 text-amber-600 font-bold">{formatTokens(req.totalTokens)}</td>
                       <td className="py-2.5 px-3 text-emerald-600">{req.latencyMs}ms</td>

@@ -674,8 +674,12 @@ export const AdminLogs: React.FC = () => {
                   >
                     {/* Time */}
                     <td className="py-3 px-4 font-mono text-[11px] whitespace-nowrap">
-                      <div className="font-bold text-fg">{new Date(event.timestamp).toLocaleTimeString()}</div>
-                      <div className="text-[10px] text-muted">{formatRelativeTime(event.timestamp)}</div>
+                      <div className="font-bold text-fg">
+                        {new Date(event.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      <div className="text-[10px] text-muted font-mono">
+                        {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} ({formatRelativeTime(event.timestamp)})
+                      </div>
                     </td>
 
                     {/* Severity */}

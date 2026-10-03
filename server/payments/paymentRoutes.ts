@@ -7,6 +7,7 @@ import { getPaymentProvider } from './index';
 import { fulfillOrder } from './fulfillment';
 import { recordSecurityLog } from '../authSecurity';
 import { validateCoupon, recordCouponUsage } from '../couponService';
+import { redeemCredits } from '../rewards/rewardService';
 
 export const checkoutRouter = Router();
 
@@ -86,7 +87,7 @@ checkoutRouter.get('/provider-health', async (req: Request, res: Response) => {
 
 // 4. POST /api/checkout/create-order — Create Internal Order & Gateway Order (With Coupon Support)
 checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, res: Response) => {
-  const { planId, couponCode } = req.body;
+  const { planId, couponCode, redeemCredits: requestedRedeemCredits } = req.body;
 
   if (!planId || typeof planId !== 'string') {
     return res.status(400).json({ error: { type: 'invalid_request', message: 'Plan ID is required.' } });
@@ -115,6 +116,27 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
     }
   }
 
+  // Authoritative Server-Side Lightning Credits Redemption
+  let creditsToRedeem = 0;
+  if (requestedRedeemCredits && Number(requestedRedeemCredits) > 0) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { availableCredits: true },
+    });
+    const userBalance = dbUser?.availableCredits || 0;
+    const requested = Math.round(Number(requestedRedeemCredits) * 100) / 100;
+    if (requested > userBalance) {
+      return res.status(400).json({
+        error: {
+          type: 'insufficient_credits',
+          message: `Requested credit redemption (₹${requested.toLocaleString()}) exceeds your available balance (₹${userBalance.toLocaleString()}).`,
+        },
+      });
+    }
+    creditsToRedeem = Math.min(requested, payableAmountInr);
+    payableAmountInr = Math.max(0, Math.round((payableAmountInr - creditsToRedeem) * 100) / 100);
+  }
+
   const internalOrderId = `LD-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
   try {
@@ -131,12 +153,74 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
         originalAmountInr: plan.priceInr,
         discountAmountInr: discountAmountInr,
         couponCode: verifiedCouponCode,
+        creditsRedeemed: creditsToRedeem,
         currency: plan.currency,
-        paymentStatus: 'CREATED',
+        paymentStatus: payableAmountInr === 0 ? 'CAPTURED' : 'CREATED',
         fulfillmentStatus: 'NOT_FULFILLED',
-        paymentGateway: getPaymentProvider().name,
+        paymentGateway: payableAmountInr === 0 ? 'LIGHTNING_CREDITS' : getPaymentProvider().name,
       },
     });
+
+    // 2. Atomically Deduct Credits if Applied
+    if (creditsToRedeem > 0) {
+      await redeemCredits({
+        userId: user.id,
+        orderId: order.id,
+        amountToRedeem: creditsToRedeem,
+      });
+    }
+
+    // 3. Instant Fulfillment if Entire Order was Covered by Credits (₹0 Payable)
+    if (payableAmountInr === 0) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paidAmountInr: 0,
+          paidAt: new Date(),
+          status: 'PAID',
+        },
+      });
+
+      const fulfillment = await fulfillOrder(order.internalOrderId);
+
+      if (appliedCouponId) {
+        await recordCouponUsage({
+          couponId: appliedCouponId,
+          userId: user.id,
+          orderId: order.id,
+          discountAmount: discountAmountInr,
+          finalAmount: 0,
+        });
+      }
+
+      await recordSecurityLog({
+        userId: user.id,
+        email: user.email,
+        req,
+        eventType: 'ORDER_PAID_WITH_CREDITS',
+        metadata: {
+          internalOrderId: order.internalOrderId,
+          planId: plan.id,
+          creditsRedeemed: creditsToRedeem,
+        },
+      });
+
+      return res.json({
+        success: true,
+        order: {
+          id: order.id,
+          internalOrderId: order.internalOrderId,
+          planId: plan.id,
+          amountInr: 0,
+          originalAmountInr: plan.priceInr,
+          discountAmountInr,
+          creditsRedeemed: creditsToRedeem,
+          paymentStatus: 'CAPTURED',
+          zeroAmountPaid: true,
+        },
+        fulfillment,
+      });
+    }
 
     // Extract and sanitize customer phone
     let rawPhone = (req.body.phone || user.phone || '').toString().trim();

@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma, encryptText } from '../db';
 import { getPlanByIdAsync } from './plans';
 import { recordSecurityLog } from '../authSecurity';
+import { awardOrderCredits } from '../rewards/rewardService';
 
 export interface FulfillmentResult {
   success: boolean;
@@ -190,6 +191,18 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         status: 'PAID',
       },
     });
+
+    // Authoritative Server-Side Lightning Credits Awarding (10% back, up to ₹500/transaction)
+    try {
+      const purchaseAmount = order.paidAmountInr ?? order.amountInr;
+      await awardOrderCredits({
+        userId: order.userId,
+        orderId: order.id,
+        purchaseAmount,
+      });
+    } catch (rewardErr: any) {
+      console.error('[REWARD ISSUANCE ERROR]', rewardErr.message);
+    }
 
     await recordSecurityLog({
       userId: order.userId,

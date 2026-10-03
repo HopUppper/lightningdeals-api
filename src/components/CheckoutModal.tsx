@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, CreditCard, ExternalLink, Tag, Phone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, CreditCard, ExternalLink, Tag, Phone, Sparkles } from 'lucide-react';
 import { adminFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -38,6 +38,32 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
 
+  // Lightning Credits state
+  const [availableCredits, setAvailableCredits] = useState<number>(0);
+  const [useCredits, setUseCredits] = useState<boolean>(false);
+  const [loadingCredits, setLoadingCredits] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchBalance = async () => {
+      try {
+        setLoadingCredits(true);
+        const res = await adminFetch('/api/user/rewards/balance');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setAvailableCredits(data.availableCredits || 0);
+          }
+        }
+      } catch (e) {
+        // Fallback
+      } finally {
+        setLoadingCredits(false);
+      }
+    };
+    fetchBalance();
+  }, [user]);
+
   if (!plan) return null;
 
   const subtotal = plan.priceInr;
@@ -49,7 +75,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
       discountAmount = Math.min(appliedCoupon.discountValue, subtotal);
     }
   }
-  const totalPayable = Math.max(1, subtotal - discountAmount);
+
+  const amountAfterCoupon = Math.max(0, subtotal - discountAmount);
+  const maxUsableCredits = Math.min(availableCredits, amountAfterCoupon);
+  const appliedCredits = useCredits ? maxUsableCredits : 0;
+  const totalPayable = Math.max(0, amountAfterCoupon - appliedCredits);
+
+  // Authoritative reward rule: MIN(payable, 5000) * 10%, max 500
+  const estimatedEarnedCredits = Math.min(
+    Math.round(Math.min(totalPayable, 5000) * 0.10 * 100) / 100,
+    500
+  );
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +145,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
           planId: plan.id,
           couponCode: appliedCoupon?.code,
           phone: cleanPhone,
+          redeemCredits: appliedCredits,
         }),
       });
 
@@ -117,6 +154,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
       if (!res.ok || !data.success) {
         setPaymentState('FAILED');
         setErrorMessage(data.error?.message || 'Failed to initialize payment order.');
+        return;
+      }
+
+      // Handle 100% Credit Payment (Instant Fulfillment, No Gateway Needed)
+      if (data.order?.zeroAmountPaid || data.order?.amountInr === 0) {
+        setPaymentState('SUCCESSFUL');
+        const keySecret = data.fulfillment?.rawKeySecret;
+        if (keySecret) {
+          setRevealedKey(keySecret);
+        } else {
+          setTimeout(() => {
+            onClose();
+            navigate('/dashboard/plan');
+          }, 1200);
+        }
         return;
       }
 
@@ -360,6 +412,41 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                 )}
               </div>
 
+              {/* Lightning Credits Redemption Section */}
+              {availableCredits > 0 && (
+                <div className="p-3.5 rounded-control bg-gradient-to-r from-violet-50/70 via-indigo-50/40 to-cyan-50/70 border border-violet-200/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-fg">
+                      <Zap className="w-3.5 h-3.5 text-violet-600 fill-current" />
+                      <span>⚡ Redeem Lightning Credits</span>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold text-violet-700 bg-violet-100/80 px-2 py-0.5 rounded-full border border-violet-200">
+                      Balance: ₹{availableCredits.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-fg">
+                      <input
+                        type="checkbox"
+                        checked={useCredits}
+                        onChange={(e) => setUseCredits(e.target.checked)}
+                        className="rounded text-violet-600 focus:ring-violet-500"
+                      />
+                      <span>Apply ₹{maxUsableCredits.toLocaleString()} Credits toward this order</span>
+                    </label>
+                    {useCredits && (
+                      <span className="text-xs font-mono font-extrabold text-emerald-700">
+                        -₹{appliedCredits.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted font-mono">
+                    Lightning Credits discount applied directly to your purchase total.
+                  </p>
+                </div>
+              )}
+
               {/* Order Breakdown */}
               <div className="space-y-2 font-mono text-xs text-muted border-t border-border pt-4">
                 <div className="flex justify-between">
@@ -374,12 +461,31 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                   </div>
                 )}
 
+                {appliedCredits > 0 && (
+                  <div className="flex justify-between text-violet-700 font-bold">
+                    <span>Lightning Credits Redeemed</span>
+                    <span>-₹{appliedCredits.toLocaleString()}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between">
                   <span>Processing & Gateway Fee</span>
                   <span className="text-emerald-600">FREE</span>
                 </div>
+
+                {/* Reward Earn Teaser */}
+                <div className="p-2.5 rounded bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between text-xs font-mono text-emerald-800">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Reward on this order:</span>
+                  </div>
+                  <span className="font-extrabold text-emerald-700">
+                    +₹{estimatedEarnedCredits.toLocaleString()} Credits
+                  </span>
+                </div>
+
                 <div className="flex justify-between text-fg font-bold text-sm pt-2 border-t border-border">
-                  <span>Total Amount</span>
+                  <span>Total Payable</span>
                   <span className="text-violet-700">₹{totalPayable.toLocaleString()}</span>
                 </div>
               </div>
@@ -391,7 +497,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                   className="w-full py-3.5 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
                 >
                   <CreditCard className="w-4 h-4" />
-                  <span>PAY ₹{totalPayable.toLocaleString()} — PROCEED TO PAYMENT</span>
+                  <span>
+                    {totalPayable === 0
+                      ? 'COMPLETE ORDER (₹0 — FULLY COVERED BY CREDITS)'
+                      : `PAY ₹${totalPayable.toLocaleString()} — PROCEED TO PAYMENT`}
+                  </span>
                 </button>
                 <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted font-mono pt-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />

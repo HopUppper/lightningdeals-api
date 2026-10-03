@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -50,6 +51,10 @@ model User {
   notifications       Notification[]
   subscriptions       Subscription[]
   couponUsages        CouponUsage[]
+  availableCredits        Float                    @default(0)
+  lifetimeCreditsEarned   Float                    @default(0)
+  lifetimeCreditsRedeemed Float                    @default(0)
+  creditTransactions      CreditTransaction[]
 }
 
 
@@ -202,9 +207,12 @@ model Order {
   tokensCredited    Boolean       @default(false)
   paidAt            DateTime?
   fulfilledAt       DateTime?
+  creditsEarned     Float?        @default(0)
+  creditsRedeemed   Float?        @default(0)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   subscriptions     Subscription[]
+  creditTransactions CreditTransaction[]
 
   @@index([userId, createdAt])
   @@index([paymentStatus])
@@ -542,5 +550,35 @@ model AuditEvent {
   @@index([isResolved])
 }
 
+model CreditTransaction {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId       String?
+  order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  type          String    // "PURCHASE_REWARD" | "CREDIT_REDEMPTION" | "MANUAL_CREDIT" | "MANUAL_DEBIT" | "REFUND_REVERSAL" | "ADMIN_ADJUSTMENT" | "CREDIT_EXPIRY"
+  amount        Float     // Positive for credit added, negative for credit deducted
+  balanceBefore Float
+  balanceAfter  Float
+  description   String
+  reason        String?   // Mandatory reason for manual adjustments and reversals
+  adminUserId   String?   // Admin who made manual adjustment
+  status        String    @default("COMPLETED") // "COMPLETED" | "CANCELLED" | "PENDING"
+  createdAt     DateTime  @default(now())
 
+  @@index([userId, createdAt])
+  @@index([type])
+  @@index([orderId])
+  @@index([createdAt])
+}
 
+model RewardSettings {
+  id                        String   @id @default("default")
+  rewardPercentage          Float    @default(10.0) // 10%
+  maxEligiblePurchaseAmount Float    @default(5000.0) // ₹5,000
+  maxRewardPerTransaction   Float    @default(500.0) // ₹500
+  currency                  String   @default("INR")
+  isActive                  Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}

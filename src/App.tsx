@@ -49,6 +49,7 @@ import { Footer } from './components/Footer';
 import { Navbar } from './components/Navbar';
 import { SupportWidget } from './components/SupportWidget';
 import { SocialProofStrip } from './components/SocialProofStrip';
+import { LightningRewardsHighlight } from './components/LightningRewardsHighlight';
 
 const PageLoader: React.FC = () => (
   <div className="min-h-screen bg-bg text-muted flex flex-col items-center justify-center space-y-3 font-mono text-xs">
@@ -88,6 +89,7 @@ const UserOrders = lazy(() => import('./pages/dashboard/UserOrders').then(m => (
 const UserApiTestConsole = lazy(() => import('./pages/dashboard/UserApiTestConsole').then(m => ({ default: m.UserApiTestConsole })));
 const UserSupport = lazy(() => import('./pages/dashboard/UserSupport').then(m => ({ default: m.UserSupport })));
 const UserSettings = lazy(() => import('./pages/dashboard/UserSettings').then(m => ({ default: m.UserSettings })));
+const UserRewards = lazy(() => import('./pages/dashboard/UserRewards').then(m => ({ default: m.UserRewards })));
 
 // Admin Control Center Pages (Lazy Loaded)
 import { AdminAuthGuard } from './pages/admin/AdminAuthGuard';
@@ -114,6 +116,7 @@ const AdminStatus = lazy(() => import('./pages/admin/AdminStatus').then(m => ({ 
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings').then(m => ({ default: m.AdminSettings })));
 const AdminApiTest = lazy(() => import('./pages/admin/AdminApiTest').then(m => ({ default: m.AdminApiTest })));
 const AdminEmergencyControls = lazy(() => import('./pages/admin/AdminEmergencyControls').then(m => ({ default: m.AdminEmergencyControls })));
+const AdminRewards = lazy(() => import('./pages/admin/AdminRewards').then(m => ({ default: m.AdminRewards })));
 
 export const LandingPage: React.FC = () => {
   return (
@@ -129,6 +132,7 @@ export const LandingPage: React.FC = () => {
         <ApiQuickStart />
         <ModelCatalog />
         <PricingSection />
+        <LightningRewardsHighlight />
         <DeveloperEcosystem />
         <OneLineMigration />
         <FaqAccordion />
@@ -179,6 +183,7 @@ export function App() {
                 <Route path="/privacy-policy" element={<PrivacyPage />} />
                 <Route path="/refund" element={<RefundPage />} />
                 <Route path="/refund-policy" element={<RefundPage />} />
+                <Route path="/rewards" element={<Navigate to="/dashboard/rewards" replace />} />
 
                 {/* Authentication & Verification Routes (Lazy Loaded) */}
                 <Route path="/login" element={<LoginPage />} />
@@ -201,6 +206,7 @@ export function App() {
                   <Route path="api-keys" element={<UserKeys />} />
                   <Route path="usage" element={<UserUsage />} />
                   <Route path="plan" element={<UserPlan />} />
+                  <Route path="rewards" element={<UserRewards />} />
                   <Route path="docs" element={<UserDocs />} />
                   <Route path="orders" element={<UserOrders />} />
                   <Route path="api-test" element={<UserApiTestConsole />} />
@@ -224,6 +230,7 @@ export function App() {
                 >
                   <Route index element={<AdminOverview />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
+                  <Route path="rewards" element={<AdminRewards />} />
                   <Route path="providers" element={<AdminProviders />} />
                   <Route path="plans" element={<AdminPlans />} />
                   <Route path="customers" element={<AdminCustomers />} />

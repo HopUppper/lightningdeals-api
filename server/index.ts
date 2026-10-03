@@ -170,9 +170,14 @@ import { checkoutRouter, handlePaymentWebhook } from './payments/paymentRoutes';
 
 import { healthRouter } from './health';
 import { notificationsRouter } from './notifications';
+import { customerRewardsRouter } from './rewards/customerRewardRoutes';
+import { adminRewardsRouter } from './rewards/adminRewardRoutes';
 
 app.use('/api', healthRouter);
 app.use('/api/user/notifications', notificationsRouter);
+app.use('/api/user/rewards', customerRewardsRouter);
+app.use('/api/rewards', customerRewardsRouter);
+app.use('/api/admin/rewards', adminRewardsRouter);
 app.use('/api/checkout', checkoutRouter);
 app.post('/api/webhooks/payment', handlePaymentWebhook);
 app.post('/api/webhooks/payu', handlePaymentWebhook);

@@ -19,6 +19,7 @@ export const UserDashboardLayout: React.FC = () => {
     { name: 'API Keys', path: '/dashboard/keys', icon: Key },
     { name: 'Usage', path: '/dashboard/usage', icon: Activity },
     { name: 'Plan', path: '/dashboard/plan', icon: CreditCard },
+    { name: '⚡ Rewards', path: '/dashboard/rewards', icon: Zap },
     { name: 'Documentation', path: '/dashboard/docs', icon: BookOpen },
     { name: 'Support', path: '/dashboard/support', icon: LifeBuoy },
     { name: 'Account', path: '/dashboard/settings', icon: Settings },

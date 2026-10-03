@@ -1452,7 +1452,7 @@ export async function getUniversalPurchases(options: {
  */
 export async function searchCustomersForPurchase(query: string) {
   const q = query.trim();
-  if (!q || q.length < 2) return [];
+  if (!q) return [];
 
   return await prisma.user.findMany({
     where: {
@@ -1463,7 +1463,7 @@ export async function searchCustomersForPurchase(query: string) {
         { id: { equals: q } },
       ],
     },
-    take: 10,
+    take: 15,
     select: {
       id: true,
       name: true,
@@ -1474,6 +1474,7 @@ export async function searchCustomersForPurchase(query: string) {
       lifetimeCreditsEarned: true,
       lifetimeCreditsRedeemed: true,
     },
+    orderBy: { createdAt: 'desc' },
   });
 }
 

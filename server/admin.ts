@@ -2332,12 +2332,13 @@ router.get('/search', async (req: Request, res: Response) => {
       prisma.user.findMany({
         where: {
           OR: [
-            { name: { contains: query } },
-            { email: { contains: query } },
+            { name: { contains: query, mode: 'insensitive' } },
+            { email: { contains: query, mode: 'insensitive' } },
+            { phone: { contains: query, mode: 'insensitive' } },
           ],
         },
-        take: 5,
-        select: { id: true, name: true, email: true, role: true, status: true },
+        take: 10,
+        select: { id: true, name: true, email: true, phone: true, role: true, status: true, availableCredits: true },
       }),
       prisma.apiKey.findMany({
         where: {
@@ -2382,9 +2383,8 @@ router.get('/search', async (req: Request, res: Response) => {
       }),
     ]);
 
-
     const sanitizedKeys = keys.map((k) => ({ ...k, tokensRemaining: k.tokensRemaining.toString() }));
-    res.json({ customers, keys: sanitizedKeys, orders, requests, tickets });
+    res.json({ customers, users: customers, keys: sanitizedKeys, orders, requests, tickets });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

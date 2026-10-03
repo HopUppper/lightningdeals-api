@@ -86,6 +86,7 @@ export const AdminRewards: React.FC = () => {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
+  const [searchAttempted, setSearchAttempted] = useState(false);
 
   // Toast Notification helper
   const showToast = (msg: string) => {
@@ -201,8 +202,9 @@ export const AdminRewards: React.FC = () => {
 
   // Customer search for adjustment modal
   useEffect(() => {
-    if (!userSearchQuery.trim() || userSearchQuery.trim().length < 2) {
+    if (!userSearchQuery.trim()) {
       setUserSearchResults([]);
+      setSearchAttempted(false);
       return;
     }
     const timer = setTimeout(async () => {
@@ -211,28 +213,37 @@ export const AdminRewards: React.FC = () => {
         const res = await adminFetch(`/api/admin/rewards/customers-search?q=${encodeURIComponent(userSearchQuery.trim())}`);
         if (res.ok) {
           const data = await res.json();
-          setUserSearchResults(data.users || []);
+          setUserSearchResults(data.users || data.customers || []);
+          setSearchAttempted(true);
         }
       } catch (e) {
         console.error(e);
       } finally {
         setSearchingUsers(false);
       }
-    }, 250);
+    }, 150);
     return () => clearTimeout(timer);
   }, [userSearchQuery]);
 
   // Submit Manual Adjustment
   const handleSubmitAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adjustTargetUser) {
-      setAdjustError('Please select a customer.');
+    let target = adjustTargetUser;
+
+    // Auto-select if there's only 1 search result
+    if (!target && userSearchResults.length === 1) {
+      target = userSearchResults[0];
+      setAdjustTargetUser(target);
+    }
+
+    if (!target) {
+      setAdjustError('Please search and click on a customer from the dropdown list to select them.');
       return;
     }
 
     const val = Number(adjustAmount);
     if (!val || val <= 0) {
-      setAdjustError('Please enter a valid positive amount.');
+      setAdjustError('Please enter a valid positive credit amount.');
       return;
     }
 
@@ -249,7 +260,7 @@ export const AdminRewards: React.FC = () => {
       const res = await adminFetch('/api/admin/rewards/adjust', {
         method: 'POST',
         body: JSON.stringify({
-          userId: adjustTargetUser.id,
+          userId: target.id,
           amount: finalAmount,
           reason: adjustReason.trim(),
         }),
@@ -261,13 +272,16 @@ export const AdminRewards: React.FC = () => {
         setAdjustTargetUser(null);
         setAdjustAmount('');
         setAdjustReason('');
-        showToast(`✓ Successfully ${adjustType === 'CREDIT' ? 'added' : 'deducted'} ₹${val.toLocaleString()} credits.`);
+        setUserSearchQuery('');
+        setUserSearchResults([]);
+        setSearchAttempted(false);
+        showToast(`✓ Successfully ${adjustType === 'CREDIT' ? 'added' : 'deducted'} ₹${val.toLocaleString()} credits for ${target.name || target.email}.`);
         await Promise.all([loadOverview(), loadLedger(ledgerPagination.page)]);
       } else {
         setAdjustError(data.error?.message || 'Failed to adjust credits.');
       }
     } catch (e: any) {
-      setAdjustError(e.message);
+      setAdjustError(e.message || 'Network error occurred while saving adjustment.');
     } finally {
       setAdjusting(false);
     }
@@ -1010,55 +1024,127 @@ export const AdminRewards: React.FC = () => {
 
               {/* Customer Picker */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold font-mono text-fg uppercase">
-                  Target Customer *
-                </label>
-                {adjustTargetUser ? (
-                  <div className="p-3 rounded-control bg-violet-50/70 border border-violet-200 flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-bold text-fg">{adjustTargetUser.name}</div>
-                      <div className="text-[11px] text-muted font-mono">{adjustTargetUser.email}</div>
-                    </div>
+                <label className="text-xs font-bold font-mono text-fg uppercase flex items-center justify-between">
+                  <span>Target Customer *</span>
+                  {adjustTargetUser && (
                     <button
                       type="button"
                       onClick={() => setAdjustTargetUser(null)}
-                      className="text-xs text-violet-700 underline font-mono"
+                      className="text-xs text-violet-600 hover:text-violet-700 underline font-mono font-normal"
                     >
-                      Change
+                      (change customer)
                     </button>
+                  )}
+                </label>
+
+                {adjustTargetUser ? (
+                  <div className="p-3 rounded-control bg-violet-50/70 border border-violet-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                        {adjustTargetUser.name?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-fg flex items-center gap-1.5">
+                          <span>{adjustTargetUser.name}</span>
+                          <button
+                            type="button"
+                            title="View Customer Profile"
+                            onClick={() => {
+                              setShowAdjustModal(false);
+                              setCustomerDrawerUserId(adjustTargetUser.id);
+                              setShowCustomerDrawer(true);
+                            }}
+                            className="text-violet-600 hover:text-violet-800 text-[11px] font-mono flex items-center gap-0.5 underline ml-1"
+                          >
+                            <span>view account</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                        <div className="text-[11px] text-muted font-mono">
+                          {adjustTargetUser.email} {adjustTargetUser.phone ? `• ${adjustTargetUser.phone}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[10px] text-muted uppercase font-mono">Current Balance</div>
+                      <div className="text-xs font-extrabold text-violet-700 font-mono">
+                        ₹{(adjustTargetUser.availableCredits || 0).toLocaleString()} Credits
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Search customer email or name..."
-                      value={userSearchQuery}
-                      onChange={(e) => setUserSearchQuery(e.target.value)}
-                      className="ui-input text-xs font-mono pl-8 py-2 w-full"
-                    />
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search customer email or name (e.g. prime)..."
+                        value={userSearchQuery}
+                        onChange={(e) => {
+                          setUserSearchQuery(e.target.value);
+                          setAdjustError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.preventDefault();
+                        }}
+                        className="ui-input text-xs font-mono pl-8 pr-8 py-2 w-full"
+                        autoFocus
+                      />
+                      {searchingUsers && (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-violet-600 absolute right-3 top-1/2 -translate-y-1/2" />
+                      )}
+                    </div>
+
+                    {/* Customer Dropdown Results */}
                     {userSearchResults.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-control shadow-lg overflow-hidden z-20 divide-y divide-border/60 max-h-40 overflow-y-auto">
+                      <div className="border border-border rounded-control bg-white shadow-lg overflow-hidden divide-y divide-border/60 max-h-48 overflow-y-auto">
                         {userSearchResults.map((u) => (
-                          <button
+                          <div
                             key={u.id}
-                            type="button"
+                            className="p-2.5 hover:bg-violet-50/70 flex items-center justify-between text-xs transition-colors cursor-pointer group"
                             onClick={() => {
                               setAdjustTargetUser(u);
                               setUserSearchResults([]);
                               setUserSearchQuery('');
+                              setAdjustError(null);
                             }}
-                            className="w-full p-2.5 text-left hover:bg-violet-50 text-xs flex justify-between items-center"
                           >
-                            <div>
-                              <span className="font-bold text-fg block">{u.name}</span>
-                              <span className="text-[11px] text-muted font-mono">{u.email}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                {u.name?.charAt(0) || 'U'}
+                              </div>
+                              <div>
+                                <span className="font-bold text-fg block group-hover:text-violet-800">{u.name}</span>
+                                <span className="text-[11px] text-muted font-mono">
+                                  {u.email} {u.phone ? `• ${u.phone}` : ''}
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-xs font-mono font-bold text-violet-700">
-                              ₹{(u.availableCredits || 0).toLocaleString()}
-                            </span>
-                          </button>
+                            <div className="text-right flex items-center gap-3">
+                              <div>
+                                <span className="text-[9px] text-muted uppercase block font-mono">Balance</span>
+                                <span className="text-xs font-mono font-bold text-violet-700">
+                                  ₹{(u.availableCredits || 0).toLocaleString()}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded">
+                                Select
+                              </span>
+                            </div>
+                          </div>
                         ))}
+                      </div>
+                    )}
+
+                    {searchAttempted && userSearchResults.length === 0 && userSearchQuery.trim() && (
+                      <div className="p-3 rounded-control bg-amber-50 border border-amber-200 text-amber-800 text-xs font-mono">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>No customer found matching "{userSearchQuery}"</span>
+                        </div>
+                        <p className="text-[11px] text-amber-700 mt-1">
+                          The customer must have a registered account on LightningAPI.pro.
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1141,11 +1227,11 @@ export const AdminRewards: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={adjusting || !adjustTargetUser}
+                  disabled={adjusting}
                   className="ui-button-primary text-xs py-2 px-5 font-bold flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {adjusting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Confirm Adjustment</span>
+                  <span>{adjusting ? 'Saving Adjustment...' : 'Confirm Adjustment'}</span>
                 </button>
               </div>
             </form>

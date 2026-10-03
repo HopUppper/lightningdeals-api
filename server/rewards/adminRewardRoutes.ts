@@ -320,7 +320,7 @@ adminRewardsRouter.get('/customers-search', async (req: AuthRequest, res: Respon
   try {
     const q = String(req.query.q || '');
     const users = await searchCustomersForPurchase(q);
-    res.json({ success: true, users });
+    res.json({ success: true, users, customers: users });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

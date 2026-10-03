@@ -11,7 +11,21 @@ if (fs.existsSync(envPath)) {
 let databaseUrl = process.env.DATABASE_URL;
 let directUrl = process.env.DIRECT_URL;
 
-// Ensure DATABASE_URL uses port 6543 (transaction mode pooler) for runtime stability
+// If not present in process.env, check if defined in local .env
+if (!databaseUrl && envContent) {
+  const match = envContent.match(/^DATABASE_URL\s*=\s*["']?([^"'\r\n]+)["']?/m);
+  if (match) {
+    databaseUrl = match[1];
+  }
+}
+if (!directUrl && envContent) {
+  const match = envContent.match(/^DIRECT_URL\s*=\s*["']?([^"'\r\n]+)["']?/m);
+  if (match) {
+    directUrl = match[1];
+  }
+}
+
+// Ensure DATABASE_URL uses port 6543 (transaction mode pooler) for runtime stability if using Supabase pooler
 if (databaseUrl && databaseUrl.includes('.pooler.supabase.com:5432')) {
   databaseUrl = databaseUrl.replace('.pooler.supabase.com:5432', '.pooler.supabase.com:6543');
   if (!databaseUrl.includes('pgbouncer=true')) {
@@ -21,27 +35,15 @@ if (databaseUrl && databaseUrl.includes('.pooler.supabase.com:5432')) {
   process.env.DATABASE_URL = databaseUrl;
 }
 
-// Fallback DATABASE_URL if none provided
-if (!databaseUrl) {
-  databaseUrl = 'postgresql://postgres.efalzdhwheuywqpebzak:Jr6*C-UE-5VxRgZ@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connect_timeout=15';
-  process.env.DATABASE_URL = databaseUrl;
-}
-
-// If DIRECT_URL is not explicitly provided in environment, derive from DATABASE_URL on port 5432
+// If DIRECT_URL is not explicitly provided, safely derive from DATABASE_URL on port 5432 (session/direct mode)
 if (!directUrl && databaseUrl) {
   directUrl = databaseUrl
     .replace(':6543', ':5432')
     .replace('?pgbouncer=true&', '?')
     .replace('&pgbouncer=true', '')
     .replace('?pgbouncer=true', '');
+  process.env.DIRECT_URL = directUrl;
 }
-
-// Fallback direct connection URL to Supabase on port 5432
-if (!directUrl) {
-  directUrl = 'postgresql://postgres.efalzdhwheuywqpebzak:Jr6*C-UE-5VxRgZ@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?connect_timeout=15';
-}
-
-process.env.DIRECT_URL = directUrl;
 
 const updates = [];
 
@@ -49,13 +51,15 @@ if (databaseUrl && !envContent.includes('DATABASE_URL=')) {
   updates.push(`DATABASE_URL="${databaseUrl}"`);
 }
 
-if (!envContent.includes('DIRECT_URL=')) {
+if (directUrl && !envContent.includes('DIRECT_URL=')) {
   updates.push(`DIRECT_URL="${directUrl}"`);
 }
 
 if (updates.length > 0) {
   fs.appendFileSync(envPath, '\n' + updates.join('\n') + '\n');
   console.log(`⚡ [PREPARE-ENV] Configured DIRECT_URL for Prisma.`);
+} else if (directUrl || databaseUrl) {
+  console.log('⚡ [PREPARE-ENV] Database environment variables prepared.');
 } else {
-  console.log('⚡ [PREPARE-ENV] DIRECT_URL is active.');
+  console.log('⚡ [PREPARE-ENV] No external DATABASE_URL provided. Operating with existing configuration.');
 }

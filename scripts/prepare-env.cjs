@@ -11,7 +11,23 @@ if (fs.existsSync(envPath)) {
 let databaseUrl = process.env.DATABASE_URL;
 let directUrl = process.env.DIRECT_URL;
 
-// If DIRECT_URL is not explicitly provided in environment, derive from DATABASE_URL
+// Ensure DATABASE_URL uses port 6543 (transaction mode pooler) for runtime stability
+if (databaseUrl && databaseUrl.includes('.pooler.supabase.com:5432')) {
+  databaseUrl = databaseUrl.replace('.pooler.supabase.com:5432', '.pooler.supabase.com:6543');
+  if (!databaseUrl.includes('pgbouncer=true')) {
+    const sep = databaseUrl.includes('?') ? '&' : '?';
+    databaseUrl = `${databaseUrl}${sep}pgbouncer=true`;
+  }
+  process.env.DATABASE_URL = databaseUrl;
+}
+
+// Fallback DATABASE_URL if none provided
+if (!databaseUrl) {
+  databaseUrl = 'postgresql://postgres.efalzdhwheuywqpebzak:Jr6*C-UE-5VxRgZ@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connect_timeout=15';
+  process.env.DATABASE_URL = databaseUrl;
+}
+
+// If DIRECT_URL is not explicitly provided in environment, derive from DATABASE_URL on port 5432
 if (!directUrl && databaseUrl) {
   directUrl = databaseUrl
     .replace(':6543', ':5432')

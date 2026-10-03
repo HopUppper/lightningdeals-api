@@ -7,9 +7,18 @@ import fs from 'fs';
 function resolveDatabaseUrl(): string {
   if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://'))) {
     let pgUrl = process.env.DATABASE_URL;
+    // Route Supabase pooler through port 6543 (transaction mode) with pgbouncer=true
+    // to prevent EMAXCONNSESSION (max clients limited to pool_size: 15 on port 5432)
+    if (pgUrl.includes('.pooler.supabase.com:5432')) {
+      pgUrl = pgUrl.replace('.pooler.supabase.com:5432', '.pooler.supabase.com:6543');
+    }
+    if (pgUrl.includes(':6543') && !pgUrl.includes('pgbouncer=true')) {
+      const sep = pgUrl.includes('?') ? '&' : '?';
+      pgUrl = `${pgUrl}${sep}pgbouncer=true`;
+    }
     if (!pgUrl.includes('connection_limit=')) {
       const sep = pgUrl.includes('?') ? '&' : '?';
-      pgUrl = `${pgUrl}${sep}connection_limit=15&pool_timeout=20`;
+      pgUrl = `${pgUrl}${sep}connection_limit=10&pool_timeout=20`;
     }
     return pgUrl;
   }

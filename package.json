@@ -7,7 +7,7 @@
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"tsx server/index.ts\" \"vite\"",
     "server": "tsx server/index.ts",
     "start": "tsx server/index.ts",
-    "build": "node scripts/db-sync.cjs && tsc && npx vite build && npx tsx scripts/prerender.ts",
+    "build": "node scripts/prepare-env.cjs && npx prisma generate && tsc && npx vite build && npx tsx scripts/prerender.ts",
     "postinstall": "node scripts/prepare-env.cjs && prisma generate",
     "preview": "vite preview",
     "db:push": "node scripts/db-sync.cjs",

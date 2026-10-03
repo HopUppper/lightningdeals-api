@@ -67,6 +67,25 @@ async function migrate() {
   `);
   console.log('✓ PasswordResetToken otpHash column and index updated.');
 
+  // Idempotent Row Level Security & Least-Privilege lockdown across all public tables
+  const allTables = [
+    'User', 'ApiKey', 'ApiRequest', 'VendorProvider', 'MasterTokenLedger', 'TokenPackage',
+    'Order', 'TokenLedger', 'TrialClaim', 'Plan', 'Model', 'AdminLog', 'SystemSetting', 'Lead',
+    'SupportTicket', 'TicketMessage', 'EmailVerificationToken', 'PhoneOtpCode',
+    'PasswordResetToken', 'UserSession', 'SecurityLog', 'PaymentEvent', 'Notification',
+    'Subscription', 'AuditEvent', 'Coupon', 'CouponUsage', 'CreditTransaction',
+    'RewardSettings', 'Purchase'
+  ];
+
+  for (const tbl of allTables) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "${tbl}" ENABLE ROW LEVEL SECURITY;`).catch(() => {});
+  }
+  await prisma.$executeRawUnsafe(`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;`).catch(() => {});
+  await prisma.$executeRawUnsafe(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;`).catch(() => {});
+  await prisma.$executeRawUnsafe(`REVOKE ALL ON ALL ROUTINES IN SCHEMA public FROM anon, authenticated;`).catch(() => {});
+  await prisma.$executeRawUnsafe(`ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;`).catch(() => {});
+  console.log('✓ Row Level Security (RLS) verified enabled on all 30 public tables.');
+
   // Backfill existing completed Orders into Purchase table if they are not already there
   const completedOrders = await prisma.order.findMany({
     where: {

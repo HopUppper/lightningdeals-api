@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock, HelpCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock, HelpCircle, AlertTriangle, RefreshCw, CheckCircle2, Layers, ShoppingBag } from 'lucide-react';
 import { ThreeDCard } from '../../components/ThreeDCard';
 import { adminFetch } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -13,14 +13,16 @@ export const AdminOverview: React.FC = () => {
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   const [actionCenter, setActionCenter] = useState<any[]>([]);
+  const [subMetrics, setSubMetrics] = useState<any>(null);
 
   const loadOverview = async (isInitial = false) => {
     if (isInitial) setLoading(true);
     setUpdateError(null);
     try {
-      const [res, acRes] = await Promise.all([
+      const [res, acRes, smRes] = await Promise.all([
         adminFetch('/api/admin/overview'),
         adminFetch('/api/admin/action-center').catch(() => null),
+        adminFetch('/api/admin/subscriptions/metrics').catch(() => null),
       ]);
 
       if (res.ok) {
@@ -34,6 +36,10 @@ export const AdminOverview: React.FC = () => {
       if (acRes && acRes.ok) {
         const acData = await acRes.json();
         setActionCenter(acData.items || []);
+      }
+
+      if (smRes && smRes.ok) {
+        setSubMetrics(await smRes.json());
       }
     } catch (e: any) {
       setUpdateError(e.message || 'Unable to load live data. Database connection unavailable.');
@@ -111,6 +117,14 @@ export const AdminOverview: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <Link to="/admin/fulfillment" className="ui-button-primary text-xs py-2 px-3.5 gap-1.5 bg-violet-600 hover:bg-violet-700 text-white font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>⚡ Fulfillment Queue</span>
+          </Link>
+          <Link to="/admin/subscriptions" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold">
+            <Layers className="w-3.5 h-3.5" />
+            <span>Subscriptions</span>
+          </Link>
           <Link to="/admin/plans" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-bold">
             <Zap className="w-3.5 h-3.5" />
             <span>Plans & Offers</span>
@@ -118,11 +132,7 @@ export const AdminOverview: React.FC = () => {
           <Link to="/admin/orders" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 font-bold">
             <span>Orders & Sales</span>
           </Link>
-          <Link to="/admin/providers" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-slate-200 text-slate-700 bg-slate-50 hover:bg-slate-100">
-            <Server className="w-3.5 h-3.5" />
-            <span>Vendor Keys</span>
-          </Link>
-          <Link to="/admin/keys" className="ui-button-primary text-xs py-2 px-4 gap-1.5 font-bold">
+          <Link to="/admin/keys" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 font-bold">
             + Create Key
           </Link>
         </div>
@@ -219,6 +229,83 @@ export const AdminOverview: React.FC = () => {
           </div>
         </ThreeDCard>
       </div>
+
+      {/* Phase 3 Fulfillment & Subscriptions Telemetry Section */}
+      {subMetrics && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 text-violet-600" />
+              ⚡ Fulfillment Pipeline & Subscription Lifecycle (Real Database Values)
+            </h2>
+            <Link to="/admin/fulfillment" className="text-xs text-violet-600 font-bold hover:underline">
+              Open Fulfillment Queue →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <ThreeDCard intensity={6}>
+              <div className="p-4 bg-white border border-border rounded-panel space-y-2">
+                <span className="text-[10px] font-mono uppercase text-muted font-bold">Fulfillment Status</span>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted flex items-center gap-1.5">🟢 Completed today:</span>
+                    <span className="font-bold font-mono text-emerald-600">{subMetrics.fulfillment?.completedToday || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted flex items-center gap-1.5">🟡 Pending:</span>
+                    <span className="font-bold font-mono text-amber-600">{subMetrics.fulfillment?.pending || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted flex items-center gap-1.5">🔴 Failed:</span>
+                    <span className="font-bold font-mono text-rose-600">{subMetrics.fulfillment?.failed || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted flex items-center gap-1.5">⚠️ Manual review:</span>
+                    <span className="font-bold font-mono text-violet-600">{subMetrics.fulfillment?.manualReview || 0}</span>
+                  </div>
+                </div>
+              </div>
+            </ThreeDCard>
+
+            <ThreeDCard intensity={6}>
+              <div className="p-4 bg-white border border-border rounded-panel space-y-2">
+                <span className="text-[10px] font-mono uppercase text-muted font-bold">Active Subscriptions</span>
+                <p className="text-2xl font-extrabold text-emerald-600 font-mono">
+                  {subMetrics.subscriptions?.active || 0}
+                </p>
+                <p className="text-[11px] text-muted">Currently active entitlements</p>
+              </div>
+            </ThreeDCard>
+
+            <ThreeDCard intensity={6}>
+              <div className="p-4 bg-white border border-border rounded-panel space-y-2">
+                <span className="text-[10px] font-mono uppercase text-muted font-bold">Expiring in 7 Days</span>
+                <p className="text-2xl font-extrabold text-amber-600 font-mono">
+                  {subMetrics.subscriptions?.expiringIn7Days || 0}
+                </p>
+                <p className="text-[11px] text-muted">Automated renewal reminders active</p>
+              </div>
+            </ThreeDCard>
+
+            <ThreeDCard intensity={6}>
+              <div className="p-4 bg-white border border-border rounded-panel space-y-2">
+                <span className="text-[10px] font-mono uppercase text-muted font-bold">Expired / Low Stock</span>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted">Expired:</span>
+                    <span className="font-bold font-mono text-rose-600">{subMetrics.subscriptions?.expired || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted">Low stock alerts:</span>
+                    <span className="font-bold font-mono text-amber-600">{subMetrics.lowStock?.length || 0}</span>
+                  </div>
+                </div>
+              </div>
+            </ThreeDCard>
+          </div>
+        </div>
+      )}
 
       {/* Health & Vendor Status 3D Cards */}
       <div className="grid sm:grid-cols-4 gap-4">

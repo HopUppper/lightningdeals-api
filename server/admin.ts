@@ -8,6 +8,8 @@ import { getRealtimeAnalyticsReport } from './analyticsTracker';
 import { recordAuditEvent, getEventCorrelation, getAuditSummary, verifyHashChainIntegrity } from './auditLogger';
 import { resolveIpLocation } from './geoService';
 import { isDisposableDomain } from './antiAbuse';
+import { OrderEngine } from './orders/orderEngine';
+import { getPaymentProvider } from './payments';
 
 const router = Router();
 
@@ -2390,72 +2392,103 @@ router.get('/search', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/admin/orders - Real order management ledger
+// GET /api/admin/orders - Authoritative unified order management ledger
 router.get('/orders', async (req: AuthRequest, res: Response) => {
+  const { status, search, limit = '100', page = '1' } = req.query;
+  const take = Math.min(200, Math.max(1, Number(limit) || 100));
+  const skip = (Math.max(1, Number(page) || 1) - 1) * take;
 
-  const { status, search } = req.query;
   try {
     const whereClause: any = {};
-    if (status && status !== 'all') {
-      whereClause.status = String(status).toUpperCase();
+    if (status && status !== 'ALL' && status !== 'all') {
+      const s = String(status).toUpperCase();
+      if (s === 'PAID') {
+        whereClause.paymentStatus = { in: ['CAPTURED', 'PAID'] };
+      } else if (s === 'PENDING') {
+        whereClause.paymentStatus = 'PENDING';
+      } else if (s === 'FAILED') {
+        whereClause.paymentStatus = { in: ['FAILED', 'VERIFICATION_FAILED'] };
+      } else if (s === 'FULFILLED') {
+        whereClause.fulfillmentStatus = 'FULFILLED';
+      } else if (s === 'FULFILLMENT_FAILED') {
+        whereClause.fulfillmentStatus = { in: ['FULFILLMENT_FAILED', 'RETRY_REQUIRED'] };
+      } else {
+        whereClause.OR = [{ paymentStatus: s }, { status: s }];
+      }
     }
+
     if (search) {
       const q = String(search).trim();
       whereClause.OR = [
-        { id: { contains: q } },
-        { paymentReference: { contains: q } },
-        { user: { email: { contains: q } } },
-        { user: { name: { contains: q } } },
+        { id: { contains: q, mode: 'insensitive' } },
+        { internalOrderId: { contains: q, mode: 'insensitive' } },
+        { gatewayPaymentId: { contains: q, mode: 'insensitive' } },
+        { gatewayOrderId: { contains: q, mode: 'insensitive' } },
+        { planName: { contains: q, mode: 'insensitive' } },
+        { user: { email: { contains: q, mode: 'insensitive' } } },
+        { user: { name: { contains: q, mode: 'insensitive' } } },
       ];
     }
 
-    const orders = await prisma.order.findMany({
-      where: whereClause,
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        package: { select: { displayName: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    const [orders, total, capturedCount, fulfilledCount, pendingCount] = await Promise.all([
+      prisma.order.findMany({
+        where: whereClause,
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+          package: { select: { displayName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      prisma.order.count({ where: whereClause }),
+      prisma.order.count({ where: { paymentStatus: { in: ['CAPTURED', 'PAID'] } } }),
+      prisma.order.count({ where: { fulfillmentStatus: 'FULFILLED' } }),
+      prisma.order.count({ where: { paymentStatus: 'PENDING' } }),
+    ]);
 
     const formatted = orders.map((o) => ({
       id: o.id,
+      internalOrderId: o.internalOrderId,
+      userId: o.userId,
+      user: o.user,
       customerName: o.user.name,
       customerEmail: o.user.email,
-      packageName: o.package?.displayName || 'Custom Token Credit',
+      customerPhone: o.user.phone,
+      planId: o.planId,
+      planName: o.planName || o.package?.displayName || 'API Subscription',
       amountInr: o.amountInr,
+      originalAmountInr: o.originalAmountInr,
+      discountAmountInr: o.discountAmountInr,
+      couponCode: o.couponCode,
+      paidAmountInr: o.paidAmountInr,
+      currency: o.currency,
       tokenQuantity: o.tokenQuantity.toString(),
+      windowHours: o.windowHours,
       status: o.status,
-      paymentReference: o.paymentReference || 'N/A',
+      paymentStatus: o.paymentStatus,
+      fulfillmentStatus: o.fulfillmentStatus,
       paymentGateway: o.paymentGateway,
+      gatewayOrderId: o.gatewayOrderId,
+      gatewayPaymentId: o.gatewayPaymentId,
+      fulfilledApiKeyId: o.fulfilledApiKeyId,
+      failureReason: o.failureReason,
+      paidAt: o.paidAt,
+      fulfilledAt: o.fulfilledAt,
       createdAt: o.createdAt,
+      updatedAt: o.updatedAt,
     }));
 
-    res.json(formatted);
-  } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
-  }
-});
-
-import { fulfillOrder } from './payments/fulfillment';
-
-// GET /api/admin/orders - List all orders with user metadata & fulfillment details
-router.get('/orders', async (req: AuthRequest, res: Response) => {
-  try {
-    const orders = await prisma.order.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-      },
-    });
-
     res.json({
-      orders: orders.map((o) => ({
-        ...o,
-        tokenQuantity: o.tokenQuantity.toString(),
-      })),
+      success: true,
+      orders: formatted,
+      total,
+      summary: {
+        totalOrders: total,
+        capturedOrders: capturedCount,
+        fulfilledOrders: fulfilledCount,
+        pendingOrders: pendingCount,
+      },
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -2477,7 +2510,7 @@ router.post('/orders/:internalOrderId/fulfill', async (req: AuthRequest, res: Re
       return res.status(404).json({ error: { message: 'Order not found.' } });
     }
 
-    // Force payment status to CAPTURED if admin triggers manual fulfillment
+    // Force payment status to CAPTURED if admin explicitly triggers manual fulfillment
     if (order.paymentStatus !== 'CAPTURED' && order.paymentStatus !== 'AUTHORIZED') {
       await prisma.order.update({
         where: { id: order.id },
@@ -2485,7 +2518,7 @@ router.post('/orders/:internalOrderId/fulfill', async (req: AuthRequest, res: Re
       });
     }
 
-    const fulfillment = await fulfillOrder(order.internalOrderId);
+    const fulfillment = await OrderEngine.retryFulfillment(order.internalOrderId, req.user?.id, req);
 
     if (!fulfillment.success) {
       return res.status(400).json({ error: { message: fulfillment.error || 'Fulfillment retry failed.' } });
@@ -2502,6 +2535,76 @@ router.post('/orders/:internalOrderId/fulfill', async (req: AuthRequest, res: Re
     });
 
     res.json({ success: true, fulfillment });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/orders/:internalOrderId/refund - Admin Refund & Reversal Trigger
+router.post('/orders/:internalOrderId/refund', async (req: AuthRequest, res: Response) => {
+  const { internalOrderId } = req.params;
+  const { reason = 'Refunded by administrator' } = req.body || {};
+
+  try {
+    const result = await OrderEngine.refundOrder({
+      internalOrderId,
+      reason,
+      adminUserId: req.user?.id,
+      req,
+    });
+
+    res.json({ success: true, message: 'Order refunded and rewards reversed successfully.', ...result });
+  } catch (err: any) {
+    res.status(400).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/orders/:internalOrderId/reconcile - Direct Gateway Verification via PayU Server API
+router.post('/orders/:internalOrderId/reconcile', async (req: AuthRequest, res: Response) => {
+  const { internalOrderId } = req.params;
+
+  try {
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [{ internalOrderId }, { id: internalOrderId }],
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: { message: 'Order not found.' } });
+    }
+
+    const provider = getPaymentProvider();
+    const serverStatus = await provider.getPaymentStatus(order.internalOrderId);
+
+    if (serverStatus.isVerified && serverStatus.paymentStatus === 'CAPTURED') {
+      const processResult = await OrderEngine.processPaymentEvent({
+        provider: provider.name,
+        eventId: `reconcile_${order.internalOrderId}_${Date.now()}`,
+        eventType: 'payment.captured',
+        internalOrderId: order.internalOrderId,
+        gatewayOrderId: serverStatus.gatewayOrderId,
+        gatewayPaymentId: serverStatus.gatewayPaymentId,
+        paidAmount: serverStatus.paidAmount || order.amountInr,
+        rawPayload: { status: 'success', reconciled: true },
+        source: 'ADMIN_RECONCILE',
+        req,
+      });
+
+      return res.json({
+        success: true,
+        reconciled: true,
+        message: 'Order verified and captured directly against PayU gateway server!',
+        status: processResult,
+      });
+    }
+
+    res.json({
+      success: true,
+      reconciled: false,
+      message: `Gateway status returned: ${serverStatus.paymentStatus}. ${serverStatus.failureReason || 'Not captured on PayU.'}`,
+      gatewayDetails: serverStatus,
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

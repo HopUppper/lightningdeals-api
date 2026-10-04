@@ -18,7 +18,7 @@ function resolveDatabaseUrl(): string {
     }
     if (!pgUrl.includes('connection_limit=')) {
       const sep = pgUrl.includes('?') ? '&' : '?';
-      pgUrl = `${pgUrl}${sep}connection_limit=10&pool_timeout=20`;
+      pgUrl = `${pgUrl}${sep}connection_limit=10&pool_timeout=30&connect_timeout=15`;
     }
     return pgUrl;
   }

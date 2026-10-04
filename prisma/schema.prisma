@@ -49,6 +49,7 @@ model User {
   userSessions        UserSession[]
   securityLogs        SecurityLog[]
   notifications       Notification[]
+  notificationPreference NotificationPreference?
   subscriptions       Subscription[]
   couponUsages        CouponUsage[]
   availableCredits        Float                    @default(0)
@@ -205,6 +206,13 @@ model Order {
   gatewaySignature  String?
   fulfilledApiKeyId String?
   failureReason     String?
+  fulfillmentNotes  String?
+  fulfillmentAttempts Int         @default(0)
+  lastFulfillmentAttemptAt DateTime?
+  nextRetryAt       DateTime?
+  fulfillmentChannel String?      // "API_KEY" | "INVENTORY" | "MANUAL"
+  subscriptionId    String?       // Linked subscription if this is a renewal
+  slaPriority       String        @default("NORMAL") // "LOW" | "NORMAL" | "HIGH" | "URGENT"
   tokensCredited    Boolean       @default(false)
   paidAt            DateTime?
   fulfilledAt       DateTime?
@@ -218,6 +226,8 @@ model Order {
 
   @@index([userId, createdAt])
   @@index([paymentStatus])
+  @@index([fulfillmentStatus])
+  @@index([subscriptionId])
 }
 
 model PaymentEvent {
@@ -275,42 +285,63 @@ model Subscription {
   apiKey           ApiKey?   @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   activationTime   DateTime  @default(now())
   expiryTime       DateTime
+  durationDays     Int       @default(30)
+  renewalCount     Int       @default(0)
+  autoRenewEnabled Boolean   @default(false)
+  lastRenewedAt    DateTime?
+  remindersSentCount Int     @default(0)
   quotaLimit       BigInt    @default(5000000)
   quotaWindowHours Int       @default(5)
   currentUsage     BigInt    @default(0)
   nextResetTime    DateTime
-  status           String    @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "SUSPENDED" | "CANCELLED"
+  status           String    @default("ACTIVE") // "ACTIVE" | "EXPIRING" | "EXPIRED" | "SUSPENDED" | "CANCELLED"
   notes            String?
+  metadata         String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  reminders        SubscriptionReminder[]
 
   @@index([userId, status])
   @@index([userId, createdAt])
+  @@index([expiryTime])
+  @@index([status])
 }
 
 model Plan {
-  id               String   @id @default(uuid())
-  slug             String?  @unique
-  name             String   @unique
-  displayName      String
-  tokenAllowance   BigInt   @default(20000000)
-  tokenDisplay     String?
-  windowHours      Int      @default(5)
-  validityDays     Int      @default(30)
-  rateLimitRpm     Int      @default(100)
-  priceInr         Float    @default(4999)
-  originalPriceInr Float?
-  currency         String   @default("INR")
-  tagline          String?
-  badge            String?
-  featuresJson     String?
-  featured         Boolean  @default(false)
-  enabled          Boolean  @default(true)
-  sortOrder        Int      @default(0)
-  status           String   @default("active") // "active" | "archived"
-  description      String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                     String   @id @default(uuid())
+  slug                   String?  @unique
+  name                   String   @unique
+  displayName            String
+  tokenAllowance         BigInt   @default(20000000)
+  tokenDisplay           String?
+  windowHours            Int      @default(5)
+  validityDays           Int      @default(30)
+  rateLimitRpm           Int      @default(100)
+  priceInr               Float    @default(4999)
+  originalPriceInr       Float?
+  currency               String   @default("INR")
+  tagline                String?
+  badge                  String?
+  featuresJson           String?
+  featured               Boolean  @default(false)
+  enabled                Boolean  @default(true)
+  sortOrder              Int      @default(0)
+  status                 String   @default("active") // "active" | "archived"
+  description            String?
+  fulfillmentType        String   @default("AUTOMATIC") // "AUTOMATIC" | "MANUAL" | "HYBRID" | "NONE"
+  isSubscription         Boolean  @default(true)
+  durationDays           Int      @default(30)
+  renewalDurationDays    Int      @default(30)
+  autoFulfillEnabled     Boolean  @default(true)
+  manualFulfillEnabled   Boolean  @default(false)
+  requiresInventory      Boolean  @default(false)
+  lowStockThreshold      Int      @default(5)
+  activationInstructions String?
+  trackExpiry            Boolean  @default(true)
+  renewalRemindersEnabled Boolean @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  inventoryItems         InventoryItem[]
 }
 
 model Coupon {
@@ -633,4 +664,55 @@ model RewardSettings {
 
   createdAt                 DateTime  @default(now())
   updatedAt                 DateTime  @updatedAt
+}
+
+model SubscriptionReminder {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  reminderType   String       // "7_DAYS_BEFORE" | "3_DAYS_BEFORE" | "1_DAY_BEFORE" | "ON_EXPIRY"
+  scheduledFor   DateTime
+  sentAt         DateTime?
+  status         String       @default("PENDING") // "PENDING" | "SENT" | "FAILED" | "CANCELLED"
+  channel        String       @default("IN_APP") // "IN_APP" | "EMAIL" | "WHATSAPP"
+  error          String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([subscriptionId, reminderType])
+  @@index([scheduledFor, status])
+}
+
+model InventoryItem {
+  id              String    @id @default(uuid())
+  planId          String
+  plan            Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  sku             String?
+  dataEncrypted   String    // Encrypted license key / credential
+  displayValue    String    // Masked value
+  status          String    @default("AVAILABLE") // "AVAILABLE" | "RESERVED" | "ASSIGNED" | "USED" | "EXPIRED" | "DISABLED"
+  assignedOrderId String?
+  assignedUserId  String?
+  reservedAt      DateTime?
+  usedAt          DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([planId, status])
+  @@index([assignedOrderId])
+  @@index([assignedUserId])
+}
+
+model NotificationPreference {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEnabled     Boolean  @default(true)
+  whatsappEnabled  Boolean  @default(true)
+  smsEnabled       Boolean  @default(false)
+  inAppEnabled     Boolean  @default(true)
+  renewalReminders Boolean  @default(true)
+  orderUpdates     Boolean  @default(true)
+  marketingUpdates Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
 }

@@ -174,11 +174,17 @@ import { customerRewardsRouter } from './rewards/customerRewardRoutes';
 import { adminRewardsRouter } from './rewards/adminRewardRoutes';
 import { integrationRouter } from './integrations/integrationRoutes';
 
+import { customerSubscriptionRouter } from './subscriptions/customerSubscriptionRoutes';
+import { adminFulfillmentRouter } from './adminFulfillmentRoutes';
+
 app.use('/api', healthRouter);
 app.use('/api/user/notifications', notificationsRouter);
 app.use('/api/user/rewards', customerRewardsRouter);
 app.use('/api/rewards', customerRewardsRouter);
+app.use('/api/user/subscriptions', customerSubscriptionRouter);
+app.use('/api/subscriptions', customerSubscriptionRouter);
 app.use('/api/admin/rewards', adminRewardsRouter);
+app.use('/api/admin', adminFulfillmentRouter);
 app.use('/api/integrations', integrationRouter);
 app.use('/api/checkout', checkoutRouter);
 app.post('/api/webhooks/payment', handlePaymentWebhook);

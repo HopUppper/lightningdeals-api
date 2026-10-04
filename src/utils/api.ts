@@ -46,6 +46,37 @@ export async function adminFetch(url: string, options: RequestInit = {}, timeout
   }
 }
 
+export async function userFetch(url: string, options: RequestInit = {}, timeoutMs: number = 15000): Promise<Response> {
+  const defaultHeaders = getAuthHeaders(false);
+  const requestId = `req_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+  
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const mergedOptions: RequestInit = {
+    credentials: 'include',
+    signal: controller.signal,
+    ...options,
+    headers: {
+      'X-Request-ID': requestId,
+      ...defaultHeaders,
+      ...(options.headers || {}),
+    },
+  };
+
+  try {
+    const response = await fetch(url, mergedOptions);
+    clearTimeout(timer);
+    return response;
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs / 1000} seconds. Please try again.`);
+    }
+    throw new Error(err.message || 'Network error connecting to LightningDeals server.');
+  }
+}
+
 export async function parseApiResponse<T = any>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') || '';
   let data: any = {};

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { createUniversalPurchase, calculateReward } from '../rewards/rewardService';
+import { OrderEngine } from '../orders/orderEngine';
 
 export const integrationRouter = Router();
 
@@ -162,6 +163,39 @@ integrationRouter.post('/purchases/calculate', async (req: Request, res: Respons
     const { amount } = req.body;
     const calculation = await calculateReward(Number(amount) || 0);
     res.json({ success: true, calculation });
+  } catch (err: any) {
+    res.status(400).json({ error: { message: err.message } });
+  }
+});
+
+/**
+ * POST /api/integrations/orders
+ * Ingest orders from WhatsApp bot, CRM, or external sales channels.
+ * Supports auto-fulfillment of API keys and subscriptions.
+ */
+integrationRouter.post('/orders', authenticateIntegration, async (req: Request, res: Response) => {
+  try {
+    const result = await OrderEngine.createExternalOrder({
+      customerIdentifier: req.body.customerIdentifier || req.body.email || req.body.phone || req.body.userId,
+      customerName: req.body.customerName,
+      customerPhone: req.body.customerPhone,
+      customerEmail: req.body.customerEmail,
+      productName: req.body.productName || req.body.planName || 'API Subscription',
+      planId: req.body.planId,
+      amountPaid: req.body.amountPaid || req.body.amount,
+      channel: (req.body.channel || 'WHATSAPP').toUpperCase(),
+      referenceId: req.body.referenceId,
+      notes: req.body.notes,
+      description: req.body.description,
+      status: (req.body.status || 'COMPLETED').toUpperCase(),
+      autoFulfill: Boolean(req.body.autoFulfill),
+      createdBy: req.headers['x-integration-source']?.toString() || 'WHATSAPP_INTEGRATION',
+    });
+
+    res.status(result.isDuplicate ? 200 : 201).json({
+      success: true,
+      ...result,
+    });
   } catch (err: any) {
     res.status(400).json({ error: { message: err.message } });
   }

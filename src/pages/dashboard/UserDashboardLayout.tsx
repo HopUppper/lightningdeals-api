@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { Zap, LayoutDashboard, Key, Activity, ShieldCheck, LifeBuoy, Settings, LogOut, BookOpen, CreditCard } from 'lucide-react';
+import { Zap, LayoutDashboard, Key, Activity, ShieldCheck, LifeBuoy, Settings, LogOut, BookOpen, CreditCard, Layers } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 import { NotificationCenter } from '../../components/NotificationCenter';
@@ -17,6 +17,7 @@ export const UserDashboardLayout: React.FC = () => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, end: true },
     { name: 'API Keys', path: '/dashboard/keys', icon: Key },
+    { name: 'My Subscriptions', path: '/dashboard/subscriptions', icon: Layers },
     { name: 'Usage', path: '/dashboard/usage', icon: Activity },
     { name: 'Plan', path: '/dashboard/plan', icon: CreditCard },
     { name: '⚡ Rewards', path: '/dashboard/rewards', icon: Zap },

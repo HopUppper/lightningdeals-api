@@ -92,12 +92,15 @@ const UserApiTestConsole = lazy(() => import('./pages/dashboard/UserApiTestConso
 const UserSupport = lazy(() => import('./pages/dashboard/UserSupport').then(m => ({ default: m.UserSupport })));
 const UserSettings = lazy(() => import('./pages/dashboard/UserSettings').then(m => ({ default: m.UserSettings })));
 const UserRewards = lazy(() => import('./pages/dashboard/UserRewards').then(m => ({ default: m.UserRewards })));
+const UserSubscriptions = lazy(() => import('./pages/dashboard/UserSubscriptions').then(m => ({ default: m.UserSubscriptions })));
 
 // Admin Control Center Pages (Lazy Loaded)
 import { AdminAuthGuard } from './pages/admin/AdminAuthGuard';
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const AdminOverview = lazy(() => import('./pages/admin/AdminOverview').then(m => ({ default: m.AdminOverview })));
+const AdminFulfillment = lazy(() => import('./pages/admin/AdminFulfillment').then(m => ({ default: m.AdminFulfillment })));
+const AdminSubscriptions = lazy(() => import('./pages/admin/AdminSubscriptions').then(m => ({ default: m.AdminSubscriptions })));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics').then(m => ({ default: m.AdminAnalytics })));
 const AdminProviders = lazy(() => import('./pages/admin/AdminProviders').then(m => ({ default: m.AdminProviders })));
 const AdminPlans = lazy(() => import('./pages/admin/AdminPlans').then(m => ({ default: m.AdminPlans })));
@@ -210,6 +213,7 @@ export function App() {
                   <Route index element={<UserOverview />} />
                   <Route path="keys" element={<UserKeys />} />
                   <Route path="api-keys" element={<UserKeys />} />
+                  <Route path="subscriptions" element={<UserSubscriptions />} />
                   <Route path="usage" element={<UserUsage />} />
                   <Route path="plan" element={<UserPlan />} />
                   <Route path="rewards" element={<UserRewards />} />
@@ -235,6 +239,8 @@ export function App() {
                   }
                 >
                   <Route index element={<AdminOverview />} />
+                  <Route path="fulfillment" element={<AdminFulfillment />} />
+                  <Route path="subscriptions" element={<AdminSubscriptions />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
                   <Route path="rewards" element={<AdminRewards />} />
                   <Route path="providers" element={<AdminProviders />} />

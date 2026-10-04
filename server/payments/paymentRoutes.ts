@@ -8,6 +8,7 @@ import { fulfillOrder } from './fulfillment';
 import { recordSecurityLog } from '../authSecurity';
 import { validateCoupon, recordCouponUsage } from '../couponService';
 import { redeemCredits } from '../rewards/rewardService';
+import { OrderEngine } from '../orders/orderEngine';
 
 export const checkoutRouter = Router();
 
@@ -87,238 +88,28 @@ checkoutRouter.get('/provider-health', async (req: Request, res: Response) => {
 
 // 4. POST /api/checkout/create-order — Create Internal Order & Gateway Order (With Coupon Support)
 checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, res: Response) => {
-  const { planId, couponCode, redeemCredits: requestedRedeemCredits } = req.body;
+  const { planId, couponCode, redeemCredits } = req.body;
 
   if (!planId || typeof planId !== 'string') {
     return res.status(400).json({ error: { type: 'invalid_request', message: 'Plan ID is required.' } });
   }
 
-  // Authoritative Server-Side Plan Lookup
-  const plan = await getPlanByIdAsync(planId);
-  if (!plan) {
-    return res.status(400).json({ error: { type: 'invalid_plan', message: 'The selected plan is unavailable or invalid.' } });
-  }
-
-  const user = req.user!;
-  let payableAmountInr = plan.priceInr;
-  let discountAmountInr = 0;
-  let appliedCouponId: string | null = null;
-  let verifiedCouponCode: string | null = null;
-
-  // Authoritative Server-Side Coupon Verification
-  if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
-    const couponValidation = await validateCoupon(couponCode, plan.priceInr, user.id, plan.id);
-    if (couponValidation.valid && couponValidation.coupon) {
-      discountAmountInr = couponValidation.discountAmountInr;
-      payableAmountInr = couponValidation.finalAmountInr;
-      appliedCouponId = couponValidation.coupon.id;
-      verifiedCouponCode = couponValidation.coupon.code;
-    }
-  }
-
-  // Authoritative Server-Side Lightning Credits Redemption
-  let creditsToRedeem = 0;
-  if (requestedRedeemCredits && Number(requestedRedeemCredits) > 0) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { availableCredits: true },
-    });
-    const userBalance = dbUser?.availableCredits || 0;
-    const requested = Math.round(Number(requestedRedeemCredits) * 100) / 100;
-    if (requested > userBalance) {
-      return res.status(400).json({
-        error: {
-          type: 'insufficient_credits',
-          message: `Requested credit redemption (₹${requested.toLocaleString()}) exceeds your available balance (₹${userBalance.toLocaleString()}).`,
-        },
-      });
-    }
-    creditsToRedeem = Math.min(requested, payableAmountInr);
-    payableAmountInr = Math.max(0, Math.round((payableAmountInr - creditsToRedeem) * 100) / 100);
-  }
-
-  const internalOrderId = `LD-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-
   try {
-    // 1. Create Internal Order Record in DB
-    const order = await prisma.order.create({
-      data: {
-        internalOrderId,
-        userId: user.id,
-        planId: plan.id,
-        planName: plan.name,
-        tokenQuantity: plan.tokenAllowance,
-        windowHours: plan.windowHours,
-        amountInr: payableAmountInr,
-        originalAmountInr: plan.priceInr,
-        discountAmountInr: discountAmountInr,
-        couponCode: verifiedCouponCode,
-        creditsRedeemed: creditsToRedeem,
-        currency: plan.currency,
-        paymentStatus: payableAmountInr === 0 ? 'CAPTURED' : 'CREATED',
-        fulfillmentStatus: 'NOT_FULFILLED',
-        paymentGateway: payableAmountInr === 0 ? 'LIGHTNING_CREDITS' : getPaymentProvider().name,
-      },
-    });
-
-    // 2. Atomically Deduct Credits if Applied
-    if (creditsToRedeem > 0) {
-      await redeemCredits({
-        userId: user.id,
-        orderId: order.id,
-        amountToRedeem: creditsToRedeem,
-      });
-    }
-
-    // 3. Instant Fulfillment if Entire Order was Covered by Credits (₹0 Payable)
-    if (payableAmountInr === 0) {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          paidAmountInr: 0,
-          paidAt: new Date(),
-          status: 'PAID',
-        },
-      });
-
-      const fulfillment = await fulfillOrder(order.internalOrderId);
-
-      if (appliedCouponId) {
-        await recordCouponUsage({
-          couponId: appliedCouponId,
-          userId: user.id,
-          orderId: order.id,
-          discountAmount: discountAmountInr,
-          finalAmount: 0,
-        });
-      }
-
-      await recordSecurityLog({
-        userId: user.id,
-        email: user.email,
-        req,
-        eventType: 'ORDER_PAID_WITH_CREDITS',
-        metadata: {
-          internalOrderId: order.internalOrderId,
-          planId: plan.id,
-          creditsRedeemed: creditsToRedeem,
-        },
-      });
-
-      return res.json({
-        success: true,
-        order: {
-          id: order.id,
-          internalOrderId: order.internalOrderId,
-          planId: plan.id,
-          amountInr: 0,
-          originalAmountInr: plan.priceInr,
-          discountAmountInr,
-          creditsRedeemed: creditsToRedeem,
-          paymentStatus: 'CAPTURED',
-          zeroAmountPaid: true,
-        },
-        fulfillment,
-      });
-    }
-
-    // Extract and sanitize customer phone
-    let rawPhone = (req.body.phone || user.phone || '').toString().trim();
-    let sanitizedPhone = rawPhone.replace(/\D/g, '');
-    if (sanitizedPhone.length === 12 && sanitizedPhone.startsWith('91')) {
-      sanitizedPhone = sanitizedPhone.slice(2);
-    }
-    if (sanitizedPhone.length > 10) {
-      sanitizedPhone = sanitizedPhone.slice(-10);
-    }
-
-    // If user provided a phone and doesn't have one saved, save it to their profile
-    if (sanitizedPhone && /^[6-9]\d{9}$/.test(sanitizedPhone) && !user.phone) {
-      try {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { phone: sanitizedPhone },
-        });
-      } catch (e) {
-        // Non-blocking update failure
-      }
-    }
-
-    // 2. Create Gateway Order via Abstraction Layer with payableAmountInr
-    const provider = getPaymentProvider();
-    const gatewayResult = await provider.createOrder({
-      internalOrderId: order.internalOrderId,
-      amountInr: payableAmountInr,
-      currency: plan.currency,
-      planId: plan.id,
-      planName: plan.name,
-      customerEmail: user.email,
-      customerName: user.name,
-      customerPhone: sanitizedPhone || undefined,
-    });
-
-    if (!gatewayResult.success) {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { paymentStatus: 'FAILED', failureReason: gatewayResult.error },
-      });
-      return res.status(502).json({ error: { type: 'gateway_error', message: gatewayResult.error || 'Failed to initialize payment order.' } });
-    }
-
-    // Update internal order with gateway order ID
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        paymentStatus: 'PENDING',
-        gatewayOrderId: gatewayResult.gatewayOrderId,
-      },
-    });
-
-    // If coupon was applied, record usage tracking
-    if (appliedCouponId) {
-      await recordCouponUsage({
-        couponId: appliedCouponId,
-        userId: user.id,
-        orderId: order.id,
-        discountAmount: discountAmountInr,
-        finalAmount: payableAmountInr,
-      });
-    }
-
-    await recordSecurityLog({
-      userId: user.id,
-      email: user.email,
+    const result = await OrderEngine.createWebsiteOrder({
+      userId: req.user!.id,
+      planId,
+      couponCode,
+      redeemCredits,
+      customerPhone: req.body.phone,
       req,
-      eventType: 'ORDER_CREATED',
-      metadata: {
-        internalOrderId: order.internalOrderId,
-        gatewayOrderId: gatewayResult.gatewayOrderId,
-        planId: plan.id,
-        amountInr: payableAmountInr,
-        originalAmountInr: plan.priceInr,
-        discountAmountInr,
-        couponCode: verifiedCouponCode,
-      },
     });
 
     res.status(201).json({
       success: true,
-      order: {
-        internalOrderId: order.internalOrderId,
-        gatewayOrderId: gatewayResult.gatewayOrderId,
-        planId: plan.id,
-        planName: plan.name,
-        amountInr: payableAmountInr,
-        originalAmountInr: plan.priceInr,
-        discountAmountInr,
-        couponCode: verifiedCouponCode,
-        currency: plan.currency,
-        checkoutUrl: gatewayResult.checkoutUrl,
-        metadata: gatewayResult.metadata,
-      },
+      ...result,
     });
   } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
+    res.status(400).json({ error: { type: 'order_creation_failed', message: err.message } });
   }
 });
 
@@ -362,42 +153,34 @@ checkoutRouter.post('/verify', authenticateJwt, async (req: AuthRequest, res: Re
       return res.status(400).json({ error: { type: 'verification_failed', message: verification.failureReason || 'Payment verification failed.' } });
     }
 
-    // Update order payment status to CAPTURED
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        paymentStatus: 'CAPTURED',
-        paidAmountInr: verification.paidAmount || order.amountInr,
-        gatewayPaymentId: verification.gatewayPaymentId,
-        gatewaySignature: gatewaySignature || null,
-        paidAt: new Date(),
-      },
+    const eventId = verification.gatewayPaymentId ? `verify_evt_${verification.gatewayPaymentId}` : `verify_tx_${internalOrderId}_${Date.now()}`;
+
+    // Process through authoritative Universal Order Engine
+    const result = await OrderEngine.processPaymentEvent({
+      provider: provider.name,
+      eventId,
+      eventType: 'payment.captured',
+      internalOrderId,
+      gatewayOrderId,
+      gatewayPaymentId: verification.gatewayPaymentId,
+      paidAmount: verification.paidAmount || order.amountInr,
+      rawPayload: payload || {},
+      signature: gatewaySignature,
+      source: 'DIRECT_VERIFY',
+      req,
     });
 
-    // Execute Atomic Fulfillment
-    const fulfillment = await fulfillOrder(order.internalOrderId);
-
-    if (!fulfillment.success) {
+    if (!result.success || result.paymentStatus !== 'CAPTURED') {
       return res.status(500).json({
         success: false,
-        paymentStatus: 'CAPTURED',
-        fulfillmentStatus: 'FAILED',
-        error: fulfillment.error || 'Payment received but key creation failed. Fulfillment queued for retry.',
+        error: result.failureReason || 'Payment capture failed.',
       });
     }
 
     res.json({
       success: true,
       message: 'Payment verified and API Key provisioned successfully!',
-      fulfillment: {
-        orderId: fulfillment.orderId,
-        internalOrderId: fulfillment.internalOrderId,
-        planId: fulfillment.planId,
-        tokenAllowance: fulfillment.tokenAllowance,
-        displayKey: fulfillment.displayKey,
-        rawKeySecret: fulfillment.rawKeySecret,
-        alreadyFulfilled: fulfillment.alreadyFulfilled,
-      },
+      fulfillment: result.fulfillment,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -417,99 +200,26 @@ checkoutRouter.all('/payu/response', async (req: Request, res: Response) => {
   }
 
   try {
-    const order = await prisma.order.findUnique({ where: { internalOrderId } });
-    if (!order) {
-      return res.redirect(`${appUrl}/dashboard/orders?payment=failed&error=order_not_found`);
-    }
+    const result = await OrderEngine.verifyAndProcessPayUCallback(req, 'REDIRECT_CALLBACK');
 
-    const provider = getPaymentProvider();
-    const verification = await provider.verifyPayment({
-      internalOrderId,
-      gatewayOrderId: internalOrderId,
-      gatewayPaymentId: body.mihpayid || body.payuMoneyId || `payu_${Date.now()}`,
-      payload: body,
-    });
-
-    if (verification.isVerified) {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          paymentStatus: 'CAPTURED',
-          paidAmountInr: verification.paidAmount || order.amountInr,
-          gatewayPaymentId: verification.gatewayPaymentId,
-          paidAt: new Date(),
-        },
-      });
-
-      const fulfillment = await fulfillOrder(order.internalOrderId);
-
-      // Redirect to orders dashboard with key revealed parameter
-      return res.redirect(`${appUrl}/dashboard/orders?order_id=${order.internalOrderId}&payment=success&key_revealed=true`);
+    if (result.success && result.paymentStatus === 'CAPTURED') {
+      return res.redirect(`${appUrl}/dashboard/orders?order_id=${internalOrderId}&payment=success&key_revealed=true`);
     } else {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          paymentStatus: 'FAILED',
-          failureReason: verification.failureReason || body.error_Message || 'PayU transaction cancelled or failed.',
-        },
-      });
-
-      const reason = encodeURIComponent(verification.failureReason || body.error_Message || 'Payment cancelled');
-      return res.redirect(`${appUrl}/dashboard/orders?order_id=${order.internalOrderId}&payment=failed&error=${reason}`);
+      const reason = encodeURIComponent(result.failureReason || body.error_Message || 'Payment cancelled');
+      return res.redirect(`${appUrl}/dashboard/orders?order_id=${internalOrderId}&payment=failed&error=${reason}`);
     }
   } catch (err: any) {
     console.error('PayU callback handling error:', err);
-    return res.redirect(`${appUrl}/dashboard/orders?order_id=${internalOrderId}&payment=failed&error=system_error`);
+    return res.redirect(`${appUrl}/dashboard/orders?order_id=${internalOrderId}&payment=failed&error=${encodeURIComponent(err.message || 'system_error')}`);
   }
 });
 
-// 5. POST /api/webhooks/payment — Generic Webhook Architecture (Signature Verified & Idempotent)
+// 6. POST /api/webhooks/payment & /api/webhooks/payu — Server Webhooks (Idempotent Single Source of Truth)
 export async function handlePaymentWebhook(req: Request, res: Response) {
   try {
-    const provider = getPaymentProvider();
-    const webhookResult = await provider.verifyWebhook(req);
-
-    if (!webhookResult.isValid) {
-      return res.status(400).json({ error: 'Invalid webhook signature or event.' });
-    }
-
-    const eventId = webhookResult.rawEventId || `evt_${crypto.randomBytes(8).toString('hex')}`;
-
-    // Webhook Idempotency Check
-    const existingEvent = await prisma.paymentEvent.findUnique({ where: { eventId } });
-    if (existingEvent) {
-      return res.status(200).json({ status: 'ALREADY_PROCESSED', message: 'Webhook event already processed.' });
-    }
-
-    // Store Event in DB
-    await prisma.paymentEvent.create({
-      data: {
-        eventId,
-        provider: provider.name,
-        eventType: webhookResult.eventType,
-        gatewayOrderId: webhookResult.gatewayOrderId,
-        gatewayPaymentId: webhookResult.gatewayPaymentId,
-      },
-    });
-
-    if (webhookResult.eventType === 'payment.captured' && webhookResult.internalOrderId) {
-      const order = await prisma.order.findUnique({ where: { internalOrderId: webhookResult.internalOrderId } });
-      if (order && order.fulfillmentStatus !== 'FULFILLED') {
-        await prisma.order.update({
-          where: { id: order.id },
-          data: {
-            paymentStatus: 'CAPTURED',
-            paidAmountInr: webhookResult.paidAmount || order.amountInr,
-            gatewayPaymentId: webhookResult.gatewayPaymentId,
-            paidAt: new Date(),
-          },
-        });
-        await fulfillOrder(order.internalOrderId);
-      }
-    }
-
-    res.status(200).json({ status: 'SUCCESS', message: 'Webhook processed successfully.' });
+    const result = await OrderEngine.verifyAndProcessPayUCallback(req, 'WEBHOOK');
+    res.status(200).json({ status: 'SUCCESS', ...result });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 }

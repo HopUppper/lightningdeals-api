@@ -178,8 +178,12 @@ import { customerSubscriptionRouter } from './subscriptions/customerSubscription
 import { adminFulfillmentRouter } from './adminFulfillmentRoutes';
 import { customerReferralRouter } from './referrals/customerReferralRoutes';
 import { adminReferralRouter } from './referrals/adminReferralRoutes';
+import { whatsappWebhookRouter } from './whatsapp/whatsappWebhookRoutes';
+import { adminWhatsAppRouter } from './whatsapp/adminWhatsAppRoutes';
 
 app.use('/api', healthRouter);
+app.use('/api/whatsapp', whatsappWebhookRouter);
+app.use('/api/admin/whatsapp', adminWhatsAppRouter);
 app.use('/api/user/notifications', notificationsRouter);
 app.use('/api/user/rewards', customerRewardsRouter);
 app.use('/api/rewards', customerRewardsRouter);

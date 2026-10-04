@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { prisma } from './db';
 import { authenticateJwt, AuthRequest } from './auth';
 import { recordAuditEvent } from './auditLogger';
+import { WhatsAppClient } from './whatsapp/whatsappClient';
 
 export const notificationsRouter = Router();
 
@@ -72,8 +73,17 @@ export async function dispatchNotification(params: DispatchNotificationParams) {
       // Prepared for Nodemailer / Resend / SendGrid dispatch
     }
 
-    if (prefs.whatsappEnabled && channels.includes('WHATSAPP')) {
-      // Prepared for WhatsApp Business API / UltraMsg dispatch
+    if (prefs.whatsappEnabled && (channels.includes('WHATSAPP') || channels.includes('IN_APP'))) {
+      const identity = await prisma.whatsAppCustomerIdentity.findFirst({
+        where: { customerId: userId, verified: true },
+      });
+      const targetPhone = identity?.whatsappNumber;
+      if (targetPhone) {
+        await WhatsAppClient.sendMessage({
+          to: targetPhone,
+          text: `⚡ *${title}*\n\n${message}`,
+        }).catch(() => {});
+      }
     }
 
     // 5. Audit log event

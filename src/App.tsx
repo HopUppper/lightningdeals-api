@@ -174,6 +174,7 @@ const AdminSettings = lazy(() => import('./pages/admin/AdminSettings').then(m =>
 const AdminApiTest = lazy(() => import('./pages/admin/AdminApiTest').then(m => ({ default: m.AdminApiTest })));
 const AdminEmergencyControls = lazy(() => import('./pages/admin/AdminEmergencyControls').then(m => ({ default: m.AdminEmergencyControls })));
 const AdminRewards = lazy(() => import('./pages/admin/AdminRewards').then(m => ({ default: m.AdminRewards })));
+const AdminWhatsApp = lazy(() => import('./pages/admin/AdminWhatsApp').then(m => ({ default: m.AdminWhatsApp })));
 
 export const LandingPage: React.FC = () => {
   return (
@@ -298,6 +299,7 @@ export function App() {
                   <Route path="analytics" element={<AdminAnalytics />} />
                   <Route path="rewards" element={<AdminRewards />} />
                   <Route path="referrals" element={<AdminReferrals />} />
+                  <Route path="whatsapp" element={<AdminWhatsApp />} />
                   <Route path="providers" element={<AdminProviders />} />
                   <Route path="plans" element={<AdminPlans />} />
                   <Route path="customers" element={<AdminCustomers />} />

@@ -361,7 +361,7 @@ export async function awardOrderCredits(params: {
       balanceBefore: currentBalance,
       balanceAfter,
     };
-  });
+  }, { maxWait: 10000, timeout: 20000 });
 }
 
 /**

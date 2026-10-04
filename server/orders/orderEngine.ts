@@ -15,6 +15,7 @@ import { recordAuditEvent } from '../auditLogger';
 import { recordSecurityLog } from '../authSecurity';
 import { InventoryService } from '../inventory/inventoryService';
 import { ReferralEngine } from '../referrals/referralEngine';
+import { WhatsAppClient } from '../whatsapp/whatsappClient';
 
 export interface CreateWebsiteOrderParams {
   userId: string;
@@ -716,6 +717,52 @@ export class OrderEngine {
         }
       } catch (purchErr: any) {
         console.error(`[ORDER ENGINE] Purchase sync error:`, purchErr.message);
+      }
+
+      // 7b. Real-Time WhatsApp Customer Notification
+      if (order.channel === 'WHATSAPP' || (order as any).whatsappConversationId) {
+        try {
+          const convId = (order as any).whatsappConversationId;
+          const conv = convId
+            ? await prisma.whatsAppConversation.findUnique({ where: { id: convId } })
+            : await prisma.whatsAppConversation.findFirst({ where: { currentOrderId: order.id } });
+
+          if (conv) {
+            const isFulfilled = fulfillmentResult?.success;
+            const statusMsg = isFulfilled
+              ? `🎉 *Your order has been fulfilled!*\n\nOrder ID: *${order.internalOrderId}*\nProduct: *${order.planName}*\nAmount Paid: *₹${verifiedAmount.toLocaleString('en-IN')}*\n\nThank you for choosing Lightning Deals. ⚡`
+              : `✅ *Payment confirmed!*\n\nYour order *${order.internalOrderId}* has been received.\nWe're processing your order now. ⚡`;
+
+            const sendRes = await WhatsAppClient.sendMessage({
+              to: conv.whatsappNumber,
+              text: statusMsg,
+            });
+
+            await prisma.whatsAppMessage.create({
+              data: {
+                conversationId: conv.id,
+                direction: 'OUTBOUND',
+                messageType: 'TEXT',
+                content: statusMsg,
+                providerMessageId: sendRes.providerMessageId || null,
+                deliveryStatus: sendRes.success ? 'SENT' : 'FAILED',
+                sentBy: 'BOT',
+              },
+            });
+
+            await prisma.whatsAppConversation.update({
+              where: { id: conv.id },
+              data: {
+                status: isFulfilled ? 'COMPLETED' : 'FULFILLMENT_PENDING',
+                currentState: isFulfilled ? 'FULFILLED' : 'FULFILLMENT_PROCESSING',
+                lastMessageAt: new Date(),
+                lastMessageSnippet: isFulfilled ? 'Order fulfilled' : 'Payment confirmed',
+              },
+            });
+          }
+        } catch (waErr: any) {
+          console.error('[ORDER ENGINE WHATSAPP NOTIFICATION ERROR]', waErr.message);
+        }
       }
 
       // 8. Record Completion Audit Event

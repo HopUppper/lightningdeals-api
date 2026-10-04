@@ -127,7 +127,28 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
     }
 
     // 4. Server-Side Plan & Price Verification (DB-backed async lookup)
-    const plan = await getPlanByIdAsync(order.planId);
+    // 4. Server-Side Plan & Price Verification (DB-backed async lookup with dynamic fallback)
+    let plan = await getPlanByIdAsync(order.planId);
+    if (!plan && order.planName) {
+      plan = await getPlanByIdAsync(order.planName);
+    }
+    if (!plan && ((order as any).priceSource === 'ADMIN_NEGOTIATED' || (order as any).channel === 'WHATSAPP')) {
+      plan = {
+        id: order.planId || 'custom_negotiated',
+        name: order.planName || 'Custom Product',
+        displayName: order.planName || 'Custom Product',
+        tokenAllowance: order.tokenQuantity || 5000000n,
+        tokenDisplay: `${Number(order.tokenQuantity || 5000000n) / 1000000}M TOKENS`,
+        windowHours: order.windowHours || 5,
+        validityDays: 30,
+        priceInr: order.amountInr,
+        currency: order.currency || 'INR',
+        featured: false,
+        enabled: true,
+        displayOrder: 1,
+      };
+    }
+
     if (!plan) {
       const isMaxRetries = (order.fulfillmentAttempts || 0) >= 3;
       const failureStatus = isMaxRetries ? 'MANUAL_REVIEW' : 'FULFILLMENT_FAILED';
@@ -151,8 +172,10 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
       };
     }
 
-    // 5. Verify Amount Integrity
-    const expectedAmount = Math.max(0, plan.priceInr - (order.discountAmountInr || 0) - (order.creditsRedeemed || 0));
+    // 5. Verify Amount Integrity (Lock to negotiated amount if priceSource is ADMIN_NEGOTIATED)
+    const expectedAmount = (order as any).priceSource === 'ADMIN_NEGOTIATED'
+      ? order.amountInr
+      : Math.max(0, plan.priceInr - (order.discountAmountInr || 0) - (order.creditsRedeemed || 0));
     if (order.paidAmountInr !== null && order.paidAmountInr !== undefined && order.paidAmountInr < expectedAmount) {
       await prisma.order.update({
         where: { id: order.id },
@@ -347,7 +370,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         orderId: order.id,
         userId: order.userId,
         amountPaid: purchaseAmount,
-        channel: 'WEBSITE',
+        channel: order.channel || 'WEBSITE',
       });
     } catch (rewardErr: any) {
       console.error('[REWARD ISSUANCE ERROR]', rewardErr.message);

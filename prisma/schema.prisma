@@ -60,6 +60,10 @@ model User {
   referralCode            String?                  @unique
   referralsGiven          Referral[]               @relation("ReferrerUser")
   referralReceived        Referral?                @relation("ReferredUser")
+  whatsappConversations   WhatsAppConversation[]   @relation("WhatsAppCustomer")
+  assignedWhatsAppConversations WhatsAppConversation[] @relation("AssignedAdminWhatsApp")
+  whatsappIdentities      WhatsAppCustomerIdentity[]
+  negotiatedPrices        NegotiatedPrice[]
 }
 
 
@@ -216,6 +220,11 @@ model Order {
   fulfillmentChannel String?      // "API_KEY" | "INVENTORY" | "MANUAL"
   subscriptionId    String?       // Linked subscription if this is a renewal
   slaPriority       String        @default("NORMAL") // "LOW" | "NORMAL" | "HIGH" | "URGENT"
+  channel           String        @default("WEBSITE") // "WEBSITE" | "WHATSAPP" | "MANUAL"
+  priceSource       String        @default("STANDARD") // "STANDARD" | "ADMIN_NEGOTIATED"
+  whatsappConversationId String?
+  whatsappConversation   WhatsAppConversation? @relation(fields: [whatsappConversationId], references: [id], onDelete: SetNull)
+  negotiatedPrice        NegotiatedPrice?
   tokensCredited    Boolean       @default(false)
   paidAt            DateTime?
   fulfilledAt       DateTime?
@@ -227,11 +236,14 @@ model Order {
   creditTransactions CreditTransaction[]
   purchases         Purchase[]
   referrals         Referral[]
+  activeForConversations WhatsAppConversation[] @relation("ConversationActiveOrder")
 
   @@index([userId, createdAt])
   @@index([paymentStatus])
   @@index([fulfillmentStatus])
   @@index([subscriptionId])
+  @@index([channel])
+  @@index([whatsappConversationId])
 }
 
 model PaymentEvent {
@@ -807,3 +819,94 @@ model ReferralSettings {
   createdAt                            DateTime @default(now())
   updatedAt                            DateTime @updatedAt
 }
+
+model WhatsAppConversation {
+  id                  String                    @id @default(uuid())
+  customerId          String?
+  customer            User?                     @relation("WhatsAppCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  whatsappNumber      String
+  customerName        String?
+  status              String                    @default("NEW") // "NEW" | "ACTIVE" | "WAITING_CUSTOMER" | "WAITING_ADMIN" | "PRICE_APPROVED" | "PAYMENT_PENDING" | "PAYMENT_VERIFIED" | "FULFILLMENT_PENDING" | "COMPLETED" | "CLOSED" | "HUMAN_HANDOFF"
+  currentState        String                    @default("START") // "START" | "AWAITING_EMAIL" | "PRODUCT_SELECTION" | "AWAITING_ADMIN_PRICE" | "PAYMENT_PENDING" | "HUMAN_HANDOFF"
+  currentProductId    String?
+  currentProductName  String?
+  currentOrderId      String?
+  currentOrder        Order?                    @relation("ConversationActiveOrder", fields: [currentOrderId], references: [id], onDelete: SetNull)
+  assignedAdminId     String?
+  assignedAdmin       User?                     @relation("AssignedAdminWhatsApp", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  unreadCount         Int                       @default(0)
+  lastMessageAt       DateTime                  @default(now())
+  lastMessageSnippet  String?
+  adminNotes          String?
+  metadata            String?                   // JSON metadata for session attributes
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  messages            WhatsAppMessage[]
+  negotiatedPrices    NegotiatedPrice[]
+  orders              Order[]
+
+  @@index([whatsappNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([assignedAdminId])
+  @@index([lastMessageAt])
+}
+
+model WhatsAppMessage {
+  id                String               @id @default(uuid())
+  conversationId    String
+  conversation      WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction         String               // "INBOUND" | "OUTBOUND"
+  messageType       String               @default("TEXT") // "TEXT" | "INTERACTIVE" | "TEMPLATE" | "MEDIA" | "LOCATION" | "SYSTEM_NOTE"
+  content           String
+  providerMessageId String?              @unique
+  deliveryStatus    String               @default("SENT") // "SENT" | "DELIVERED" | "READ" | "FAILED"
+  sentBy            String?              // "CUSTOMER" | "BOT" | "ADMIN"
+  senderId          String?              // Admin User ID if sentBy === "ADMIN"
+  metadata          String?              // Safe JSON metadata
+  createdAt         DateTime             @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([deliveryStatus])
+}
+
+model WhatsAppCustomerIdentity {
+  id             String    @id @default(uuid())
+  customerId     String
+  customer       User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  whatsappNumber String    @unique
+  verified       Boolean   @default(true)
+  verifiedAt     DateTime? @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([customerId])
+  @@index([whatsappNumber])
+}
+
+model NegotiatedPrice {
+  id                     String                @id @default(uuid())
+  customerId             String
+  customer               User                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  whatsappConversationId String?
+  whatsappConversation   WhatsAppConversation? @relation(fields: [whatsappConversationId], references: [id], onDelete: SetNull)
+  productId              String
+  productName            String
+  amount                 Float
+  currency               String                @default("INR")
+  createdBy              String                // admin userId
+  expiresAt              DateTime
+  status                 String                @default("ACTIVE") // "ACTIVE" | "USED" | "EXPIRED" | "CANCELLED"
+  orderId                String?               @unique
+  order                  Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  notes                  String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([customerId, status])
+  @@index([productId])
+  @@index([whatsappConversationId])
+  @@index([createdBy])
+  @@index([expiresAt])
+}
+

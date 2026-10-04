@@ -413,7 +413,7 @@ export class ReferralEngine {
       });
 
       return rec;
-    });
+    }, { maxWait: 10000, timeout: 20000 });
 
     await recordAuditEvent({
       eventType: 'REFERRAL_ATTRIBUTED',
@@ -553,109 +553,123 @@ export class ReferralEngine {
     }
 
     // 8. Atomic Interactive Transaction: Credit Referrer & Update Ledger
-    return await prisma.$transaction(async (tx) => {
-      // Concurrency check within transaction
-      const raceCheck = await tx.creditTransaction.findFirst({
-        where: { orderId, type: 'REFERRAL_REWARD' },
-      });
-      if (raceCheck) {
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Concurrency check within transaction
+        const raceCheck = await tx.creditTransaction.findFirst({
+          where: { orderId, type: 'REFERRAL_REWARD' },
+        });
+        if (raceCheck) {
+          return {
+            qualified: true,
+            alreadyCredited: true,
+            transactionId: raceCheck.id,
+            creditsAwarded: raceCheck.amount,
+            referrerId: null,
+            referral: null,
+          };
+        }
+
+        const referrer = await tx.user.findUnique({
+          where: { id: referral.referrerId },
+          select: { id: true, availableCredits: true, lifetimeCreditsEarned: true, email: true },
+        });
+
+        if (!referrer) {
+          throw new Error(`Referrer '${referral.referrerId}' not found.`);
+        }
+
+        const currentBalance = referrer.availableCredits || 0;
+        const balanceAfter = Math.round((currentBalance + referralRewardCredits) * 100) / 100;
+        const newLifetimeEarned = Math.round(((referrer.lifetimeCreditsEarned || 0) + referralRewardCredits) * 100) / 100;
+
+        // Create Ledger Entry for Referrer (Person A)
+        const creditTx = await tx.creditTransaction.create({
+          data: {
+            userId: referrer.id,
+            orderId,
+            referralId: referral.id,
+            channel: channel.toUpperCase(),
+            referenceId: orderRecord?.internalOrderId || orderId,
+            type: 'REFERRAL_REWARD',
+            amount: referralRewardCredits,
+            balanceBefore: currentBalance,
+            balanceAfter,
+            description: `⚡ Referral Reward: ₹${referralRewardCredits} earned from qualifying referral purchase (${orderRecord?.internalOrderId || orderId})`,
+            status: 'COMPLETED',
+          },
+        });
+
+        // Update Referrer Balance
+        await tx.user.update({
+          where: { id: referrer.id },
+          data: {
+            availableCredits: balanceAfter,
+            lifetimeCreditsEarned: newLifetimeEarned,
+          },
+        });
+
+        // Update Referral Record
+        const updatedReferral = await tx.referral.update({
+          where: { id: referral.id },
+          data: {
+            status: 'REWARDED',
+            rewardStatus: 'CREDITED',
+            qualifyingOrderId: orderId,
+            rewardCreditsEarned: referralRewardCredits,
+            firstPurchaseAt: referral.firstPurchaseAt || new Date(),
+            rewardCreditedAt: new Date(),
+          },
+        });
+
+        // Create Referral Event
+        await tx.referralEvent.create({
+          data: {
+            referralId: referral.id,
+            eventType: 'REFERRAL_REWARD_CREDITED',
+            actorType: 'SYSTEM',
+            metadata: JSON.stringify({
+              orderId,
+              purchaseAmount: cleanAmount,
+              rewardCredits: referralRewardCredits,
+              transactionId: creditTx.id,
+            }),
+          },
+        });
+
         return {
           qualified: true,
-          alreadyCredited: true,
-          transactionId: raceCheck.id,
-          creditsAwarded: raceCheck.amount,
+          alreadyCredited: false,
+          creditsAwarded: referralRewardCredits,
+          transactionId: creditTx.id,
+          referral: updatedReferral,
+          referrerId: referrer.id,
         };
-      }
+      },
+      { maxWait: 10000, timeout: 20000 }
+    );
 
-      const referrer = await tx.user.findUnique({
-        where: { id: referral.referrerId },
-        select: { id: true, availableCredits: true, lifetimeCreditsEarned: true, email: true },
-      });
-
-      if (!referrer) {
-        throw new Error(`Referrer '${referral.referrerId}' not found.`);
-      }
-
-      const currentBalance = referrer.availableCredits || 0;
-      const balanceAfter = Math.round((currentBalance + referralRewardCredits) * 100) / 100;
-      const newLifetimeEarned = Math.round(((referrer.lifetimeCreditsEarned || 0) + referralRewardCredits) * 100) / 100;
-
-      // Create Ledger Entry for Referrer (Person A)
-      const creditTx = await tx.creditTransaction.create({
-        data: {
-          userId: referrer.id,
-          orderId,
-          referralId: referral.id,
-          channel: channel.toUpperCase(),
-          referenceId: orderRecord?.internalOrderId || orderId,
-          type: 'REFERRAL_REWARD',
-          amount: referralRewardCredits,
-          balanceBefore: currentBalance,
-          balanceAfter,
-          description: `⚡ Referral Reward: ₹${referralRewardCredits} earned from qualifying referral purchase (${orderRecord?.internalOrderId || orderId})`,
-          status: 'COMPLETED',
-        },
-      });
-
-      // Update Referrer Balance
-      await tx.user.update({
-        where: { id: referrer.id },
-        data: {
-          availableCredits: balanceAfter,
-          lifetimeCreditsEarned: newLifetimeEarned,
-        },
-      });
-
-      // Update Referral Record
-      const updatedReferral = await tx.referral.update({
-        where: { id: referral.id },
-        data: {
-          status: 'REWARDED',
-          rewardStatus: 'CREDITED',
-          qualifyingOrderId: orderId,
-          rewardCreditsEarned: referralRewardCredits,
-          firstPurchaseAt: referral.firstPurchaseAt || new Date(),
-          rewardCreditedAt: new Date(),
-        },
-      });
-
-      // Create Referral Event
-      await tx.referralEvent.create({
-        data: {
-          referralId: referral.id,
-          eventType: 'REFERRAL_REWARD_CREDITED',
-          actorType: 'SYSTEM',
-          metadata: JSON.stringify({
+    // Dispatch Notification to Referrer (Person A) OUTSIDE transaction to prevent timeout
+    if (result && !result.alreadyCredited && result.referrerId) {
+      try {
+        await dispatchNotification({
+          event: 'REFERRAL_REWARD_EARNED',
+          userId: result.referrerId,
+          title: '⚡ Referral Reward Credited!',
+          message: `Great news! Your referral has completed a qualifying purchase and you've earned ₹${referralRewardCredits.toLocaleString()} Lightning Credits!`,
+          type: 'success',
+          metadata: {
             orderId,
-            purchaseAmount: cleanAmount,
+            referralId: referral.id,
             rewardCredits: referralRewardCredits,
-            transactionId: creditTx.id,
-          }),
-        },
-      });
+          },
+        });
+      } catch (notifErr: any) {
+        console.warn('[REFERRAL NOTIFICATION WARN]', notifErr.message);
+      }
+    }
 
-      // Dispatch Notification to Referrer (Person A)
-      await dispatchNotification({
-        event: 'REFERRAL_REWARD_EARNED',
-        userId: referrer.id,
-        title: '⚡ Referral Reward Credited!',
-        message: `Great news! Your referral has completed a qualifying purchase and you've earned ₹${referralRewardCredits.toLocaleString()} Lightning Credits!`,
-        type: 'success',
-        metadata: {
-          orderId,
-          referralId: referral.id,
-          rewardCredits: referralRewardCredits,
-        },
-      });
-
-      return {
-        qualified: true,
-        alreadyCredited: false,
-        creditsAwarded: referralRewardCredits,
-        transactionId: creditTx.id,
-        referral: updatedReferral,
-      };
-    });
+    return result;
   }
 
   /**

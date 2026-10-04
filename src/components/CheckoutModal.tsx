@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, CreditCard, ExternalLink, Tag, Phone, Sparkles } from 'lucide-react';
+import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, CreditCard, ExternalLink, Tag, Phone, Sparkles, Flame } from 'lucide-react';
 import { adminFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +42,39 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
   const [availableCredits, setAvailableCredits] = useState<number>(0);
   const [useCredits, setUseCredits] = useState<boolean>(false);
   const [loadingCredits, setLoadingCredits] = useState<boolean>(false);
+
+  // Active Promotional Offer state
+  const [activeOffer, setActiveOffer] = useState<{
+    title: string;
+    subtitle: string;
+    badge: string;
+    multiplier: number;
+    minPurchaseAmount: number;
+    maxCredits: number;
+    baseRewardPercentage: number;
+    maxEligiblePurchaseAmount?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchActiveOffer = async () => {
+      try {
+        const res = await fetch('/api/rewards/active-offer');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.success && data.active && data.offer) {
+            setActiveOffer(data.offer);
+          }
+        }
+      } catch (e) {
+        // Silently continue
+      }
+    };
+    fetchActiveOffer();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -89,11 +122,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
   const appliedCredits = useCredits ? maxUsableCredits : 0;
   const totalPayable = Math.max(0, amountAfterCoupon - appliedCredits);
 
-  // Authoritative reward rule: MIN(payable, 5000) * 10%, max 500
-  const estimatedEarnedCredits = Math.min(
-    Math.round(Math.min(totalPayable, 5000) * 0.10 * 100) / 100,
-    500
-  );
+  // Authoritative server-aligned reward calculation:
+  // Base: MIN(payable, maxEligiblePurchaseAmount) * (rewardPercentage / 100)
+  const maxEligible = activeOffer?.maxEligiblePurchaseAmount || 5000;
+  const rewardRate = activeOffer?.baseRewardPercentage || 10;
+  const eligibleAmount = Math.min(totalPayable, maxEligible);
+  const baseRewardCredits = Math.round((eligibleAmount * (rewardRate / 100)) * 100) / 100;
+
+  const isPromo = Boolean(activeOffer && (activeOffer.multiplier || 1) > 1);
+  const meetsMinPurchase = totalPayable >= (activeOffer?.minPurchaseAmount || 0);
+
+  let estimatedEarnedCredits = baseRewardCredits;
+  let isPromoApplied = false;
+
+  if (isPromo && meetsMinPurchase && totalPayable > 0) {
+    isPromoApplied = true;
+    const multiplier = Number(activeOffer!.multiplier) || 1;
+    const boosted = Math.round((baseRewardCredits * multiplier) * 100) / 100;
+    const maxCap = activeOffer!.maxCredits > 0 ? activeOffer!.maxCredits : boosted;
+    estimatedEarnedCredits = Math.min(boosted, maxCap);
+  }
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -308,6 +356,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
           <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
             {paymentState === 'IDLE' && (
             <>
+              {/* Active Promotional Offer Banner */}
+              {isPromoApplied && (
+                <div className="p-3.5 rounded-control bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-2 border-amber-400/80 flex items-center justify-between gap-3 text-xs font-mono shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-xs animate-pulse">
+                      <Flame className="w-3 h-3 fill-current" />
+                      <span>{activeOffer?.badge || 'FLASH DEAL'}</span>
+                    </span>
+                    <span className="font-extrabold text-amber-950 text-xs sm:text-sm">
+                      {activeOffer?.title || '⚡ 2X LIGHTNING CREDITS SPECIAL'}
+                    </span>
+                  </div>
+                  <span className="text-amber-800 font-extrabold text-xs shrink-0 bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300">
+                    +{estimatedEarnedCredits.toLocaleString()} Credits Back!
+                  </span>
+                </div>
+              )}
+
               {/* Plan Summary Card */}
               <div className="p-4 rounded-control bg-subtle/70 border border-border/80 space-y-3">
                 <div className="flex items-center justify-between">
@@ -492,15 +558,35 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                 </div>
 
                 {/* Reward Earn Teaser */}
-                <div className="p-2.5 rounded bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between text-xs font-mono text-emerald-800">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Reward on this order:</span>
+                {isPromoApplied ? (
+                  <div className="p-3 rounded-xl bg-gradient-to-r from-amber-50 via-orange-50/70 to-amber-50 border-2 border-amber-400/90 shadow-xs space-y-1">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center gap-1.5 font-extrabold text-amber-950">
+                        <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-600 animate-pulse shrink-0" />
+                        <span>Reward on this order ({activeOffer?.multiplier}X {activeOffer?.badge || 'BOOST'}):</span>
+                      </div>
+                      <span className="font-black text-amber-700 text-sm">
+                        +₹{estimatedEarnedCredits.toLocaleString()} Credits
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-mono text-amber-800/90 pt-1 border-t border-amber-200/60">
+                      <span>Standard: <span className="line-through">₹{baseRewardCredits.toLocaleString()}</span> → <strong className="text-amber-950 font-extrabold">{activeOffer?.multiplier}X Flash Boost Applied!</strong></span>
+                      <span className="text-[10px] bg-amber-200 text-amber-950 font-extrabold px-1.5 py-0.5 rounded shadow-2xs">
+                        1 Credit = ₹1
+                      </span>
+                    </div>
                   </div>
-                  <span className="font-extrabold text-emerald-700">
-                    +₹{estimatedEarnedCredits.toLocaleString()} Credits
-                  </span>
-                </div>
+                ) : (
+                  <div className="p-2.5 rounded bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between text-xs font-mono text-emerald-800">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Reward on this order:</span>
+                    </div>
+                    <span className="font-extrabold text-emerald-700">
+                      +₹{estimatedEarnedCredits.toLocaleString()} Credits
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex justify-between text-fg font-bold text-sm pt-2 border-t border-border">
                   <span>Total Payable</span>

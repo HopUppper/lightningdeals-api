@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingBag, Trash2, Tag, ShieldCheck, Zap, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, CreditCard } from 'lucide-react';
+import { X, ShoppingBag, Trash2, Tag, ShieldCheck, Zap, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, CreditCard, Sparkles, Flame } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +28,58 @@ export const CheckoutCartDrawer: React.FC = () => {
   const [inputCode, setInputCode] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  // Active Promotional Offer state
+  const [activeOffer, setActiveOffer] = useState<{
+    title: string;
+    subtitle: string;
+    badge: string;
+    multiplier: number;
+    minPurchaseAmount: number;
+    maxCredits: number;
+    baseRewardPercentage: number;
+    maxEligiblePurchaseAmount?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchActiveOffer = async () => {
+      try {
+        const res = await fetch('/api/rewards/active-offer');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.success && data.active && data.offer) {
+            setActiveOffer(data.offer);
+          }
+        }
+      } catch (e) {
+        // Silently continue
+      }
+    };
+    fetchActiveOffer();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const maxEligible = activeOffer?.maxEligiblePurchaseAmount || 5000;
+  const rewardRate = activeOffer?.baseRewardPercentage || 10;
+  const eligibleAmount = Math.min(totalPayable, maxEligible);
+  const baseRewardCredits = Math.round((eligibleAmount * (rewardRate / 100)) * 100) / 100;
+
+  const isPromo = Boolean(activeOffer && (activeOffer.multiplier || 1) > 1);
+  const meetsMinPurchase = totalPayable >= (activeOffer?.minPurchaseAmount || 0);
+
+  let estimatedEarnedCredits = baseRewardCredits;
+  let isPromoApplied = false;
+
+  if (isPromo && meetsMinPurchase && totalPayable > 0) {
+    isPromoApplied = true;
+    const multiplier = Number(activeOffer!.multiplier) || 1;
+    const boosted = Math.round((baseRewardCredits * multiplier) * 100) / 100;
+    const maxCap = activeOffer!.maxCredits > 0 ? activeOffer!.maxCredits : boosted;
+    estimatedEarnedCredits = Math.min(boosted, maxCap);
+  }
 
   useEffect(() => {
     if (!isCartOpen) return;
@@ -299,6 +351,37 @@ export const CheckoutCartDrawer: React.FC = () => {
                     <span>Platform & Gateway Fee</span>
                     <span className="text-emerald-600">FREE</span>
                   </div>
+
+                  {/* Reward Earn Teaser */}
+                  {isPromoApplied ? (
+                    <div className="p-2.5 rounded-lg bg-gradient-to-r from-amber-50 via-orange-50/70 to-amber-50 border-2 border-amber-400/90 shadow-2xs space-y-1">
+                      <div className="flex items-center justify-between text-xs font-mono">
+                        <div className="flex items-center gap-1.5 font-extrabold text-amber-950">
+                          <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-600 animate-pulse shrink-0" />
+                          <span>Reward ({activeOffer?.multiplier}X {activeOffer?.badge || 'BOOST'}):</span>
+                        </div>
+                        <span className="font-black text-amber-700">
+                          +₹{estimatedEarnedCredits.toLocaleString()} Credits
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-amber-800/90 pt-0.5 border-t border-amber-200/60">
+                        <span>Standard: <span className="line-through">₹{baseRewardCredits.toLocaleString()}</span> → <strong className="text-amber-950 font-extrabold">{activeOffer?.multiplier}X Boost Applied!</strong></span>
+                        <span className="text-[9px] bg-amber-200 text-amber-950 font-bold px-1 rounded">
+                          1 Credit = ₹1
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between text-xs font-mono text-emerald-800">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Reward on this order:</span>
+                      </div>
+                      <span className="font-extrabold text-emerald-700">
+                        +₹{estimatedEarnedCredits.toLocaleString()} Credits
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-between text-fg font-extrabold text-base pt-2 border-t border-border">
                     <span>Total Payable</span>

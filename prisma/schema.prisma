@@ -57,6 +57,9 @@ model User {
   lifetimeCreditsRedeemed Float                    @default(0)
   creditTransactions      CreditTransaction[]
   purchases               Purchase[]
+  referralCode            String?                  @unique
+  referralsGiven          Referral[]               @relation("ReferrerUser")
+  referralReceived        Referral?                @relation("ReferredUser")
 }
 
 
@@ -223,6 +226,7 @@ model Order {
   subscriptions     Subscription[]
   creditTransactions CreditTransaction[]
   purchases         Purchase[]
+  referrals         Referral[]
 
   @@index([userId, createdAt])
   @@index([paymentStatus])
@@ -595,9 +599,11 @@ model CreditTransaction {
   order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
   purchaseId    String?
   purchase      Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  referralId    String?
+  referral      Referral? @relation(fields: [referralId], references: [id], onDelete: SetNull)
   channel       String?   @default("WEBSITE") // "WEBSITE" | "WHATSAPP" | "MANUAL" | "OTHER"
   referenceId   String?
-  type          String    // "PURCHASE_REWARD" | "CREDIT_REDEMPTION" | "MANUAL_CREDIT" | "MANUAL_DEBIT" | "REFUND_REVERSAL" | "ADMIN_ADJUSTMENT" | "CREDIT_EXPIRY"
+  type          String    // "PURCHASE_REWARD" | "REFERRAL_REWARD" | "CREDIT_REDEMPTION" | "MANUAL_CREDIT" | "MANUAL_DEBIT" | "REFUND_REVERSAL" | "ADMIN_ADJUSTMENT" | "CREDIT_EXPIRY"
   amount        Float     // Positive for credit added, negative for credit deducted
   balanceBefore Float
   balanceAfter  Float
@@ -611,6 +617,7 @@ model CreditTransaction {
   @@index([type])
   @@index([orderId])
   @@index([purchaseId])
+  @@index([referralId])
   @@index([createdAt])
 }
 
@@ -715,4 +722,88 @@ model NotificationPreference {
   orderUpdates     Boolean  @default(true)
   marketingUpdates Boolean  @default(false)
   updatedAt        DateTime @updatedAt
+}
+
+model Referral {
+  id                    String              @id @default(uuid())
+  referrerId            String
+  referrer              User                @relation("ReferrerUser", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUserId        String?             @unique
+  referredUser          User?               @relation("ReferredUser", fields: [referredUserId], references: [id], onDelete: SetNull)
+  referralCode          String
+  referralSource        String?             @default("DIRECT_LINK") // "DIRECT_LINK" | "MANUAL_CODE" | "CAMPAIGN"
+  status                String              @default("ATTRIBUTED") // "CLICKED" | "ATTRIBUTED" | "REGISTERED" | "QUALIFIED" | "REWARDED" | "REVERSED" | "DISQUALIFIED" | "EXPIRED" | "CANCELLED"
+  riskStatus            String              @default("NORMAL") // "NORMAL" | "SUSPICIOUS" | "REVIEW_REQUIRED" | "DISQUALIFIED"
+  riskReason            String?
+  attributionStartedAt  DateTime            @default(now())
+  attributionExpiresAt  DateTime
+  registrationAt        DateTime?
+  firstPurchaseAt       DateTime?
+  qualifyingOrderId     String?
+  qualifyingOrder       Order?              @relation(fields: [qualifyingOrderId], references: [id], onDelete: SetNull)
+  rewardCreditsEarned   Float               @default(0)
+  rewardStatus          String              @default("PENDING") // "PENDING" | "QUALIFIED" | "CREDITED" | "REVERSED" | "DISQUALIFIED"
+  rewardCreditedAt      DateTime?
+  rewardReversedAt      DateTime?
+  reversalReason        String?
+  ipAddress             String?
+  userAgent             String?
+  notes                 String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  creditTransactions    CreditTransaction[]
+  events                ReferralEvent[]
+
+  @@index([referrerId])
+  @@index([referralCode])
+  @@index([status])
+  @@index([rewardStatus])
+  @@index([riskStatus])
+  @@index([qualifyingOrderId])
+  @@index([createdAt])
+}
+
+model ReferralClick {
+  id              String   @id @default(uuid())
+  referralCode    String
+  referrerId      String
+  ipAddress       String?
+  userAgent       String?
+  landingPage     String?
+  converted       Boolean  @default(false)
+  convertedUserId String?
+  createdAt       DateTime @default(now())
+
+  @@index([referralCode, createdAt])
+  @@index([referrerId, createdAt])
+}
+
+model ReferralEvent {
+  id         String   @id @default(uuid())
+  referralId String
+  referral   Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  eventType  String   // "REFERRAL_LINK_CLICKED" | "REFERRAL_ATTRIBUTED" | "REFERRED_CUSTOMER_REGISTERED" | "REFERRED_CUSTOMER_PURCHASED" | "REFERRAL_REWARD_QUALIFIED" | "REFERRAL_REWARD_CREDITED" | "REFERRAL_REWARD_REVERSED" | "REFERRAL_DISQUALIFIED" | "ADMIN_REVIEWED" | "ADMIN_STATUS_CHANGED"
+  actorType  String   @default("SYSTEM") // "CUSTOMER" | "ADMIN" | "SYSTEM"
+  actorId    String?
+  metadata   String?  // JSON string
+  createdAt  DateTime @default(now())
+
+  @@index([referralId, createdAt])
+  @@index([eventType])
+}
+
+model ReferralSettings {
+  id                                   String   @id @default("default")
+  enabled                              Boolean  @default(true)
+  minPurchaseAmountInr                 Float    @default(500.0)
+  attributionWindowDays                Int      @default(30)
+  qualificationRule                    String   @default("FIRST_PURCHASE_ONLY") // "FIRST_PURCHASE_ONLY" | "EVERY_QUALIFYING_PURCHASE"
+  rewardMethod                         String   @default("MATCH_PURCHASE_REWARD") // "MATCH_PURCHASE_REWARD" | "PERCENTAGE" | "FIXED_AMOUNT"
+  customPercentage                     Float?   @default(10.0)
+  customFixedAmount                    Float?   @default(100.0)
+  maxRewardPerOrder                    Float    @default(500.0)
+  allowExistingCustomerWithoutPurchase Boolean  @default(true)
+  firstAttributionWins                 Boolean  @default(true)
+  createdAt                            DateTime @default(now())
+  updatedAt                            DateTime @updatedAt
 }

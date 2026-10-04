@@ -14,6 +14,7 @@ import {
 import { recordAuditEvent } from '../auditLogger';
 import { recordSecurityLog } from '../authSecurity';
 import { InventoryService } from '../inventory/inventoryService';
+import { ReferralEngine } from '../referrals/referralEngine';
 
 export interface CreateWebsiteOrderParams {
   userId: string;
@@ -383,7 +384,7 @@ export class OrderEngine {
     }
 
     // 3. Create Order and Purchase records atomically
-    return await prisma.$transaction(async (tx) => {
+    const transactionResult = await prisma.$transaction(async (tx) => {
       // Find associated plan if planId supplied
       let planRecord = planId ? await tx.plan.findUnique({ where: { id: planId } }) : null;
       if (!planRecord && planId) {
@@ -513,6 +514,26 @@ export class OrderEngine {
         fulfillment: fulfillmentResult,
       };
     });
+
+    // Check & award referral reward if completed
+    let referralResult: any = null;
+    if (status === 'COMPLETED' && transactionResult.order) {
+      try {
+        referralResult = await ReferralEngine.processOrderReferralQualification({
+          orderId: transactionResult.order.id,
+          userId: transactionResult.order.userId,
+          amountPaid: cleanAmount,
+          channel: channel.toUpperCase(),
+        });
+      } catch (refErr: any) {
+        console.error('[EXTERNAL ORDER REFERRAL ERROR]', refErr.message);
+      }
+    }
+
+    return {
+      ...transactionResult,
+      referral: referralResult,
+    };
   }
 
   /**
@@ -842,6 +863,18 @@ export class OrderEngine {
       adminUserId,
     });
 
+    // 1b. Reverse Referral Rewards if any were credited for this order
+    let referralReversal: any = null;
+    try {
+      referralReversal = await ReferralEngine.reverseReferralReward({
+        orderId: order.id,
+        reason,
+        adminUserId,
+      });
+    } catch (refRevErr: any) {
+      console.error('[REFERRAL REVERSAL ERROR]', refRevErr.message);
+    }
+
     // 2. Revoke / Suspend ApiKey if provisioned
     if (order.fulfilledApiKeyId) {
       await prisma.apiKey.update({
@@ -907,6 +940,7 @@ export class OrderEngine {
       success: true,
       order: updatedOrder,
       rewardReversal,
+      referralReversal,
     };
   }
 

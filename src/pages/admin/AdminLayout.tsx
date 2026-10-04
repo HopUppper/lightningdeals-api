@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers } from 'lucide-react';
+import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
@@ -58,6 +58,7 @@ export const AdminLayout: React.FC = () => {
     { name: 'Plans & Offers', path: '/admin/plans', icon: Zap, badge: 'OFFERS' },
     { name: 'Orders & Sales', path: '/admin/orders', icon: ShoppingBag, badge: 'ORDERS' },
     { name: '⚡ Rewards', path: '/admin/rewards', icon: Award, badge: 'LOYALTY' },
+    { name: '🤝 Referrals', path: '/admin/referrals', icon: Gift, badge: 'GROWTH' },
     { name: 'Customers', path: '/admin/customers', icon: Users },
     { name: 'Live Analytics', path: '/admin/analytics', icon: Globe, badge: 'REALTIME' },
     { name: 'Support Tickets', path: '/admin/support', icon: LifeBuoy, badge: 'DESK' },

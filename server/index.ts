@@ -176,6 +176,8 @@ import { integrationRouter } from './integrations/integrationRoutes';
 
 import { customerSubscriptionRouter } from './subscriptions/customerSubscriptionRoutes';
 import { adminFulfillmentRouter } from './adminFulfillmentRoutes';
+import { customerReferralRouter } from './referrals/customerReferralRoutes';
+import { adminReferralRouter } from './referrals/adminReferralRoutes';
 
 app.use('/api', healthRouter);
 app.use('/api/user/notifications', notificationsRouter);
@@ -183,6 +185,9 @@ app.use('/api/user/rewards', customerRewardsRouter);
 app.use('/api/rewards', customerRewardsRouter);
 app.use('/api/user/subscriptions', customerSubscriptionRouter);
 app.use('/api/subscriptions', customerSubscriptionRouter);
+app.use('/api/user/referrals', customerReferralRouter);
+app.use('/api/referrals', customerReferralRouter);
+app.use('/api/admin/referrals', adminReferralRouter);
 app.use('/api/admin/rewards', adminRewardsRouter);
 app.use('/api/admin', adminFulfillmentRouter);
 app.use('/api/integrations', integrationRouter);

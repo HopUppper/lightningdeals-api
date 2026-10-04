@@ -9,6 +9,13 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('ref');
+      return p ? p.trim().toUpperCase() : (sessionStorage.getItem('ld_ref') || localStorage.getItem('ld_ref') || '');
+    }
+    return '';
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +34,13 @@ export const RegisterPage: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ name, email, password, phone: phone.trim() || undefined }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          phone: phone.trim() || undefined,
+          referralCode: referralCode.trim() || undefined,
+        }),
       });
 
       clearTimeout(timeoutId);
@@ -104,6 +117,16 @@ export const RegisterPage: React.FC = () => {
                 <div className="mb-6 p-3.5 rounded-control border border-red-500/30 bg-red-500/5 text-red-600 text-xs flex items-center gap-2.5 font-mono">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{error}</span>
+                </div>
+              )}
+
+              {referralCode && (
+                <div className="mb-6 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">⚡</span>
+                    <span>Referral invite code: <strong className="font-mono">{referralCode}</strong></span>
+                  </div>
+                  <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 tracking-wider">Applied</span>
                 </div>
               )}
 

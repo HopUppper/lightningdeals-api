@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock, HelpCircle, AlertTriangle, RefreshCw, CheckCircle2, Layers, ShoppingBag } from 'lucide-react';
+import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock, HelpCircle, AlertTriangle, RefreshCw, CheckCircle2, Layers, ShoppingBag, Gift } from 'lucide-react';
 import { ThreeDCard } from '../../components/ThreeDCard';
 import { adminFetch } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -128,6 +128,10 @@ export const AdminOverview: React.FC = () => {
           <Link to="/admin/plans" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-bold">
             <Zap className="w-3.5 h-3.5" />
             <span>Plans & Offers</span>
+          </Link>
+          <Link to="/admin/referrals" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold">
+            <Gift className="w-3.5 h-3.5" />
+            <span>Referrals</span>
           </Link>
           <Link to="/admin/orders" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 font-bold">
             <span>Orders & Sales</span>

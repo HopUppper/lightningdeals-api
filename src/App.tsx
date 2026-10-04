@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -60,6 +60,56 @@ const PageLoader: React.FC = () => (
   </div>
 );
 
+const ReferralAttributionListener: React.FC = () => {
+  const [invitedNotice, setInvitedNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const refParam = params.get('ref');
+    if (refParam) {
+      const cleanRef = refParam.trim().toUpperCase();
+      try {
+        localStorage.setItem('ld_ref', cleanRef);
+        sessionStorage.setItem('ld_ref', cleanRef);
+        document.cookie = `ld_ref=${cleanRef}; path=/; max-age=2592000; SameSite=Lax`;
+
+        fetch('/api/referrals/click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: cleanRef, landingPage: window.location.pathname }),
+        }).catch(() => {});
+
+        fetch(`/api/referrals/validate/${cleanRef}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.valid) {
+              setInvitedNotice(data.message || `⚡ You've been invited to LightningAPI.pro! Create your account to get started.`);
+            }
+          })
+          .catch(() => {});
+      } catch {}
+    }
+  }, []);
+
+  if (!invitedNotice) return null;
+
+  return (
+    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 z-50 max-w-md bg-neutral-900 border border-amber-500/40 text-white p-3.5 rounded-2xl shadow-2xl flex items-center justify-between gap-3 text-xs animate-in fade-in">
+      <div className="flex items-center gap-2">
+        <span className="p-1 rounded-md bg-amber-500/20 text-amber-400 font-bold">⚡</span>
+        <span className="leading-snug">{invitedNotice}</span>
+      </div>
+      <button
+        onClick={() => setInvitedNotice(null)}
+        className="text-neutral-400 hover:text-white px-2 py-1 rounded-lg bg-neutral-800 text-[11px] cursor-pointer"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+};
+
 // Lazy Loaded Public Pages
 const TrialPage = lazy(() => import('./pages/TrialPage').then(m => ({ default: m.TrialPage })));
 const QuoteRequestPage = lazy(() => import('./pages/QuoteRequestPage').then(m => ({ default: m.QuoteRequestPage })));
@@ -93,6 +143,7 @@ const UserSupport = lazy(() => import('./pages/dashboard/UserSupport').then(m =>
 const UserSettings = lazy(() => import('./pages/dashboard/UserSettings').then(m => ({ default: m.UserSettings })));
 const UserRewards = lazy(() => import('./pages/dashboard/UserRewards').then(m => ({ default: m.UserRewards })));
 const UserSubscriptions = lazy(() => import('./pages/dashboard/UserSubscriptions').then(m => ({ default: m.UserSubscriptions })));
+const UserReferrals = lazy(() => import('./pages/dashboard/UserReferrals').then(m => ({ default: m.UserReferrals })));
 
 // Admin Control Center Pages (Lazy Loaded)
 import { AdminAuthGuard } from './pages/admin/AdminAuthGuard';
@@ -101,6 +152,7 @@ const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then(m => ({ 
 const AdminOverview = lazy(() => import('./pages/admin/AdminOverview').then(m => ({ default: m.AdminOverview })));
 const AdminFulfillment = lazy(() => import('./pages/admin/AdminFulfillment').then(m => ({ default: m.AdminFulfillment })));
 const AdminSubscriptions = lazy(() => import('./pages/admin/AdminSubscriptions').then(m => ({ default: m.AdminSubscriptions })));
+const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals').then(m => ({ default: m.AdminReferrals })));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics').then(m => ({ default: m.AdminAnalytics })));
 const AdminProviders = lazy(() => import('./pages/admin/AdminProviders').then(m => ({ default: m.AdminProviders })));
 const AdminPlans = lazy(() => import('./pages/admin/AdminPlans').then(m => ({ default: m.AdminPlans })));
@@ -217,6 +269,8 @@ export function App() {
                   <Route path="usage" element={<UserUsage />} />
                   <Route path="plan" element={<UserPlan />} />
                   <Route path="rewards" element={<UserRewards />} />
+                  <Route path="referrals" element={<UserReferrals />} />
+                  <Route path="referral" element={<UserReferrals />} />
                   <Route path="docs" element={<UserDocs />} />
                   <Route path="orders" element={<UserOrders />} />
                   <Route path="api-test" element={<UserApiTestConsole />} />
@@ -243,6 +297,7 @@ export function App() {
                   <Route path="subscriptions" element={<AdminSubscriptions />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
                   <Route path="rewards" element={<AdminRewards />} />
+                  <Route path="referrals" element={<AdminReferrals />} />
                   <Route path="providers" element={<AdminProviders />} />
                   <Route path="plans" element={<AdminPlans />} />
                   <Route path="customers" element={<AdminCustomers />} />
@@ -268,6 +323,7 @@ export function App() {
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
               <CheckoutCartDrawer />
+              <ReferralAttributionListener />
             </Suspense>
           </CartProvider>
         </BrowserRouter>

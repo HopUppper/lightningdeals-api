@@ -17,6 +17,7 @@ import {
 } from './authSecurity';
 import { extractClientIp, resolveIpLocation } from './geoService';
 import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
+import { ReferralEngine } from './referrals/referralEngine';
 
 const router = Router();
 
@@ -32,7 +33,7 @@ router.get('/auth/email-health', async (req: Request, res: Response) => {
 
 // POST /api/user/auth/register — Enterprise Secure Registration Flow
 router.post('/auth/register', authLimiter, async (req: Request, res: Response) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phone, referralCode } = req.body;
 
   // 1. Syntactic Validation & Normalization
   if (!name || typeof name !== 'string' || !name.trim()) {
@@ -162,8 +163,25 @@ router.post('/auth/register', authLimiter, async (req: Request, res: Response) =
         countryCode: geo.countryCode,
         timezone: geo.timezone,
         userAgent: geo.userAgent,
+        referralCode: ReferralEngine.generateCode(),
       },
     });
+
+    // 4b. Attribute Referral if registered via referral link or code
+    const refCodeToAttribute = referralCode || (req as any).cookies?.ld_ref || req.headers['x-referral-code'];
+    if (refCodeToAttribute && typeof refCodeToAttribute === 'string' && refCodeToAttribute.trim()) {
+      try {
+        await ReferralEngine.attributeReferral({
+          customerId: user.id,
+          referralCode: refCodeToAttribute.trim(),
+          source: 'DIRECT_LINK',
+          ipAddress: clientIp,
+          userAgent: geo.userAgent,
+        });
+      } catch (refErr: any) {
+        console.warn('[REGISTRATION REFERRAL ATTRIBUTION NOTICE]', refErr.message);
+      }
+    }
 
     // 4. Generate Cryptographic Link Token & 6-Digit Code (15-min Expiration)
     const { rawToken, tokenHash } = generateCryptographicToken();

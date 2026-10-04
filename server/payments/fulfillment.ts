@@ -7,6 +7,7 @@ import { activateOrRenewSubscription } from '../subscriptions/subscriptionEngine
 import { InventoryService } from '../inventory/inventoryService';
 import { dispatchNotification } from '../notifications';
 import { recordAuditEvent } from '../auditLogger';
+import { ReferralEngine } from '../referrals/referralEngine';
 
 export interface FulfillmentResult {
   success: boolean;
@@ -339,6 +340,14 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         userId: order.userId,
         orderId: order.id,
         purchaseAmount,
+      });
+
+      // 11b. Process Referral Reward for Referrer if Customer was Referred
+      await ReferralEngine.processOrderReferralQualification({
+        orderId: order.id,
+        userId: order.userId,
+        amountPaid: purchaseAmount,
+        channel: 'WEBSITE',
       });
     } catch (rewardErr: any) {
       console.error('[REWARD ISSUANCE ERROR]', rewardErr.message);

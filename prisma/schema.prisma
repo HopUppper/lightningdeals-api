@@ -612,12 +612,25 @@ model Purchase {
 }
 
 model RewardSettings {
-  id                        String   @id @default("default")
-  rewardPercentage          Float    @default(10.0) // 10%
-  maxEligiblePurchaseAmount Float    @default(5000.0) // ₹5,000
-  maxRewardPerTransaction   Float    @default(500.0) // ₹500
-  currency                  String   @default("INR")
-  isActive                  Boolean  @default(true)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  id                        String    @id @default("default")
+  rewardPercentage          Float     @default(10.0) // 10%
+  maxEligiblePurchaseAmount Float     @default(5000.0) // ₹5,000
+  maxRewardPerTransaction   Float     @default(500.0) // ₹500
+  currency                  String    @default("INR")
+  isActive                  Boolean   @default(true)
+  
+  // Promotional Credit Multiplier & Flash Offer Configuration
+  promoActive               Boolean   @default(false)
+  promoMultiplier           Float     @default(2.0) // e.g. 2x
+  promoMinPurchaseAmount    Float     @default(5000.0) // e.g. ₹5,000+
+  promoMaxCredits           Float     @default(1000.0) // e.g. max 1,000 credits
+  promoTitle                String    @default("⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS")
+  promoSubtitle             String    @default("Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!")
+  promoBadge                String    @default("SUNDAY BOOST")
+  promoShowPopup            Boolean   @default(true)
+  promoShowBanner           Boolean   @default(true)
+  promoEndsAt               DateTime?
+
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 }

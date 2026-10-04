@@ -75,6 +75,9 @@ customerRewardsRouter.post('/calculate', async (req: AuthRequest, res: Response)
 customerRewardsRouter.get('/rules', async (req, res) => {
   try {
     const settings = await getRewardSettings();
+    const isPromoTimeValid = !settings.promoEndsAt || new Date(settings.promoEndsAt) > new Date();
+    const isPromoActive = Boolean(settings.promoActive) && isPromoTimeValid;
+
     res.json({
       success: true,
       rules: {
@@ -83,7 +86,52 @@ customerRewardsRouter.get('/rules', async (req, res) => {
         maxRewardPerTransaction: settings.maxRewardPerTransaction,
         currency: settings.currency,
         isActive: settings.isActive,
+        // Promotional Offer
+        promoActive: isPromoActive,
+        promoMultiplier: settings.promoMultiplier,
+        promoMinPurchaseAmount: settings.promoMinPurchaseAmount,
+        promoMaxCredits: settings.promoMaxCredits,
+        promoTitle: settings.promoTitle,
+        promoSubtitle: settings.promoSubtitle,
+        promoBadge: settings.promoBadge,
+        promoShowPopup: settings.promoShowPopup,
+        promoShowBanner: settings.promoShowBanner,
+        promoEndsAt: settings.promoEndsAt,
       },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+/**
+ * GET /api/user/rewards/active-offer (also /api/rewards/active-offer)
+ * Public active flash offer details for promotional modal & announcement banners
+ */
+customerRewardsRouter.get('/active-offer', async (req, res) => {
+  try {
+    const settings = await getRewardSettings();
+    const isPromoTimeValid = !settings.promoEndsAt || new Date(settings.promoEndsAt) > new Date();
+    const isPromoActive = Boolean(settings.promoActive) && isPromoTimeValid;
+
+    res.json({
+      success: true,
+      active: isPromoActive,
+      offer: isPromoActive
+        ? {
+            title: settings.promoTitle,
+            subtitle: settings.promoSubtitle,
+            badge: settings.promoBadge,
+            multiplier: settings.promoMultiplier,
+            minPurchaseAmount: settings.promoMinPurchaseAmount,
+            maxCredits: settings.promoMaxCredits,
+            showPopup: settings.promoShowPopup,
+            showBanner: settings.promoShowBanner,
+            endsAt: settings.promoEndsAt,
+            baseRewardPercentage: settings.rewardPercentage,
+            currency: settings.currency,
+          }
+        : null,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

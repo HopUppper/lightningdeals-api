@@ -17,6 +17,7 @@ import {
   Coins,
   CheckCircle2,
   Info,
+  Flame,
 } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +33,16 @@ interface RewardSummary {
     maxRewardPerTransaction: number;
     currency: string;
     isActive: boolean;
+    promoActive?: boolean;
+    promoMultiplier?: number;
+    promoMinPurchaseAmount?: number;
+    promoMaxCredits?: number;
+    promoTitle?: string;
+    promoSubtitle?: string;
+    promoBadge?: string;
+    promoShowPopup?: boolean;
+    promoShowBanner?: boolean;
+    promoEndsAt?: string | null;
   };
   transactions: any[];
   orders: any[];
@@ -78,11 +89,24 @@ export const UserRewards: React.FC = () => {
   const rewardRate = data?.settings?.rewardPercentage || 10;
   const maxReward = data?.settings?.maxRewardPerTransaction || 500;
 
+  const isPromo = Boolean(data?.settings?.promoActive);
+  const promoMultiplier = Number(data?.settings?.promoMultiplier) || 2.0;
+  const promoMinPurchase = Number(data?.settings?.promoMinPurchaseAmount) || 5000;
+  const promoMaxCredits = Number(data?.settings?.promoMaxCredits) || 1000;
+
   const eligiblePortion = Math.min(calcAmount, maxEligible);
-  const calculatedReward = Math.min(
+  const baseReward = Math.min(
     Math.round((eligiblePortion * (rewardRate / 100)) * 100) / 100,
     maxReward
   );
+
+  const isPromoQualifying = isPromo && calcAmount >= promoMinPurchase && promoMultiplier > 1;
+  const calculatedReward = isPromoQualifying
+    ? Math.min(
+        Math.round((baseReward * promoMultiplier) * 100) / 100,
+        promoMaxCredits > 0 ? promoMaxCredits : Infinity
+      )
+    : baseReward;
 
   const toggleFaq = (index: number) => {
     setExpandedFaq(expandedFaq === index ? null : index);
@@ -151,6 +175,48 @@ export const UserRewards: React.FC = () => {
       {error && (
         <div className="p-4 rounded-control bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono">
           {error}
+        </div>
+      )}
+
+      {/* Active Flash Promotional Offer Card */}
+      {isPromo && (
+        <div className="relative overflow-hidden rounded-panel bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-indigo-500/10 border-2 border-amber-500/40 p-6 sm:p-7 shadow-lg">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-400/10 blur-3xl rounded-full pointer-events-none" />
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+            <div className="space-y-3 max-w-2xl">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-extrabold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-sm animate-pulse">
+                <Flame className="w-3.5 h-3.5 fill-current" />
+                <span>{data?.settings?.promoBadge || 'FLASH OFFER ACTIVE'}</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-fg tracking-tight">
+                {data?.settings?.promoTitle || '⚡ SPECIAL FLASH OFFER'}
+              </h2>
+              <p className="text-xs sm:text-sm text-muted leading-relaxed">
+                {data?.settings?.promoSubtitle}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-1 font-mono text-xs">
+                <span className="font-extrabold text-amber-700 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-lg">
+                  ⚡ {promoMultiplier}X Flash Multiplier
+                </span>
+                <span className="text-muted bg-white/80 border border-border px-2.5 py-1 rounded-lg">
+                  Qualifying Order: ₹{promoMinPurchase.toLocaleString()}+
+                </span>
+                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold">
+                  Max Reward: ₹{promoMaxCredits.toLocaleString()} Credits
+                </span>
+              </div>
+            </div>
+
+            <div className="shrink-0">
+              <Link
+                to="/pricing"
+                className="px-5 py-3 rounded-control font-bold text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20 inline-flex items-center justify-center gap-2 font-mono transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Explore Plans & Claim {promoMultiplier}X Credits</span>
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 
@@ -360,10 +426,26 @@ export const UserRewards: React.FC = () => {
                 <span>Reward Percentage:</span>
                 <span className="text-fg font-bold">{rewardRate}%</span>
               </div>
-              {calcAmount > maxEligible && (
+              {calcAmount > maxEligible && !isPromoQualifying && (
                 <p className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
                   Note: Purchases above ₹{maxEligible.toLocaleString()} earn the maximum ₹{maxReward} per transaction.
                 </p>
+              )}
+              {isPromoQualifying && (
+                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-xs font-mono space-y-1">
+                  <div className="font-extrabold flex items-center gap-1.5 text-amber-800">
+                    <Flame className="w-3.5 h-3.5 fill-current text-amber-600" />
+                    <span>⚡ {promoMultiplier}X Flash Multiplier Applied!</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700">
+                    Base ₹{baseReward} × {promoMultiplier}X = ₹{calculatedReward} Lightning Credits{promoMaxCredits > 0 ? ` (capped at ₹${promoMaxCredits.toLocaleString()})` : ''}!
+                  </p>
+                </div>
+              )}
+              {isPromo && !isPromoQualifying && (
+                <div className="p-2 rounded-lg bg-violet-50 border border-violet-200 text-violet-800 text-[11px] font-mono">
+                  💡 Tip: Orders of ₹{promoMinPurchase.toLocaleString()} or above qualify for the active <strong>{promoMultiplier}X Flash Multiplier</strong> today!
+                </div>
               )}
             </div>
 

@@ -1,0 +1,11 @@
+-- Migration: Add Promotional Credit Offer Configuration to RewardSettings
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoActive" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoMultiplier" DOUBLE PRECISION NOT NULL DEFAULT 2.0;
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoMinPurchaseAmount" DOUBLE PRECISION NOT NULL DEFAULT 5000.0;
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoMaxCredits" DOUBLE PRECISION NOT NULL DEFAULT 1000.0;
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoTitle" TEXT NOT NULL DEFAULT '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS';
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoSubtitle" TEXT NOT NULL DEFAULT 'Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!';
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoBadge" TEXT NOT NULL DEFAULT 'SUNDAY BOOST';
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoShowPopup" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoShowBanner" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "RewardSettings" ADD COLUMN IF NOT EXISTS "promoEndsAt" TIMESTAMP(3);

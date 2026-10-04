@@ -9,6 +9,13 @@ export interface RewardCalculation {
   maxEligibleAmount: number;
   maxRewardPerTransaction: number;
   currency: string;
+  isPromoApplied: boolean;
+  promoMultiplier?: number;
+  promoTitle?: string;
+  promoMinPurchaseAmount?: number;
+  promoMaxCredits?: number;
+  baseRewardCredits: number;
+  bonusCredits: number;
 }
 
 /**
@@ -28,6 +35,16 @@ export async function getRewardSettings() {
         maxRewardPerTransaction: 500.0,
         currency: 'INR',
         isActive: true,
+        promoActive: false,
+        promoMultiplier: 2.0,
+        promoMinPurchaseAmount: 5000.0,
+        promoMaxCredits: 1000.0,
+        promoTitle: '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
+        promoSubtitle: 'Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!',
+        promoBadge: 'SUNDAY BOOST',
+        promoShowPopup: true,
+        promoShowBanner: true,
+        promoEndsAt: null,
       },
     });
   }
@@ -46,6 +63,16 @@ export async function updateRewardSettings(
     maxRewardPerTransaction?: number;
     isActive?: boolean;
     currency?: string;
+    promoActive?: boolean;
+    promoMultiplier?: number;
+    promoMinPurchaseAmount?: number;
+    promoMaxCredits?: number;
+    promoTitle?: string;
+    promoSubtitle?: string;
+    promoBadge?: string;
+    promoShowPopup?: boolean;
+    promoShowBanner?: boolean;
+    promoEndsAt?: Date | string | null;
   },
   adminUserId?: string
 ) {
@@ -59,6 +86,16 @@ export async function updateRewardSettings(
       ...(params.maxRewardPerTransaction !== undefined && { maxRewardPerTransaction: Math.max(0, params.maxRewardPerTransaction) }),
       ...(params.isActive !== undefined && { isActive: Boolean(params.isActive) }),
       ...(params.currency !== undefined && { currency: params.currency }),
+      ...(params.promoActive !== undefined && { promoActive: Boolean(params.promoActive) }),
+      ...(params.promoMultiplier !== undefined && { promoMultiplier: Math.max(1, Number(params.promoMultiplier) || 1) }),
+      ...(params.promoMinPurchaseAmount !== undefined && { promoMinPurchaseAmount: Math.max(0, Number(params.promoMinPurchaseAmount) || 0) }),
+      ...(params.promoMaxCredits !== undefined && { promoMaxCredits: Math.max(0, Number(params.promoMaxCredits) || 0) }),
+      ...(params.promoTitle !== undefined && { promoTitle: params.promoTitle }),
+      ...(params.promoSubtitle !== undefined && { promoSubtitle: params.promoSubtitle }),
+      ...(params.promoBadge !== undefined && { promoBadge: params.promoBadge }),
+      ...(params.promoShowPopup !== undefined && { promoShowPopup: Boolean(params.promoShowPopup) }),
+      ...(params.promoShowBanner !== undefined && { promoShowBanner: Boolean(params.promoShowBanner) }),
+      ...(params.promoEndsAt !== undefined && { promoEndsAt: params.promoEndsAt ? new Date(params.promoEndsAt) : null }),
     },
   });
 
@@ -83,8 +120,12 @@ export async function updateRewardSettings(
  * Server-side Authoritative Reward Calculation
  * Formula:
  * eligible_amount = MIN(transaction_amount, maxEligiblePurchaseAmount)
- * reward = eligible_amount * (rewardPercentage / 100)
- * capped_reward = MIN(reward, maxRewardPerTransaction)
+ * base_reward = eligible_amount * (rewardPercentage / 100)
+ * capped_base_reward = MIN(base_reward, maxRewardPerTransaction)
+ *
+ * If promotional offer active and meets min purchase:
+ * boosted_credits = capped_base_reward * promoMultiplier
+ * final_reward = promoMaxCredits > 0 ? MIN(boosted_credits, promoMaxCredits) : boosted_credits
  */
 export async function calculateReward(purchaseAmount: number): Promise<RewardCalculation> {
   const settings = await getRewardSettings();
@@ -100,26 +141,60 @@ export async function calculateReward(purchaseAmount: number): Promise<RewardCal
       maxEligibleAmount: settings.maxEligiblePurchaseAmount,
       maxRewardPerTransaction: settings.maxRewardPerTransaction,
       currency: settings.currency,
+      isPromoApplied: false,
+      baseRewardCredits: 0,
+      bonusCredits: 0,
     };
   }
 
-  // 1. Calculate eligible amount (First ₹5,000 max by default)
+  // 1. Calculate eligible base amount (First ₹5,000 max by default)
   const eligibleAmount = Math.min(cleanAmount, settings.maxEligiblePurchaseAmount);
 
-  // 2. Calculate percentage reward (10% by default)
+  // 2. Calculate percentage base reward (10% by default)
   const calculatedCredits = Math.round((eligibleAmount * (settings.rewardPercentage / 100)) * 100) / 100;
+  const baseRewardCredits = Math.min(calculatedCredits, settings.maxRewardPerTransaction);
 
-  // 3. Cap reward per transaction (Max ₹500 by default)
-  const rewardCredits = Math.min(calculatedCredits, settings.maxRewardPerTransaction);
+  // 3. Check Promotional Offer condition
+  const isPromoTimeValid = !settings.promoEndsAt || new Date(settings.promoEndsAt) > new Date();
+  const isPromoActive = Boolean(settings.promoActive) && isPromoTimeValid;
+  const meetsMinPurchase = cleanAmount >= (settings.promoMinPurchaseAmount || 0);
+
+  if (isPromoActive && meetsMinPurchase && (settings.promoMultiplier || 1) > 1) {
+    const multiplier = Number(settings.promoMultiplier) || 1;
+    const boostedCredits = Math.round((baseRewardCredits * multiplier) * 100) / 100;
+    const maxCap = settings.promoMaxCredits && settings.promoMaxCredits > 0 ? settings.promoMaxCredits : boostedCredits;
+    const finalRewardCredits = Math.min(boostedCredits, maxCap);
+    const bonusCredits = Math.max(0, Math.round((finalRewardCredits - baseRewardCredits) * 100) / 100);
+
+    return {
+      purchaseAmount: cleanAmount,
+      eligibleAmount,
+      rewardPercentage: settings.rewardPercentage,
+      rewardCredits: finalRewardCredits,
+      maxEligibleAmount: settings.maxEligiblePurchaseAmount,
+      maxRewardPerTransaction: settings.maxRewardPerTransaction,
+      currency: settings.currency,
+      isPromoApplied: true,
+      promoMultiplier: multiplier,
+      promoTitle: settings.promoTitle,
+      promoMinPurchaseAmount: settings.promoMinPurchaseAmount,
+      promoMaxCredits: settings.promoMaxCredits,
+      baseRewardCredits,
+      bonusCredits,
+    };
+  }
 
   return {
     purchaseAmount: cleanAmount,
     eligibleAmount,
     rewardPercentage: settings.rewardPercentage,
-    rewardCredits,
+    rewardCredits: baseRewardCredits,
     maxEligibleAmount: settings.maxEligiblePurchaseAmount,
     maxRewardPerTransaction: settings.maxRewardPerTransaction,
     currency: settings.currency,
+    isPromoApplied: false,
+    baseRewardCredits,
+    bonusCredits: 0,
   };
 }
 
@@ -243,7 +318,9 @@ export async function awardOrderCredits(params: {
         amount: calculation.rewardCredits,
         balanceBefore: currentBalance,
         balanceAfter,
-        description: `10% Lightning Credits earned on purchase (₹${calculation.purchaseAmount.toLocaleString()} purchase, ₹${calculation.eligibleAmount.toLocaleString()} eligible)`,
+        description: calculation.isPromoApplied
+          ? `${calculation.promoTitle || 'Flash Offer'}: ${calculation.promoMultiplier}X Lightning Credits earned (${calculation.rewardCredits} credits on ₹${calculation.purchaseAmount.toLocaleString()} purchase)`
+          : `${calculation.rewardPercentage}% Lightning Credits earned on purchase (₹${calculation.purchaseAmount.toLocaleString()} purchase, ₹${calculation.eligibleAmount.toLocaleString()} eligible)`,
         status: 'COMPLETED',
       },
     });
@@ -649,6 +726,16 @@ export async function getCustomerRewardsSummary(userId: string) {
       maxRewardPerTransaction: settings.maxRewardPerTransaction,
       currency: settings.currency,
       isActive: settings.isActive,
+      promoActive: settings.promoActive,
+      promoMultiplier: settings.promoMultiplier,
+      promoMinPurchaseAmount: settings.promoMinPurchaseAmount,
+      promoMaxCredits: settings.promoMaxCredits,
+      promoTitle: settings.promoTitle,
+      promoSubtitle: settings.promoSubtitle,
+      promoBadge: settings.promoBadge,
+      promoShowPopup: settings.promoShowPopup,
+      promoShowBanner: settings.promoShowBanner,
+      promoEndsAt: settings.promoEndsAt,
     },
     transactions,
     purchases: purchasesMapped,
@@ -1074,7 +1161,9 @@ export async function createUniversalPurchase(params: {
           amount: creditsToAward,
           balanceBefore: currentBalance,
           balanceAfter,
-          description: `${productName.trim()} purchased via ${channelReadable} - 10% Lightning Credits earned`,
+          description: calculation.isPromoApplied
+            ? `${productName.trim()} purchased via ${channelReadable} - ${calculation.promoTitle || 'Flash Offer'} (${calculation.promoMultiplier}X Lightning Credits earned: ${creditsToAward} credits)`
+            : `${productName.trim()} purchased via ${channelReadable} - ${calculation.rewardPercentage}% Lightning Credits earned (${creditsToAward} credits)`,
           status: 'COMPLETED',
         },
       });

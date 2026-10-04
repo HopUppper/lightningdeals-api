@@ -22,6 +22,9 @@ import {
   MessageSquare,
   Edit2,
   ExternalLink,
+  Sparkles,
+  Flame,
+  Eye,
 } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 import { RecordPurchaseModal } from '../../components/admin/RecordPurchaseModal';
@@ -59,6 +62,16 @@ export const AdminRewards: React.FC = () => {
     maxEligiblePurchaseAmount: 5000,
     maxRewardPerTransaction: 500,
     isActive: true,
+    promoActive: false,
+    promoMultiplier: 2.0,
+    promoMinPurchaseAmount: 5000,
+    promoMaxCredits: 1000,
+    promoTitle: '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
+    promoSubtitle: 'Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!',
+    promoBadge: 'SUNDAY BOOST',
+    promoShowPopup: true,
+    promoShowBanner: true,
+    promoEndsAt: null as string | null,
   });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
@@ -113,10 +126,20 @@ export const AdminRewards: React.FC = () => {
         setOverview(data);
         if (data.settings) {
           setSettingsForm({
-            rewardPercentage: data.settings.rewardPercentage,
-            maxEligiblePurchaseAmount: data.settings.maxEligiblePurchaseAmount,
-            maxRewardPerTransaction: data.settings.maxRewardPerTransaction,
-            isActive: data.settings.isActive,
+            rewardPercentage: data.settings.rewardPercentage ?? 10,
+            maxEligiblePurchaseAmount: data.settings.maxEligiblePurchaseAmount ?? 5000,
+            maxRewardPerTransaction: data.settings.maxRewardPerTransaction ?? 500,
+            isActive: Boolean(data.settings.isActive),
+            promoActive: Boolean(data.settings.promoActive),
+            promoMultiplier: data.settings.promoMultiplier ?? 2.0,
+            promoMinPurchaseAmount: data.settings.promoMinPurchaseAmount ?? 5000,
+            promoMaxCredits: data.settings.promoMaxCredits ?? 1000,
+            promoTitle: data.settings.promoTitle ?? '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
+            promoSubtitle: data.settings.promoSubtitle ?? 'Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!',
+            promoBadge: data.settings.promoBadge ?? 'SUNDAY BOOST',
+            promoShowPopup: data.settings.promoShowPopup ?? true,
+            promoShowBanner: data.settings.promoShowBanner ?? true,
+            promoEndsAt: data.settings.promoEndsAt ?? null,
           });
         }
       }
@@ -473,7 +496,13 @@ export const AdminRewards: React.FC = () => {
           }`}
         >
           <Sliders className="w-4 h-4" />
-          <span>Reward Configuration</span>
+          <span>Reward & Promo Offers</span>
+          {settingsForm.promoActive && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full animate-pulse">
+              <Flame className="w-3 h-3 text-amber-600 fill-current" />
+              <span>{settingsForm.promoMultiplier}X LIVE</span>
+            </span>
+          )}
         </button>
       </div>
 
@@ -845,20 +874,314 @@ export const AdminRewards: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: REWARD CONFIGURATION */}
+      {/* TAB 3: REWARD CONFIGURATION & FLASH PROMOTIONS */}
       {activeTab === 'settings' && (
-        <div className="rounded-panel border border-border bg-white p-6 shadow-xs space-y-4 animate-fadeIn">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
-            <div className="flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-violet-600" />
-              <h2 className="text-base font-extrabold text-fg">Reward Configuration</h2>
+        <form onSubmit={handleSaveSettings} className="space-y-6 animate-fadeIn">
+          {/* CARD 1: PROMOTIONAL FLASH OFFERS & MULTIPLIERS */}
+          <div className="rounded-panel border-2 border-amber-500/40 bg-gradient-to-b from-amber-500/5 via-white to-white p-6 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/60 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-sm">
+                  <Flame className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-fg">
+                    Promotional Flash Offers & Multipliers
+                  </h2>
+                  <p className="text-xs font-mono text-muted">
+                    Temporarily enable/disable, boost multipliers (e.g. 2X), set order caps & customize announcements
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Indicator */}
+              <div className="flex items-center gap-2">
+                {settingsForm.promoActive ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    <span>● FLASH PROMO IS LIVE</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-500 border border-slate-300">
+                    <span>○ PROMO IS INACTIVE</span>
+                  </span>
+                )}
+              </div>
             </div>
-            <span className="text-xs font-mono text-muted">
-              Changes apply to future orders only. Historical transactions are never recalculated.
-            </span>
+
+            {/* Master Toggle & Quick Preset Strip */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-control bg-amber-50/80 border border-amber-200">
+              <div className="flex items-center gap-3">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settingsForm.promoActive}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, promoActive: e.target.checked })
+                    }
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+                <div>
+                  <span className="text-xs font-extrabold text-fg block">
+                    {settingsForm.promoActive
+                      ? 'Flash Promotional Offer is Active (Live on Website & Dashboard)'
+                      : 'Flash Promotional Offer is Disabled'}
+                  </span>
+                  <span className="text-[11px] text-muted font-mono">
+                    Flip this switch anytime to immediately launch or pause the promotional boost
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Preset Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsForm({
+                    ...settingsForm,
+                    promoActive: true,
+                    promoMultiplier: 2.0,
+                    promoMinPurchaseAmount: 5000,
+                    promoMaxCredits: 1000,
+                    promoTitle: '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
+                    promoSubtitle:
+                      'Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!',
+                    promoBadge: 'SUNDAY BOOST',
+                    promoShowPopup: true,
+                    promoShowBanner: true,
+                  });
+                  showToast('⚡ Preset Applied: Sunday 2X Special (2x on ₹5,000+, Max 1,000 Credits)');
+                }}
+                className="ui-button-secondary text-xs py-2 px-3.5 font-bold flex items-center justify-center gap-1.5 shrink-0 bg-white hover:bg-amber-100/50 border-amber-300 text-amber-900"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Load Sunday 2X Deal Preset</span>
+              </button>
+            </div>
+
+            {/* Configurable Parameters Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold font-mono text-fg uppercase flex items-center gap-1">
+                  <span>Multiplier Boost</span>
+                  <span className="text-amber-600 font-bold">(e.g. 2 for 2X)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    step={0.1}
+                    value={settingsForm.promoMultiplier}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, promoMultiplier: Number(e.target.value) })
+                    }
+                    className="w-full ui-input text-xs font-mono py-2 pr-8 font-bold"
+                    required
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-muted">
+                    X
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted font-mono">2.0 = Double credits</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold font-mono text-fg uppercase flex items-center gap-1">
+                  <span>Min Purchase Qualifying (₹)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-muted">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={500}
+                    value={settingsForm.promoMinPurchaseAmount}
+                    onChange={(e) =>
+                      setSettingsForm({
+                        ...settingsForm,
+                        promoMinPurchaseAmount: Number(e.target.value),
+                      })
+                    }
+                    className="w-full ui-input text-xs font-mono py-2 pl-7 font-bold"
+                    required
+                  />
+                </div>
+                <p className="text-[10px] text-muted font-mono">Threshold required to trigger boost</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold font-mono text-fg uppercase flex items-center gap-1">
+                  <span>Max Promo Credits Cap</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={settingsForm.promoMaxCredits}
+                    onChange={(e) =>
+                      setSettingsForm({
+                        ...settingsForm,
+                        promoMaxCredits: Number(e.target.value),
+                      })
+                    }
+                    className="w-full ui-input text-xs font-mono py-2 pr-14 font-bold"
+                    required
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-muted">
+                    Credits
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted font-mono">Maximum reward ceiling (0 = no cap)</p>
+              </div>
+            </div>
+
+            {/* Offer Texts */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-xs font-bold font-mono text-fg uppercase">
+                  Promotional Title / Headline
+                </label>
+                <input
+                  type="text"
+                  value={settingsForm.promoTitle}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, promoTitle: e.target.value })
+                  }
+                  placeholder="e.g. ⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS"
+                  className="w-full ui-input text-xs font-mono py-2"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold font-mono text-fg uppercase">
+                  Badge Tag
+                </label>
+                <input
+                  type="text"
+                  value={settingsForm.promoBadge}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, promoBadge: e.target.value })
+                  }
+                  placeholder="e.g. SUNDAY BOOST"
+                  className="w-full ui-input text-xs font-mono py-2"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold font-mono text-fg uppercase">
+                Promotional Subtitle / Customer Pitch
+              </label>
+              <input
+                type="text"
+                value={settingsForm.promoSubtitle}
+                onChange={(e) =>
+                  setSettingsForm({ ...settingsForm, promoSubtitle: e.target.value })
+                }
+                placeholder="e.g. Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!"
+                className="w-full ui-input text-xs font-mono py-2"
+                required
+              />
+            </div>
+
+            {/* Customer Display Channels */}
+            <div className="flex flex-wrap items-center gap-6 pt-1 text-xs font-mono">
+              <label className="flex items-center gap-2 cursor-pointer font-bold text-fg">
+                <input
+                  type="checkbox"
+                  checked={settingsForm.promoShowPopup}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, promoShowPopup: e.target.checked })
+                  }
+                  className="rounded text-amber-600 focus:ring-amber-500"
+                />
+                <span>Show Animated Pop-up Modal to Website Visitors</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer font-bold text-fg">
+                <input
+                  type="checkbox"
+                  checked={settingsForm.promoShowBanner}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, promoShowBanner: e.target.checked })
+                  }
+                  className="rounded text-amber-600 focus:ring-amber-500"
+                />
+                <span>Show Top Announcement Banner on Homepage</span>
+              </label>
+            </div>
+
+            {/* Live Customer Preview Box */}
+            <div className="p-4 rounded-control bg-slate-900 text-white space-y-3">
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400 border-b border-slate-800 pb-2">
+                <span className="flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Live Customer Preview (How it appears to buyers)</span>
+                </span>
+                <span className="text-[10px] text-amber-300 font-bold uppercase">
+                  {settingsForm.promoBadge}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-extrabold text-white">
+                  {settingsForm.promoTitle}
+                </h4>
+                <p className="text-xs text-slate-300">
+                  {settingsForm.promoSubtitle}
+                </p>
+              </div>
+              <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                <span className="text-amber-300">
+                  ⚡ ₹{settingsForm.promoMinPurchaseAmount.toLocaleString()} purchase earns{' '}
+                  <strong className="text-white underline font-extrabold">
+                    {Math.min(
+                      Math.round(
+                        (settingsForm.promoMinPurchaseAmount *
+                          (settingsForm.rewardPercentage / 100) *
+                          settingsForm.promoMultiplier) *
+                          100
+                      ) / 100,
+                      settingsForm.promoMaxCredits > 0
+                        ? settingsForm.promoMaxCredits
+                        : Infinity
+                    ).toLocaleString()}{' '}
+                    Credits
+                  </strong>{' '}
+                  (vs standard{' '}
+                  {Math.round(
+                    (settingsForm.promoMinPurchaseAmount *
+                      (settingsForm.rewardPercentage / 100)) *
+                      100
+                  ) / 100}{' '}
+                  credits)!
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Cap: {settingsForm.promoMaxCredits.toLocaleString()} Credits Max
+                </span>
+              </div>
+            </div>
           </div>
 
-          <form onSubmit={handleSaveSettings} className="space-y-4">
+          {/* CARD 2: BASE REWARD PROGRAM SETTINGS */}
+          <div className="rounded-panel border border-border bg-white p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-violet-600" />
+                <h2 className="text-base font-extrabold text-fg">Base Reward Program Settings</h2>
+              </div>
+              <span className="text-xs font-mono text-muted">
+                Standard non-promotional reward parameters
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold font-mono text-fg uppercase">
@@ -889,7 +1212,10 @@ export const AdminRewards: React.FC = () => {
                   step={100}
                   value={settingsForm.maxEligiblePurchaseAmount}
                   onChange={(e) =>
-                    setSettingsForm({ ...settingsForm, maxEligiblePurchaseAmount: Number(e.target.value) })
+                    setSettingsForm({
+                      ...settingsForm,
+                      maxEligiblePurchaseAmount: Number(e.target.value),
+                    })
                   }
                   className="w-full ui-input text-xs font-mono py-2"
                   required
@@ -907,7 +1233,10 @@ export const AdminRewards: React.FC = () => {
                   step={10}
                   value={settingsForm.maxRewardPerTransaction}
                   onChange={(e) =>
-                    setSettingsForm({ ...settingsForm, maxRewardPerTransaction: Number(e.target.value) })
+                    setSettingsForm({
+                      ...settingsForm,
+                      maxRewardPerTransaction: Number(e.target.value),
+                    })
                   }
                   className="w-full ui-input text-xs font-mono py-2"
                   required
@@ -921,7 +1250,9 @@ export const AdminRewards: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settingsForm.isActive}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, isActive: e.target.checked })}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, isActive: e.target.checked })
+                  }
                   className="rounded text-violet-600 focus:ring-violet-500"
                 />
                 <span>Enable Lightning Rewards Program</span>
@@ -930,21 +1261,21 @@ export const AdminRewards: React.FC = () => {
               <div className="flex items-center gap-3">
                 {settingsSuccess && (
                   <span className="text-xs font-mono text-emerald-600 font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Settings Saved!
+                    <CheckCircle2 className="w-3.5 h-3.5" /> All Settings Saved & Deployed!
                   </span>
                 )}
                 <button
                   type="submit"
                   disabled={savingSettings}
-                  className="ui-button-primary text-xs py-2 px-5 font-bold flex items-center gap-1.5"
+                  className="ui-button-primary text-xs py-2 px-6 font-bold flex items-center gap-1.5 shadow-md"
                 >
                   {savingSettings && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Save Settings</span>
+                  <span>Save All Settings & Deploy Live</span>
                 </button>
               </div>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       )}
 
       {/* Record Purchase Modal (Step 1 + Step 2 Confirmation) */}

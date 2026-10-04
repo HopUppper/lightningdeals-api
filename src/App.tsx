@@ -50,6 +50,8 @@ import { Navbar } from './components/Navbar';
 import { SupportWidget } from './components/SupportWidget';
 import { SocialProofStrip } from './components/SocialProofStrip';
 import { LightningRewardsHighlight } from './components/LightningRewardsHighlight';
+import { PromotionalOfferBanner } from './components/PromotionalOfferBanner';
+import { PromotionalOfferModal } from './components/PromotionalOfferModal';
 
 const PageLoader: React.FC = () => (
   <div className="min-h-screen bg-bg text-muted flex flex-col items-center justify-center space-y-3 font-mono text-xs">
@@ -121,7 +123,9 @@ const AdminRewards = lazy(() => import('./pages/admin/AdminRewards').then(m => (
 export const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg text-fg selection:bg-violet-500/20 selection:text-violet-700 font-sans antialiased">
+      <PromotionalOfferBanner />
       <Navbar />
+      <PromotionalOfferModal />
       <main id="main-content">
         <HeroSection />
         <SocialProofStrip />
@@ -147,7 +151,9 @@ export const LandingPage: React.FC = () => {
 export const PublicPricingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
+      <PromotionalOfferBanner />
       <Navbar />
+      <PromotionalOfferModal />
       <main className="flex-1">
         <PricingSection />
       </main>

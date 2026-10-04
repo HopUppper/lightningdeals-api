@@ -75,7 +75,24 @@ adminRewardsRouter.get('/settings', async (req: AuthRequest, res: Response) => {
  */
 adminRewardsRouter.put('/settings', async (req: AuthRequest, res: Response) => {
   try {
-    const { rewardPercentage, maxEligiblePurchaseAmount, maxRewardPerTransaction, isActive } = req.body;
+    const {
+      rewardPercentage,
+      maxEligiblePurchaseAmount,
+      maxRewardPerTransaction,
+      isActive,
+      currency,
+      promoActive,
+      promoMultiplier,
+      promoMinPurchaseAmount,
+      promoMaxCredits,
+      promoTitle,
+      promoSubtitle,
+      promoBadge,
+      promoShowPopup,
+      promoShowBanner,
+      promoEndsAt,
+    } = req.body;
+
     const updated = await updateRewardSettings(
       {
         rewardPercentage: rewardPercentage !== undefined ? Number(rewardPercentage) : undefined,
@@ -84,6 +101,18 @@ adminRewardsRouter.put('/settings', async (req: AuthRequest, res: Response) => {
         maxRewardPerTransaction:
           maxRewardPerTransaction !== undefined ? Number(maxRewardPerTransaction) : undefined,
         isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+        currency: currency !== undefined ? String(currency) : undefined,
+        promoActive: promoActive !== undefined ? Boolean(promoActive) : undefined,
+        promoMultiplier: promoMultiplier !== undefined ? Number(promoMultiplier) : undefined,
+        promoMinPurchaseAmount:
+          promoMinPurchaseAmount !== undefined ? Number(promoMinPurchaseAmount) : undefined,
+        promoMaxCredits: promoMaxCredits !== undefined ? Number(promoMaxCredits) : undefined,
+        promoTitle: promoTitle !== undefined ? String(promoTitle) : undefined,
+        promoSubtitle: promoSubtitle !== undefined ? String(promoSubtitle) : undefined,
+        promoBadge: promoBadge !== undefined ? String(promoBadge) : undefined,
+        promoShowPopup: promoShowPopup !== undefined ? Boolean(promoShowPopup) : undefined,
+        promoShowBanner: promoShowBanner !== undefined ? Boolean(promoShowBanner) : undefined,
+        promoEndsAt: promoEndsAt !== undefined ? promoEndsAt : undefined,
       },
       req.user?.id
     );

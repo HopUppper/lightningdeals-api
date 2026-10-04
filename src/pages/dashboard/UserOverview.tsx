@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
 export const UserOverview: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>(null);
+  const [activeOffer, setActiveOffer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>('00:00:00');
@@ -14,12 +15,23 @@ export const UserOverview: React.FC = () => {
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await adminFetch('/api/user/usage');
-        if (res.ok) {
-          const data = await res.json();
+        const [usageRes, offerRes] = await Promise.all([
+          adminFetch('/api/user/usage'),
+          fetch('/api/rewards/active-offer'),
+        ]);
+
+        if (usageRes.ok) {
+          const data = await usageRes.json();
           setStats(data);
         } else {
           setError('Unable to load your account data.');
+        }
+
+        if (offerRes.ok) {
+          const offerData = await offerRes.json();
+          if (offerData.success && offerData.active && offerData.offer) {
+            setActiveOffer(offerData.offer);
+          }
         }
       } catch (e) {
         setError('Unable to load your account data.');
@@ -102,6 +114,55 @@ export const UserOverview: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Active Promotional Flash Offer Card */}
+      {activeOffer && (
+        <div className="relative overflow-hidden rounded-panel bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-indigo-500/10 border-2 border-amber-500/40 p-6 sm:p-7 shadow-lg">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-400/10 blur-3xl rounded-full pointer-events-none" />
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+            <div className="space-y-3 max-w-2xl">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-extrabold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-sm animate-pulse">
+                <Flame className="w-3.5 h-3.5 fill-current" />
+                <span>{activeOffer.badge || 'FLASH OFFER ACTIVE'}</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-fg tracking-tight">
+                {activeOffer.title}
+              </h2>
+              <p className="text-xs sm:text-sm text-muted leading-relaxed">
+                {activeOffer.subtitle}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-1 font-mono text-xs">
+                <span className="font-extrabold text-amber-700 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-lg">
+                  ⚡ {activeOffer.multiplier}X Bonus Multiplier
+                </span>
+                <span className="text-muted bg-white/80 border border-border px-2.5 py-1 rounded-lg">
+                  Min Purchase: ₹{activeOffer.minPurchaseAmount.toLocaleString()}+
+                </span>
+                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold">
+                  Max Reward: ₹{activeOffer.maxCredits.toLocaleString()} Credits
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
+              <Link
+                to="/dashboard/plan"
+                className="px-5 py-3 rounded-control font-bold text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20 inline-flex items-center justify-center gap-2 font-mono transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Activate Plan & Get {activeOffer.multiplier}X Credits</span>
+              </Link>
+              <Link
+                to="/dashboard/rewards"
+                className="px-4 py-2.5 rounded-control font-bold text-xs bg-white text-fg border border-border hover:bg-subtle inline-flex items-center justify-center gap-2 shadow-xs font-mono"
+              >
+                <Zap className="w-4 h-4 text-violet-600" />
+                <span>View Rewards Wallet</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main 5-Hour Window Token Allowance Card OR Keyless Empty State */}
       {purchased === 0 ? (

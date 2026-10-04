@@ -9,17 +9,16 @@ export const whatsappWebhookRouter = Router();
  * Meta / Cloud API handshake challenge
  */
 whatsappWebhookRouter.get('/webhook', (req: Request, res: Response) => {
-  const mode = req.query['hub.mode'] as string | undefined;
-  const token = req.query['hub.verify_token'] as string | undefined;
-  const challenge = req.query['hub.challenge'] as string | undefined;
+  const mode = (req.query['hub.mode'] || (req.query.hub as any)?.mode || req.query.mode) as string | undefined;
+  const token = (req.query['hub.verify_token'] || (req.query.hub as any)?.verify_token || req.query.verify_token || req.query.token) as string | undefined;
+  const challenge = (req.query['hub.challenge'] || (req.query.hub as any)?.challenge || req.query.challenge) as string | undefined;
 
   const verifiedChallenge = WhatsAppClient.verifyHandshake(mode, token, challenge);
   if (verifiedChallenge) {
-    console.log('[WHATSAPP WEBHOOK] Handshake verified successfully.');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     return res.status(200).send(verifiedChallenge);
   }
 
-  console.warn('[WHATSAPP WEBHOOK] Handshake verification failed. Forbidden.');
   return res.status(403).send('Forbidden');
 });
 

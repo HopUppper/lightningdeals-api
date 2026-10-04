@@ -100,9 +100,11 @@ function scanValueForAttacks(val: any, depth: number = 0): {
  * Security Threat Detection & Block Middleware
  */
 export function securityThreatDetector(req: Request, res: Response, next: NextFunction) {
-  // Fast path: skip static files, assets, and images
+  // Fast path: skip static files, assets, images, and signed webhooks
   if (
     req.path.startsWith('/assets/') ||
+    req.path.startsWith('/api/whatsapp/webhook') ||
+    req.path.startsWith('/api/webhooks/') ||
     req.path.endsWith('.js') ||
     req.path.endsWith('.css') ||
     req.path.endsWith('.svg') ||

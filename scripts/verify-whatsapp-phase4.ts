@@ -491,10 +491,10 @@ async function runPhase4Verification() {
     // ------------------------------------------------------------------------
     console.log('\n📋 SUITE 7: Human Handoff & Customer Command Handling');
 
-    // 1. My Orders command (option 3)
+    // 1. My Orders command (option 2 / 'My orders')
     const resOrders = await WhatsAppEngine.handleInboundMessage({
       from: testPhone,
-      body: '3',
+      body: 'My orders',
       providerMessageId: `wamid_orders_${testSuffix}`,
     });
     const ordersMsg = await prisma.whatsAppMessage.findFirst({
@@ -507,10 +507,10 @@ async function runPhase4Verification() {
       Boolean(ordersMsg?.content.includes('Your Recent Orders') && ordersMsg?.content.includes('₹3,500'))
     );
 
-    // 2. Lightning Credits command (option 5)
+    // 2. Lightning Credits command (option 4 / 'My credits')
     const resCredits = await WhatsAppEngine.handleInboundMessage({
       from: testPhone,
-      body: '5',
+      body: 'My credits',
       providerMessageId: `wamid_credits_${testSuffix}`,
     });
     const creditsMsg = await prisma.whatsAppMessage.findFirst({

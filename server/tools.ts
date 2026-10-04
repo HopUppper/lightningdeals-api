@@ -184,6 +184,16 @@ export async function handleGetModels(req: Request, res: Response) {
       orderBy: { displayName: 'asc' },
     });
 
+    const priority = ['claude-opus-5', 'claude-fable-5', 'claude-sonnet-5', 'claude-haiku-4-5'];
+    models.sort((a, b) => {
+      const idxA = priority.indexOf(a.modelId);
+      const idxB = priority.indexOf(b.modelId);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.displayName.localeCompare(b.displayName);
+    });
+
     res.json({
       object: 'list',
       data: models.map((m) => ({

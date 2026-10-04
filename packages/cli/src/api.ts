@@ -103,7 +103,7 @@ export const testApiRequest = async (apiKey: string): Promise<{ success: boolean
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-opus-5',
         max_tokens: 20,
         messages: [{ role: 'user', content: 'Ping test' }],
       }),

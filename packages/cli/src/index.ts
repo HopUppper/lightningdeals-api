@@ -3,7 +3,7 @@ import readline from 'readline';
 import os from 'os';
 
 import { validateApiKey, fetchLiveModels, getGatewayUrl } from './api.js';
-import { getClientTargets, configureClient, removeClientConfiguration, ClientTarget } from './clients.js';
+import { getClientTargets, configureClient, removeClientConfiguration, getFriendlyModelName, ClientTarget } from './clients.js';
 
 // ANSI Color Tokens for Rich Terminal Styling
 const c = {
@@ -74,6 +74,15 @@ const getApiKeyFromArgsOrEnv = (): string => {
   return (process.env.LIGHTNINGDEALS_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || '').trim();
 };
 
+const getModelFromArgsOrEnv = (): string => {
+  const args = process.argv.slice(2);
+  const mIndex = args.findIndex(arg => arg === '--model' || arg === '-m');
+  if (mIndex !== -1 && args[mIndex + 1]) {
+    return args[mIndex + 1].trim();
+  }
+  return (process.env.ANTHROPIC_MODEL || process.env.LIGHTNINGDEALS_MODEL || '').trim();
+};
+
 function printSystemInfo() {
   console.log(`${c.gray}┌───────────────────────── SYSTEM ENVIRONMENT ─────────────────────────┐${c.reset}`);
   console.log(`  ${c.cyan}OS Platform${c.reset}   : ${c.white}${os.platform()} (${os.arch()})${c.reset}`);
@@ -128,7 +137,8 @@ async function runDoctor() {
   const clients = getClientTargets();
   for (const client of clients) {
     if (client.configured) {
-      console.log(`  ${c.brightGreen}[✓] ${client.name.padEnd(20)}${c.reset} : ${c.green}Configured (${client.configPath})${c.reset}`);
+      const modelTag = client.existingModel ? ` [Model: ${getFriendlyModelName(client.existingModel)}]` : '';
+      console.log(`  ${c.brightGreen}[✓] ${client.name.padEnd(20)}${c.reset} : ${c.green}Configured${modelTag} (${client.configPath})${c.reset}`);
     } else if (client.installed) {
       console.log(`  ${c.amber}[!] ${client.name.padEnd(20)}${c.reset} : ${c.amber}Installed (Ready to Configure)${c.reset}`);
     } else {
@@ -313,10 +323,37 @@ async function runSetup() {
     }
   }
 
+  let selectedModel = getModelFromArgsOrEnv();
+
+  if (!selectedModel) {
+    console.log(`\n${c.bold}Default AI Model Selection:${c.reset}`);
+    console.log(`  ${c.cyan}[1]${c.reset} ${c.brightGreen}Claude Opus 5${c.reset} ${c.gray}(claude-opus-5)${c.reset}   - Flagship reasoning, architecture & coding ${c.brightAmber}[Recommended]${c.reset}`);
+    console.log(`  ${c.cyan}[2]${c.reset} ${c.brightCyan}Claude Fable 5${c.reset} ${c.gray}(claude-fable-5)${c.reset}  - Frontier ultra-fast coding & agent workflows`);
+    console.log(`  ${c.cyan}[3]${c.reset} ${c.white}Claude Sonnet 5${c.reset} ${c.gray}(claude-sonnet-5)${c.reset} - High-speed daily coding & balanced intelligence`);
+    console.log(`  ${c.cyan}[4]${c.reset} ${c.yellow}Claude Haiku 4.5${c.reset} ${c.gray}(claude-haiku-4-5)${c.reset} - Lightweight high-speed assistance\n`);
+
+    const modelChoice = await askQuestion(`${c.bold}Select AI model to activate (1-4) [default: 1]: ${c.reset}`);
+
+    if (modelChoice === '2' || modelChoice.toLowerCase().includes('fable')) {
+      selectedModel = 'claude-fable-5';
+    } else if (modelChoice === '3' || modelChoice.toLowerCase().includes('sonnet')) {
+      selectedModel = 'claude-sonnet-5';
+    } else if (modelChoice === '4' || modelChoice.toLowerCase().includes('haiku')) {
+      selectedModel = 'claude-haiku-4-5';
+    } else if (modelChoice && !['1'].includes(modelChoice)) {
+      selectedModel = modelChoice.trim();
+    } else {
+      selectedModel = 'claude-opus-5';
+    }
+  }
+
+  const friendlyName = getFriendlyModelName(selectedModel);
+  console.log(`\n${c.brightGreen}✔ Model Selected: ${c.bold}${friendlyName}${c.reset} ${c.gray}(${selectedModel})${c.reset}`);
+
   console.log(`\n${c.cyan}Configuring selected tools...${c.reset}`);
   const gatewayUrl = getGatewayUrl();
   for (const client of selectedClients) {
-    const res = configureClient(client, apiKey, gatewayUrl);
+    const res = configureClient(client, apiKey, gatewayUrl, selectedModel);
     if (res.success) {
       console.log(`  ${c.brightGreen}✓ Configured ${client.name}${res.backupPath ? ` ${c.gray}(Backup saved to ${res.backupPath})${c.reset}` : ''}${c.reset}`);
     } else {
@@ -326,6 +363,8 @@ async function runSetup() {
 
   console.log(`\n${c.gray}┌──────────────────────── CONFIGURATION COMPLETE ────────────────────────┐${c.reset}`);
   console.log(`  ${c.brightGreen}🎉 LightningDeals configuration applied successfully!${c.reset}`);
+  console.log(`  ${c.cyan}Active Model${c.reset}   : ${c.brightGreen}${friendlyName}${c.reset} ${c.gray}(${selectedModel})${c.reset}`);
+  console.log(`  ${c.cyan}Gateway Engine${c.reset} : ${c.amber}LightningDeals AI Gateway (Sub-50ms Routing)${c.reset}`);
   console.log(`  ${c.white}You can now run ${c.amber}claude${c.white} or open your IDE to start coding immediately.${c.reset}`);
   console.log(`${c.gray}└────────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
 }
@@ -342,6 +381,7 @@ function runHelp() {
   console.log(`  ${c.cyan}--help, -h${c.reset}           Display CLI usage and help manual\n`);
   console.log(`${c.bold}Options:${c.reset}`);
   console.log(`  ${c.amber}--key, -k <key>${c.reset}      Specify LightningDeals API Key directly (e.g. ld_live_...)`);
+  console.log(`  ${c.amber}--model, -m <model>${c.reset}  Select default AI model (e.g. claude-opus-5, claude-fable-5)`);
   console.log(`  ${c.gray}LIGHTNINGDEALS_API_URL${c.reset}  Environment variable to override API Gateway endpoint\n`);
 }
 
@@ -356,7 +396,7 @@ async function main() {
   }
 
   let command = firstArg;
-  if (firstArg.startsWith('-') && firstArg !== '--key' && firstArg !== '-k') {
+  if (firstArg.startsWith('-') && firstArg !== '--key' && firstArg !== '-k' && firstArg !== '--model' && firstArg !== '-m') {
     command = 'setup';
   }
 

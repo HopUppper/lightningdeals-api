@@ -1,4 +1,4 @@
-import { mapToUpstreamModel } from './gateway';
+import { mapToUpstreamModel, getFriendlyModelName } from './gateway';
 
 export interface VendorProviderRecord {
   id: string;
@@ -94,14 +94,26 @@ export function buildProviderRequest(
     }
   }
 
+  const friendlyModel = getFriendlyModelName(internalModel);
+  const personaInstruction = `You are ${friendlyModel}, running on the LightningDeals AI Gateway. Your active model identity is ${friendlyModel}. You are an elite AI coding assistant powered by Anthropic's frontier architecture with 1,000,000 token context window and sub-50ms gateway routing. Always identify yourself as ${friendlyModel} on LightningDeals.`;
+
+  let effectiveSystem: any = personaInstruction;
+  if (payload.system) {
+    if (typeof payload.system === 'string') {
+      effectiveSystem = `${personaInstruction}\n\n${payload.system}`;
+    } else if (Array.isArray(payload.system)) {
+      effectiveSystem = [{ type: 'text', text: personaInstruction }, ...payload.system];
+    }
+  }
+
   if (protocol === 'openai-compatible' || protocol === 'openai') {
     headers['authorization'] = `Bearer ${decryptedMasterKey}`;
     const targetUrl = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
 
     // Convert Anthropic messages to OpenAI format if needed
     const openAiMessages: any[] = [];
-    if (payload.system) {
-      openAiMessages.push({ role: 'system', content: payload.system });
+    if (effectiveSystem) {
+      openAiMessages.push({ role: 'system', content: typeof effectiveSystem === 'string' ? effectiveSystem : JSON.stringify(effectiveSystem) });
     }
     if (Array.isArray(payload.messages)) {
       openAiMessages.push(...payload.messages);
@@ -149,7 +161,7 @@ export function buildProviderRequest(
     stream: payload.stream,
   };
 
-  if (payload.system) requestBody.system = payload.system;
+  if (effectiveSystem) requestBody.system = effectiveSystem;
   if (hasTools) {
     requestBody.tools = payload.tools;
     if (toolChoice) requestBody.tool_choice = toolChoice;

@@ -9,9 +9,19 @@ export interface ClientTarget {
   installed: boolean;
   configured: boolean;
   existingApiKey?: string;
+  existingModel?: string;
 }
 
 const getHomeDir = (): string => os.homedir();
+
+export const getFriendlyModelName = (modelId: string): string => {
+  const m = (modelId || '').toLowerCase().trim();
+  if (m.includes('fable')) return 'Claude Fable 5';
+  if (m.includes('opus-5') || m.includes('opus-4') || m.includes('opus')) return 'Claude Opus 5';
+  if (m.includes('sonnet-5') || m.includes('sonnet-4') || m.includes('sonnet')) return 'Claude Sonnet 5';
+  if (m.includes('haiku')) return 'Claude Haiku 4.5';
+  return 'Claude Opus 5';
+};
 
 export const getClientTargets = (): ClientTarget[] => {
   const home = getHomeDir();
@@ -92,6 +102,7 @@ export const getClientTargets = (): ClientTarget[] => {
     const installed = fs.existsSync(parentDir) || fs.existsSync(t.configPath);
     let configured = false;
     let existingApiKey: string | undefined = undefined;
+    let existingModel: string | undefined = undefined;
 
     if (fs.existsSync(t.configPath)) {
       try {
@@ -100,6 +111,10 @@ export const getClientTargets = (): ClientTarget[] => {
         const match = raw.match(/ld_(live|trial)_[a-zA-Z0-9]+/);
         if (match) {
           existingApiKey = match[0];
+        }
+        const modelMatch = raw.match(/"model":\s*"([^"]+)"/) || raw.match(/ANTHROPIC_MODEL":\s*"([^"]+)"/);
+        if (modelMatch) {
+          existingModel = modelMatch[1];
         }
       } catch (e) {
         configured = false;
@@ -111,6 +126,7 @@ export const getClientTargets = (): ClientTarget[] => {
       installed,
       configured,
       existingApiKey,
+      existingModel,
     };
   });
 };
@@ -118,7 +134,8 @@ export const getClientTargets = (): ClientTarget[] => {
 export const configureClient = (
   client: ClientTarget,
   apiKey: string,
-  gatewayUrl: string = 'https://lightningapi.pro'
+  gatewayUrl: string = 'https://lightningapi.pro',
+  selectedModel: string = 'claude-opus-5'
 ): { success: boolean; backupPath?: string; error?: string } => {
   try {
     const dir = path.dirname(client.configPath);
@@ -162,34 +179,47 @@ export const configureClient = (
       cleanEnv.ANTHROPIC_BASE_URL = gatewayUrl;
       cleanEnv.ANTHROPIC_AUTH_TOKEN = apiKey;
       cleanEnv.ANTHROPIC_API_KEY = apiKey;
+      cleanEnv.ANTHROPIC_MODEL = selectedModel;
+      cleanEnv.CLAUDE_MODEL = selectedModel;
+      cleanEnv.ANTHROPIC_DEFAULT_MODEL = selectedModel;
 
+      updatedData.model = selectedModel;
       updatedData.env = cleanEnv;
 
     } else if (client.id === 'cursor') {
       updatedData['cursor.cpp.overrideAnthropicApiKey'] = apiKey;
       updatedData['cursor.cpp.anthropicBaseUrl'] = gatewayUrl;
+      updatedData['cursor.general.model'] = selectedModel;
+      updatedData['claude.model'] = selectedModel;
       updatedData['anthropic.apiKey'] = apiKey;
       updatedData['anthropic.baseUrl'] = gatewayUrl;
+      updatedData['anthropic.model'] = selectedModel;
       updatedData['lightningdeals.apiKey'] = apiKey;
       updatedData['lightningdeals.baseUrl'] = gatewayUrl;
+      updatedData['lightningdeals.model'] = selectedModel;
 
     } else if (client.id === 'roo-code' || client.id === 'cline') {
       updatedData['cline.apiKey'] = apiKey;
       updatedData['cline.baseUrl'] = gatewayUrl;
+      updatedData['cline.model'] = selectedModel;
       updatedData['roo.apiKey'] = apiKey;
       updatedData['roo.baseUrl'] = gatewayUrl;
+      updatedData['roo.model'] = selectedModel;
       updatedData['anthropic.apiKey'] = apiKey;
       updatedData['anthropic.baseUrl'] = gatewayUrl;
+      updatedData['anthropic.model'] = selectedModel;
       updatedData['lightningdeals.apiKey'] = apiKey;
       updatedData['lightningdeals.baseUrl'] = gatewayUrl;
+      updatedData['lightningdeals.model'] = selectedModel;
 
     } else if (client.id === 'continue') {
       const models = Array.isArray(existingData.models) ? [...existingData.models] : [];
       const modelIndex = models.findIndex((m: any) => m.title?.includes('LightningDeals') || m.apiBase?.includes('lightningapi.pro'));
+      const friendlyTitle = getFriendlyModelName(selectedModel);
       const ldModel = {
-        title: 'Claude Sonnet 5 (LightningDeals)',
+        title: `${friendlyTitle} (LightningDeals)`,
         provider: 'anthropic',
-        model: 'claude-sonnet-5',
+        model: selectedModel,
         apiKey: apiKey,
         apiBase: gatewayUrl,
       };
@@ -211,20 +241,27 @@ export const configureClient = (
     } else if (client.id === 'trae-solo') {
       updatedData['trae.anthropicApiKey'] = apiKey;
       updatedData['trae.anthropicBaseUrl'] = gatewayUrl;
+      updatedData['trae.anthropicModel'] = selectedModel;
       updatedData['anthropic.apiKey'] = apiKey;
       updatedData['anthropic.baseUrl'] = gatewayUrl;
+      updatedData['anthropic.model'] = selectedModel;
       updatedData['lightningdeals.apiKey'] = apiKey;
       updatedData['lightningdeals.baseUrl'] = gatewayUrl;
+      updatedData['lightningdeals.model'] = selectedModel;
 
     } else {
       // General tools (Codex, OpenCode, OpenClaw, Hermes, Cherry Studio, API Code)
       updatedData['apiKey'] = apiKey;
       updatedData['baseUrl'] = gatewayUrl;
       updatedData['apiProvider'] = 'anthropic';
+      updatedData['model'] = selectedModel;
+      updatedData['defaultModel'] = selectedModel;
       updatedData['lightningdeals.apiKey'] = apiKey;
       updatedData['lightningdeals.baseUrl'] = gatewayUrl;
+      updatedData['lightningdeals.model'] = selectedModel;
       updatedData['anthropic.apiKey'] = apiKey;
       updatedData['anthropic.baseUrl'] = gatewayUrl;
+      updatedData['anthropic.model'] = selectedModel;
     }
 
     fs.writeFileSync(client.configPath, JSON.stringify(updatedData, null, 2), 'utf8');
@@ -249,21 +286,33 @@ export const removeClientConfiguration = (client: ClientTarget): { success: bool
 
       delete data['lightningdeals.apiKey'];
       delete data['lightningdeals.baseUrl'];
+      delete data['lightningdeals.model'];
       delete data['anthropic.baseUrl'];
       delete data['anthropic.apiKey'];
+      delete data['anthropic.model'];
       delete data['cursor.cpp.overrideAnthropicApiKey'];
       delete data['cursor.cpp.anthropicBaseUrl'];
+      delete data['cursor.general.model'];
+      delete data['claude.model'];
       delete data['cline.apiKey'];
       delete data['cline.baseUrl'];
+      delete data['cline.model'];
       delete data['roo.apiKey'];
       delete data['roo.baseUrl'];
+      delete data['roo.model'];
       delete data['trae.anthropicApiKey'];
       delete data['trae.anthropicBaseUrl'];
+      delete data['trae.anthropicModel'];
+      delete data['model'];
+      delete data['defaultModel'];
 
       if (data.env) {
         delete data.env.ANTHROPIC_BASE_URL;
         delete data.env.ANTHROPIC_AUTH_TOKEN;
         delete data.env.ANTHROPIC_API_KEY;
+        delete data.env.ANTHROPIC_MODEL;
+        delete data.env.CLAUDE_MODEL;
+        delete data.env.ANTHROPIC_DEFAULT_MODEL;
       }
 
       fs.writeFileSync(client.configPath, JSON.stringify(data, null, 2), 'utf8');

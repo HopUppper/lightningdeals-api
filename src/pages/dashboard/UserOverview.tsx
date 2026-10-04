@@ -136,10 +136,10 @@ export const UserOverview: React.FC = () => {
                   ⚡ {activeOffer.multiplier}X Bonus Multiplier
                 </span>
                 <span className="text-muted bg-white/80 border border-border px-2.5 py-1 rounded-lg">
-                  Min Purchase: ₹{activeOffer.minPurchaseAmount.toLocaleString()}+
+                  {activeOffer.minPurchaseAmount > 0 ? `Min Purchase: ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : 'Applies to ALL Orders'}
                 </span>
                 <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold">
-                  Max Reward: ₹{activeOffer.maxCredits.toLocaleString()} Credits
+                  Max Reward: ₹{activeOffer.maxCredits.toLocaleString()} Credits (₹5,000 Purchase Cap)
                 </span>
               </div>
             </div>

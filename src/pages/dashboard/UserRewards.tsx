@@ -91,7 +91,9 @@ export const UserRewards: React.FC = () => {
 
   const isPromo = Boolean(data?.settings?.promoActive);
   const promoMultiplier = Number(data?.settings?.promoMultiplier) || 2.0;
-  const promoMinPurchase = Number(data?.settings?.promoMinPurchaseAmount) || 5000;
+  const promoMinPurchase = data?.settings?.promoMinPurchaseAmount !== undefined && data?.settings?.promoMinPurchaseAmount !== null
+    ? Number(data?.settings?.promoMinPurchaseAmount)
+    : 0;
   const promoMaxCredits = Number(data?.settings?.promoMaxCredits) || 1000;
 
   const eligiblePortion = Math.min(calcAmount, maxEligible);
@@ -199,10 +201,10 @@ export const UserRewards: React.FC = () => {
                   ⚡ {promoMultiplier}X Flash Multiplier
                 </span>
                 <span className="text-muted bg-white/80 border border-border px-2.5 py-1 rounded-lg">
-                  Qualifying Order: ₹{promoMinPurchase.toLocaleString()}+
+                  {promoMinPurchase > 0 ? `Qualifying Order: ₹${promoMinPurchase.toLocaleString()}+` : 'Applies to ALL Orders'}
                 </span>
                 <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold">
-                  Max Reward: ₹{promoMaxCredits.toLocaleString()} Credits
+                  Max Reward: ₹{promoMaxCredits.toLocaleString()} Credits (₹{maxEligible.toLocaleString()} Purchase Cap)
                 </span>
               </div>
             </div>
@@ -426,9 +428,9 @@ export const UserRewards: React.FC = () => {
                 <span>Reward Percentage:</span>
                 <span className="text-fg font-bold">{rewardRate}%</span>
               </div>
-              {calcAmount > maxEligible && !isPromoQualifying && (
-                <p className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-                  Note: Purchases above ₹{maxEligible.toLocaleString()} earn the maximum ₹{maxReward} per transaction.
+              {calcAmount > maxEligible && (
+                <p className="text-[10px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
+                  Note: Purchases above ₹{maxEligible.toLocaleString()} are calculated on the ₹{maxEligible.toLocaleString()} purchase cap (capping rewards at ₹{isPromoQualifying ? promoMaxCredits.toLocaleString() : maxReward.toLocaleString()} credits).
                 </p>
               )}
               {isPromoQualifying && (

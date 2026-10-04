@@ -121,7 +121,7 @@ export const LightningRewardsHighlight: React.FC = () => {
                     {isPromo ? `${activeOffer.multiplier}X Boost` : '10% Back'}
                   </p>
                   <p className="text-[11px] text-muted font-mono">
-                    {isPromo ? `On orders of ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : 'On first ₹5,000 per order'}
+                    {isPromo ? (activeOffer.minPurchaseAmount > 0 ? `On orders of ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : 'Boost on all purchases') : 'On first ₹5,000 per order'}
                   </p>
                 </div>
               </div>
@@ -133,7 +133,7 @@ export const LightningRewardsHighlight: React.FC = () => {
                     {isPromo ? `Up to ₹${activeOffer.maxCredits.toLocaleString()} Max` : 'Unlimited Wallet'}
                   </p>
                   <p className="text-[11px] text-muted font-mono">
-                    {isPromo ? 'Per transaction cap' : 'No balance cap restriction'}
+                    {isPromo ? 'Per order cap (up to ₹5k)' : 'No balance cap restriction'}
                   </p>
                 </div>
               </div>
@@ -227,10 +227,10 @@ export const LightningRewardsHighlight: React.FC = () => {
                   <div className={`p-3.5 rounded-xl ${isPromo ? 'bg-amber-50/90 border border-amber-200' : 'bg-violet-50/80 border border-violet-200/80'} text-xs font-mono space-y-1`}>
                     <p className={`${isPromo ? 'text-amber-950' : 'text-violet-900'} font-bold flex items-center gap-1.5`}>
                       <CheckCircle2 className={`w-3.5 h-3.5 ${isPromo ? 'text-amber-600' : 'text-violet-600'}`} />
-                      <span>{isPromo ? `Boost Active: Earn ${activeOffer.multiplier}X on orders of ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : 'Ready for Instant Redemption'}</span>
+                      <span>{isPromo ? (activeOffer.minPurchaseAmount > 0 ? `Boost Active: Earn ${activeOffer.multiplier}X on orders of ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : `Boost Active: Earn ${activeOffer.multiplier}X on ALL purchases today!`) : 'Ready for Instant Redemption'}</span>
                     </p>
                     <p className="text-muted text-[11px]">
-                      {isPromo ? `Cap up to ${activeOffer.maxCredits} credits! Credits never expire and apply directly to renewals.` : 'Apply these credits at checkout to discount your next Claude plan.'}
+                      {isPromo ? `Capped at max ${activeOffer.maxCredits} credits (on up to ₹5,000 purchase cap). Credits never expire!` : 'Apply these credits at checkout to discount your next Claude plan.'}
                     </p>
                   </div>
 
@@ -260,16 +260,20 @@ export const LightningRewardsHighlight: React.FC = () => {
                     {isPromo ? (
                       <>
                         <div className="flex justify-between text-muted">
-                          <span>Standard 10% on ₹5,000:</span>
-                          <span className="font-bold text-fg line-through">₹500 Credits</span>
+                          <span>₹1,000 Purchase:</span>
+                          <span className="font-bold text-fg">+{Math.min(100 * (activeOffer.multiplier || 2), activeOffer.maxCredits)} Credits ({activeOffer.multiplier}X)</span>
+                        </div>
+                        <div className="flex justify-between text-muted">
+                          <span>₹3,000 Purchase:</span>
+                          <span className="font-bold text-fg">+{Math.min(300 * (activeOffer.multiplier || 2), activeOffer.maxCredits)} Credits ({activeOffer.multiplier}X)</span>
                         </div>
                         <div className="flex justify-between text-amber-800 font-extrabold bg-amber-50/80 p-1.5 rounded">
-                          <span>{activeOffer.multiplier}X Flash Reward:</span>
-                          <span className="text-amber-700">+{activeOffer.maxCredits.toLocaleString()} Credits!</span>
+                          <span>₹5,000+ Purchase:</span>
+                          <span className="text-amber-700">+{activeOffer.maxCredits.toLocaleString()} Credits (Max Cap)</span>
                         </div>
                         <div className="flex justify-between text-muted text-[11px]">
-                          <span>Qualifying Threshold:</span>
-                          <span className="font-bold text-fg">₹{activeOffer.minPurchaseAmount.toLocaleString()}+ purchase</span>
+                          <span>Calculation Ceiling:</span>
+                          <span className="font-bold text-fg">Up to ₹5,000 purchase cap</span>
                         </div>
                       </>
                     ) : (

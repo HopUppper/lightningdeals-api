@@ -14,6 +14,7 @@ export interface ActiveOffer {
   showBanner: boolean;
   endsAt: string | null;
   baseRewardPercentage: number;
+  maxEligiblePurchaseAmount?: number;
   currency: string;
 }
 
@@ -135,13 +136,13 @@ export const PromotionalOfferModal: React.FC = () => {
             <div className="p-3 sm:p-3.5 rounded-2xl bg-white/5 border border-amber-500/30 text-center space-y-1">
               <p className="text-[10px] font-mono uppercase text-amber-300/80 font-bold">Multiplier</p>
               <p className="text-xl sm:text-2xl font-black font-mono text-amber-400">{offer.multiplier}X</p>
-              <p className="text-[10px] text-slate-400 font-mono">Bonus Boost</p>
+              <p className="text-[10px] text-slate-400 font-mono">On All Orders</p>
             </div>
 
             <div className="p-3 sm:p-3.5 rounded-2xl bg-white/5 border border-white/10 text-center space-y-1">
-              <p className="text-[10px] font-mono uppercase text-slate-400 font-bold">Min Purchase</p>
-              <p className="text-base sm:text-lg font-black font-mono text-white">₹{offer.minPurchaseAmount.toLocaleString()}+</p>
-              <p className="text-[10px] text-slate-400 font-mono">Qualifying Order</p>
+              <p className="text-[10px] font-mono uppercase text-slate-400 font-bold">Purchase Cap</p>
+              <p className="text-base sm:text-lg font-black font-mono text-white">Up to ₹{(offer.maxEligiblePurchaseAmount || 5000).toLocaleString()}</p>
+              <p className="text-[10px] text-slate-400 font-mono">Calculation Limit</p>
             </div>
 
             <div className="p-3 sm:p-3.5 rounded-2xl bg-white/5 border border-white/10 text-center space-y-1">
@@ -154,7 +155,7 @@ export const PromotionalOfferModal: React.FC = () => {
           {/* Value Guarantee Note */}
           <div className="mt-4 p-3 rounded-xl bg-violet-950/40 border border-violet-500/30 flex items-center gap-2.5 text-xs text-violet-200 relative z-10 font-mono">
             <Sparkles className="w-4 h-4 text-violet-400 shrink-0" />
-            <span>1 Lightning Credit = ₹1. Instant credit to your wallet, valid on all future plans & renewals!</span>
+            <span>1 Lightning Credit = ₹1. {offer.multiplier}X boost applies to all purchases, capped at max {offer.maxCredits.toLocaleString()} credits!</span>
           </div>
 
           {/* Action Buttons */}

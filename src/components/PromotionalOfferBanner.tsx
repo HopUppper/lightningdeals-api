@@ -14,6 +14,7 @@ export interface ActiveOffer {
   showBanner: boolean;
   endsAt: string | null;
   baseRewardPercentage: number;
+  maxEligiblePurchaseAmount?: number;
   currency: string;
 }
 

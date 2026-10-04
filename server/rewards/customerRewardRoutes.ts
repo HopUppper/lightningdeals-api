@@ -129,6 +129,7 @@ customerRewardsRouter.get('/active-offer', async (req, res) => {
             showBanner: settings.promoShowBanner,
             endsAt: settings.promoEndsAt,
             baseRewardPercentage: settings.rewardPercentage,
+            maxEligiblePurchaseAmount: settings.maxEligiblePurchaseAmount,
             currency: settings.currency,
           }
         : null,

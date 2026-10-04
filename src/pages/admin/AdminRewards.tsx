@@ -64,10 +64,10 @@ export const AdminRewards: React.FC = () => {
     isActive: true,
     promoActive: false,
     promoMultiplier: 2.0,
-    promoMinPurchaseAmount: 5000,
+    promoMinPurchaseAmount: 0,
     promoMaxCredits: 1000,
     promoTitle: '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
-    promoSubtitle: 'Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!',
+    promoSubtitle: 'Get 2X credits on ALL purchases today (up to 1,000 credits max on purchases up to ₹5,000)!',
     promoBadge: 'SUNDAY BOOST',
     promoShowPopup: true,
     promoShowBanner: true,
@@ -132,10 +132,10 @@ export const AdminRewards: React.FC = () => {
             isActive: Boolean(data.settings.isActive),
             promoActive: Boolean(data.settings.promoActive),
             promoMultiplier: data.settings.promoMultiplier ?? 2.0,
-            promoMinPurchaseAmount: data.settings.promoMinPurchaseAmount ?? 5000,
+            promoMinPurchaseAmount: data.settings.promoMinPurchaseAmount ?? 0,
             promoMaxCredits: data.settings.promoMaxCredits ?? 1000,
             promoTitle: data.settings.promoTitle ?? '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
-            promoSubtitle: data.settings.promoSubtitle ?? 'Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!',
+            promoSubtitle: data.settings.promoSubtitle ?? 'Get 2X credits on ALL purchases today (up to 1,000 credits max on purchases up to ₹5,000)!',
             promoBadge: data.settings.promoBadge ?? 'SUNDAY BOOST',
             promoShowPopup: data.settings.promoShowPopup ?? true,
             promoShowBanner: data.settings.promoShowBanner ?? true,
@@ -943,16 +943,16 @@ export const AdminRewards: React.FC = () => {
                     ...settingsForm,
                     promoActive: true,
                     promoMultiplier: 2.0,
-                    promoMinPurchaseAmount: 5000,
+                    promoMinPurchaseAmount: 0,
                     promoMaxCredits: 1000,
                     promoTitle: '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
                     promoSubtitle:
-                      'Earn double credits (up to 1,000 credits) on all purchases of ₹5,000 or above today!',
+                      'Get 2X credits on ALL purchases today (up to 1,000 credits max on purchases up to ₹5,000)!',
                     promoBadge: 'SUNDAY BOOST',
                     promoShowPopup: true,
                     promoShowBanner: true,
                   });
-                  showToast('⚡ Preset Applied: Sunday 2X Special (2x on ₹5,000+, Max 1,000 Credits)');
+                  showToast('⚡ Preset Applied: Sunday 2X Special (2x on ALL orders, Capped at 1,000 Credits on ₹5,000 purchase)');
                 }}
                 className="ui-button-secondary text-xs py-2 px-3.5 font-bold flex items-center justify-center gap-1.5 shrink-0 bg-white hover:bg-amber-100/50 border-amber-300 text-amber-900"
               >
@@ -1011,7 +1011,7 @@ export const AdminRewards: React.FC = () => {
                     required
                   />
                 </div>
-                <p className="text-[10px] text-muted font-mono">Threshold required to trigger boost</p>
+                <p className="text-[10px] text-muted font-mono">0 = All purchases qualify (even below ₹5,000)</p>
               </div>
 
               <div className="space-y-1.5">
@@ -1138,34 +1138,19 @@ export const AdminRewards: React.FC = () => {
                   {settingsForm.promoSubtitle}
                 </p>
               </div>
-              <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-                <span className="text-amber-300">
-                  ⚡ ₹{settingsForm.promoMinPurchaseAmount.toLocaleString()} purchase earns{' '}
-                  <strong className="text-white underline font-extrabold">
-                    {Math.min(
-                      Math.round(
-                        (settingsForm.promoMinPurchaseAmount *
-                          (settingsForm.rewardPercentage / 100) *
-                          settingsForm.promoMultiplier) *
-                          100
-                      ) / 100,
-                      settingsForm.promoMaxCredits > 0
-                        ? settingsForm.promoMaxCredits
-                        : Infinity
-                    ).toLocaleString()}{' '}
-                    Credits
-                  </strong>{' '}
-                  (vs standard{' '}
-                  {Math.round(
-                    (settingsForm.promoMinPurchaseAmount *
-                      (settingsForm.rewardPercentage / 100)) *
-                      100
-                  ) / 100}{' '}
-                  credits)!
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  Cap: {settingsForm.promoMaxCredits.toLocaleString()} Credits Max
-                </span>
+              <div className="pt-2 border-t border-slate-800/80 space-y-1.5 text-xs font-mono">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-amber-300">
+                  <span>⚡ Example 1: ₹1,000 purchase earns <strong>200 Credits</strong> (Standard: 100)</span>
+                  <span className="text-emerald-400 font-bold">{settingsForm.promoMultiplier}X Applied</span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-amber-300">
+                  <span>⚡ Example 2: ₹5,000 purchase earns <strong>1,000 Credits</strong> (Standard: 500)</span>
+                  <span className="text-emerald-400 font-bold">{settingsForm.promoMultiplier}X Applied</span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-slate-300">
+                  <span>⚡ Example 3: ₹6,000+ purchase earns <strong className="text-white">1,000 Credits</strong> (Capped at {settingsForm.promoMaxCredits.toLocaleString()} max on ₹5,000 purchase cap)</span>
+                  <span className="text-amber-400 font-bold">Capped at {settingsForm.promoMaxCredits.toLocaleString()} Max</span>
+                </div>
               </div>
             </div>
           </div>

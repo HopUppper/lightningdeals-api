@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut, User as UserIcon, ShoppingBag } from 'lucide-react';
+import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut, User as UserIcon, ShoppingBag, Gift } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { ReferralAnnouncementBanner } from './ReferralAnnouncementBanner';
 
 export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -34,12 +35,14 @@ export const Navbar: React.FC = () => {
     { name: 'Models', href: '/models', isPage: true },
     { name: 'Plans', href: '/pricing', isPage: true },
     { name: '⚡ Rewards', href: '/rewards', isPage: true },
+    { name: '🤝 Refer & Earn', href: '/dashboard/referrals', isPage: true },
     { name: 'Docs', href: '/docs', isPage: true },
     { name: 'Status', href: '/status', isPage: true },
   ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-white/85 backdrop-blur-xl shadow-xs">
+      <ReferralAnnouncementBanner />
       <nav className="mx-auto flex h-16 max-w-page items-center justify-between px-4 sm:px-6" aria-label="Primary">
         
         {/* Brand Logo with 3D Glowing Icon */}

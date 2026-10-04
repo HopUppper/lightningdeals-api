@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles } from 'lucide-react';
+import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles, Gift } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
@@ -112,6 +112,38 @@ export const UserOverview: React.FC = () => {
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20 font-mono">
             <ShieldCheck className="w-3.5 h-3.5" /> Verified Account
           </span>
+        </div>
+      </div>
+
+      {/* Referral Program Launch Announcement Card */}
+      <div className="relative overflow-hidden rounded-panel border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-indigo-500/10 p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-amber-500 to-violet-600 text-white shadow-md shadow-amber-500/20 shrink-0">
+              <Gift className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                  NEW FEATURE LIVE
+                </span>
+                <h3 className="text-base font-extrabold text-fg tracking-tight">
+                  ⚡ Referral Program is Now Live!
+                </h3>
+              </div>
+              <p className="text-xs text-muted font-mono mt-0.5">
+                Invite friends and colleagues to earn 10% matching Lightning Credits on their purchases (up to ₹500/order).
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/dashboard/referrals"
+            className="ui-button-primary bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 font-bold shrink-0 shadow-md shadow-amber-500/20 active:scale-95 transition-all font-mono"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Get Your Referral Link</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
 

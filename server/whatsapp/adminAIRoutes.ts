@@ -47,10 +47,16 @@ adminAIRouter.get('/config', async (req: AuthRequest, res: Response) => {
       hasGeminiKey: Boolean(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY),
     };
 
-    return res.json({ config, availableKeys });
+    const telemetry = AIProvider.getTelemetry();
+
+    return res.json({ config, availableKeys, telemetry });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
+});
+
+adminAIRouter.get('/telemetry', async (req: AuthRequest, res: Response) => {
+  return res.json({ success: true, telemetry: AIProvider.getTelemetry() });
 });
 
 adminAIRouter.post('/config', async (req: AuthRequest, res: Response) => {

@@ -223,3 +223,170 @@ export async function handlePaymentWebhook(req: Request, res: Response) {
     res.status(400).json({ error: err.message });
   }
 }
+
+// 7. GET /pay/:orderId & /api/checkout/pay/:orderId — Realtime PayU Gateway Auto-Submission Page
+export async function handlePayUOrderRedirect(req: Request, res: Response) {
+  const orderIdParam = req.params.orderId;
+  if (!orderIdParam) {
+    return res.status(400).send('Order ID is required.');
+  }
+
+  try {
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { internalOrderId: orderIdParam },
+          { id: orderIdParam },
+        ],
+      },
+      include: { user: true },
+    });
+
+    if (!order) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Order Not Found — Lightning Deals</title>
+          <style>
+            body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+            .card { background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 32px; max-width: 440px; text-align: center; }
+            h1 { font-size: 20px; margin: 0 0 12px; color: #ef4444; }
+            p { color: #a3a3a3; font-size: 14px; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Order Not Found</h1>
+            <p>We could not locate order <strong>${orderIdParam}</strong>. Please check your order details or contact our team on WhatsApp.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // If order already paid
+    if (['PAID', 'CAPTURED'].includes(order.paymentStatus) || order.status === 'PAID') {
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Payment Completed — Lightning Deals</title>
+          <style>
+            body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+            .card { background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 32px; max-width: 440px; text-align: center; }
+            .badge { display: inline-block; background: #10b98120; color: #10b981; border: 1px solid #10b98140; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 13px; margin-bottom: 16px; }
+            h1 { font-size: 20px; margin: 0 0 12px; }
+            p { color: #a3a3a3; font-size: 14px; line-height: 1.5; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="badge">✓ Payment Already Verified</div>
+            <h1>Order #${order.internalOrderId}</h1>
+            <p>Your payment for <strong>${order.planName}</strong> (₹${order.amountInr.toLocaleString('en-IN')}) has already been confirmed. Access details have been delivered to your WhatsApp chat!</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // If order cancelled
+    if (order.status === 'CANCELLED' || order.paymentStatus === 'CANCELLED') {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Order Cancelled — Lightning Deals</title>
+          <style>
+            body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+            .card { background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 32px; max-width: 440px; text-align: center; }
+            h1 { font-size: 20px; margin: 0 0 12px; color: #f59e0b; }
+            p { color: #a3a3a3; font-size: 14px; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Order Cancelled</h1>
+            <p>Order <strong>${order.internalOrderId}</strong> has been cancelled. Please request a new quote on WhatsApp to purchase.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Generate PayU params
+    const provider = getPaymentProvider();
+    const gatewayResult = await provider.createOrder({
+      internalOrderId: order.internalOrderId,
+      amountInr: order.amountInr,
+      currency: order.currency,
+      planId: order.planId,
+      planName: order.planName,
+      customerEmail: order.user?.email || 'customer@lightningapi.pro',
+      customerName: order.user?.name || 'Valued Customer',
+      customerPhone: order.user?.phone || '9876543210',
+    });
+
+    if (!gatewayResult.success || !gatewayResult.metadata) {
+      return res.status(500).send('Failed to initialize payment gateway.');
+    }
+
+    const m = gatewayResult.metadata;
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Connecting to PayU... — Lightning Deals</title>
+        <style>
+          body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+          .card { background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 32px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+          .spinner { width: 36px; height: 36px; border: 3px solid #7c3aed30; border-top-color: #7c3aed; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          h1 { font-size: 18px; margin: 0 0 8px; font-weight: 600; }
+          p { color: #a3a3a3; font-size: 13px; margin: 0 0 24px; line-height: 1.5; }
+          .btn { background: #7c3aed; color: #fff; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; width: 100%; }
+        </style>
+      </head>
+      <body onload="document.getElementById('payuForm').submit()">
+        <div class="card">
+          <div class="spinner"></div>
+          <h1>Connecting to Secure Payment...</h1>
+          <p>Please wait while we transfer you to PayU to complete payment of <strong>₹${order.amountInr.toLocaleString('en-IN')}</strong> for <strong>${order.planName}</strong>.</p>
+          <form id="payuForm" method="POST" action="${m.action}">
+            <input type="hidden" name="key" value="${m.key}" />
+            <input type="hidden" name="txnid" value="${m.txnid}" />
+            <input type="hidden" name="amount" value="${m.amount}" />
+            <input type="hidden" name="productinfo" value="${m.productinfo}" />
+            <input type="hidden" name="firstname" value="${m.firstname}" />
+            <input type="hidden" name="email" value="${m.email}" />
+            <input type="hidden" name="phone" value="${m.phone}" />
+            <input type="hidden" name="surl" value="${m.surl}" />
+            <input type="hidden" name="furl" value="${m.furl}" />
+            <input type="hidden" name="hash" value="${m.hash}" />
+            <input type="hidden" name="udf1" value="${m.udf1 || ''}" />
+            <input type="hidden" name="udf2" value="${m.udf2 || ''}" />
+            <input type="hidden" name="udf3" value="${m.udf3 || ''}" />
+            <button type="submit" class="btn">Click Here to Pay Now</button>
+          </form>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (err: any) {
+    console.error('[PAYU REDIRECT ERROR]', err);
+    return res.status(500).send(`Payment initialization error: ${err.message}`);
+  }
+}
+
+checkoutRouter.get('/pay/:orderId', handlePayUOrderRedirect);
+

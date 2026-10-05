@@ -166,7 +166,7 @@ app.get('/api/pricing/packages', async (req, res, next) => {
   }
 });
 
-import { checkoutRouter, handlePaymentWebhook } from './payments/paymentRoutes';
+import { checkoutRouter, handlePaymentWebhook, handlePayUOrderRedirect } from './payments/paymentRoutes';
 
 import { healthRouter } from './health';
 import { notificationsRouter } from './notifications';
@@ -198,6 +198,7 @@ app.use('/api/admin/rewards', adminRewardsRouter);
 app.use('/api/admin', adminFulfillmentRouter);
 app.use('/api/integrations', integrationRouter);
 app.use('/api/checkout', checkoutRouter);
+app.get('/pay/:orderId', handlePayUOrderRedirect);
 app.post('/api/webhooks/payment', handlePaymentWebhook);
 app.post('/api/webhooks/payu', handlePaymentWebhook);
 app.post('/api/webhooks/cashfree', handlePaymentWebhook);

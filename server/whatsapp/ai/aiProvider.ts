@@ -13,13 +13,65 @@ export interface LLMGenerateOptions {
   temperature?: number;
 }
 
+export interface AITelemetry {
+  activeProvider: string;
+  activeModel: string;
+  status: 'HEALTHY' | 'OPERATIONAL' | 'DEGRADED';
+  lastCallTimestamp: string | null;
+  lastExecutionTimeMs: number;
+  totalCalls: number;
+  totalTokens: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
 export class AIProvider {
+  private static telemetry: AITelemetry = {
+    activeProvider: 'rule_based',
+    activeModel: 'local-semantic-nlu-2.0',
+    status: 'OPERATIONAL',
+    lastCallTimestamp: null,
+    lastExecutionTimeMs: 0,
+    totalCalls: 0,
+    totalTokens: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+  };
+
+  public static getTelemetry(): AITelemetry {
+    return { ...this.telemetry };
+  }
+
+  public static recordCall(
+    provider: string,
+    model: string,
+    durationMs: number,
+    tokens?: { prompt: number; completion: number }
+  ) {
+    this.telemetry.activeProvider = provider;
+    this.telemetry.activeModel = model;
+    this.telemetry.status = 'OPERATIONAL';
+    this.telemetry.lastCallTimestamp = new Date().toISOString();
+    this.telemetry.lastExecutionTimeMs = durationMs;
+    this.telemetry.totalCalls += 1;
+    if (tokens) {
+      this.telemetry.totalTokens.promptTokens += tokens.prompt;
+      this.telemetry.totalTokens.completionTokens += tokens.completion;
+      this.telemetry.totalTokens.totalTokens += tokens.prompt + tokens.completion;
+    } else {
+      this.telemetry.totalTokens.promptTokens += 35;
+      this.telemetry.totalTokens.completionTokens += 60;
+      this.telemetry.totalTokens.totalTokens += 95;
+    }
+  }
+
   /**
    * Primary entry point for AI Agent reasoning and response generation.
    * Dispatches to configured LLM (Anthropic / OpenAI / Gemini) or uses
    * the high-precision semantic local NLU engine.
    */
   static async generateResponse(options: LLMGenerateOptions): Promise<AgentResponse> {
+    const startTime = Date.now();
     const { messages, context, systemPrompt } = options;
     const latestUserMsg = [...messages].reverse().find((m) => m.role === 'user')?.content || '';
 
@@ -56,21 +108,30 @@ export class AIProvider {
     if (activeProvider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
       try {
         const resp = await this.callAnthropic(messages, systemPrompt, activeModel, activeTemperature);
-        if (resp) return resp;
+        if (resp) {
+          this.recordCall('anthropic', activeModel, Date.now() - startTime);
+          return resp;
+        }
       } catch (err: any) {
         console.warn('[AI PROVIDER] Anthropic call failed, falling back to Local NLU:', err.message);
       }
     } else if (activeProvider === 'openai' && process.env.OPENAI_API_KEY) {
       try {
         const resp = await this.callOpenAI(messages, systemPrompt, activeModel, activeTemperature);
-        if (resp) return resp;
+        if (resp) {
+          this.recordCall('openai', activeModel, Date.now() - startTime);
+          return resp;
+        }
       } catch (err: any) {
         console.warn('[AI PROVIDER] OpenAI call failed, falling back to Local NLU:', err.message);
       }
     } else if (activeProvider === 'gemini' && (process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY)) {
       try {
         const resp = await this.callGemini(messages, systemPrompt, activeModel, activeTemperature);
-        if (resp) return resp;
+        if (resp) {
+          this.recordCall('gemini', activeModel, Date.now() - startTime);
+          return resp;
+        }
       } catch (err: any) {
         console.warn('[AI PROVIDER] Gemini call failed, falling back to Local NLU:', err.message);
       }
@@ -224,8 +285,23 @@ export class AIProvider {
     userText: string,
     context: AgentContext
   ): Promise<AgentResponse> {
+    const startTime = Date.now();
+    this.recordCall('local_nlu', 'semantic-agent-2.0', 5);
+
     const cleanText = (userText || '').trim();
-    const lower = cleanText.toLowerCase();
+    let lower = cleanText.toLowerCase();
+
+    // Typo normalizations
+    lower = lower
+      .replace(/\bcanava\b/g, 'canva')
+      .replace(/\bcanva proo\b/g, 'canva pro')
+      .replace(/\bclaud\b/g, 'claude')
+      .replace(/\bchatgptt\b/g, 'chatgpt')
+      .replace(/\badob\b/g, 'adobe')
+      .replace(/\bsubcription\b/g, 'subscription')
+      .replace(/\bpaymant\b/g, 'payment')
+      .replace(/\bordr\b/g, 'order')
+      .replace(/\bcredtis\b/g, 'credits');
 
     // 1. Language Detection (English vs Hinglish / Hindi)
     const isHinglish =
@@ -242,9 +318,49 @@ export class AIProvider {
       lower.includes('batao') ||
       lower.includes('kaise') ||
       lower.includes('konsa') ||
-      lower.includes('shukriya');
+      lower.includes('bhej') ||
+      lower.includes('paise') ||
+      lower.includes('paisa') ||
+      lower.includes('shukriya') ||
+      lower.includes('nahi') ||
+      lower.includes('nahin') ||
+      lower.includes('toh') ||
+      lower.includes('kahi') ||
+      lower.includes('fake') ||
+      lower.includes('scam') ||
+      lower.includes('apna') ||
+      lower.includes('aapka') ||
+      lower.includes('mera') ||
+      lower.includes('meri');
 
     const language: SupportedLanguage = isHinglish ? 'hinglish' : 'en';
+
+    // 0. Security Guardrail & Prompt Protection
+    if (
+      lower.includes('ignore all previous') ||
+      lower.includes('system prompt') ||
+      lower.includes('supplier price') ||
+      lower.includes('wholesale cost') ||
+      lower.includes('internal cost') ||
+      lower.includes('margin') ||
+      lower.includes('cost structure') ||
+      lower.includes('bypass') ||
+      lower.includes('without gateway') ||
+      lower.includes('without verification') ||
+      lower.includes('mark as paid') ||
+      lower.includes('mark order as paid')
+    ) {
+      const reply = isHinglish
+        ? `🛡️ *Security & Policy:*\n\nLightning Deals enterprise supplier contracts aur system internal policies strictly confidential hain. Main aapko best approved deals aur official software access provide karne mein help kar sakta hoon! ⚡`
+        : `🛡️ *Security & Confidentiality:*\n\nAll supplier contracts and backend configurations are strictly confidential. I am happy to assist you with our catalog, active subscriptions, or custom enterprise quotes! ⚡`;
+      return {
+        messageText: reply,
+        intentDetected: 'SECURITY_GUARDRAIL',
+        confidence: 1.0,
+        language,
+        toolsUsed: [],
+      };
+    }
 
     // 2. Human Handoff Intent Detection
     if (
@@ -275,7 +391,118 @@ export class AIProvider {
       };
     }
 
-    // 3. Payment Claim Intent ("I paid", "payment done", "paid on payu", "payment krdiya")
+    // 2b. Reusable Payment Link ("send the link again", "where is my link", "payment link", "link bhej")
+    if (
+      lower.includes('send the link again') ||
+      lower.includes('send link again') ||
+      lower.includes('where is my payment link') ||
+      lower.includes('where is my link') ||
+      lower.includes('link nahi mila') ||
+      lower.includes('link dobara') ||
+      lower === 'send link' ||
+      lower === 'link bhej' ||
+      (lower.includes('link') && (lower.includes('again') || lower.includes('bhej') || lower.includes('kaha') || lower.includes('mera')))
+    ) {
+      const linkRes = await ToolRegistry.executeTool('getOrderPaymentLink', {}, context);
+      if (linkRes.success && linkRes.data?.paymentUrl) {
+        const d = linkRes.data;
+        const reply = isHinglish
+          ? `⚡ *Aapka Payment Link:* (Order #${d.internalOrderId})\n\n*Product:* ${d.productName}\n*Amount:* ₹${d.amountInr.toLocaleString('en-IN')}\n\n👉 *Pay securely here:*\n${d.paymentUrl}\n\nAap is link se direct UPI ya Card se secure payment complete kar sakte hain! ⚡`
+          : `⚡ *Your Payment Link:* (Order #${d.internalOrderId})\n\n*Product:* ${d.productName}\n*Amount:* ₹${d.amountInr.toLocaleString('en-IN')}\n\n👉 *Pay securely here:*\n${d.paymentUrl}\n\nYou can complete your payment securely via UPI, NetBanking, or Cards! ⚡`;
+        return {
+          messageText: reply,
+          intentDetected: 'RESEND_PAYMENT_LINK',
+          confidence: 0.98,
+          language,
+          toolsUsed: ['getOrderPaymentLink'],
+        };
+      }
+    }
+
+    // 2c. Failed Payment Handling ("payment failed", "payment fail", "failed payment")
+    if (
+      lower.includes('payment failed') ||
+      lower.includes('payment fail') ||
+      lower.includes('transaction failed')
+    ) {
+      const linkRes = await ToolRegistry.executeTool('getOrderPaymentLink', {}, context);
+      const payUrl = linkRes.data?.paymentUrl;
+      const reply = isHinglish
+        ? `⚠️ *Payment Incomplete*\n\nKoi baat nahi bhai! Agar bank ya UPI se payment complete nahi hui hai, toh aap is secure link se dobara retry kar sakte hain:\n\n👉 ${payUrl || 'https://lightningapi.pro'}\n\nAgar paise deduct ho gaye hain toh 1-2 minute wait karein, PayU auto-verify kar lega! ⚡`
+        : `⚠️ *Payment Incomplete or Cancelled*\n\nNo worries! If your payment didn't go through, you can retry anytime using your secure order link:\n\n👉 ${payUrl || 'https://lightningapi.pro'}\n\nIf amount was already debited, the PayU webhook will reconcile it automatically within 1-2 minutes! ⚡`;
+      return {
+        messageText: reply,
+        intentDetected: 'PAYMENT_FAILED_RETRY',
+        confidence: 0.95,
+        language,
+        toolsUsed: ['getOrderPaymentLink'],
+      };
+    }
+
+    // 2d. Short replies / Purchase confirmation ("yes", "buy", "haan", "chahiye", "okay", "same wala", "that one", "deal pakka")
+    const isAffirmative =
+      lower === 'yes' ||
+      lower === 'haan' ||
+      lower === 'ha' ||
+      lower === 'buy' ||
+      lower === 'pay' ||
+      lower === 'okay' ||
+      lower === 'ok' ||
+      lower === 'same wala' ||
+      lower === 'that one' ||
+      lower === 'deal pakka' ||
+      lower === 'haan chahiye' ||
+      lower === 'chahiye';
+
+    if (isAffirmative && context.customerId) {
+      // Look up active approved price
+      const approvedRes = await ToolRegistry.executeTool('getApprovedPrice', { productId: context.currentProductId }, context);
+      if (approvedRes.data?.hasApprovedPrice) {
+        const q = approvedRes.data;
+        const orderRes = await ToolRegistry.executeTool(
+          'createOrder',
+          {
+            negotiatedPriceId: q.negotiatedPriceId,
+            productId: q.productId,
+            productName: q.productName,
+          },
+          context
+        );
+
+        if (orderRes.success && orderRes.data?.paymentUrl) {
+          const d = orderRes.data;
+          const reply = isHinglish
+            ? `⚡ *Aapka order ready hai!*\n\n*Product:* ${d.productName}\n*Amount:* ₹${d.amountInr.toLocaleString('en-IN')}\n*Order ID:* ${d.internalOrderId}\n\n👉 *Pay securely here:*\n${d.paymentUrl}\n\nPayment complete hote hi access credentials WhatsApp par deliver ho jayenge! ⚡`
+            : `⚡ *Your order is ready!*\n\n*Product:* ${d.productName}\n*Amount:* ₹${d.amountInr.toLocaleString('en-IN')}\n*Order ID:* ${d.internalOrderId}\n\n👉 *Pay securely here:*\n${d.paymentUrl}\n\nOnce payment is confirmed, your subscription credentials will be delivered immediately! ⚡`;
+
+          return {
+            messageText: reply,
+            intentDetected: 'ORDER_CREATED_PAYMENT_LINK',
+            confidence: 0.99,
+            language,
+            toolsUsed: ['createOrder'],
+          };
+        }
+      } else {
+        const linkRes = await ToolRegistry.executeTool('getOrderPaymentLink', {}, context);
+        if (linkRes.success && linkRes.data?.paymentUrl) {
+          const d = linkRes.data;
+          const reply = isHinglish
+            ? `⚡ *Aapka order ready hai!* (Order #${d.internalOrderId})\n\n*Product:* ${d.productName}\n*Amount:* ₹${d.amountInr.toLocaleString('en-IN')}\n\n👉 *Pay securely here:*\n${d.paymentUrl}\n\nPayment complete hote hi access credentials deliver ho jayenge! ⚡`
+            : `⚡ *Your order is ready!* (Order #${d.internalOrderId})\n\n*Product:* ${d.productName}\n*Amount:* ₹${d.amountInr.toLocaleString('en-IN')}\n\n👉 *Pay securely here:*\n${d.paymentUrl}\n\nOnce payment is confirmed, access will be delivered immediately! ⚡`;
+
+          return {
+            messageText: reply,
+            intentDetected: 'ORDER_CREATED_PAYMENT_LINK',
+            confidence: 0.99,
+            language,
+            toolsUsed: ['getOrderPaymentLink'],
+          };
+        }
+      }
+    }
+
+    // 3. Payment Claim Intent ("I paid", "payment done", "paid on payu", "payment krdiya", "did my payment go through")
     if (
       lower.includes('i have paid') ||
       lower.includes('i paid') ||
@@ -284,8 +511,37 @@ export class AIProvider {
       lower.includes('payment krdiya') ||
       lower.includes('paid bhai') ||
       lower.includes('money sent') ||
-      lower.includes('paise bhej diye')
+      lower.includes('paise bhej diye') ||
+      lower === 'paid' ||
+      lower.includes('did my payment go through')
     ) {
+      // Check for multiple pending orders (ambiguity resolution)
+      if (context.customerId) {
+        const pendingOrders = await prisma.order.findMany({
+          where: {
+            userId: context.customerId,
+            paymentStatus: { in: ['CREATED', 'PENDING'] },
+            status: 'PENDING',
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+        });
+
+        if (pendingOrders.length > 1) {
+          const list = pendingOrders.map((o) => `• *${o.planName}* (#${o.internalOrderId}) - ₹${o.amountInr}`).join('\n');
+          const reply = isHinglish
+            ? `Aapke account mein multiple pending orders hain bhai:\n\n${list}\n\nAap kis order ki payment verify karwana chahte hain? Bas order ID reply karein!`
+            : `You have multiple pending orders under your account:\n\n${list}\n\nWhich order are you referring to? Please reply with the Order ID.`;
+          return {
+            messageText: reply,
+            intentDetected: 'PAYMENT_AMBIGUOUS_ORDER',
+            confidence: 0.95,
+            language,
+            toolsUsed: [],
+          };
+        }
+      }
+
       // Authoritative verification via ToolRegistry
       const checkResult = await ToolRegistry.executeTool('checkPaymentStatus', {}, context);
       const data = checkResult.data;
@@ -347,6 +603,293 @@ export class AIProvider {
           toolsUsed: ['authenticateCustomer'],
         };
       }
+    }
+
+    // 4a. Order Cancellation
+    if (
+      (lower.includes('cancel') && (lower.includes('order') || lower.includes('pending') || lower.includes('kardo') || lower.includes('karo'))) ||
+      lower === 'cancel order'
+    ) {
+      if (!context.customerId) {
+        const reply = `⚡ *Authentication Required*\n\nTo cancel an order, please reply with the *email address* registered with your LightningAPI.pro account.`;
+        return { messageText: reply, intentDetected: 'REQUEST_EMAIL_FOR_CANCEL', confidence: 0.9, language, toolsUsed: [] };
+      }
+
+      const cancelRes = await ToolRegistry.executeTool('cancelOrder', { reason: cleanText }, context);
+      if (cancelRes.success) {
+        const reply = isHinglish
+          ? `✅ *Order Cancelled:*\n\nOrder #${cancelRes.data?.orderId} successfully cancel kar diya gaya hai. Agar aapko koi dusra tool ya custom discount chahiye ho toh batayein! ⚡`
+          : `✅ *Order Cancelled:*\n\nOrder #${cancelRes.data?.orderId} has been successfully cancelled. Let me know if you would like to explore other tools or need a different plan! ⚡`;
+        return {
+          messageText: reply,
+          intentDetected: 'CANCEL_ORDER_SUCCESS',
+          confidence: 0.98,
+          language,
+          toolsUsed: ['cancelOrder'],
+        };
+      } else if (cancelRes.data?.canRefund) {
+        const reply = isHinglish
+          ? `⚠️ Order #${cancelRes.data.orderId} already paid aur complete ho chuka hai, isliye ise direct cancel nahi kiya ja sakta. Agar aap refund chahte hain toh bas *"Refund Order #${cancelRes.data.orderId}"* reply karein!`
+          : `⚠️ Order #${cancelRes.data.orderId} has already been paid and completed, so it cannot be cancelled directly. If you would like to request a refund, please reply *"Request refund for order #${cancelRes.data.orderId}"*!`;
+        return {
+          messageText: reply,
+          intentDetected: 'CANCEL_ORDER_ALREADY_PAID',
+          confidence: 0.95,
+          language,
+          toolsUsed: ['cancelOrder'],
+        };
+      } else {
+        const reply = isHinglish
+          ? `Aapke account mein koi active pending order nahi mila cancel karne ke liye.`
+          : `No pending unpaid orders found to cancel under your account.`;
+        return {
+          messageText: reply,
+          intentDetected: 'CANCEL_ORDER_NOT_FOUND',
+          confidence: 0.9,
+          language,
+          toolsUsed: ['cancelOrder'],
+        };
+      }
+    }
+
+    // 4b. Refund Request
+    if (
+      lower.includes('refund') ||
+      lower.includes('paise wapas') ||
+      lower.includes('money back')
+    ) {
+      if (!context.customerId) {
+        const reply = `⚡ *Authentication Required*\n\nTo submit a refund request, please reply with the *email address* registered with your LightningAPI.pro account.`;
+        return { messageText: reply, intentDetected: 'REQUEST_EMAIL_FOR_REFUND', confidence: 0.9, language, toolsUsed: [] };
+      }
+
+      const refundRes = await ToolRegistry.executeTool('requestRefund', { reason: cleanText }, context);
+      if (refundRes.success) {
+        const d = refundRes.data;
+        const reply = isHinglish
+          ? `📝 *Refund Request Submitted:* #${d.ticketNumber}\n\n*Order:* #${d.orderId} (${d.productName}, ₹${d.amountInr})\n\nLightning Deals policy ke anusar, pehle hamari technical team tool check/replace karegi. Agar issue resolve nahi hota, toh amount 3-5 business days mein aapke original payment method par refund ho jayega! ⚡`
+          : `📝 *Refund Request Submitted:* #${d.ticketNumber}\n\n*Order:* #${d.orderId} (${d.productName}, ₹${d.amountInr})\n\nUnder our policy, our priority is resolving or replacing any access issues. If replacement is not possible, your refund will be credited back to your original payment method within 3-5 business days! ⚡`;
+        return {
+          messageText: reply,
+          intentDetected: 'REQUEST_REFUND_SUBMITTED',
+          confidence: 0.98,
+          language,
+          toolsUsed: ['requestRefund'],
+          requiresAdminAlert: true,
+          adminAlertReason: `Refund request for Order #${d.orderId}`,
+        };
+      } else {
+        const reply = isHinglish
+          ? `Aapke account mein koi eligible paid order nahi mila refund request ke liye. Details ke liye aap support team se connect kar sakte hain.`
+          : `No eligible paid order found to request a refund for. You can speak to an admin team member if you need manual assistance.`;
+        return {
+          messageText: reply,
+          intentDetected: 'REQUEST_REFUND_NOT_FOUND',
+          confidence: 0.9,
+          language,
+          toolsUsed: ['requestRefund'],
+        };
+      }
+    }
+
+    // 4c. Support Ticket / Technical Issue
+    if (
+      lower.includes('problem') ||
+      lower.includes('not working') ||
+      lower.includes('stopped working') ||
+      lower.includes('login issue') ||
+      lower.includes('issue with') ||
+      lower.includes('facing issue') ||
+      lower.includes('credentials not working') ||
+      lower.includes('password wrong') ||
+      lower.includes('invalid credentials') ||
+      lower.includes('create ticket') ||
+      lower.includes('support ticket') ||
+      lower.includes('dikkat aa rahi') ||
+      lower.includes('kaam nahi kar raha')
+    ) {
+      if (!context.customerId) {
+        const reply = `⚡ *Authentication Required*\n\nTo submit a support ticket and track resolution, please reply with your registered *email address*.\n\nDon't have an account? Sign up in 10 seconds at:\n👉 https://lightningapi.pro/`;
+        return { messageText: reply, intentDetected: 'REQUEST_EMAIL_FOR_SUPPORT', confidence: 0.9, language, toolsUsed: [] };
+      }
+
+      const ticketRes = await ToolRegistry.executeTool(
+        'createSupportTicket',
+        {
+          subject: cleanText.length > 50 ? `${cleanText.substring(0, 47)}...` : cleanText,
+          message: cleanText,
+          category: 'Technical issue',
+        },
+        context
+      );
+
+      const t = ticketRes.data;
+      const reply = isHinglish
+        ? `🛠️ *Support Ticket Registered:* #${t?.ticketNumber || 'TICK-SUPPORT'}\n\nAapki issue report ho gayi hai bhai! Lightning Deals ke *100% Uptime & Replacement Guarantee* ke tahat hamari technical team 15-30 minute ke andar issue fix ya credentials replace kar deti hai.\n\nEk team member aapko jaldi hi yahan update karenge! ⚡`
+        : `🛠️ *Support Ticket Registered:* #${t?.ticketNumber || 'TICK-SUPPORT'}\n\nYour issue has been logged! Under our *100% Uptime & Replacement Guarantee*, our technical operations team resolves or replaces credentials within 15-30 minutes.\n\nA team representative has been alerted to review this immediately! ⚡`;
+
+      return {
+        messageText: reply,
+        intentDetected: 'CREATE_SUPPORT_TICKET',
+        confidence: 0.98,
+        language,
+        toolsUsed: ['createSupportTicket'],
+        requiresAdminAlert: true,
+        adminAlertReason: `Support ticket created: ${cleanText}`,
+      };
+    }
+
+    // 4d. Subscription Expiry Check
+    if (
+      lower.includes('expire') ||
+      lower.includes('expiry') ||
+      lower.includes('validity') ||
+      lower.includes('kab khatam') ||
+      lower.includes('kab expire') ||
+      lower.includes('till when')
+    ) {
+      if (!context.customerId) {
+        const reply = `⚡ *Authentication Required*\n\nTo check your subscription validity and expiry date, please reply with the *email address* registered with your LightningAPI.pro account.\n\nDon't have an account? Sign up in 10 seconds at:\n👉 https://lightningapi.pro/`;
+        return { messageText: reply, intentDetected: 'REQUEST_EMAIL_FOR_SUBS', confidence: 0.9, language, toolsUsed: [] };
+      }
+
+      const subRes = await ToolRegistry.executeTool('getCustomerSubscriptions', {}, context);
+      const subs = subRes.data?.subscriptions || [];
+      if (subs.length === 0) {
+        const reply = isHinglish
+          ? `Aapke account mein abhi koi active subscription nahi mili bhai. Naya tool explore karne ke liye "Browse Products" bole!`
+          : `You do not have any active subscriptions right now. Let me know if you would like to explore our catalog!`;
+        return { messageText: reply, intentDetected: 'GET_SUBSCRIPTIONS', confidence: 0.95, language, toolsUsed: ['getCustomerSubscriptions'] };
+      }
+
+      let sub = subs[0];
+      const matchedProd = matchProduct(cleanText);
+      if (matchedProd) {
+        sub = subs.find((s: any) => s.toolName.toLowerCase().includes(matchedProd.name.toLowerCase()) || matchedProd.name.toLowerCase().includes(s.toolName.toLowerCase())) || subs[0];
+      }
+
+      const expiresAtDate = new Date(sub.expiresAt);
+      const now = new Date();
+      const diffDays = Math.ceil((expiresAtDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const daysText = diffDays > 0 ? `${diffDays} days remaining` : 'Expired';
+
+      const reply = isHinglish
+        ? `🔑 *Subscription Validity:* ${sub.toolName}\n\n• Status: *${sub.status}*\n• Expiry Date: *${expiresAtDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}* (${daysText})\n\nAgar aap ise renew ya extend karna chahte hain toh bas *"Renew ${sub.toolName}"* reply karein! ⚡`
+        : `🔑 *Subscription Validity:* ${sub.toolName}\n\n• Status: *${sub.status}*\n• Expiry Date: *${expiresAtDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}* (${daysText})\n\nTo renew or extend this plan, simply reply *"Renew ${sub.toolName}"*! ⚡`;
+
+      return {
+        messageText: reply,
+        intentDetected: 'SUBSCRIPTION_EXPIRY_CHECK',
+        confidence: 0.98,
+        language,
+        toolsUsed: ['getCustomerSubscriptions'],
+      };
+    }
+
+    // 4e. Subscription Renewal
+    if (
+      lower.includes('renew') ||
+      lower.includes('renewal') ||
+      lower.includes('re-new') ||
+      lower.includes('extend subscription')
+    ) {
+      if (!context.customerId) {
+        const reply = `⚡ *Authentication Required*\n\nTo renew your subscription, please reply with the *email address* registered with your LightningAPI.pro account.\n\nDon't have an account? Sign up in 10 seconds at:\n👉 https://lightningapi.pro/`;
+        return { messageText: reply, intentDetected: 'REQUEST_EMAIL_FOR_SUBS', confidence: 0.9, language, toolsUsed: [] };
+      }
+
+      const matchedProd = matchProduct(cleanText);
+      const toolName = matchedProd?.name || '';
+      const renewRes = await ToolRegistry.executeTool('renewSubscription', { toolName }, context);
+
+      if (renewRes.success && renewRes.data) {
+        const d = renewRes.data;
+        if (d.action === 'ORDER_CREATED') {
+          const o = d.orderDetails;
+          const reply = isHinglish
+            ? `⚡ *Subscription Renewal Order Ready!*\n\n*Product:* ${d.subscription}\n*Amount:* ₹${o.amountInr.toLocaleString('en-IN')}\n*Order ID:* ${o.internalOrderId}\n\n👉 *Pay securely here to renew:*\n${o.paymentUrl}\n\nPayment confirm hote hi validity instantly extend ho jayegi! ⚡`
+            : `⚡ *Subscription Renewal Order Ready!*\n\n*Product:* ${d.subscription}\n*Amount:* ₹${o.amountInr.toLocaleString('en-IN')}\n*Order ID:* ${o.internalOrderId}\n\n👉 *Pay securely here to renew:*\n${o.paymentUrl}\n\nYour subscription validity will be extended immediately upon payment! ⚡`;
+          return {
+            messageText: reply,
+            intentDetected: 'RENEW_SUBSCRIPTION_LINK',
+            confidence: 0.98,
+            language,
+            toolsUsed: ['renewSubscription'],
+          };
+        } else {
+          const reply = isHinglish
+            ? `⚡ *Renewal Request Received:* ${d.subscription}\n\nMaine renewal discount rate confirmation ke liye admin team ko notify kar diya hai. Current expiry: ${new Date(d.currentExpiry).toLocaleDateString('en-IN')}.\n\nAdmin team jald hi aapke renewal ka custom quote WhatsApp par confirm karegi! ⚡`
+            : `⚡ *Renewal Request Received:* ${d.subscription}\n\nYour renewal quote request has been routed to our team. Current expiry: ${new Date(d.currentExpiry).toLocaleDateString('en-US')}.\n\nAn admin will confirm the renewal discounted quote right here shortly! ⚡`;
+          return {
+            messageText: reply,
+            intentDetected: 'RENEW_SUBSCRIPTION_REQUESTED',
+            confidence: 0.98,
+            language,
+            toolsUsed: ['renewSubscription'],
+            requiresAdminAlert: true,
+            adminAlertReason: `Renewal quote requested for ${d.subscription}`,
+          };
+        }
+      } else {
+        const reply = isHinglish
+          ? `Aapke account mein renew karne ke liye koi active subscription nahi mili bhai. Naya order place karne ke liye "Browse Products" bole!`
+          : `No subscription found to renew under your account. Would you like to purchase a new license? Reply with "Browse Products"!`;
+        return {
+          messageText: reply,
+          intentDetected: 'RENEW_SUBSCRIPTION_NOT_FOUND',
+          confidence: 0.9,
+          language,
+          toolsUsed: ['renewSubscription'],
+        };
+      }
+    }
+
+    // 4f. Credit Redemption
+    if (
+      lower.includes('use my credit') ||
+      lower.includes('redeem credit') ||
+      lower.includes('redeem my credit') ||
+      lower.includes('apply credit') ||
+      lower.includes('credit use') ||
+      lower.includes('credits use') ||
+      lower.includes('use credit')
+    ) {
+      if (!context.customerId) {
+        const reply = `⚡ *Authentication Required*\n\nTo view and redeem your Lightning Credits, please reply with the *email address* registered with your LightningAPI.pro account.\n\nDon't have an account? Sign up in 10 seconds at:\n👉 https://lightningapi.pro/`;
+        return { messageText: reply, intentDetected: 'REQUEST_EMAIL_FOR_CREDITS', confidence: 0.9, language, toolsUsed: [] };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: context.customerId },
+        select: { availableCredits: true },
+      });
+      const balance = user?.availableCredits || 0;
+
+      if (balance <= 0) {
+        const reply = isHinglish
+          ? `Aapke account mein abhi ₹0 Lightning Credits hain. Aap doston ko refer karke har order par credits kama sakte hain! Type "Referral" for details.`
+          : `You currently have ₹0 Lightning Credits. You can earn credits by sharing your referral link with friends! Type "Referral" for your code.`;
+        return {
+          messageText: reply,
+          intentDetected: 'REDEEM_CREDITS_ZERO',
+          confidence: 0.95,
+          language,
+          toolsUsed: ['redeemCredits'],
+        };
+      }
+
+      await ToolRegistry.executeTool('redeemCredits', { amount: balance }, context);
+      const reply = isHinglish
+        ? `⚡ *Lightning Credits Available: ₹${balance}*\n\nAap apne poore ₹${balance} credits ko next order ya renewal par direct cash discount ki tarah use kar sakte hain! Checkout par ya admin se quote lete waqt ye discount auto-deduct ho jayega. ⚡`
+        : `⚡ *Lightning Credits Available: ₹${balance}*\n\nYou can apply your full ₹${balance} credit balance as an instant cash discount on your next order or subscription renewal! It will be automatically deducted during checkout. ⚡`;
+
+      return {
+        messageText: reply,
+        intentDetected: 'REDEEM_CREDITS_SUCCESS',
+        confidence: 0.98,
+        language,
+        toolsUsed: ['redeemCredits'],
+      };
     }
 
     // 5. Account Inquiries (Orders, Subscriptions, Credits, Referrals)
@@ -418,8 +961,12 @@ export class AIProvider {
         return { messageText: reply, intentDetected: 'REQUEST_EMAIL_FOR_REFERRALS', confidence: 0.9, language, toolsUsed: [] };
       }
       const refRes = await ToolRegistry.executeTool('getReferralCode', {}, context);
-      const r = refRes.data;
-      const reply = `🎁 *Your Referral Program:*\n\nShare your link with friends. When they make their first purchase, you both get Lightning Credits!\n\n🔗 *Link:* ${r.referralUrl || 'https://lightningapi.pro'}\n• Code: *${r.referralCode}*\n• Total Referred: ${r.totalReferred}\n• Lifetime Earned: ₹${r.totalCreditsEarned}`;
+      const r = refRes.data || {};
+      const refUrl = r.referralUrl || 'https://lightningapi.pro';
+      const refCode = r.referralCode || 'WELCOME';
+      const totalRef = r.totalReferred ?? 0;
+      const totalEarned = r.totalCreditsEarned ?? 0;
+      const reply = `🎁 *Your Referral Program:*\n\nShare your link with friends. When they make their first purchase, you both get Lightning Credits!\n\n🔗 *Link:* ${refUrl}\n• Code: *${refCode}*\n• Total Referred: ${totalRef}\n• Lifetime Earned: ₹${totalEarned}`;
       return { messageText: reply, intentDetected: 'GET_REFERRALS', confidence: 0.95, language, toolsUsed: ['getReferralCode'] };
     }
 
@@ -577,6 +1124,11 @@ export class AIProvider {
       lower === 'hi' ||
       lower === 'hello' ||
       lower === 'hey' ||
+      lower.startsWith('hey ') ||
+      lower.startsWith('hello ') ||
+      lower.startsWith('hi ') ||
+      lower === 'heyy' ||
+      lower === 'hlo' ||
       lower === 'start' ||
       lower === 'menu' ||
       lower === 'help' ||

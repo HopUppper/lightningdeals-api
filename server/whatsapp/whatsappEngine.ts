@@ -27,13 +27,13 @@ export interface CatalogProduct {
 }
 
 export const PRODUCT_CATALOG_WITHOUT_PRICES: CatalogProduct[] = [
-  { id: 'prod_canva_pro', name: 'Canva Pro', aliases: ['canva pro', 'canva'] },
-  { id: 'prod_claude_max', name: 'Claude Max 5x (20M Tokens)', aliases: ['claude max', 'claude 5x', 'claude max 5x'] },
-  { id: 'prod_claude_pro', name: 'Claude Pro Account', aliases: ['claude pro', 'claude'] },
-  { id: 'prod_cursor_pro', name: 'Cursor Pro AI IDE', aliases: ['cursor pro', 'cursor'] },
-  { id: 'prod_chatgpt_team', name: 'ChatGPT Team Workspace', aliases: ['chatgpt team', 'chatgpt', 'chat gpt', 'gpt'] },
-  { id: 'prod_adobe_creative', name: 'Adobe Creative Cloud', aliases: ['adobe creative cloud', 'adobe cc', 'adobe'] },
-  { id: 'prod_midjourney', name: 'Midjourney Mega Plan', aliases: ['midjourney mega', 'midjourney', 'mid journey'] },
+  { id: 'prod_canva_pro', name: 'Canva Pro', aliases: ['canva pro', 'canva', 'canava', 'canva proo', 'kanva', 'canvapro'] },
+  { id: 'prod_claude_max', name: 'Claude Max 5x (20M Tokens)', aliases: ['claude max', 'claude 5x', 'claude max 5x', 'claud max', 'claud 5x'] },
+  { id: 'prod_claude_pro', name: 'Claude Pro Account', aliases: ['claude pro', 'claude', 'claud', 'claud pro'] },
+  { id: 'prod_cursor_pro', name: 'Cursor Pro AI IDE', aliases: ['cursor pro', 'cursor', 'curser', 'cursor ai', 'cursor proo'] },
+  { id: 'prod_chatgpt_team', name: 'ChatGPT Team Workspace', aliases: ['chatgpt team', 'chatgpt', 'chat gpt', 'gpt', 'chatgptt', 'chat gptt'] },
+  { id: 'prod_adobe_creative', name: 'Adobe Creative Cloud', aliases: ['adobe creative cloud', 'adobe cc', 'adobe', 'adob', 'adobi'] },
+  { id: 'prod_midjourney', name: 'Midjourney Mega Plan', aliases: ['midjourney mega', 'midjourney', 'mid journey', 'midjourny'] },
   { id: 'prod_custom', name: 'Custom Developer API Bundle', aliases: ['custom developer api bundle', 'custom bundle', 'custom api', 'custom'] },
 ];
 

@@ -109,6 +109,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: 'createOrder',
+    description: 'Create an authoritative order from an approved negotiated price quote. Reuses existing Universal Order Engine.',
+    parameters: {
+      type: 'object',
+      properties: {
+        productId: { type: 'string', description: 'Optional product ID, e.g. prod_canva_pro' },
+        productName: { type: 'string', description: 'Product name, e.g. Canva Pro' },
+        negotiatedPriceId: { type: 'string', description: 'Optional specific NegotiatedPrice ID' },
+      },
+    },
+  },
+  {
     name: 'createPaymentOrder',
     description: 'Generate PayU payment link for an approved negotiated price or verified deal.',
     parameters: {
@@ -117,6 +129,106 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         negotiatedPriceId: { type: 'string', description: 'ID of the active NegotiatedPrice quote' },
       },
       required: ['negotiatedPriceId'],
+    },
+  },
+  {
+    name: 'createPaymentLink',
+    description: 'Retrieve or generate a secure PayU payment link for an unpaid order.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: 'Optional internal order ID (LD-WA-XXXXX)' },
+      },
+    },
+  },
+  {
+    name: 'getOrderPaymentLink',
+    description: 'Retrieve the reusable PayU payment link for an existing unpaid order without creating duplicate orders.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: 'Optional internal order ID (LD-WA-XXXXX)' },
+      },
+    },
+  },
+  {
+    name: 'getOrder',
+    description: 'Fetch detailed state, pricing, and fulfillment status for a specific customer order ID.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: 'Internal order ID, e.g. LD-WA-XXXXX' },
+      },
+      required: ['orderId'],
+    },
+  },
+  {
+    name: 'renewSubscription',
+    description: 'Initiate renewal order or quote for an existing customer subscription.',
+    parameters: {
+      type: 'object',
+      properties: {
+        subscriptionId: { type: 'string', description: 'Optional subscription ID' },
+        toolName: { type: 'string', description: 'Name of the tool to renew, e.g. Canva Pro' },
+      },
+    },
+  },
+  {
+    name: 'redeemCredits',
+    description: 'Check available credit balance and apply credits toward an order discount.',
+    parameters: {
+      type: 'object',
+      properties: {
+        amount: { type: 'number', description: 'Credit amount in INR to redeem' },
+        orderId: { type: 'string', description: 'Optional target order ID' },
+      },
+      required: ['amount'],
+    },
+  },
+  {
+    name: 'createSupportTicket',
+    description: 'Create an official support ticket in the backend database for issues or disputes.',
+    parameters: {
+      type: 'object',
+      properties: {
+        subject: { type: 'string', description: 'Subject or title of the issue' },
+        category: { type: 'string', description: 'Category: "Payment", "API issue", "API key", "Account", "Technical issue", or "Other"' },
+        message: { type: 'string', description: 'Detailed issue description' },
+      },
+      required: ['subject', 'message'],
+    },
+  },
+  {
+    name: 'getSupportTickets',
+    description: 'Retrieve status of existing support tickets submitted by the customer.',
+    parameters: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', description: 'Optional ticket status filter: "Open", "Resolved", "Closed"' },
+      },
+    },
+  },
+  {
+    name: 'cancelOrder',
+    description: 'Cancel an unpaid pending order. Paid orders cannot be cancelled directly.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: 'Order ID to cancel' },
+        reason: { type: 'string', description: 'Cancellation reason' },
+      },
+    },
+  },
+  {
+    name: 'requestRefund',
+    description: 'Submit an official refund request for an eligible paid order for administrative review.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: 'Order ID to refund' },
+        reason: { type: 'string', description: 'Detailed refund reason' },
+      },
+      required: ['orderId', 'reason'],
     },
   },
   {
@@ -256,8 +368,36 @@ export class ToolRegistry {
         case 'createNegotiatedPriceRequest':
           result = await this.handleCreateNegotiatedPriceRequest(args, context);
           break;
+        case 'createOrder':
+          result = await this.handleCreateOrder(args, context);
+          break;
         case 'createPaymentOrder':
           result = await this.handleCreatePaymentOrder(args, context);
+          break;
+        case 'createPaymentLink':
+        case 'getOrderPaymentLink':
+          result = await this.handleGetOrderPaymentLink(args, context);
+          break;
+        case 'getOrder':
+          result = await this.handleGetOrder(args, context);
+          break;
+        case 'renewSubscription':
+          result = await this.handleRenewSubscription(args, context);
+          break;
+        case 'redeemCredits':
+          result = await this.handleRedeemCredits(args, context);
+          break;
+        case 'createSupportTicket':
+          result = await this.handleCreateSupportTicket(args, context);
+          break;
+        case 'getSupportTickets':
+          result = await this.handleGetSupportTickets(args, context);
+          break;
+        case 'cancelOrder':
+          result = await this.handleCancelOrder(args, context);
+          break;
+        case 'requestRefund':
+          result = await this.handleRequestRefund(args, context);
           break;
         case 'requestHumanHandoff':
           result = await this.handleRequestHumanHandoff(args, context);
@@ -286,18 +426,26 @@ export class ToolRegistry {
 
     // Log tool execution in database for observability
     try {
-      await prisma.aIToolExecution.create({
-        data: {
-          conversationId: context.conversationId,
-          toolName,
-          inputPayload: JSON.stringify(args || {}),
-          outputPayload: JSON.stringify(result.data || { error: result.error }),
-          status: result.success ? 'SUCCESS' : 'FAILED',
-          executionTimeMs: duration,
-        },
-      });
+      if (context.conversationId) {
+        const convExists = await prisma.whatsAppConversation.findUnique({
+          where: { id: context.conversationId },
+          select: { id: true },
+        });
+        if (convExists) {
+          await prisma.aIToolExecution.create({
+            data: {
+              conversationId: context.conversationId,
+              toolName,
+              inputPayload: JSON.stringify(args || {}),
+              outputPayload: JSON.stringify(result.data || { error: result.error }),
+              status: result.success ? 'SUCCESS' : 'FAILED',
+              executionTimeMs: duration,
+            },
+          });
+        }
+      }
     } catch (logErr: any) {
-      console.warn('[TOOL LOGGING ERROR]', logErr.message);
+      // Safe fallback
     }
 
     return result;
@@ -490,10 +638,10 @@ export class ToolRegistry {
       success: true,
       data: {
         subscriptions: subs.map((s) => ({
-          toolName: s.toolName,
+          toolName: s.planName || (s as any).toolName,
           status: s.status,
-          planType: s.planType,
-          expiresAt: s.currentPeriodEnd ? s.currentPeriodEnd.toISOString().split('T')[0] : 'Active',
+          planType: s.planId,
+          expiresAt: s.expiryTime ? s.expiryTime.toISOString().split('T')[0] : 'Active',
         })),
       },
     };
@@ -540,11 +688,17 @@ export class ToolRegistry {
       };
     }
 
-    const stats = await ReferralEngine.getReferralStats(context.customerId);
+    const overview = await ReferralEngine.getCustomerReferralOverview(context.customerId);
     return {
       toolName: 'getReferralCode',
       success: true,
-      data: stats,
+      data: {
+        referralCode: overview.referralCode,
+        referralUrl: overview.referralUrl,
+        totalReferred: overview.stats.totalReferrals,
+        totalCreditsEarned: overview.stats.creditsEarned,
+        stats: overview.stats,
+      },
     };
   }
 
@@ -732,6 +886,9 @@ export class ToolRegistry {
         customerPhone: context.whatsappNumber,
       });
 
+      const baseUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://lightningapi.pro').replace(/\/$/, '');
+      const paymentUrl = `${baseUrl}/pay/${result.order.internalOrderId}`;
+
       return {
         toolName: 'createPaymentOrder',
         success: true,
@@ -739,7 +896,7 @@ export class ToolRegistry {
           orderId: result.order.internalOrderId,
           productName: result.order.planName,
           amountInr: result.order.amountInr,
-          paymentUrl: result.paymentUrl,
+          paymentUrl,
         },
       };
     } catch (e: any) {
@@ -750,6 +907,557 @@ export class ToolRegistry {
         error: e.message,
       };
     }
+  }
+
+  private static async handleCreateOrder(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    if (!context.customerId) {
+      return {
+        toolName: 'createOrder',
+        success: false,
+        data: null,
+        error: 'Customer must be authenticated with their email before creating an order.',
+      };
+    }
+
+    let negotiatedPriceId = args.negotiatedPriceId;
+    const productId = args.productId || context.currentProductId;
+
+    // If no quote ID passed, look up active approved quote
+    if (!negotiatedPriceId) {
+      const activeQuote = await prisma.negotiatedPrice.findFirst({
+        where: {
+          customerId: context.customerId,
+          status: 'ACTIVE',
+          expiresAt: { gt: new Date() },
+          ...(productId && { productId }),
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!activeQuote) {
+        return {
+          toolName: 'createOrder',
+          success: false,
+          data: null,
+          error: 'No active approved price quote found. Admin must confirm the price quote before creating an order.',
+        };
+      }
+      negotiatedPriceId = activeQuote.id;
+    }
+
+    try {
+      const result = await NegotiatedPriceService.convertToOrderAndGeneratePaymentLink({
+        negotiatedPriceId,
+        adminId: 'system-ai-agent',
+        customerPhone: context.whatsappNumber,
+      });
+
+      const baseUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://lightningapi.pro').replace(/\/$/, '');
+      const paymentUrl = `${baseUrl}/pay/${result.order.internalOrderId}`;
+
+      return {
+        toolName: 'createOrder',
+        success: true,
+        data: {
+          orderId: result.order.id,
+          internalOrderId: result.order.internalOrderId,
+          productName: result.order.planName,
+          amountInr: result.order.amountInr,
+          status: 'PENDING',
+          paymentStatus: 'CREATED',
+          channel: 'WHATSAPP',
+          priceSource: 'ADMIN_NEGOTIATED',
+          paymentUrl,
+        },
+      };
+    } catch (e: any) {
+      return {
+        toolName: 'createOrder',
+        success: false,
+        data: null,
+        error: e.message,
+      };
+    }
+  }
+
+  private static async handleGetOrderPaymentLink(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    const orderId = args.orderId?.trim();
+    let order = null;
+
+    if (orderId) {
+      order = await prisma.order.findFirst({
+        where: {
+          OR: [{ internalOrderId: orderId }, { id: orderId }],
+          ...(context.customerId && { userId: context.customerId }),
+        },
+      });
+    } else if (context.currentOrderId) {
+      order = await prisma.order.findUnique({
+        where: { id: context.currentOrderId },
+      });
+    } else if (context.customerId) {
+      order = await prisma.order.findFirst({
+        where: {
+          userId: context.customerId,
+          paymentStatus: { in: ['CREATED', 'PENDING'] },
+          status: 'PENDING',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (!order) {
+      return {
+        toolName: 'getOrderPaymentLink',
+        success: false,
+        data: null,
+        error: 'No pending unpaid order found.',
+      };
+    }
+
+    if (order.paymentStatus === 'PAID' || order.status === 'COMPLETED') {
+      return {
+        toolName: 'getOrderPaymentLink',
+        success: false,
+        data: { isPaid: true },
+        error: `Order #${order.internalOrderId} has already been paid and fulfilled.`,
+      };
+    }
+
+    const baseUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://lightningapi.pro').replace(/\/$/, '');
+    const paymentUrl = `${baseUrl}/pay/${order.internalOrderId}`;
+
+    return {
+      toolName: 'getOrderPaymentLink',
+      success: true,
+      data: {
+        orderId: order.id,
+        internalOrderId: order.internalOrderId,
+        productName: order.planName,
+        amountInr: order.amountInr,
+        paymentUrl,
+        status: order.status,
+      },
+    };
+  }
+
+  private static async handleGetOrder(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    const orderId = args.orderId?.trim();
+    if (!orderId) {
+      return {
+        toolName: 'getOrder',
+        success: false,
+        data: null,
+        error: 'Order ID is required.',
+      };
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [{ internalOrderId: orderId }, { id: orderId }],
+        ...(context.customerId && { userId: context.customerId }),
+      },
+    });
+
+    if (!order) {
+      return {
+        toolName: 'getOrder',
+        success: false,
+        data: null,
+        error: `Order '${orderId}' not found.`,
+      };
+    }
+
+    return {
+      toolName: 'getOrder',
+      success: true,
+      data: {
+        orderId: order.internalOrderId,
+        productName: order.planName,
+        amountInr: order.amountInr,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        fulfillmentStatus: order.fulfillmentStatus,
+        createdAt: order.createdAt.toISOString(),
+      },
+    };
+  }
+
+  private static async handleRenewSubscription(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    if (!context.customerId) {
+      return {
+        toolName: 'renewSubscription',
+        success: false,
+        data: null,
+        error: 'Customer must be authenticated with their email.',
+      };
+    }
+
+    const toolName = (args.toolName || '').toLowerCase().trim();
+    const subs = await prisma.subscription.findMany({
+      where: { userId: context.customerId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let matchedSub = subs[0];
+    if (toolName) {
+      matchedSub = subs.find((s) => (s.planName || '').toLowerCase().includes(toolName)) || subs[0];
+    }
+
+    if (!matchedSub) {
+      return {
+        toolName: 'renewSubscription',
+        success: false,
+        data: null,
+        error: 'No subscription found to renew.',
+      };
+    }
+
+    const subName = matchedSub.planName || (matchedSub as any).toolName || 'Subscription';
+    const subExpiry = matchedSub.expiryTime ? matchedSub.expiryTime.toISOString() : new Date().toISOString();
+
+    // Check for approved renewal price
+    const approved = await prisma.negotiatedPrice.findFirst({
+      where: {
+        customerId: context.customerId,
+        productId: matchedSub.planId,
+        status: 'ACTIVE',
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (approved) {
+      const orderRes = await this.handleCreateOrder({ negotiatedPriceId: approved.id }, context);
+      return {
+        toolName: 'renewSubscription',
+        success: true,
+        data: {
+          action: 'ORDER_CREATED',
+          subscription: subName,
+          orderDetails: orderRes.data,
+        },
+      };
+    }
+
+    // Otherwise create renewal quote request
+    await this.handleCreateNegotiatedPriceRequest(
+      {
+        productId: matchedSub.planId || 'sub_renewal',
+        productName: `${subName} (Renewal)`,
+        notes: `Customer requested renewal for subscription ID ${matchedSub.id}. Expiry: ${subExpiry}`,
+      },
+      context
+    );
+
+    return {
+      toolName: 'renewSubscription',
+      success: true,
+      data: {
+        action: 'QUOTE_REQUESTED',
+        subscription: subName,
+        currentExpiry: subExpiry,
+        message: 'Renewal quotation request submitted to admin. Team will confirm special renewal rate.',
+      },
+    };
+  }
+
+  private static async handleRedeemCredits(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    if (!context.customerId) {
+      return {
+        toolName: 'redeemCredits',
+        success: false,
+        data: null,
+        error: 'Customer must be authenticated with their email to use credits.',
+      };
+    }
+
+    const requestedAmount = Number(args.amount);
+    if (isNaN(requestedAmount) || requestedAmount <= 0) {
+      return {
+        toolName: 'redeemCredits',
+        success: false,
+        data: null,
+        error: 'Please specify a positive credit amount to redeem.',
+      };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: context.customerId },
+      select: { availableCredits: true },
+    });
+
+    const balance = user?.availableCredits || 0;
+    if (requestedAmount > balance) {
+      return {
+        toolName: 'redeemCredits',
+        success: false,
+        data: { availableCredits: balance, requestedAmount },
+        error: `Requested redemption of ₹${requestedAmount} exceeds your available balance of ₹${balance}.`,
+      };
+    }
+
+    return {
+      toolName: 'redeemCredits',
+      success: true,
+      data: {
+        availableCredits: balance,
+        redeemableAmount: requestedAmount,
+        remainingCredits: balance - requestedAmount,
+        message: `₹${requestedAmount} Lightning Credits can be applied as an instant cash discount at checkout.`,
+      },
+    };
+  }
+
+  private static async handleCreateSupportTicket(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    if (!context.customerId) {
+      return {
+        toolName: 'createSupportTicket',
+        success: false,
+        data: null,
+        error: 'Customer must be authenticated with their email to submit a support ticket.',
+      };
+    }
+
+    const subject = (args.subject || 'WhatsApp Support Request').trim();
+    const category = args.category || 'Technical issue';
+    const message = (args.message || '').trim();
+
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId: context.customerId,
+        subject,
+        category,
+        status: 'Open',
+        priority: 'Normal',
+        messages: {
+          create: {
+            senderId: context.customerId,
+            senderRole: 'user',
+            content: message || subject,
+          },
+        },
+      },
+    });
+
+    const ticketNumber = `TICK-${ticket.id.substring(0, 6).toUpperCase()}`;
+
+    return {
+      toolName: 'createSupportTicket',
+      success: true,
+      data: {
+        ticketId: ticket.id,
+        ticketNumber,
+        subject: ticket.subject,
+        category: ticket.category,
+        status: ticket.status,
+        message: 'Support ticket successfully registered. Our technical team has been alerted.',
+      },
+    };
+  }
+
+  private static async handleGetSupportTickets(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    if (!context.customerId) {
+      return {
+        toolName: 'getSupportTickets',
+        success: false,
+        data: null,
+        error: 'Customer must be authenticated to view tickets.',
+      };
+    }
+
+    const tickets = await prisma.supportTicket.findMany({
+      where: {
+        userId: context.customerId,
+        ...(args.status && { status: args.status }),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    return {
+      toolName: 'getSupportTickets',
+      success: true,
+      data: {
+        ticketCount: tickets.length,
+        tickets: tickets.map((t) => ({
+          ticketNumber: `TICK-${t.id.substring(0, 6).toUpperCase()}`,
+          subject: t.subject,
+          status: t.status,
+          category: t.category,
+          createdAt: t.createdAt.toISOString(),
+        })),
+      },
+    };
+  }
+
+  private static async handleCancelOrder(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    if (!context.customerId) {
+      return {
+        toolName: 'cancelOrder',
+        success: false,
+        data: null,
+        error: 'Customer must be authenticated with their email.',
+      };
+    }
+
+    const orderId = args.orderId?.trim();
+    let order = null;
+
+    if (orderId) {
+      order = await prisma.order.findFirst({
+        where: {
+          OR: [{ internalOrderId: orderId }, { id: orderId }],
+          userId: context.customerId,
+        },
+      });
+    } else {
+      order = await prisma.order.findFirst({
+        where: {
+          userId: context.customerId,
+          status: 'PENDING',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (!order) {
+      return {
+        toolName: 'cancelOrder',
+        success: false,
+        data: null,
+        error: 'No active pending order found to cancel.',
+      };
+    }
+
+    if (order.paymentStatus === 'PAID' || order.status === 'COMPLETED') {
+      return {
+        toolName: 'cancelOrder',
+        success: false,
+        data: { canRefund: true, orderId: order.internalOrderId },
+        error: `Order #${order.internalOrderId} is already paid and completed. It cannot be cancelled directly; please request a refund instead.`,
+      };
+    }
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'CANCELLED',
+        paymentStatus: 'CANCELLED',
+        failureReason: args.reason || 'Cancelled by customer via WhatsApp',
+      },
+    });
+
+    return {
+      toolName: 'cancelOrder',
+      success: true,
+      data: {
+        orderId: order.internalOrderId,
+        status: 'CANCELLED',
+        message: `Order #${order.internalOrderId} has been successfully cancelled.`,
+      },
+    };
+  }
+
+  private static async handleRequestRefund(
+    args: Record<string, any>,
+    context: AgentContext
+  ): Promise<ToolExecutionResult> {
+    if (!context.customerId) {
+      return {
+        toolName: 'requestRefund',
+        success: false,
+        data: null,
+        error: 'Customer must be authenticated with their email.',
+      };
+    }
+
+    const orderId = args.orderId?.trim();
+    const reason = (args.reason || 'Customer requested refund via WhatsApp').trim();
+
+    let order = null;
+    if (orderId) {
+      order = await prisma.order.findFirst({
+        where: {
+          OR: [{ internalOrderId: orderId }, { id: orderId }],
+          userId: context.customerId,
+        },
+      });
+    } else {
+      order = await prisma.order.findFirst({
+        where: {
+          userId: context.customerId,
+          status: { in: ['PAID', 'COMPLETED'] },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (!order) {
+      return {
+        toolName: 'requestRefund',
+        success: false,
+        data: null,
+        error: 'No eligible paid order found for refund request.',
+      };
+    }
+
+    // Create high-priority Support Ticket for admin processing
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId: context.customerId,
+        subject: `Refund Request: Order #${order.internalOrderId}`,
+        category: 'Payment',
+        status: 'Open',
+        priority: 'High',
+        messages: {
+          create: {
+            senderId: context.customerId,
+            senderRole: 'user',
+            content: `Customer requested refund for Order #${order.internalOrderId} (${order.planName}, ₹${order.amountInr}). Reason: ${reason}`,
+          },
+        },
+      },
+    });
+
+    const ticketNumber = `TICK-${ticket.id.substring(0, 6).toUpperCase()}`;
+
+    return {
+      toolName: 'requestRefund',
+      success: true,
+      data: {
+        orderId: order.internalOrderId,
+        productName: order.planName,
+        amountInr: order.amountInr,
+        ticketNumber,
+        status: 'REFUND_TICKET_SUBMITTED',
+        policy: 'Per our policy, all replacement/uptime guarantees are first priority. If unresolved, refund will be processed to original source within 3-5 business days.',
+      },
+    };
   }
 
   private static async handleRequestHumanHandoff(

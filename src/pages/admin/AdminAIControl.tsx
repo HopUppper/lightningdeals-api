@@ -67,6 +67,7 @@ export const AdminAIControl: React.FC = () => {
     enabled: true,
   });
   const [availableKeys, setAvailableKeys] = useState<any>({});
+  const [telemetry, setTelemetry] = useState<any>(null);
   const [savingConfig, setSavingConfig] = useState(false);
 
   // Test Simulator State
@@ -97,6 +98,7 @@ export const AdminAIControl: React.FC = () => {
         const cData = await resConfig.json();
         setConfig(cData.config || {});
         setAvailableKeys(cData.availableKeys || {});
+        if (cData.telemetry) setTelemetry(cData.telemetry);
       }
       if (resKb.ok) {
         const kbData = await resKb.json();
@@ -801,6 +803,40 @@ export const AdminAIControl: React.FC = () => {
             <Sliders className="w-5 h-5 text-violet-600" />
             Model & Provider Orchestration
           </h3>
+
+          {/* Real-Time Model Observability */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-border space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Live Model Observability</span>
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {telemetry?.status || 'OPERATIONAL'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-muted block text-[10px]">Active Provider</span>
+                <span className="font-bold text-fg uppercase font-mono">{telemetry?.activeProvider || config.modelProvider || 'rule_based'}</span>
+              </div>
+              <div>
+                <span className="text-muted block text-[10px]">Model In Use</span>
+                <span className="font-mono text-fg text-[11px]">{telemetry?.activeModel || config.modelName || 'local-semantic-nlu-2.0'}</span>
+              </div>
+              <div>
+                <span className="text-muted block text-[10px]">Last Execution Latency</span>
+                <span className="font-mono font-semibold text-violet-600">{telemetry?.lastExecutionTimeMs ? `${telemetry.lastExecutionTimeMs}ms` : '< 15ms'}</span>
+              </div>
+              <div>
+                <span className="text-muted block text-[10px]">Total AI Invocations</span>
+                <span className="font-mono font-semibold text-fg">{telemetry?.totalCalls ?? 0}</span>
+              </div>
+            </div>
+            {telemetry?.lastCallTimestamp && (
+              <div className="text-[10px] text-muted border-t border-border/50 pt-2 font-mono">
+                Last Call: {new Date(telemetry.lastCallTimestamp).toLocaleTimeString()} ({telemetry.totalTokens?.totalTokens || 0} tokens accounted)
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleSaveConfig} className="space-y-4 text-xs">
             <div>

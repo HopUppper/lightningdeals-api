@@ -391,18 +391,34 @@ export class AIProvider {
       };
     }
 
-    // 2b. Reusable Payment Link ("send the link again", "where is my link", "payment link", "link bhej")
-    if (
-      lower.includes('send the link again') ||
-      lower.includes('send link again') ||
+    // 2b. Reusable Payment Link / "Share Payment Link" Intent
+    const isLinkRequest =
+      lower.includes('payment link') ||
+      lower.includes('share link') ||
+      lower.includes('send link') ||
+      lower.includes('send the link') ||
       lower.includes('where is my payment link') ||
       lower.includes('where is my link') ||
       lower.includes('link nahi mila') ||
       lower.includes('link dobara') ||
-      lower === 'send link' ||
-      lower === 'link bhej' ||
-      (lower.includes('link') && (lower.includes('again') || lower.includes('bhej') || lower.includes('kaha') || lower.includes('mera')))
-    ) {
+      lower.includes('link bhej') ||
+      lower.includes('link do') ||
+      lower.includes('link de') ||
+      lower.includes('link bhejo') ||
+      lower.includes('give link') ||
+      lower.includes('link share') ||
+      lower.includes('can u share payment link') ||
+      lower.includes('can you share payment link') ||
+      (lower.includes('link') && (lower.includes('share') || lower.includes('again') || lower.includes('bhej') || lower.includes('kaha') || lower.includes('mera') || lower.includes('please') || lower.includes('chahiye')));
+
+    if (isLinkRequest) {
+      if (!context.customerId && context.conversationId) {
+        try {
+          const customer = await NegotiatedPriceService.ensureCustomerForConversation(context.conversationId);
+          context.customerId = customer.id;
+        } catch (e) {}
+      }
+
       const linkRes = await ToolRegistry.executeTool('getOrderPaymentLink', {}, context);
       if (linkRes.success && linkRes.data?.paymentUrl) {
         const d = linkRes.data;
@@ -412,7 +428,7 @@ export class AIProvider {
         return {
           messageText: reply,
           intentDetected: 'RESEND_PAYMENT_LINK',
-          confidence: 0.98,
+          confidence: 0.99,
           language,
           toolsUsed: ['getOrderPaymentLink'],
         };
@@ -448,13 +464,24 @@ export class AIProvider {
       lower === 'pay' ||
       lower === 'okay' ||
       lower === 'ok' ||
+      lower === 'done' ||
+      lower === 'deal' ||
+      lower === 'deal pakka' ||
       lower === 'same wala' ||
       lower === 'that one' ||
-      lower === 'deal pakka' ||
       lower === 'haan chahiye' ||
-      lower === 'chahiye';
+      lower === 'chahiye' ||
+      lower.includes('ready to pay') ||
+      lower.includes('proceed to pay');
 
-    if (isAffirmative && context.customerId) {
+    if (isAffirmative) {
+      if (!context.customerId && context.conversationId) {
+        try {
+          const customer = await NegotiatedPriceService.ensureCustomerForConversation(context.conversationId);
+          context.customerId = customer.id;
+        } catch (e) {}
+      }
+
       // Look up active approved price
       const approvedRes = await ToolRegistry.executeTool('getApprovedPrice', { productId: context.currentProductId }, context);
       if (approvedRes.data?.hasApprovedPrice) {
@@ -1050,10 +1077,38 @@ export class AIProvider {
         lower.includes('discount');
 
       // Check if customer has pre-approved negotiated price
-      if (context.customerId) {
+      if (context.customerId || context.conversationId) {
         const approvedRes = await ToolRegistry.executeTool('getApprovedPrice', { productId: matched.id }, context);
         if (approvedRes.data?.hasApprovedPrice) {
           const q = approvedRes.data;
+
+          // If the customer specifically asked to buy / purchase / order, generate order & payment link immediately!
+          if (lower.includes('buy') || lower.includes('purchase') || lower.includes('order') || lower.includes('chahiye')) {
+            const orderRes = await ToolRegistry.executeTool(
+              'createOrder',
+              {
+                negotiatedPriceId: q.negotiatedPriceId,
+                productId: q.productId,
+                productName: q.productName,
+              },
+              context
+            );
+
+            if (orderRes.success && orderRes.data?.paymentUrl) {
+              const d = orderRes.data;
+              const reply = isHinglish
+                ? `⚡ *Aapka order ready hai!*\n\n*Product:* ${d.productName}\n*Amount:* ₹${d.amountInr.toLocaleString('en-IN')}\n*Order ID:* ${d.internalOrderId}\n\n👉 *Pay securely here:*\n${d.paymentUrl}\n\nPayment complete hote hi access credentials deliver ho jayenge! ⚡`
+                : `⚡ *Your order is ready!*\n\n*Product:* ${d.productName}\n*Amount:* ₹${d.amountInr.toLocaleString('en-IN')}\n*Order ID:* ${d.internalOrderId}\n\n👉 *Pay securely here:*\n${d.paymentUrl}\n\nOnce payment is confirmed, your subscription credentials will be delivered immediately! ⚡`;
+              return {
+                messageText: reply,
+                intentDetected: 'ORDER_CREATED_PAYMENT_LINK',
+                confidence: 0.99,
+                language,
+                toolsUsed: ['createOrder'],
+              };
+            }
+          }
+
           const reply = isHinglish
             ? `⚡ *Exclusive Approved Deal for You!*\n\n*Product:* ${q.productName}\n*Special Price:* ₹${q.amount} (All inclusive)\n\nKya aap payment link chahte hain to activate instantly? Bas "Pay" ya "Send Link" likhein!`
             : `⚡ *Pre-Approved Deal Available!*\n\n*Product:* ${q.productName}\n*Discounted Price:* ₹${q.amount} (All inclusive)\n\nWould you like the payment link to proceed? Reply "Pay" or "Send Link" to checkout securely via PayU!`;

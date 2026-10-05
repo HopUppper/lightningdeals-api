@@ -170,8 +170,41 @@ adminWhatsAppRouter.get('/conversations/:id', async (req: AuthRequest, res: Resp
   }
 });
 
+import { matchProduct } from './whatsappEngine';
+
+function extractPriceFromText(text: string): number | null {
+  if (!text) return null;
+  const clean = text.trim();
+
+  // 1. Currency symbols: ₹1499, Rs. 1499, 1499 rs, 1499 inr, 1499 rupees
+  const currMatch = clean.match(/(?:₹|rs\.?|inr)\s*(\d+(?:\.\d{1,2})?)/i) || 
+                    clean.match(/(\d+(?:\.\d{1,2})?)\s*(?:₹|rs\.?|inr|rupees)/i);
+  if (currMatch) {
+    const val = parseFloat(currMatch[1]);
+    if (!isNaN(val) && val >= 10 && val <= 100000) return val;
+  }
+
+  // 2. Keyword patterns: "price 1499", "for 1499", "at 1499", "final 1499", "deal 1499", "pay 1499", "1499 me", "1499 mein", "1499 final"
+  const kwMatch = clean.match(/(?:price|rate|cost|final|deal|for|at|pay|give|discount|mil\s*jayega|padega)\s*(?:is|of|hai|h|ko)?\s*(?:₹|rs\.?)?\s*(\d{2,6})/i) ||
+                  clean.match(/(\d{2,6})\s*(?:only|me|mein|bhai|final|tk|tak)/i);
+  if (kwMatch) {
+    const val = parseFloat(kwMatch[1]);
+    if (!isNaN(val) && val >= 10 && val <= 100000) return val;
+  }
+
+  // 3. Standalone number message: "1499" or "1200" or "₹1499"
+  const shortNumMatch = clean.match(/^(?:₹|rs\.?)?\s*(\d{2,6})\s*(?:rs|rupees|inr|only)?$/i);
+  if (shortNumMatch) {
+    const val = parseFloat(shortNumMatch[1]);
+    if (!isNaN(val) && val >= 10 && val <= 100000) return val;
+  }
+
+  return null;
+}
+
 /**
  * 3. SEND ADMIN MESSAGE TO WHATSAPP CUSTOMER
+ * Also detects if admin manually quoted a price in chat, automatically recording it as the active negotiated price!
  */
 adminWhatsAppRouter.post('/conversations/:id/messages', async (req: AuthRequest, res: Response) => {
   try {
@@ -211,6 +244,35 @@ adminWhatsAppRouter.post('/conversations/:id/messages', async (req: AuthRequest,
         senderId: req.user!.id,
       },
     });
+
+    // Check if the admin manually offered a price in the message (e.g. "1499", "₹1200", "Claude for 1200")
+    const detectedPrice = extractPriceFromText(cleanText);
+    if (detectedPrice && detectedPrice > 0) {
+      try {
+        let targetProductId = conversation.currentProductId || 'claude_max_5x';
+        let targetProductName = conversation.currentProductName || 'Claude Max 5x (20M Tokens)';
+
+        const matched = matchProduct(cleanText);
+        if (matched) {
+          targetProductId = matched.id;
+          targetProductName = matched.name;
+        }
+
+        await NegotiatedPriceService.createNegotiatedPrice({
+          whatsappConversationId: conversation.id,
+          customerId: conversation.customerId || undefined,
+          productId: targetProductId,
+          productName: targetProductName,
+          amount: detectedPrice,
+          createdBy: req.user!.id,
+          notes: `Auto-captured from admin chat message: "${cleanText}"`,
+        });
+
+        console.log(`⚡ [ADMIN AUTO-QUOTE] Auto-recorded negotiated price of ₹${detectedPrice} for ${targetProductName} from admin message`);
+      } catch (quoteErr: any) {
+        console.warn('[ADMIN AUTO-QUOTE WARNING] Could not auto-record price from admin message:', quoteErr.message);
+      }
+    }
 
     // Update conversation last message timestamp & snippet
     await prisma.whatsAppConversation.update({
@@ -252,7 +314,7 @@ adminWhatsAppRouter.post('/conversations/:id/messages', async (req: AuthRequest,
 });
 
 /**
- * 4. SET CUSTOMER NEGOTIATED PRICE (Admin Only)
+ * 4. SET CUSTOMER NEGOTIATED PRICE (Admin Modal / API)
  */
 adminWhatsAppRouter.post('/negotiate-price', async (req: AuthRequest, res: Response) => {
   try {
@@ -267,15 +329,21 @@ adminWhatsAppRouter.post('/negotiate-price', async (req: AuthRequest, res: Respo
       expiresInHours,
     } = req.body;
 
-    if (!customerId || !productId || !productName || amount === undefined) {
+    if (!productId || !productName || amount === undefined) {
       return res.status(400).json({
-        error: 'customerId, productId, productName, and amount are required.',
+        error: 'productId, productName, and amount are required.',
+      });
+    }
+
+    if (!customerId && !whatsappConversationId) {
+      return res.status(400).json({
+        error: 'Either customerId or whatsappConversationId is required.',
       });
     }
 
     const negotiatedPrice = await NegotiatedPriceService.createNegotiatedPrice({
-      customerId,
-      whatsappConversationId,
+      customerId: customerId || undefined,
+      whatsappConversationId: whatsappConversationId || undefined,
       productId,
       productName,
       amount: Number(amount),
@@ -284,6 +352,31 @@ adminWhatsAppRouter.post('/negotiate-price', async (req: AuthRequest, res: Respo
       notes,
       expiresInHours: expiresInHours ? Number(expiresInHours) : 48,
     });
+
+    // Notify customer on WhatsApp about approved deal
+    if (whatsappConversationId) {
+      const conv = await prisma.whatsAppConversation.findUnique({
+        where: { id: whatsappConversationId },
+      });
+      if (conv) {
+        const quoteMsg = `⚡ *Special Approved Price: ₹${Number(amount).toLocaleString('en-IN')}*\n\nOur team has approved your custom price for *${productName.trim()}*!\n\n👉 Reply *"Yes"* or *"Send Link"* to receive your secure PayU checkout link! ⚡`;
+        await WhatsAppClient.sendMessage({
+          to: conv.whatsappNumber,
+          text: quoteMsg,
+        }).catch(() => {});
+
+        await prisma.whatsAppMessage.create({
+          data: {
+            conversationId: conv.id,
+            direction: 'OUTBOUND',
+            messageType: 'TEXT',
+            content: quoteMsg,
+            sentBy: 'BOT',
+            deliveryStatus: 'SENT',
+          },
+        }).catch(() => {});
+      }
+    }
 
     return res.json({
       success: true,

@@ -24,6 +24,72 @@ export interface ConvertNegotiatedPriceToOrderParams {
 
 export class NegotiatedPriceService {
   /**
+   * Helper: Ensure a valid Customer exists for a WhatsApp conversation.
+   * Auto-provisions shadow customer account if not yet linked.
+   */
+  static async ensureCustomerForConversation(conversationId: string) {
+    const conv = await prisma.whatsAppConversation.findUnique({
+      where: { id: conversationId },
+      include: { customer: true },
+    });
+    if (!conv) {
+      throw new Error(`WhatsApp conversation '${conversationId}' not found.`);
+    }
+
+    if (conv.customerId && conv.customer) {
+      return conv.customer;
+    }
+
+    if (conv.customerId) {
+      const existing = await prisma.user.findUnique({ where: { id: conv.customerId } });
+      if (existing) return existing;
+    }
+
+    const cleanPhone = conv.whatsappNumber.replace(/\D/g, '');
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: conv.whatsappNumber },
+          { phone: cleanPhone },
+          { email: `wa_${cleanPhone}@lightningapi.pro` },
+        ],
+      },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name: conv.customerName || `Customer (${cleanPhone})`,
+          email: `wa_${cleanPhone}@lightningapi.pro`,
+          phone: cleanPhone,
+          passwordHash: crypto.randomBytes(32).toString('hex'),
+          role: 'user',
+          status: 'active',
+        },
+      });
+    }
+
+    await prisma.whatsAppConversation.update({
+      where: { id: conv.id },
+      data: { customerId: user.id },
+    });
+
+    await prisma.whatsAppCustomerIdentity.upsert({
+      where: { whatsappNumber: conv.whatsappNumber },
+      create: {
+        customerId: user.id,
+        whatsappNumber: conv.whatsappNumber,
+        verified: true,
+      },
+      update: {
+        customerId: user.id,
+      },
+    }).catch(() => {});
+
+    return user;
+  }
+
+  /**
    * 1. CREATE NEGOTIATED PRICE
    * Strictly authorized admin operation. Never exposes internal cost or website price.
    * Creates an auditable record with explicit expiry.
@@ -41,12 +107,18 @@ export class NegotiatedPriceService {
       expiresInHours = 48,
     } = params;
 
-    // 1. Validate customer existence
-    const customer = await prisma.user.findUnique({
-      where: { id: customerId },
-    });
-    if (!customer) {
-      throw new Error(`Customer with ID '${customerId}' does not exist.`);
+    // 1. Resolve or validate customer
+    let targetCustomerId = customerId;
+    if (!targetCustomerId && whatsappConversationId) {
+      const customer = await this.ensureCustomerForConversation(whatsappConversationId);
+      targetCustomerId = customer.id;
+    } else if (targetCustomerId) {
+      const customer = await prisma.user.findUnique({ where: { id: targetCustomerId } });
+      if (!customer) {
+        throw new Error(`Customer with ID '${targetCustomerId}' does not exist.`);
+      }
+    } else {
+      throw new Error('Either customerId or whatsappConversationId must be provided.');
     }
 
     // 2. Validate amount security: strictly positive, non-zero, finite number
@@ -61,10 +133,35 @@ export class NegotiatedPriceService {
     // 4. Calculate expiration timestamp
     const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
-    // 5. Create NegotiatedPrice record
+    // 5. Supersede any older active quotes for this product to keep price single-source-of-truth
+    await prisma.negotiatedPrice.updateMany({
+      where: {
+        customerId: targetCustomerId,
+        productId,
+        status: 'ACTIVE',
+      },
+      data: { status: 'SUPERSEDED' },
+    });
+
+    // 5b. Cancel any stale unpaid orders with an outdated price so the new order reflects the latest price
+    await prisma.order.updateMany({
+      where: {
+        userId: targetCustomerId,
+        planId: productId,
+        paymentStatus: { in: ['CREATED', 'PENDING'] },
+        status: 'PENDING',
+        amountInr: { not: finalAmount },
+      },
+      data: {
+        status: 'CANCELLED',
+        cancellationReason: `Price updated to ₹${finalAmount}`,
+      },
+    }).catch(() => {});
+
+    // 6. Create NegotiatedPrice record
     const record = await prisma.negotiatedPrice.create({
       data: {
-        customerId,
+        customerId: targetCustomerId,
         whatsappConversationId,
         productId,
         productName: productName.trim(),
@@ -77,13 +174,13 @@ export class NegotiatedPriceService {
       },
     });
 
-    // 6. Record Tamper-Evident Audit Log
+    // 7. Record Tamper-Evident Audit Log
     await recordAuditEvent({
       eventType: 'NEGOTIATED_PRICE_CREATED',
       severity: 'INFO',
       actorType: 'ADMIN',
       actorId: createdBy,
-      customerId,
+      customerId: targetCustomerId,
       adminId: createdBy,
       resourceType: 'ORDER',
       resourceId: record.id,
@@ -106,10 +203,13 @@ export class NegotiatedPriceService {
       await prisma.whatsAppConversation.update({
         where: { id: whatsappConversationId },
         data: {
+          customerId: targetCustomerId,
           status: 'PRICE_APPROVED',
-          currentState: 'PRICE_APPROVED',
+          currentState: 'AWAITING_CUSTOMER_CONFIRMATION',
           currentProductId: productId,
           currentProductName: productName.trim(),
+          lastMessageAt: new Date(),
+          lastMessageSnippet: `Agreed Price: ₹${finalAmount}`,
         },
       }).catch(() => {});
     }
@@ -229,9 +329,9 @@ export class NegotiatedPriceService {
       },
     });
 
-    // Determine checkout URL
-    const baseUrl = process.env.LIGHTNINGDEALS_API_URL || 'https://lightningapi.pro';
-    const checkoutUrl = gatewayResult.checkoutUrl || `${baseUrl}/checkout?orderId=${updatedOrder.internalOrderId}`;
+    // Determine checkout URL — points directly to auto-submitting PayU payment form
+    const baseUrl = (process.env.LIGHTNINGDEALS_API_URL || process.env.VITE_APP_URL || 'https://lightningapi.pro').replace(/\/$/, '');
+    const checkoutUrl = `${baseUrl}/pay/${updatedOrder.internalOrderId}`;
 
     // 7. If linked to WhatsApp conversation, update conversation and send payment message
     if (negotiatedPrice.whatsappConversationId) {

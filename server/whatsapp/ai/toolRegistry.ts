@@ -762,27 +762,37 @@ export class ToolRegistry {
     args: Record<string, any>,
     context: AgentContext
   ): Promise<ToolExecutionResult> {
-    if (!context.customerId) {
-      return {
-        toolName: 'getApprovedPrice',
-        success: false,
-        data: null,
-        error: 'Customer must be authenticated with their email to retrieve personalized quotes.',
-      };
-    }
-
-    const productId = args.productId;
+    const targetCustomerId = context.customerId;
+    const productId = args.productId || context.currentProductId;
     const now = new Date();
 
-    const quote = await prisma.negotiatedPrice.findFirst({
+    let quote = await prisma.negotiatedPrice.findFirst({
       where: {
-        customerId: context.customerId,
+        OR: [
+          ...(targetCustomerId ? [{ customerId: targetCustomerId }] : []),
+          ...(context.conversationId ? [{ whatsappConversationId: context.conversationId }] : []),
+        ],
         status: 'ACTIVE',
         expiresAt: { gt: now },
         ...(productId && { productId }),
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    if (!quote) {
+      // Fallback: check for any active quote for this conversation or customer
+      quote = await prisma.negotiatedPrice.findFirst({
+        where: {
+          OR: [
+            ...(targetCustomerId ? [{ customerId: targetCustomerId }] : []),
+            ...(context.conversationId ? [{ whatsappConversationId: context.conversationId }] : []),
+          ],
+          status: 'ACTIVE',
+          expiresAt: { gt: now },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
 
     if (!quote) {
       return {
@@ -913,29 +923,56 @@ export class ToolRegistry {
     args: Record<string, any>,
     context: AgentContext
   ): Promise<ToolExecutionResult> {
-    if (!context.customerId) {
+    let targetCustomerId = context.customerId;
+    if (!targetCustomerId && context.conversationId) {
+      try {
+        const customer = await NegotiatedPriceService.ensureCustomerForConversation(context.conversationId);
+        targetCustomerId = customer.id;
+        context.customerId = customer.id;
+      } catch (e) {}
+    }
+
+    if (!targetCustomerId) {
       return {
         toolName: 'createOrder',
         success: false,
         data: null,
-        error: 'Customer must be authenticated with their email before creating an order.',
+        error: 'Customer account could not be initialized to create an order.',
       };
     }
 
     let negotiatedPriceId = args.negotiatedPriceId;
     const productId = args.productId || context.currentProductId;
 
-    // If no quote ID passed, look up active approved quote
+    // If no quote ID passed, look up latest active approved quote
     if (!negotiatedPriceId) {
-      const activeQuote = await prisma.negotiatedPrice.findFirst({
+      let activeQuote = await prisma.negotiatedPrice.findFirst({
         where: {
-          customerId: context.customerId,
+          OR: [
+            { customerId: targetCustomerId },
+            ...(context.conversationId ? [{ whatsappConversationId: context.conversationId }] : []),
+          ],
           status: 'ACTIVE',
           expiresAt: { gt: new Date() },
           ...(productId && { productId }),
         },
         orderBy: { createdAt: 'desc' },
       });
+
+      if (!activeQuote) {
+        // Fallback: any active quote for this customer/conversation
+        activeQuote = await prisma.negotiatedPrice.findFirst({
+          where: {
+            OR: [
+              { customerId: targetCustomerId },
+              ...(context.conversationId ? [{ whatsappConversationId: context.conversationId }] : []),
+            ],
+            status: 'ACTIVE',
+            expiresAt: { gt: new Date() },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
 
       if (!activeQuote) {
         return {
@@ -987,6 +1024,15 @@ export class ToolRegistry {
     args: Record<string, any>,
     context: AgentContext
   ): Promise<ToolExecutionResult> {
+    let targetCustomerId = context.customerId;
+    if (!targetCustomerId && context.conversationId) {
+      try {
+        const customer = await NegotiatedPriceService.ensureCustomerForConversation(context.conversationId);
+        targetCustomerId = customer.id;
+        context.customerId = customer.id;
+      } catch (e) {}
+    }
+
     const orderId = args.orderId?.trim();
     let order = null;
 
@@ -994,17 +1040,26 @@ export class ToolRegistry {
       order = await prisma.order.findFirst({
         where: {
           OR: [{ internalOrderId: orderId }, { id: orderId }],
-          ...(context.customerId && { userId: context.customerId }),
+          ...(targetCustomerId && { userId: targetCustomerId }),
         },
       });
     } else if (context.currentOrderId) {
       order = await prisma.order.findUnique({
         where: { id: context.currentOrderId },
       });
-    } else if (context.customerId) {
+    } else if (targetCustomerId) {
       order = await prisma.order.findFirst({
         where: {
-          userId: context.customerId,
+          userId: targetCustomerId,
+          paymentStatus: { in: ['CREATED', 'PENDING'] },
+          status: 'PENDING',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    } else if (context.conversationId) {
+      order = await prisma.order.findFirst({
+        where: {
+          whatsappConversationId: context.conversationId,
           paymentStatus: { in: ['CREATED', 'PENDING'] },
           status: 'PENDING',
         },
@@ -1012,12 +1067,53 @@ export class ToolRegistry {
       });
     }
 
+    // Check for the LATEST active approved price quote
+    const latestQuote = await prisma.negotiatedPrice.findFirst({
+      where: {
+        OR: [
+          ...(targetCustomerId ? [{ customerId: targetCustomerId }] : []),
+          ...(context.conversationId ? [{ whatsappConversationId: context.conversationId }] : []),
+        ],
+        status: 'ACTIVE',
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // If an unpaid order exists, check if its price matches the latest approved quote
+    if (order && latestQuote && order.amountInr !== latestQuote.amount) {
+      // The price was renegotiated! Cancel the outdated order
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: `Price updated to ₹${latestQuote.amount}`,
+        },
+      }).catch(() => {});
+      order = null;
+    }
+
+    // If no order exists (or old order was cancelled due to renegotiation), create a fresh order for the approved price
+    if (!order && latestQuote) {
+      const createRes = await this.handleCreateOrder(
+        {
+          negotiatedPriceId: latestQuote.id,
+          productId: latestQuote.productId,
+          productName: latestQuote.productName,
+        },
+        context
+      );
+      if (createRes.success && createRes.data?.paymentUrl) {
+        return createRes;
+      }
+    }
+
     if (!order) {
       return {
         toolName: 'getOrderPaymentLink',
         success: false,
         data: null,
-        error: 'No pending unpaid order found.',
+        error: 'No active order found. Please confirm your order first.',
       };
     }
 

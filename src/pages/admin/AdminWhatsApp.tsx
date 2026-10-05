@@ -173,7 +173,7 @@ export const AdminWhatsApp: React.FC = () => {
 
   const handleSaveNegotiatedPrice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeConv || !activeConv.customerId || !priceForm.amount) return;
+    if (!activeConv || !priceForm.amount || submittingPrice) return;
 
     setSubmittingPrice(true);
     setActionNotice(null);
@@ -182,7 +182,7 @@ export const AdminWhatsApp: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerId: activeConv.customerId,
+          customerId: activeConv.customerId || undefined,
           whatsappConversationId: activeConv.id,
           productId: priceForm.productId,
           productName: priceForm.productName,
@@ -195,12 +195,12 @@ export const AdminWhatsApp: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setShowPriceModal(false);
-        setActionNotice(`Negotiated price ₹${priceForm.amount} set successfully! You can now generate the PayU payment order.`);
+        setActionNotice(`⚡ Approved price of ₹${priceForm.amount} set and sent to customer on WhatsApp!`);
         fetchDetail(selectedId!);
         fetchConversations();
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to set price');
+        alert(err.error || err.message || 'Failed to set price');
       }
     } catch (e: any) {
       alert(e.message);

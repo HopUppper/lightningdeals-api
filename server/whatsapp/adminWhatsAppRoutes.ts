@@ -4,6 +4,7 @@ import { authenticateJwt, AuthRequest } from '../auth';
 import { recordAuditEvent } from '../auditLogger';
 import { WhatsAppClient } from './whatsappClient';
 import { NegotiatedPriceService } from './negotiatedPriceService';
+import { AIProvider } from './ai/aiProvider';
 
 export const adminWhatsAppRouter = Router();
 
@@ -581,6 +582,142 @@ adminWhatsAppRouter.get('/analytics', async (req: AuthRequest, res: Response) =>
     });
   } catch (err: any) {
     console.error('[ADMIN WHATSAPP ANALYTICS ERROR]', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 9. BOT TOKEN USAGE & REAL-TIME TELEMETRY
+ * Detailed token accounting: exact tokens, timestamp, phone/customer, latency, and tools used.
+ */
+adminWhatsAppRouter.get('/bot-telemetry', async (req: AuthRequest, res: Response) => {
+  try {
+    const runtimeTelemetry = AIProvider.getTelemetry();
+
+    // Query all bot messages with metadata
+    const botMessages = await prisma.whatsAppMessage.findMany({
+      where: { sentBy: 'BOT' },
+      include: {
+        conversation: {
+          select: {
+            id: true,
+            whatsappNumber: true,
+            customerName: true,
+            status: true,
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
+    let totalTokens = 0;
+    let totalLatencyMs = 0;
+    let validLatencyCount = 0;
+    const toolCounts: Record<string, number> = {};
+    const modelCounts: Record<string, { count: number; totalTokens: number }> = {};
+
+    const interactions = [];
+
+    for (const msg of botMessages) {
+      let meta: any = {};
+      try {
+        meta = msg.metadata ? JSON.parse(msg.metadata) : {};
+      } catch {}
+
+      const promptTokens = meta.tokens?.prompt || 0;
+      const completionTokens = meta.tokens?.completion || 0;
+      const msgTotalTokens = meta.tokens?.total || promptTokens + completionTokens;
+      const latencyMs = meta.latencyMs || 0;
+      const tools = Array.isArray(meta.toolsUsed) ? meta.toolsUsed : [];
+      const model = meta.model || runtimeTelemetry.activeModel || 'claude-3-5-sonnet-20241022';
+      const provider = meta.provider || runtimeTelemetry.activeProvider || 'ScaleMax';
+
+      totalPromptTokens += promptTokens;
+      totalCompletionTokens += completionTokens;
+      totalTokens += msgTotalTokens;
+
+      if (latencyMs > 0) {
+        totalLatencyMs += latencyMs;
+        validLatencyCount++;
+      }
+
+      for (const t of tools) {
+        toolCounts[t] = (toolCounts[t] || 0) + 1;
+      }
+
+      if (!modelCounts[model]) {
+        modelCounts[model] = { count: 0, totalTokens: 0 };
+      }
+      modelCounts[model].count++;
+      modelCounts[model].totalTokens += msgTotalTokens;
+
+      interactions.push({
+        id: msg.id,
+        conversationId: msg.conversationId,
+        timestamp: msg.createdAt.toISOString(),
+        customerPhone: msg.conversation?.whatsappNumber || 'Unknown',
+        customerName: msg.conversation?.customerName || msg.conversation?.customer?.name || 'Guest User',
+        customerEmail: msg.conversation?.customer?.email || null,
+        conversationStatus: msg.conversation?.status || 'ACTIVE',
+        botResponse: msg.content,
+        promptTokens,
+        completionTokens,
+        totalTokens: msgTotalTokens,
+        latencyMs,
+        toolsUsed: tools,
+        provider,
+        model,
+        intent: meta.intent || 'CONSULTATIVE_REPLY',
+      });
+    }
+
+    // Merge with runtime telemetry if runtime reported higher tokens
+    if (runtimeTelemetry.totalTokens && runtimeTelemetry.totalTokens.totalTokens > totalTokens) {
+      totalPromptTokens = Math.max(totalPromptTokens, runtimeTelemetry.totalTokens.promptTokens);
+      totalCompletionTokens = Math.max(totalCompletionTokens, runtimeTelemetry.totalTokens.completionTokens);
+      totalTokens = Math.max(totalTokens, runtimeTelemetry.totalTokens.totalTokens);
+    }
+
+    // Estimated costs (Claude 3.5 Sonnet: $3/1M prompt, $15/1M completion, INR approx 87)
+    const estimatedCostUsd = (totalPromptTokens / 1_000_000) * 3.0 + (totalCompletionTokens / 1_000_000) * 15.0;
+    const estimatedCostInr = estimatedCostUsd * 87.0;
+    const avgLatencyMs = validLatencyCount > 0 ? Math.round(totalLatencyMs / validLatencyCount) : 0;
+
+    const topTools = Object.entries(toolCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return res.json({
+      summary: {
+        totalBotMessages: botMessages.length,
+        totalCalls: Math.max(botMessages.length, runtimeTelemetry.totalCalls || 0),
+        totalTokens,
+        totalPromptTokens,
+        totalCompletionTokens,
+        estimatedCostUsd: Math.round(estimatedCostUsd * 1000) / 1000,
+        estimatedCostInr: Math.round(estimatedCostInr * 100) / 100,
+        avgLatencyMs,
+        activeProvider: runtimeTelemetry.activeProvider,
+        activeModel: runtimeTelemetry.activeModel,
+        status: runtimeTelemetry.status,
+        lastCallTimestamp: runtimeTelemetry.lastCallTimestamp || (interactions[0]?.timestamp ?? null),
+      },
+      topTools,
+      modelBreakdown: modelCounts,
+      recentInteractions: interactions,
+    });
+  } catch (err: any) {
+    console.error('[ADMIN BOT TELEMETRY ERROR]', err);
     return res.status(500).json({ error: err.message });
   }
 });

@@ -28,6 +28,7 @@ import {
   Bot,
 } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
+import { Activity, Cpu, Coins, BarChart3 } from 'lucide-react';
 
 export const AdminWhatsApp: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,11 @@ export const AdminWhatsApp: React.FC = () => {
   const [chatMessage, setChatMessage] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
 
+  // Bot Telemetry & Token Tracking
+  const [botTelemetry, setBotTelemetry] = useState<any>(null);
+  const [showTelemetryModal, setShowTelemetryModal] = useState(false);
+  const [telemetrySearch, setTelemetrySearch] = useState('');
+
   // Negotiate Price Modal
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceForm, setPriceForm] = useState({
@@ -62,7 +68,8 @@ export const AdminWhatsApp: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const fetchConversations = async () => {
+  const fetchConversations = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const q = new URLSearchParams({
         limit: '50',
@@ -91,12 +98,12 @@ export const AdminWhatsApp: React.FC = () => {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  const fetchDetail = async (id: string) => {
-    setLoadingDetail(true);
+  const fetchDetail = async (id: string, silent = false) => {
+    if (!silent) setLoadingDetail(true);
     try {
       const res = await adminFetch(`/api/admin/whatsapp/conversations/${id}`);
       if (res.ok) {
@@ -108,13 +115,36 @@ export const AdminWhatsApp: React.FC = () => {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoadingDetail(false);
+      if (!silent) setLoadingDetail(false);
     }
   };
 
+  const fetchTelemetry = async () => {
+    try {
+      const res = await adminFetch('/api/admin/whatsapp/bot-telemetry');
+      if (res.ok) {
+        setBotTelemetry(await res.json());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Real-time 5-second polling interval for live sync
   useEffect(() => {
     fetchConversations();
-  }, [statusFilter]);
+    fetchTelemetry();
+
+    const interval = setInterval(() => {
+      fetchConversations(true);
+      fetchTelemetry();
+      if (selectedId) {
+        fetchDetail(selectedId, true);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [statusFilter, search, selectedId]);
 
   useEffect(() => {
     if (selectedId) {
@@ -289,19 +319,33 @@ export const AdminWhatsApp: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-2.5">
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-semibold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            <span>Live 5s Sync</span>
+          </div>
+
+          <button
+            onClick={() => setShowTelemetryModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition cursor-pointer shadow-sm"
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            Bot Token Tracker ({botTelemetry ? `${(botTelemetry.summary.totalTokens / 1000).toFixed(1)}k` : '...'})
+          </button>
+
           <Link
             to="/admin/ai-control"
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition cursor-pointer shadow-sm"
           >
             <Bot className="w-3.5 h-3.5" />
-            AI Agent 2.0 Controls
+            AI Agent Controls
           </Link>
 
           <button
             onClick={() => {
               setLoading(true);
               fetchConversations();
+              fetchTelemetry();
               if (selectedId) fetchDetail(selectedId);
             }}
             className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-card border border-border text-fg hover:bg-slate-50 transition cursor-pointer shadow-sm"
@@ -313,7 +357,7 @@ export const AdminWhatsApp: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3.5">
         <div className="p-4 rounded-2xl bg-card border border-border shadow-sm">
           <div className="text-xs text-muted font-medium">Conversations</div>
           <div className="text-xl font-bold text-fg mt-1">
@@ -372,6 +416,23 @@ export const AdminWhatsApp: React.FC = () => {
             {analytics?.conversionRate ?? 0}%
           </div>
           <div className="text-[11px] text-violet-600 mt-0.5">Quote to PayU paid</div>
+        </div>
+
+        <div
+          onClick={() => setShowTelemetryModal(true)}
+          className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-sm cursor-pointer hover:bg-amber-500/20 transition group"
+        >
+          <div className="text-xs text-amber-800 font-bold flex items-center justify-between">
+            <span className="flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-amber-600" /> Bot Tokens</span>
+            <span className="text-[9px] bg-amber-500/30 text-amber-900 px-1 py-0.5 rounded font-black">5s Live</span>
+          </div>
+          <div className="text-xl font-black text-amber-900 mt-1">
+            {botTelemetry ? `${(botTelemetry.summary.totalTokens / 1000).toFixed(1)}k` : '0k'}
+          </div>
+          <div className="text-[11px] text-amber-700 mt-0.5 flex items-center justify-between font-medium">
+            <span>₹{botTelemetry?.summary.estimatedCostInr?.toFixed(2) || '0.00'} cost</span>
+            <span className="text-[10px] group-hover:underline">Track →</span>
+          </div>
         </div>
       </div>
 
@@ -742,6 +803,222 @@ export const AdminWhatsApp: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bot Token Usage & Telemetry Tracker Modal */}
+      {showTelemetryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-card border border-border rounded-3xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-border flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                  <Zap className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-fg flex items-center gap-2">
+                    AI Bot Token Usage & Telemetry Tracker
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-bold">
+                      Live 5s Polling
+                    </span>
+                  </h3>
+                  <p className="text-xs text-muted mt-0.5">
+                    Real-time token consumption, exact timestamps, customer phone, latency, and tools used by Claude.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTelemetryModal(false)}
+                className="p-2 rounded-xl text-muted hover:text-fg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {/* Stat Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-border">
+                  <div className="text-[11px] text-muted font-medium flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-amber-500" /> Total Tokens Used
+                  </div>
+                  <div className="text-2xl font-black text-fg mt-1">
+                    {(botTelemetry?.summary?.totalTokens ?? 0).toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-muted mt-1 flex justify-between">
+                    <span>Prompt: {(botTelemetry?.summary?.totalPromptTokens ?? 0).toLocaleString()}</span>
+                    <span>Compl: {(botTelemetry?.summary?.totalCompletionTokens ?? 0).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-border">
+                  <div className="text-[11px] text-muted font-medium flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Estimated Cost
+                  </div>
+                  <div className="text-2xl font-black text-emerald-600 mt-1">
+                    ₹{botTelemetry?.summary?.estimatedCostInr?.toFixed(2) ?? '0.00'}
+                  </div>
+                  <div className="text-[10px] text-muted mt-1">
+                    ${botTelemetry?.summary?.estimatedCostUsd?.toFixed(3) ?? '0.000'} USD
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-border">
+                  <div className="text-[11px] text-muted font-medium flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-blue-500" /> Avg Latency
+                  </div>
+                  <div className="text-2xl font-black text-fg mt-1">
+                    {botTelemetry?.summary?.avgLatencyMs ? `${(botTelemetry.summary.avgLatencyMs / 1000).toFixed(2)}s` : '0s'}
+                  </div>
+                  <div className="text-[10px] text-muted mt-1">
+                    {botTelemetry?.summary?.avgLatencyMs ?? 0} ms per response
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-border">
+                  <div className="text-[11px] text-muted font-medium flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-violet-500" /> Active Provider & Model
+                  </div>
+                  <div className="text-xs font-bold text-fg mt-1.5 truncate">
+                    {botTelemetry?.summary?.activeProvider ?? 'ScaleMax'}
+                  </div>
+                  <div className="text-[10px] text-muted truncate mt-0.5">
+                    {botTelemetry?.summary?.activeModel ?? 'claude-3-5-sonnet-20241022'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tools Executed Breakdown */}
+              {botTelemetry?.topTools?.length > 0 && (
+                <div>
+                  <div className="text-xs font-bold text-fg mb-2 flex items-center gap-1.5">
+                    <BarChart3 className="w-3.5 h-3.5 text-violet-500" /> Tools Executed by AI Agent:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {botTelemetry.topTools.map((t: any) => (
+                      <span
+                        key={t.name}
+                        className="px-2.5 py-1 rounded-xl text-xs font-semibold bg-violet-500/10 text-violet-700 border border-violet-500/20 flex items-center gap-1.5"
+                      >
+                        <code>{t.name}</code>
+                        <span className="px-1.5 py-0.2 rounded-full bg-violet-600 text-white text-[10px] font-bold">
+                          {t.count}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Detailed Recent Interactions Table */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold text-fg uppercase tracking-wider">
+                    Recent Bot Responses & Token Breakdown ({botTelemetry?.recentInteractions?.length ?? 0})
+                  </h4>
+                  <div className="w-64">
+                    <input
+                      type="text"
+                      placeholder="Filter by phone or tool..."
+                      value={telemetrySearch}
+                      onChange={(e) => setTelemetrySearch(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-border rounded-xl text-xs focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="border border-border rounded-2xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto max-h-[350px]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-50 dark:bg-slate-900/80 sticky top-0 z-10 border-b border-border text-muted uppercase text-[10px]">
+                        <tr>
+                          <th className="py-2.5 px-3 font-semibold">Time</th>
+                          <th className="py-2.5 px-3 font-semibold">Where / Customer</th>
+                          <th className="py-2.5 px-3 font-semibold text-right">Prompt</th>
+                          <th className="py-2.5 px-3 font-semibold text-right">Compl</th>
+                          <th className="py-2.5 px-3 font-semibold text-right">Total</th>
+                          <th className="py-2.5 px-3 font-semibold text-right">Latency</th>
+                          <th className="py-2.5 px-3 font-semibold">Tools Used</th>
+                          <th className="py-2.5 px-3 font-semibold">Bot Reply Preview</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {botTelemetry?.recentInteractions
+                          ?.filter((it: any) => {
+                            if (!telemetrySearch.trim()) return true;
+                            const q = telemetrySearch.toLowerCase();
+                            return (
+                              it.customerPhone.toLowerCase().includes(q) ||
+                              it.customerName.toLowerCase().includes(q) ||
+                              it.toolsUsed.some((tool: string) => tool.toLowerCase().includes(q)) ||
+                              it.botResponse.toLowerCase().includes(q)
+                            );
+                          })
+                          .map((it: any) => (
+                            <tr key={it.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition">
+                              <td className="py-2.5 px-3 whitespace-nowrap text-muted font-mono text-[11px]">
+                                {new Date(it.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <div className="font-semibold text-fg">{it.customerPhone}</div>
+                                <div className="text-[10px] text-muted truncate max-w-[120px]">{it.customerName}</div>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-muted text-[11px]">
+                                {it.promptTokens.toLocaleString()}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-muted text-[11px]">
+                                {it.completionTokens.toLocaleString()}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-600 text-[11px]">
+                                {it.totalTokens.toLocaleString()}
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-muted font-mono text-[11px] whitespace-nowrap">
+                                {it.latencyMs ? `${(it.latencyMs / 1000).toFixed(1)}s` : '-'}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                {it.toolsUsed.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {it.toolsUsed.map((tool: string) => (
+                                      <span
+                                        key={tool}
+                                        className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-violet-500/10 text-violet-700 border border-violet-500/20"
+                                      >
+                                        {tool}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-muted italic">Direct reply</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-muted truncate max-w-[200px]" title={it.botResponse}>
+                                {it.botResponse}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="text-xs text-muted flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Refreshes automatically every 5 seconds in real time.
+              </div>
+              <button
+                onClick={() => setShowTelemetryModal(false)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition cursor-pointer"
+              >
+                Close Tracker
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -70,6 +70,7 @@ export function buildProviderRequest(
     stop_sequences?: string[];
     metadata?: any;
     anthropicBetaHeader?: string;
+    skipPersona?: boolean;
   }
 ): PreparedProviderRequest {
   const protocol = vendor?.protocol || 'anthropic';
@@ -94,15 +95,20 @@ export function buildProviderRequest(
     }
   }
 
-  const friendlyModel = getFriendlyModelName(internalModel);
-  const personaInstruction = `You are ${friendlyModel}, running on the LightningDeals AI Gateway. Your active model identity is ${friendlyModel}. You are an elite AI coding assistant powered by Anthropic's frontier architecture with 1,000,000 token context window and sub-50ms gateway routing. Always identify yourself as ${friendlyModel} on LightningDeals.`;
+  let effectiveSystem: any;
+  if (payload.skipPersona) {
+    effectiveSystem = payload.system;
+  } else {
+    const friendlyModel = getFriendlyModelName(internalModel);
+    const personaInstruction = `You are ${friendlyModel}, running on the LightningDeals AI Gateway. Your active model identity is ${friendlyModel}. You are an elite AI coding assistant powered by Anthropic's frontier architecture with 1,000,000 token context window and sub-50ms gateway routing. Always identify yourself as ${friendlyModel} on LightningDeals.`;
 
-  let effectiveSystem: any = personaInstruction;
-  if (payload.system) {
-    if (typeof payload.system === 'string') {
-      effectiveSystem = `${personaInstruction}\n\n${payload.system}`;
-    } else if (Array.isArray(payload.system)) {
-      effectiveSystem = [{ type: 'text', text: personaInstruction }, ...payload.system];
+    effectiveSystem = personaInstruction;
+    if (payload.system) {
+      if (typeof payload.system === 'string') {
+        effectiveSystem = `${personaInstruction}\n\n${payload.system}`;
+      } else if (Array.isArray(payload.system)) {
+        effectiveSystem = [{ type: 'text', text: personaInstruction }, ...payload.system];
+      }
     }
   }
 

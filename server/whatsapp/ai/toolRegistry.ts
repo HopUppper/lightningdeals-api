@@ -29,6 +29,38 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: 'getProduct',
+    description: 'Get detailed product specifications, key features, activation procedure, and usage details by product name or ID.',
+    parameters: {
+      type: 'object',
+      properties: {
+        productId: { type: 'string', description: 'Product identifier, e.g. "prod_canva_pro" or "Canva Pro"' },
+        productName: { type: 'string', description: 'Product name' },
+      },
+    },
+  },
+  {
+    name: 'getProductRecommendations',
+    description: 'Get tailored product recommendations for a customer use case (e.g. video editing, graphic design, programming).',
+    parameters: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', description: 'Category or requirement, e.g. "video editing", "design", "coding", "ai"' },
+        useCase: { type: 'string', description: 'Optional specific workflow description' },
+      },
+    },
+  },
+  {
+    name: 'getCustomer',
+    description: 'Get the profile and authentication status of the current WhatsApp customer.',
+    parameters: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', description: 'Optional customer registered email' },
+      },
+    },
+  },
+  {
     name: 'authenticateCustomer',
     description: 'Link customer account by email to unlock their orders, subscriptions, credits, and active price quotes.',
     parameters: {
@@ -344,6 +376,15 @@ export class ToolRegistry {
         case 'searchProducts':
           result = await this.handleSearchProducts(args);
           break;
+        case 'getProduct':
+          result = await this.handleGetProduct(args);
+          break;
+        case 'getProductRecommendations':
+          result = await this.handleGetProductRecommendations(args);
+          break;
+        case 'getCustomer':
+          result = await this.handleGetCustomer(args, context);
+          break;
         case 'authenticateCustomer':
           result = await this.handleAuthenticateCustomer(args, context);
           break;
@@ -499,6 +540,136 @@ export class ToolRegistry {
           bestFor: p.bestFor,
           keyFeature: p.features[0],
         })),
+      },
+    };
+  }
+
+  private static async handleGetProduct(args: Record<string, any>): Promise<ToolExecutionResult> {
+    const idOrName = (args.productId || args.productName || '').toLowerCase().trim();
+    if (!idOrName) {
+      return {
+        toolName: 'getProduct',
+        success: false,
+        data: null,
+        error: 'Please provide a product name or ID to lookup.',
+      };
+    }
+
+    const matched = DETAILED_PRODUCTS.find(
+      (p) =>
+        p.id.toLowerCase() === idOrName ||
+        p.name.toLowerCase().includes(idOrName) ||
+        idOrName.includes(p.name.toLowerCase()) ||
+        idOrName.split(/\s+/).some((w) => w.length > 3 && p.name.toLowerCase().includes(w))
+    );
+
+    if (!matched) {
+      return {
+        toolName: 'getProduct',
+        success: false,
+        data: null,
+        error: `Product "${idOrName}" not found in current catalog.`,
+      };
+    }
+
+    let activationInfo = 'Activation is processed digitally within 15-30 minutes after order confirmation. ';
+    if (matched.id.includes('canva')) {
+      activationInfo += 'For Canva Pro, activation is done via a direct email invitation added to your personal Canva account. No password sharing is ever required. Your existing designs and personal folders remain completely private and untouched.';
+    } else if (matched.id.includes('cursor')) {
+      activationInfo += 'Cursor Pro is activated directly on your email login or team invite with Claude 3.5 Sonnet codebase access.';
+    } else if (matched.id.includes('claude')) {
+      activationInfo += 'Claude Max high-throughput access is activated instantly with 20M token allocation via unified endpoint.';
+    } else if (matched.id.includes('adobe')) {
+      activationInfo += 'Adobe Creative Cloud 20+ apps are activated on your personal Adobe ID with cloud storage and Adobe Fonts.';
+    }
+
+    return {
+      toolName: 'getProduct',
+      success: true,
+      data: {
+        id: matched.id,
+        name: matched.name,
+        category: matched.category,
+        description: matched.description,
+        features: matched.features,
+        bestFor: matched.bestFor,
+        activationGuide: activationInfo,
+        pricingNotice: 'Official enterprise discounts are customized per customer by our admin team.',
+      },
+    };
+  }
+
+  private static async handleGetProductRecommendations(args: Record<string, any>): Promise<ToolExecutionResult> {
+    const query = (args.category || args.useCase || '').toLowerCase().trim();
+    let recommended: any[] = [];
+
+    if (query.includes('video') || query.includes('youtube') || query.includes('edit')) {
+      recommended = DETAILED_PRODUCTS.filter((p) => p.id.includes('adobe') || p.id.includes('canva'));
+    } else if (query.includes('code') || query.includes('program') || query.includes('dev')) {
+      recommended = DETAILED_PRODUCTS.filter((p) => p.id.includes('cursor') || p.id.includes('custom'));
+    } else if (query.includes('design') || query.includes('graphic') || query.includes('art') || query.includes('thumbnail')) {
+      recommended = DETAILED_PRODUCTS.filter((p) => p.id.includes('canva') || p.id.includes('midjourney') || p.id.includes('adobe'));
+    } else if (query.includes('ai') || query.includes('gpt') || query.includes('claude') || query.includes('writer')) {
+      recommended = DETAILED_PRODUCTS.filter((p) => p.id.includes('claude') || p.id.includes('chatgpt'));
+    } else {
+      recommended = DETAILED_PRODUCTS.slice(0, 3);
+    }
+
+    return {
+      toolName: 'getProductRecommendations',
+      success: true,
+      data: {
+        query,
+        count: recommended.length,
+        recommendations: recommended.map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          description: p.description,
+          bestFor: p.bestFor,
+          keyFeature: p.features[0],
+        })),
+      },
+    };
+  }
+
+  private static async handleGetCustomer(args: Record<string, any>, context: AgentContext): Promise<ToolExecutionResult> {
+    let customer = null;
+    const email = args.email?.toLowerCase().trim();
+    if (email) {
+      customer = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, name: true, email: true, availableCredits: true, role: true },
+      });
+    } else if (context.customerId) {
+      customer = await prisma.user.findUnique({
+        where: { id: context.customerId },
+        select: { id: true, name: true, email: true, availableCredits: true, role: true },
+      });
+    }
+
+    if (!customer) {
+      return {
+        toolName: 'getCustomer',
+        success: true,
+        data: {
+          authenticated: false,
+          customerId: null,
+          phone: context.whatsappNumber,
+          message: 'Customer is browsing as a guest. Call authenticateCustomer(email) if they want to access account history or credits.',
+        },
+      };
+    }
+
+    return {
+      toolName: 'getCustomer',
+      success: true,
+      data: {
+        authenticated: true,
+        customerId: customer.id,
+        name: customer.name || 'Valued Customer',
+        email: customer.email,
+        availableCredits: customer.availableCredits,
       },
     };
   }

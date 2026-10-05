@@ -1,8 +1,10 @@
-import { prisma } from '../../db';
+import { prisma, decryptText } from '../../db';
 import { AgentContext, AgentResponse, LLMMessage, SupportedLanguage } from './types';
 import { TOOL_DEFINITIONS, ToolRegistry } from './toolRegistry';
 import { matchProduct } from '../whatsappEngine';
 import { KnowledgeService } from './knowledgeService';
+import { buildProviderRequest, resolveVendorModel } from '../../providerAdapter';
+import { validateVendorBaseUrl } from '../../ssrf';
 
 export interface LLMGenerateOptions {
   messages: LLMMessage[];
@@ -67,8 +69,8 @@ export class AIProvider {
 
   /**
    * Primary entry point for AI Agent reasoning and response generation.
-   * Dispatches to configured LLM (Anthropic / OpenAI / Gemini) or uses
-   * the high-precision semantic local NLU engine.
+   * Routes through existing configured VendorProvider (e.g. ScaleMax / Claude)
+   * or falls back to direct external APIs or high-precision local semantic NLU.
    */
   static async generateResponse(options: LLMGenerateOptions): Promise<AgentResponse> {
     const startTime = Date.now();
@@ -91,6 +93,28 @@ export class AIProvider {
       }
     } catch {}
 
+    // 1. Primary: Dispatch to configured database VendorProvider (ScaleMax / Claude proxy infrastructure)
+    try {
+      const vendorResp = await this.callConfiguredVendorProvider(
+        messages,
+        systemPrompt,
+        context,
+        activeModel,
+        activeTemperature
+      );
+      if (vendorResp) {
+        this.recordCall(
+          vendorResp.provider || 'ScaleMax',
+          vendorResp.model || activeModel,
+          Date.now() - startTime,
+          vendorResp.tokens ? { prompt: vendorResp.tokens.prompt, completion: vendorResp.tokens.completion } : undefined
+        );
+        return vendorResp;
+      }
+    } catch (err: any) {
+      console.warn('[AI PROVIDER] Configured Vendor Provider call failed, falling back to secondary providers / local NLU:', err.message);
+    }
+
     // Auto-detect available external API keys if provider is "auto"
     if (activeProvider === 'auto') {
       if (process.env.ANTHROPIC_API_KEY) {
@@ -104,7 +128,7 @@ export class AIProvider {
       }
     }
 
-    // Attempt External LLM generation if key is present
+    // Attempt Direct External LLM generation if key is present
     if (activeProvider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
       try {
         const resp = await this.callAnthropic(messages, systemPrompt, activeModel, activeTemperature);
@@ -137,8 +161,240 @@ export class AIProvider {
       }
     }
 
-    // High-precision Local Semantic & Consultative NLU Engine
+    // High-precision Local Semantic & Consultative NLU Engine Fallback
     return await this.generateLocalSemanticResponse(latestUserMsg, context);
+  }
+
+  // --- CONFIGURED VENDOR PROXY PROVIDER CALL (ScaleMax / Claude) ---
+
+  /**
+   * Normalizes and cleans message history to ensure strictly alternating roles for Anthropic API.
+   */
+  private static formatMessagesForAnthropic(messages: LLMMessage[]): any[] {
+    const formatted: any[] = [];
+
+    for (const msg of messages) {
+      const role = msg.role === 'assistant' ? 'assistant' : 'user';
+      let contentStr = '';
+      if (typeof msg.content === 'string') {
+        contentStr = msg.content.trim();
+      } else if (msg.content) {
+        contentStr = JSON.stringify(msg.content);
+      }
+      if (!contentStr) continue;
+
+      if (formatted.length > 0 && formatted[formatted.length - 1].role === role) {
+        const prev = formatted[formatted.length - 1];
+        if (typeof prev.content === 'string') {
+          prev.content = `${prev.content}\n\n${contentStr}`;
+        } else if (Array.isArray(prev.content)) {
+          prev.content.push({ type: 'text', text: contentStr });
+        }
+      } else {
+        formatted.push({
+          role,
+          content: [{ type: 'text', text: contentStr }],
+        });
+      }
+    }
+
+    while (formatted.length > 0 && formatted[0].role !== 'user') {
+      formatted.shift();
+    }
+
+    if (formatted.length === 0) {
+      formatted.push({
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+      });
+    }
+
+    return formatted;
+  }
+
+  /**
+   * Calls the configured primary VendorProvider (ScaleMax / Claude Sonnet 3.5)
+   * through the existing provider proxy infrastructure with full multi-turn tool use.
+   */
+  private static async callConfiguredVendorProvider(
+    messages: LLMMessage[],
+    systemPrompt: string,
+    context: AgentContext,
+    targetModelInternal?: string,
+    temperature?: number
+  ): Promise<AgentResponse | null> {
+    const overallStartTime = Date.now();
+
+    // 1. Fetch primary or active vendor from database
+    const vendor = (await prisma.vendorProvider.findFirst({
+      where: { isPrimary: true, status: { not: 'disabled' } },
+    })) || (await prisma.vendorProvider.findFirst({
+      where: { status: { not: 'disabled' } },
+    }));
+
+    if (!vendor) {
+      return null;
+    }
+
+    // 2. Decrypt Master API Key
+    let decryptedKey = decryptText(vendor.masterApiKeyEncrypted);
+    if (!decryptedKey || decryptedKey.includes(':') || (!decryptedKey.startsWith('sm_') && !decryptedKey.startsWith('sk-'))) {
+      const envKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
+      if (envKey) decryptedKey = envKey;
+    }
+
+    if (!decryptedKey || decryptedKey.trim().length === 0) {
+      console.warn(`[AI PROVIDER] Could not decrypt master API key for vendor ${vendor.name}`);
+      return null;
+    }
+
+    // SSRF Check on Vendor Base URL
+    const ssrf = validateVendorBaseUrl(vendor.baseUrl || 'https://api2.scalemax.pro');
+    if (!ssrf.safe) {
+      console.warn(`[AI PROVIDER] SSRF blocked vendor base URL: ${vendor.baseUrl}`);
+      return null;
+    }
+
+    // 3. Resolve model dynamically from vendor mappings or config
+    let modelToUse = targetModelInternal;
+    if (!modelToUse || modelToUse === 'auto') {
+      const config = await prisma.aIConfiguration.findUnique({ where: { key: 'default' } });
+      modelToUse = config?.modelName || 'claude-sonnet-5';
+    }
+    const upstreamModel = resolveVendorModel(vendor, modelToUse);
+
+    // 4. Format Tools for Anthropic API
+    const anthropicTools = TOOL_DEFINITIONS.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.parameters,
+    }));
+
+    // 5. Format and clean messages
+    const currentMessages: any[] = this.formatMessagesForAnthropic(messages);
+    const toolsUsed: string[] = [];
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
+    let finalAssistantText = '';
+    let turns = 0;
+    const maxTurns = 5;
+
+    while (turns < maxTurns) {
+      turns++;
+
+      const prepared = buildProviderRequest(vendor, decryptedKey, modelToUse, {
+        messages: currentMessages,
+        system: systemPrompt,
+        tools: anthropicTools,
+        max_tokens: 1500,
+        temperature: temperature ?? 0.3,
+        skipPersona: true,
+      });
+
+      const res = await fetch(prepared.url, {
+        method: 'POST',
+        headers: prepared.headers,
+        body: JSON.stringify(prepared.body),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn(`[AI PROVIDER] Upstream vendor ${vendor.name} returned HTTP ${res.status}: ${errText.substring(0, 200)}`);
+        throw new Error(`Upstream vendor returned HTTP ${res.status}`);
+      }
+
+      const data: any = await res.json();
+      if (data.usage) {
+        totalPromptTokens += data.usage.input_tokens || 0;
+        totalCompletionTokens += data.usage.output_tokens || 0;
+      }
+
+      // Handle Tool Calls
+      if (data.stop_reason === 'tool_use' && Array.isArray(data.content)) {
+        currentMessages.push({
+          role: 'assistant',
+          content: data.content,
+        });
+
+        const toolResultBlocks: any[] = [];
+        for (const block of data.content) {
+          if (block.type === 'tool_use') {
+            toolsUsed.push(block.name);
+            let executionResult;
+            try {
+              executionResult = await ToolRegistry.executeTool(block.name, block.input || {}, context);
+            } catch (toolErr: any) {
+              executionResult = { toolName: block.name, success: false, data: null, error: toolErr.message };
+            }
+
+            toolResultBlocks.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(executionResult.data !== undefined ? executionResult.data : { success: executionResult.success, error: executionResult.error }),
+            });
+          }
+        }
+
+        currentMessages.push({
+          role: 'user',
+          content: toolResultBlocks,
+        });
+
+        // Continue loop to let Claude process the tool results
+        continue;
+      }
+
+      // Final Assistant Text Response
+      if (Array.isArray(data.content)) {
+        const textBlocks = data.content.filter((b: any) => b.type === 'text');
+        finalAssistantText = textBlocks.map((b: any) => b.text).join('\n\n').trim();
+      }
+      break;
+    }
+
+    if (!finalAssistantText) {
+      return null;
+    }
+
+    // Determine intent from tools used or response text
+    let intentDetected = 'LLM_REASONING';
+    if (toolsUsed.includes('createOrder') || toolsUsed.includes('createPaymentOrder')) {
+      intentDetected = 'ORDER_CREATED';
+    } else if (toolsUsed.includes('createNegotiatedPriceRequest')) {
+      intentDetected = 'PRICE_QUOTE_REQUESTED';
+    } else if (toolsUsed.includes('checkPaymentStatus')) {
+      intentDetected = 'PAYMENT_STATUS_CHECK';
+    } else if (toolsUsed.includes('requestHumanHandoff')) {
+      intentDetected = 'HUMAN_HANDOFF';
+    } else if (
+      toolsUsed.includes('searchProducts') ||
+      toolsUsed.includes('getProducts') ||
+      toolsUsed.includes('getProduct') ||
+      toolsUsed.includes('getProductRecommendations')
+    ) {
+      intentDetected = 'PRODUCT_SELECTION';
+    } else if (toolsUsed.includes('authenticateCustomer')) {
+      intentDetected = 'AUTHENTICATE_CUSTOMER';
+    }
+
+    const isHindi = /[\u0900-\u097F]/.test(finalAssistantText);
+    const language: SupportedLanguage = isHindi ? 'hi' : 'en';
+
+    return {
+      messageText: finalAssistantText,
+      intentDetected,
+      confidence: 0.98,
+      language,
+      toolsUsed,
+      provider: vendor.name,
+      model: upstreamModel,
+      latencyMs: Date.now() - overallStartTime,
+      tokens: {
+        prompt: totalPromptTokens,
+        completion: totalCompletionTokens,
+        total: totalPromptTokens + totalCompletionTokens,
+      },
+    };
   }
 
   // --- EXTERNAL LLM PROVIDER CALLS ---

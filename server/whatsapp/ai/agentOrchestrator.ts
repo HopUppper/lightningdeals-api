@@ -100,11 +100,28 @@ export class AgentOrchestrator {
 Tone: Friendly, consultative, empathetic, knowledgeable, concise, and professional.
 Supports: English, Hindi, and Hinglish. Adapt naturally to the customer's language.
 
-STRICT COMMERCIAL POLICIES:
-1. ZERO PRICE LEAKAGE: NEVER invent or reveal supplier costs, base prices, or internal margins under any circumstances. All quotes are customized and confirmed by the admin team unless pre-approved in the customer account.
-2. PAYMENT VERIFICATION: NEVER mark an order completed or promise delivery solely because a customer says "I paid". Always verify via backend check.
-3. CONSULTATIVE SALES: Ask thoughtful questions about the customer's work (developer, content creator, agency) to recommend the exact right tool (Cursor Pro, Canva Pro, Claude Max, Adobe CC).
-4. REPLACEMENT GUARANTEE: Highlight our 100% replacement and uptime guarantee with 15-30 minute resolution.
+CONVERSATION MEMORY & CONTINUITY:
+1. Maintain active conversation context across multi-turn dialogs.
+   - If a product (e.g. Canva Pro, Cursor Pro, Adobe Creative Cloud) is being discussed, remember it in subsequent questions.
+   - For example: if the customer asks "How does activation work?", explain the activation for the product currently being discussed.
+   - Do NOT interpret questions about features, activation, or usage as price quote requests.
+
+STRICT PRICE SAFETY & COMMERCE RULES:
+2. CUSTOMER-QUOTED PRICES: When a customer proposes or mentions a price (e.g. "it is for 499", "can I get it for 499", "499"):
+   - Understand that this is a CUSTOMER-PROPOSED price, NEVER an automatically authorized or approved price!
+   - NEVER claim that the price is approved without verifying via the backend tool getApprovedPrice().
+   - If getApprovedPrice() returns hasApprovedPrice: false:
+     * Call createNegotiatedPriceRequest(productId, productName, customerBudget: "499") to log the customer's discount proposal for admin approval.
+     * Politely inform the customer that their proposal has been submitted to the admin team for approval.
+   - If getApprovedPrice() returns hasApprovedPrice: true:
+     * Confirm the approved price with the customer.
+3. ORDERING & PAYU PAYMENT LINKS:
+   - When the customer confirms purchase (e.g. "Okay I'm interested, I want to purchase", "buy now", "yes", "send payment link"):
+   - If an approved price exists, call createOrder() and getOrderPaymentLink() to generate the real PayU payment link.
+   - Provide the payment link and Order ID clearly to the customer.
+4. ZERO PRICE LEAKAGE: NEVER invent or reveal supplier costs, base provider costs, or internal margins under any circumstances.
+5. PAYMENT VERIFICATION: NEVER mark an order completed or confirm delivery solely because a customer says "I paid", "paid", or "payment done". Always verify via checkPaymentStatus().
+6. CONSULTATIVE SALES: Ask thoughtful questions about the customer's work to recommend the exact right tool. Highlight our 100% replacement and uptime guarantee with 15-30 minute resolution.
 
 RELEVANT KNOWLEDGE:
 ${knowledgeSummary || 'Standard wholesale rates, 100% uptime replacement guarantee, PayU payment gateway.'}
@@ -112,18 +129,20 @@ ${knowledgeSummary || 'Standard wholesale rates, 100% uptime replacement guarant
 TRAINING EXAMPLES:
 ${examplesSummary || 'Respond helpful and concisely in user language.'}`;
 
-    // 6. Build Message History for LLM
-    const messages: LLMMessage[] = [
-      ...context.recentMessages.slice(-6).map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      { role: 'user', content: cleanText },
-    ];
+    // 6. Build Message History for LLM (strictly alternating roles, no duplicate consecutive user messages)
+    const history: LLMMessage[] = context.recentMessages.slice(-8).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const lastMsg = history[history.length - 1];
+    if (!lastMsg || lastMsg.role !== 'user' || lastMsg.content.trim() !== cleanText) {
+      history.push({ role: 'user', content: cleanText });
+    }
 
     // 7. Invoke AI Provider
     const agentResponse: AgentResponse = await AIProvider.generateResponse({
-      messages,
+      messages: history,
       systemPrompt,
       context,
     });
@@ -136,7 +155,7 @@ ${examplesSummary || 'Respond helpful and concisely in user language.'}`;
       text: finalReplyText,
     });
 
-    // 9. Save Bot Message in WhatsAppMessage
+    // 9. Save Bot Message in WhatsAppMessage with Observability Metadata
     await prisma.whatsAppMessage.create({
       data: {
         conversationId,
@@ -150,6 +169,10 @@ ${examplesSummary || 'Respond helpful and concisely in user language.'}`;
           confidence: agentResponse.confidence,
           language: agentResponse.language,
           toolsUsed: agentResponse.toolsUsed,
+          provider: agentResponse.provider || 'ScaleMax',
+          model: agentResponse.model || 'claude-3-5-sonnet-20241022',
+          latencyMs: agentResponse.latencyMs || 0,
+          tokens: agentResponse.tokens || null,
         }),
       },
     });

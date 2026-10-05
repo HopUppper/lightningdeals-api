@@ -57,6 +57,14 @@ export interface AgentResponse {
   suggestedActions?: string[];
   requiresAdminAlert?: boolean;
   adminAlertReason?: string;
+  provider?: string;
+  model?: string;
+  latencyMs?: number;
+  tokens?: {
+    input: number;
+    output: number;
+    total: number;
+  };
 }
 
 export interface KnowledgeItem {

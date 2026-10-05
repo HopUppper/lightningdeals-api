@@ -839,6 +839,12 @@ model WhatsAppConversation {
   lastMessageSnippet  String?
   adminNotes          String?
   metadata            String?                   // JSON metadata for session attributes
+  isHumanTakeover     Boolean                   @default(false)
+  takeoverReason      String?
+  takenOverAt         DateTime?
+  aiState             AIConversationState?
+  toolExecutions      AIToolExecution[]
+  aiFeedback          AIFeedback[]
   createdAt           DateTime                  @default(now())
   updatedAt           DateTime                  @updatedAt
   messages            WhatsAppMessage[]
@@ -849,6 +855,7 @@ model WhatsAppConversation {
   @@index([customerId])
   @@index([status])
   @@index([assignedAdminId])
+  @@index([isHumanTakeover])
   @@index([lastMessageAt])
 }
 
@@ -908,5 +915,99 @@ model NegotiatedPrice {
   @@index([whatsappConversationId])
   @@index([createdBy])
   @@index([expiresAt])
+}
+
+model AIKnowledge {
+  id        String   @id @default(uuid())
+  category  String   // "POLICY" | "PRODUCT_INFO" | "FAQ" | "SUPPORT" | "OBJECTION" | "SETUP_GUIDE"
+  title     String
+  content   String
+  keywords  String?  // comma-separated or JSON
+  tags      String?
+  enabled   Boolean  @default(true)
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([enabled])
+}
+
+model AITrainingExample {
+  id                String   @id @default(uuid())
+  inputText         String
+  expectedIntent    String
+  preferredResponse String
+  productId         String?
+  language          String   @default("en") // "en" | "hi" | "hinglish"
+  tags              String?
+  enabled           Boolean  @default(true)
+  createdBy         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([expectedIntent])
+  @@index([enabled])
+}
+
+model AIFeedback {
+  id                String                @id @default(uuid())
+  conversationId    String?
+  conversation      WhatsAppConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  messageId         String?
+  rating            Int                   // 1 (thumbs up) or -1 (thumbs down), or 1-5
+  feedbackText      String?
+  correctedResponse String?
+  reviewed          Boolean               @default(false)
+  createdAt         DateTime              @default(now())
+
+  @@index([conversationId])
+  @@index([rating])
+  @@index([reviewed])
+}
+
+model AIConversationState {
+  id               String               @id @default(uuid())
+  conversationId   String               @unique
+  conversation     WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  shortTermMemory  String?              // JSON: recent dialogue, identified entities, user preferences
+  longTermMemory   String?              // JSON: user profile, preferences, past issues
+  summary          String?              // running summary of conversation
+  language         String?              @default("en")
+  intentConfidence Float?
+  lastIntent       String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([conversationId])
+}
+
+model AIToolExecution {
+  id              String               @id @default(uuid())
+  conversationId  String
+  conversation    WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolName        String
+  inputPayload    String               // JSON string
+  outputPayload   String               // JSON string
+  status          String               @default("SUCCESS") // "SUCCESS" | "FAILED"
+  executionTimeMs Int                  @default(0)
+  createdAt       DateTime             @default(now())
+
+  @@index([conversationId])
+  @@index([toolName])
+}
+
+model AIConfiguration {
+  id                     String   @id @default(uuid())
+  key                    String   @unique @default("default")
+  modelProvider          String   @default("auto") // "auto" | "anthropic" | "openai" | "gemini" | "rule_based"
+  modelName              String   @default("claude-3-5-sonnet-20241022")
+  temperature            Float    @default(0.3)
+  handoffThreshold       Float    @default(0.6)
+  systemPrompt           String?
+  enabled                Boolean  @default(true)
+  autoNegotiationEnabled Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
 

@@ -200,4 +200,12 @@ export class WhatsAppClient {
       providerMessageId: simulatedMessageId,
     };
   }
+
+  /**
+   * Convenience alias for sendMessage
+   */
+  static async sendTextMessage(params: SendWhatsAppMessageParams): Promise<SendWhatsAppResult> {
+    return this.sendMessage(params);
+  }
 }
+

@@ -180,10 +180,12 @@ import { customerReferralRouter } from './referrals/customerReferralRoutes';
 import { adminReferralRouter } from './referrals/adminReferralRoutes';
 import { whatsappWebhookRouter } from './whatsapp/whatsappWebhookRoutes';
 import { adminWhatsAppRouter } from './whatsapp/adminWhatsAppRoutes';
+import { adminAIRouter } from './whatsapp/adminAIRoutes';
 
 app.use('/api', healthRouter);
 app.use('/api/whatsapp', whatsappWebhookRouter);
 app.use('/api/admin/whatsapp', adminWhatsAppRouter);
+app.use('/api/admin/ai', adminAIRouter);
 app.use('/api/user/notifications', notificationsRouter);
 app.use('/api/user/rewards', customerRewardsRouter);
 app.use('/api/rewards', customerRewardsRouter);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
   MessageSquare,
   Search,
@@ -24,6 +25,7 @@ import {
   ChevronRight,
   X,
   ExternalLink,
+  Bot,
 } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 
@@ -288,6 +290,14 @@ export const AdminWhatsApp: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            to="/admin/ai-control"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition cursor-pointer shadow-sm"
+          >
+            <Bot className="w-3.5 h-3.5" />
+            AI Agent 2.0 Controls
+          </Link>
+
           <button
             onClick={() => {
               setLoading(true);

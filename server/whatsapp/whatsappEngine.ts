@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma } from '../db';
 import { recordAuditEvent } from '../auditLogger';
 import { WhatsAppClient } from './whatsappClient';
+import { AgentOrchestrator } from './ai/agentOrchestrator';
 
 export interface InboundMessageParams {
   from: string; // e.g. "919876543210"
@@ -154,6 +155,26 @@ export class WhatsAppEngine {
         sentBy: 'CUSTOMER',
       },
     });
+
+    // 4. AI Agent 2.0 Processing (Context, Memory, RAG Knowledge, Tools, Hinglish, Zero Price Leakage)
+    const agentResult = await AgentOrchestrator.processMessage({
+      conversationId: conversation.id,
+      whatsappNumber: sanitizedFrom,
+      incomingText: cleanBody,
+      providerMessageId,
+    });
+
+    const refreshed = await prisma.whatsAppConversation.findUnique({
+      where: { id: conversation.id },
+    });
+
+    return {
+      handled: true,
+      conversationId: conversation.id,
+      replySent: agentResult.replySent,
+      status: refreshed?.status || conversation.status,
+      currentState: refreshed?.currentState || conversation.currentState,
+    };
 
     // 4. Existing Active State: Human Handoff Check
     // If conversation is already in HUMAN_HANDOFF, suppress bot auto-replies unless user resumes

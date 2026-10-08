@@ -8,6 +8,7 @@ import { InventoryService } from '../inventory/inventoryService';
 import { dispatchNotification } from '../notifications';
 import { recordAuditEvent } from '../auditLogger';
 import { ReferralEngine } from '../referrals/referralEngine';
+import { generateProviderApiKey } from '../keyService';
 
 export interface FulfillmentResult {
   success: boolean;
@@ -269,7 +270,8 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
     }
 
     // 7. AUTOMATIC FULFILLMENT PROVISIONING: API Key + Token Ledger + Subscription
-    const { rawKeySecret, keyPrefix, keyHash, displayKey } = generateCustomerApiKey();
+    const keyMaterial = await generateProviderApiKey({ isTrial: false });
+    const { rawKeySecret, keyPrefix, keyHash, displayKey, providerId } = keyMaterial;
     const tokenAllowanceBigInt = plan.tokenAllowance;
     const durationDays = (plan as any).durationDays || plan.validityDays || 30;
 
@@ -280,6 +282,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
       createdApiKey = await prisma.apiKey.create({
         data: {
           userId: order.userId,
+          providerId,
           keyPrefix,
           keyHash,
           displayKey,

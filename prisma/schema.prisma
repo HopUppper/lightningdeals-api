@@ -68,9 +68,11 @@ model User {
 
 
 model ApiKey {
-  id                String        @id @default(uuid())
+  id                String          @id @default(uuid())
   userId            String?
-  user              User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId        String?
+  provider          VendorProvider? @relation(fields: [providerId], references: [id], onDelete: Restrict)
   keyPrefix         String        // "ld_live_" or "ld_trial_"
   keyHash           String        @unique
   displayKey        String
@@ -98,6 +100,8 @@ model ApiKey {
   tokenLedgers      TokenLedger[]
   trialClaims       TrialClaim[]
   subscriptions     Subscription[]
+
+  @@index([providerId])
 }
 
 model ApiRequest {
@@ -132,12 +136,22 @@ model ApiRequest {
 model VendorProvider {
   id                     String              @id @default(uuid())
   name                   String
+  slug                   String?             @unique // "scalemax" | "opus_max"
   providerType           String              @default("anthropic") // "anthropic" | "openai" | "custom_http"
   protocol               String              @default("anthropic") // "anthropic" | "openai-compatible" | "custom_http"
-  masterApiKeyEncrypted   String              @default("")
+  masterApiKeyEncrypted  String              @default("")
   baseUrl                String              @default("https://api.anthropic.com")
   status                 String              @default("connected") // "connected" | "invalid_credential" | "ssrf_blocked" | "timeout" | "rate_limited" | "provider_error" | "disabled"
   isPrimary              Boolean             @default(true)
+  isDefault              Boolean             @default(false)
+  priority               Int                 @default(1)
+  timeoutMs              Int                 @default(60000)
+  retryCount             Int                 @default(2)
+  retryDelayMs           Int                 @default(1000)
+  healthStatus           String              @default("online") // "online" | "degraded" | "offline" | "unknown"
+  lastHealthCheck        DateTime?
+  capabilitiesJson       String?             // JSON string for supported capabilities (e.g. ["chat", "streaming", "tools"])
+  supportedModelsJson    String?             // JSON string for supported public model names
   availableTokens        BigInt              @default(0)
   purchasedTokens        BigInt              @default(0)
 
@@ -153,6 +167,19 @@ model VendorProvider {
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
   masterTokenLedgers     MasterTokenLedger[]
+  apiKeys                ApiKey[]
+}
+
+model GatewayProviderConfig {
+  id                  String   @id @default(uuid())
+  key                 String   @unique @default("default_gateway")
+  defaultProviderId   String?
+  enableAutoFailover  Boolean  @default(false)
+  primaryProviderId   String?
+  fallbackProviderId  String?
+  failoverStatusCodes String   @default("500,502,503,504,timeout,connection_error")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model MasterTokenLedger {

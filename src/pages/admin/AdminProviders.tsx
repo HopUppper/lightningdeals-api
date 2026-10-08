@@ -8,12 +8,15 @@ interface VendorProviderItem {
   providerType: string;
   protocol: string;
   baseUrl: string;
+  baseUrlHostname?: string;
   displayMasterKey: string;
   status: string;
   isPrimary: boolean;
+  isDefault?: boolean;
   availableTokens: string;
   purchasedTokens: string;
   consumedTokens: string;
+  reservedTokens?: string;
   warningThresholdTokens: string;
   criticalThresholdTokens: string;
   modelMappingsJson?: string;
@@ -21,6 +24,11 @@ interface VendorProviderItem {
   lastTestedAt?: string;
   lastError?: string;
   notes?: string;
+  activeKeyCount?: number;
+  totalKeyCount?: number;
+  requestCount?: number;
+  errorRate?: number;
+  avgLatencyMs?: number;
 }
 
 export const AdminProviders: React.FC = () => {
@@ -35,9 +43,13 @@ export const AdminProviders: React.FC = () => {
   const [protocol, setProtocol] = useState('anthropic');
   const [masterApiKey, setMasterApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('https://api.anthropic.com');
-  const [isPrimary, setIsPrimary] = useState(true);
+  const [isPrimary, setIsPrimary] = useState(false);
+  const [status, setStatus] = useState('connected');
+  const [warningThresholdTokens, setWarningThresholdTokens] = useState('20000000');
+  const [criticalThresholdTokens, setCriticalThresholdTokens] = useState('5000000');
+  const [availableTokens, setAvailableTokens] = useState('100000000');
   const [modelMappingsJson, setModelMappingsJson] = useState('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
-  const [headersJson, setHeadersJson] = useState('{\n  "x-custom-vendor-id": "lightningdeals-prod"\n}');
+  const [headersJson, setHeadersJson] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -65,6 +77,23 @@ export const AdminProviders: React.FC = () => {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<{ [key: string]: any }>({});
 
+  // Failover & Routing State
+  const [failoverConfig, setFailoverConfig] = useState<any>({
+    enableAutoFailover: true,
+    primaryProviderId: '',
+    fallbackProviderId: '',
+    defaultProviderId: '',
+  });
+  const [savingFailover, setSavingFailover] = useState(false);
+
+  // Key Migration State
+  const [showMigrateModal, setShowMigrateModal] = useState(false);
+  const [migrateSourceId, setMigrateSourceId] = useState('');
+  const [migrateTargetId, setMigrateTargetId] = useState('');
+  const [migrateReason, setMigrateReason] = useState('');
+  const [migratingKeys, setMigratingKeys] = useState(false);
+  const [migrateResult, setMigrateResult] = useState<any>(null);
+
   const fetchProviders = async () => {
     try {
       const res = await adminFetch('/api/admin/providers');
@@ -81,6 +110,68 @@ export const AdminProviders: React.FC = () => {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFailoverConfig = async () => {
+    try {
+      const res = await adminFetch('/api/admin/providers/failover-config');
+      if (res.ok) {
+        setFailoverConfig(await res.json());
+      }
+    } catch (e) {}
+  };
+
+  const handleSetDefaultProvider = async (providerId: string) => {
+    try {
+      const res = await adminFetch(`/api/admin/providers/${providerId}/set-default`, { method: 'POST' });
+      if (res.ok) {
+        await fetchProviders();
+        await fetchFailoverConfig();
+      }
+    } catch (e) {}
+  };
+
+  const handleUpdateFailover = async (newConfig: any) => {
+    setSavingFailover(true);
+    try {
+      const res = await adminFetch('/api/admin/providers/failover-config', {
+        method: 'POST',
+        body: JSON.stringify(newConfig),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFailoverConfig(data.config);
+      }
+    } catch (e) {} finally {
+      setSavingFailover(false);
+    }
+  };
+
+  const handleExecuteMigration = async () => {
+    if (!migrateTargetId) return;
+    setMigratingKeys(true);
+    setMigrateResult(null);
+    try {
+      const res = await adminFetch('/api/admin/providers/migrate-keys', {
+        method: 'POST',
+        body: JSON.stringify({
+          sourceProviderId: migrateSourceId || undefined,
+          targetProviderId: migrateTargetId,
+          reason: migrateReason || 'Admin console migration',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMigrateResult(data);
+        await fetchProviders();
+      } else {
+        setMigrateResult({ error: data?.error?.message || 'Migration failed' });
+      }
+    } catch (e: any) {
+      setMigrateResult({ error: e.message });
+    } finally {
+      setMigratingKeys(false);
     }
   };
 
@@ -108,20 +199,52 @@ export const AdminProviders: React.FC = () => {
 
   useEffect(() => {
     fetchProviders();
+    fetchFailoverConfig();
   }, []);
 
   const openCreateModal = () => {
     setEditingProvider(null);
-    setName('Anthropic Official Vendor');
-    setProviderType('anthropic');
+    setName('Opus Max');
+    setProviderType('custom_http');
     setProtocol('anthropic');
     setMasterApiKey('');
-    setBaseUrl('https://api.anthropic.com');
-    setIsPrimary(true);
+    setBaseUrl('');
+    setIsPrimary(false);
+    setStatus('connected');
+    setWarningThresholdTokens('20000000');
+    setCriticalThresholdTokens('5000000');
+    setAvailableTokens('100000000');
     setModelMappingsJson('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
     setHeadersJson('');
+    setNotes('');
     setFormError(null);
     setShowModal(true);
+  };
+
+  const applyPreset = (preset: 'opus_max' | 'scalemax' | 'anthropic_direct' | 'openai_compat') => {
+    if (preset === 'opus_max') {
+      setName('Opus Max');
+      setProviderType('custom_http');
+      setProtocol('anthropic');
+      setModelMappingsJson('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
+    } else if (preset === 'scalemax') {
+      setName('ScaleMax');
+      setProviderType('custom_http');
+      setProtocol('anthropic');
+      setBaseUrl('https://api2.scalemax.pro');
+      setModelMappingsJson('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
+    } else if (preset === 'anthropic_direct') {
+      setName('Anthropic Official');
+      setProviderType('anthropic');
+      setProtocol('anthropic');
+      setBaseUrl('https://api.anthropic.com');
+      setModelMappingsJson('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
+    } else if (preset === 'openai_compat') {
+      setName('OpenAI Gateway');
+      setProviderType('openai');
+      setProtocol('openai-compatible');
+      setModelMappingsJson('{\n  "claude-sonnet-5": "gpt-4o",\n  "claude-opus-5": "o3-mini"\n}');
+    }
   };
 
   const openEditModal = (p: VendorProviderItem) => {
@@ -132,11 +255,30 @@ export const AdminProviders: React.FC = () => {
     setMasterApiKey('');
     setBaseUrl(p.baseUrl);
     setIsPrimary(p.isPrimary);
+    setStatus(p.status || 'connected');
+    setWarningThresholdTokens(p.warningThresholdTokens || '20000000');
+    setCriticalThresholdTokens(p.criticalThresholdTokens || '5000000');
+    setAvailableTokens(p.availableTokens || '100000000');
     setModelMappingsJson(p.modelMappingsJson || '');
     setHeadersJson(p.headersJson || '');
     setNotes(p.notes || '');
     setFormError(null);
     setShowModal(true);
+  };
+
+  const handleToggleStatus = async (provider: VendorProviderItem) => {
+    const newStatus = provider.status === 'disabled' ? 'connected' : 'disabled';
+    try {
+      const res = await adminFetch(`/api/admin/providers/${provider.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        await fetchProviders();
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleSaveProvider = async (e: React.FormEvent) => {
@@ -151,15 +293,19 @@ export const AdminProviders: React.FC = () => {
       const res = await adminFetch(url, {
         method,
         body: JSON.stringify({
-          name,
+          name: name.trim(),
           providerType,
           protocol,
-          masterApiKey: masterApiKey || undefined,
-          baseUrl,
+          masterApiKey: masterApiKey ? masterApiKey.trim() : undefined,
+          baseUrl: baseUrl.trim(),
           isPrimary,
-          modelMappingsJson,
-          headersJson,
-          notes,
+          status,
+          warningThresholdTokens,
+          criticalThresholdTokens,
+          availableTokens,
+          modelMappingsJson: modelMappingsJson.trim() || undefined,
+          headersJson: headersJson.trim() || undefined,
+          notes: notes.trim() || undefined,
         }),
       });
 
@@ -170,8 +316,8 @@ export const AdminProviders: React.FC = () => {
       } else {
         setFormError(resData?.error?.message || 'Failed to save vendor configuration.');
       }
-    } catch (e: any) {
-      setFormError(e.message || 'Network error saving vendor configuration.');
+    } catch (err: any) {
+      setFormError(err.message || 'Network error saving vendor configuration.');
     } finally {
       setSubmitting(false);
     }
@@ -291,14 +437,21 @@ export const AdminProviders: React.FC = () => {
   };
 
   const getStatusBadge = (status: string, hasKey = true, availableTokensVal?: string | number) => {
-    if (!hasKey) {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">⚪ NOT CONFIGURED</span>;
-    }
     const s = (status || '').toUpperCase();
-    const tokens = Number(availableTokensVal || 0);
-
-    if (s === 'HEALTHY' || s === 'CONNECTED' || s === 'OPERATIONAL' || s === 'ACTIVE') {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">● HEALTHY</span>;
+    if (s === 'CONNECTED' || s === 'HEALTHY' || s === 'OPERATIONAL' || s === 'ACTIVE') {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">● CONNECTED</span>;
+    }
+    if (s === 'AUTHENTICATION_FAILED' || s === 'INVALID_CREDENTIAL' || s === 'INVALID_KEY') {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30">❌ AUTHENTICATION_FAILED</span>;
+    }
+    if (s === 'UNREACHABLE' || s === 'UNAVAILABLE' || s === 'SSRF_BLOCKED') {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">⚠️ UNREACHABLE</span>;
+    }
+    if (s === 'INVALID_RESPONSE' || s === 'PROVIDER_ERROR') {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/30">⚠️ INVALID_RESPONSE</span>;
+    }
+    if (s === 'DISABLED' || s === 'NOT_CONFIGURED') {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">⚪ DISABLED</span>;
     }
     if (s === 'WARNING') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">⚠️ WARNING (LOW)</span>;
@@ -306,16 +459,7 @@ export const AdminProviders: React.FC = () => {
     if (s === 'CRITICAL') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30 font-mono animate-pulse">🚨 CRITICAL</span>;
     }
-    if (s === 'INVALID_CREDENTIAL' || s === 'INVALID_KEY' || s === 'UNHEALTHY') {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">⚠️ KEY AUTH NEEDED</span>;
-    }
-    if (s === 'NOT_CONFIGURED' || s === 'DISABLED') {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">⚪ NOT CONFIGURED</span>;
-    }
-    if (tokens > 0) {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">● HEALTHY</span>;
-    }
-    return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30">⛔ DEPLETED</span>;
+    return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">{s}</span>;
   };
 
   const primaryProvider = providers.find((p) => p.isPrimary) || providers[0];
@@ -346,6 +490,133 @@ export const AdminProviders: React.FC = () => {
             <Plus className="w-4 h-4" />
             <span>Add Custom Vendor</span>
           </button>
+        </div>
+      </div>
+
+      {/* Universal Multi-Provider Gateway Control Bar */}
+      <div className="bg-gradient-to-r from-violet-950/20 via-background to-indigo-950/20 border border-violet-500/30 rounded-panel p-5 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <h2 className="text-base font-bold text-fg font-sans">Multi-Provider API Gateway Routing</h2>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                SCALEMAX + OPUS MAX
+              </span>
+            </div>
+            <p className="text-xs text-muted">
+              Configure default provider for newly issued keys, monitor connection status, and configure automated zero-downtime failover.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => {
+                setShowMigrateModal(true);
+                setMigrateResult(null);
+                const sm = providers.find((p) => p.name.toLowerCase().includes('scale'));
+                const op = providers.find((p) => p.name.toLowerCase().includes('opus'));
+                if (sm) setMigrateSourceId(sm.id);
+                if (op) setMigrateTargetId(op.id);
+              }}
+              className="px-3 py-1.5 rounded-control text-xs font-bold border border-indigo-500/30 text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
+            >
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              <span>Bulk Migrate Keys</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Provider Status & Routing Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-border/60">
+          {/* Default Provider Switcher */}
+          <div className="p-3.5 rounded-control bg-bg/60 border border-border space-y-2">
+            <span className="text-[11px] font-mono text-muted uppercase font-bold">Default Provider for New Keys</span>
+            <div className="flex items-center gap-2">
+              <select
+                value={failoverConfig.defaultProviderId || providers.find((p) => p.isDefault)?.id || ''}
+                onChange={(e) => handleSetDefaultProvider(e.target.value)}
+                className="w-full text-xs font-mono font-bold py-1.5 px-2.5 rounded border border-border bg-card text-fg focus:outline-none focus:ring-1 focus:ring-violet-500"
+              >
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.status === 'connected' ? '● Online' : '○ ' + p.status}) {p.isDefault ? '★ (Default)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="text-[10px] text-muted">
+              New customer API keys will be provisioned using this upstream provider.
+            </p>
+          </div>
+
+          {/* Failover Mode */}
+          <div className="p-3.5 rounded-control bg-bg/60 border border-border space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono text-muted uppercase font-bold">Automated Provider Failover</span>
+              <button
+                disabled={savingFailover}
+                onClick={() => handleUpdateFailover({ ...failoverConfig, enableAutoFailover: !failoverConfig.enableAutoFailover })}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono transition-colors ${
+                  failoverConfig.enableAutoFailover
+                    ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/40'
+                    : 'bg-muted/40 text-muted border border-border'
+                }`}
+              >
+                {failoverConfig.enableAutoFailover ? 'ENABLED' : 'DISABLED'}
+              </button>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-muted text-[11px]">Primary:</span>
+              <select
+                value={failoverConfig.primaryProviderId || ''}
+                onChange={(e) => handleUpdateFailover({ ...failoverConfig, primaryProviderId: e.target.value })}
+                className="text-[11px] font-mono py-1 px-2 rounded border border-border bg-card text-fg"
+              >
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-muted text-[11px]">Fallback:</span>
+              <select
+                value={failoverConfig.fallbackProviderId || ''}
+                onChange={(e) => handleUpdateFailover({ ...failoverConfig, fallbackProviderId: e.target.value })}
+                className="text-[11px] font-mono py-1 px-2 rounded border border-border bg-card text-fg"
+              >
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Quick Connection Diagnostics */}
+          <div className="p-3.5 rounded-control bg-bg/60 border border-border space-y-2">
+            <span className="text-[11px] font-mono text-muted uppercase font-bold">Live Provider Health</span>
+            <div className="space-y-1.5">
+              {providers.map((p) => {
+                const res = testResults[p.id];
+                return (
+                  <div key={p.id} className="flex items-center justify-between text-xs font-mono">
+                    <span className="font-semibold text-fg flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${p.status === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      {p.name}
+                    </span>
+                    <button
+                      onClick={() => handleTestConnection(p.id)}
+                      disabled={testingId === p.id}
+                      className="px-2 py-0.5 rounded text-[10px] font-bold border border-border hover:bg-card text-muted hover:text-fg transition-colors inline-flex items-center gap-1"
+                    >
+                      <RefreshCw className={`w-2.5 h-2.5 ${testingId === p.id ? 'animate-spin' : ''}`} />
+                      <span>{testingId === p.id ? 'Pinging...' : res ? `${res.status} (${res.latencyMs || 0}ms)` : 'Ping'}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -565,51 +836,103 @@ export const AdminProviders: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
-                    <th className="py-3 px-4 font-bold">Vendor Name</th>
-                    <th className="py-3 px-4 font-bold">Protocol</th>
-                    <th className="py-3 px-4 font-bold">Base URL</th>
-                    <th className="py-3 px-4 font-bold">Master Key</th>
-                    <th className="py-3 px-4 font-bold">Available Tokens</th>
-                    <th className="py-3 px-4 font-bold">Primary</th>
-                    <th className="py-3 px-4 font-bold">Status</th>
-                    <th className="py-3 px-4 font-bold text-right">Actions</th>
+                    <th className="py-3 px-3 font-bold">Vendor Name</th>
+                    <th className="py-3 px-3 font-bold">Status</th>
+                    <th className="py-3 px-3 font-bold">Protocol</th>
+                    <th className="py-3 px-3 font-bold">Host</th>
+                    <th className="py-3 px-3 font-bold text-center">Keys</th>
+                    <th className="py-3 px-3 font-bold text-center">Requests</th>
+                    <th className="py-3 px-3 font-bold text-center">Error Rate</th>
+                    <th className="py-3 px-3 font-bold text-center">Latency</th>
+                    <th className="py-3 px-3 font-bold">Tokens (Avail / Consumed)</th>
+                    <th className="py-3 px-3 font-bold text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60 font-mono">
-                  {providers.map((p) => (
-                    <tr key={p.id} className="hover:bg-bg/40">
-                      <td className="py-3.5 px-4 font-semibold font-sans text-fg">{p.name}</td>
-                      <td className="py-3.5 px-4 uppercase text-amber-600 font-bold">{p.protocol || p.providerType}</td>
-                      <td className="py-3.5 px-4 text-muted max-w-[200px] truncate">{p.baseUrl}</td>
-                      <td className="py-3.5 px-4 text-fg font-bold">{p.displayMasterKey}</td>
-                      <td className="py-3.5 px-4 text-emerald-600 font-bold">{formatTokens(p.availableTokens || '100000000')}</td>
-                      <td className="py-3.5 px-4">
-                        {p.isPrimary && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                            PRIMARY
-                          </span>
+                  {providers.map((p) => {
+                    const testRes = testResults[p.id];
+                    return (
+                      <React.Fragment key={p.id}>
+                        <tr className="hover:bg-bg/40">
+                          <td className="py-3.5 px-3 font-semibold font-sans text-fg">
+                            <div className="flex items-center gap-1.5">
+                              <span>{p.name}</span>
+                              {p.isPrimary && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                  PRIMARY
+                                </span>
+                              )}
+                              {p.isDefault && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                                  DEFAULT
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted font-mono mt-0.5">{p.displayMasterKey}</div>
+                          </td>
+                          <td className="py-3.5 px-3">
+                            {getStatusBadge(p.status, Boolean(p.displayMasterKey && p.displayMasterKey !== 'Not Set'), p.availableTokens)}
+                          </td>
+                          <td className="py-3.5 px-3 uppercase text-amber-600 font-bold">{p.protocol || p.providerType}</td>
+                          <td className="py-3.5 px-3 text-muted max-w-[140px] truncate" title={p.baseUrl}>
+                            {p.baseUrlHostname || (p.baseUrl ? p.baseUrl.replace(/^https?:\/\//, '').split('/')[0] : '—')}
+                          </td>
+                          <td className="py-3.5 px-3 text-center text-fg font-bold">{p.activeKeyCount ?? 0}</td>
+                          <td className="py-3.5 px-3 text-center text-fg">{p.requestCount ?? 0}</td>
+                          <td className="py-3.5 px-3 text-center">
+                            <span className={Number(p.errorRate || 0) > 5 ? 'text-red-600 font-bold' : 'text-muted'}>
+                              {p.errorRate !== undefined ? `${p.errorRate}%` : '0%'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center text-muted">
+                            {p.avgLatencyMs !== undefined && p.avgLatencyMs > 0 ? `${p.avgLatencyMs}ms` : '—'}
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <span className="text-emerald-600 font-bold">{formatTokens(p.availableTokens || '0')}</span>
+                            <span className="text-muted text-[10px] ml-1">/ {formatTokens(p.consumedTokens || '0')}</span>
+                          </td>
+                          <td className="py-3.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+                            <button
+                              onClick={() => handleToggleStatus(p)}
+                              className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors ${
+                                p.status === 'disabled'
+                                  ? 'border-emerald-500/30 text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/15'
+                                  : 'border-muted text-muted hover:text-fg hover:bg-bg'
+                              }`}
+                              title={p.status === 'disabled' ? 'Enable Provider' : 'Disable Provider'}
+                            >
+                              {p.status === 'disabled' ? 'Enable' : 'Disable'}
+                            </button>
+                            <button
+                              onClick={() => openEditModal(p)}
+                              className="p-1.5 rounded border border-border text-muted hover:text-fg hover:bg-bg transition-colors inline-flex items-center"
+                              title="Edit Configuration"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleTestConnection(p.id)}
+                              disabled={testingId === p.id}
+                              className="px-2.5 py-1 rounded text-xs font-semibold border border-amber-500/30 text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${testingId === p.id ? 'animate-spin' : ''}`} />
+                              <span>{testingId === p.id ? 'Testing...' : 'Test'}</span>
+                            </button>
+                          </td>
+                        </tr>
+                        {testRes && (
+                          <tr className="bg-muted/5 border-b border-border/40">
+                            <td colSpan={10} className="py-2 px-4 text-xs font-mono">
+                              <span className={`font-bold mr-2 ${testRes.status === 'CONNECTED' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                [{testRes.status}]
+                              </span>
+                              <span className="text-muted">{testRes.message}</span>
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                      <td className="py-3.5 px-4">{getStatusBadge(p.status, Boolean(p.displayMasterKey && p.displayMasterKey !== 'Not Set'), p.availableTokens)}</td>
-                      <td className="py-3.5 px-4 text-right space-x-2">
-                        <button
-                          onClick={() => openEditModal(p)}
-                          className="p-1.5 rounded border border-border text-muted hover:text-fg hover:bg-bg transition-colors"
-                          title="Edit Configuration"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleTestConnection(p.id)}
-                          disabled={testingId === p.id}
-                          className="px-3 py-1.5 rounded text-xs font-semibold border border-amber-500/30 text-amber-600 bg-amber-500/5 hover:bg-amber-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${testingId === p.id ? 'animate-spin' : ''}`} />
-                          <span>{testingId === p.id ? 'Testing...' : 'Test Connection'}</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -754,6 +1077,23 @@ export const AdminProviders: React.FC = () => {
             )}
 
             <form onSubmit={handleSaveProvider} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
+              {/* Presets Bar */}
+              <div className="flex flex-wrap items-center gap-2 p-2.5 rounded bg-muted/10 border border-border">
+                <span className="text-[10px] font-bold text-muted uppercase">Quick Presets:</span>
+                <button type="button" onClick={() => applyPreset('opus_max')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-violet-600/10 text-violet-600 hover:bg-violet-600/20 transition-colors">
+                  Opus Max
+                </button>
+                <button type="button" onClick={() => applyPreset('scalemax')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-600/10 text-blue-600 hover:bg-blue-600/20 transition-colors">
+                  ScaleMax
+                </button>
+                <button type="button" onClick={() => applyPreset('anthropic_direct')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-600/10 text-amber-600 hover:bg-amber-600/20 transition-colors">
+                  Anthropic Direct
+                </button>
+                <button type="button" onClick={() => applyPreset('openai_compat')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 transition-colors">
+                  OpenAI Compat
+                </button>
+              </div>
+
               <div>
                 <label className="block font-bold text-fg mb-1 uppercase">Vendor Name *</label>
                 <input
@@ -761,8 +1101,8 @@ export const AdminProviders: React.FC = () => {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Anthropic Official Vendor"
-                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-sans"
+                  placeholder="Opus Max"
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-sans font-semibold"
                 />
               </div>
 
@@ -774,9 +1114,9 @@ export const AdminProviders: React.FC = () => {
                     onChange={(e) => setProviderType(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg"
                   >
+                    <option value="custom_http">Custom HTTP Proxy</option>
                     <option value="anthropic">Anthropic Official</option>
                     <option value="openai">OpenAI Compatible</option>
-                    <option value="custom_http">Custom HTTP Proxy</option>
                   </select>
                 </div>
 
@@ -793,6 +1133,32 @@ export const AdminProviders: React.FC = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-bold"
+                  >
+                    <option value="connected">Enabled / Connected</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">Initial Prepaid Tokens</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={availableTokens}
+                    onChange={(e) => setAvailableTokens(e.target.value)}
+                    placeholder="100000000"
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-fg mb-1 uppercase">Base URL (HTTPS Only) *</label>
                 <input
@@ -800,8 +1166,8 @@ export const AdminProviders: React.FC = () => {
                   required
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="https://api.anthropic.com"
-                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg"
+                  placeholder="https://api.upstream-provider.com"
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
               </div>
 
@@ -816,14 +1182,63 @@ export const AdminProviders: React.FC = () => {
                   data-lpignore="true"
                   value={masterApiKey}
                   onChange={(e) => setMasterApiKey(e.target.value)}
-                  placeholder={editingProvider ? 'sm_live_•••••••• or sk-ant-•••••••• (Leave blank to keep existing)' : 'sm_live_•••••••• (Vendor Master Key)'}
+                  placeholder={editingProvider ? '•••••••• (Encrypted in DB - leave blank to keep)' : 'sm_live_•••••••• or sk-ant-•••••••• (Vendor Master Key)'}
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
                 <p className="text-[10px] text-muted mt-1 font-sans">
-                  Supports custom vendor keys (<code className="text-violet-600 font-mono">sm_live_...</code>), Anthropic (<code className="text-violet-600 font-mono">sk-ant-...</code>), OpenAI, and HTTP proxies.
+                  Encrypted at rest with AES-256-GCM. Never exposed in API responses or customer telemetry.
                 </p>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">Warning Threshold</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={warningThresholdTokens}
+                    onChange={(e) => setWarningThresholdTokens(e.target.value)}
+                    placeholder="20000000"
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">Critical Threshold</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={criticalThresholdTokens}
+                    onChange={(e) => setCriticalThresholdTokens(e.target.value)}
+                    placeholder="5000000"
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-fg uppercase">Model Mappings (JSON Format)</label>
+                  <span className="text-[10px] text-muted font-sans">Maps LightningAPI model to upstream model ID</span>
+                </div>
+                <textarea
+                  rows={4}
+                  value={modelMappingsJson}
+                  onChange={(e) => setModelMappingsJson(e.target.value)}
+                  placeholder={'{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}'}
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-fg mb-1 uppercase">Notes / Internal Context</label>
+                <textarea
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Primary enterprise upstream provider configuration..."
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-sans"
+                />
+              </div>
 
               <div className="flex items-center gap-2">
                 <input
@@ -847,6 +1262,92 @@ export const AdminProviders: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Key Migration Modal */}
+      {showMigrateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-card border border-border rounded-panel w-full max-w-lg p-6 shadow-xl space-y-5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <ArrowUpRight className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-base text-fg">Bulk API Key Provider Migration</h3>
+              </div>
+              <button onClick={() => setShowMigrateModal(false)} className="text-muted hover:text-fg font-mono">✕</button>
+            </div>
+
+            <div className="space-y-4 text-xs font-mono">
+              <p className="text-muted">
+                Reassign customer API keys from one upstream provider to another with zero downtime. Customer keys and credentials remain unchanged.
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted uppercase text-[11px]">Source Provider</label>
+                <select
+                  value={migrateSourceId}
+                  onChange={(e) => setMigrateSourceId(e.target.value)}
+                  className="w-full py-2 px-3 rounded border border-border bg-bg text-fg font-bold"
+                >
+                  <option value="">-- All Active Providers --</option>
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.activeKeyCount ?? 0} active keys)</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted uppercase text-[11px]">Target Destination Provider</label>
+                <select
+                  value={migrateTargetId}
+                  onChange={(e) => setMigrateTargetId(e.target.value)}
+                  className="w-full py-2 px-3 rounded border border-border bg-bg text-fg font-bold"
+                >
+                  <option value="">-- Select Destination Provider --</option>
+                  {providers.filter((p) => p.id !== migrateSourceId).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.status === 'connected' ? '● Online' : '○ ' + p.status})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted uppercase text-[11px]">Audit Reason (Recorded in AdminLog)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Load rebalancing / Provider optimization"
+                  value={migrateReason}
+                  onChange={(e) => setMigrateReason(e.target.value)}
+                  className="w-full py-2 px-3 rounded border border-border bg-bg text-fg"
+                />
+              </div>
+
+              {migrateResult && (
+                <div className={`p-3 rounded border text-xs ${
+                  migrateResult.error ? 'bg-rose-500/10 border-rose-500/30 text-rose-600' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600'
+                }`}>
+                  {migrateResult.error ? `Error: ${migrateResult.error}` : `✅ Successfully migrated ${migrateResult.migratedCount} API keys to ${migrateResult.targetProviderName}!`}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShowMigrateModal(false)}
+                className="px-4 py-2 rounded text-xs font-bold text-muted hover:text-fg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={migratingKeys || !migrateTargetId}
+                onClick={handleExecuteMigration}
+                className="px-4 py-2 rounded text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs disabled:opacity-50"
+              >
+                {migratingKeys ? 'Migrating...' : 'Confirm Bulk Migration'}
+              </button>
+            </div>
           </div>
         </div>
       )}

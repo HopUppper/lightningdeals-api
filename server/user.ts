@@ -18,6 +18,7 @@ import {
 import { extractClientIp, resolveIpLocation } from './geoService';
 import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
 import { ReferralEngine } from './referrals/referralEngine';
+import { generateProviderApiKey } from './keyService';
 
 const router = Router();
 
@@ -1186,17 +1187,17 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
   }
 
   try {
-    const rawKey = 'ld_live_' + crypto.randomBytes(24).toString('hex');
-    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
-    const displayKey = `${rawKey.slice(0, 12)}...${rawKey.slice(-4)}`;
+    const keyMaterial = await generateProviderApiKey({ isTrial: false });
+    const { rawKeySecret, keyPrefix, keyHash, displayKey, providerId } = keyMaterial;
 
     const key = await prisma.apiKey.create({
       data: {
         userId: req.user!.id,
-        keyPrefix: 'ld_live_',
+        providerId,
+        keyPrefix,
         keyHash,
         displayKey,
-        keyEncrypted: encryptText(rawKey),
+        keyEncrypted: encryptText(rawKeySecret),
         name: name.trim(),
         purchasedTokens: BigInt(1000000),
         tokensRemaining: BigInt(1000000),
@@ -1582,11 +1583,8 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
       }
     }
 
-    const keyPrefix = 'ld_trial_';
-    const randomEntropy = crypto.randomBytes(24).toString('hex');
-    const rawKeySecret = `${keyPrefix}${randomEntropy}`;
-    const keyHash = crypto.createHash('sha256').update(rawKeySecret).digest('hex');
-    const displayKey = `${keyPrefix}${randomEntropy.substring(0, 6)}...${randomEntropy.substring(randomEntropy.length - 4)}`;
+    const keyMaterial = await generateProviderApiKey({ isTrial: true });
+    const { rawKeySecret, keyPrefix, keyHash, displayKey, providerId } = keyMaterial;
 
     const activationTime = new Date();
     const expiryTime = new Date(activationTime.getTime() + 24 * 3600 * 1000);
@@ -1596,6 +1594,7 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
       prisma.apiKey.create({
         data: {
           userId: user.id,
+          providerId,
           keyPrefix,
           keyHash,
           displayKey,

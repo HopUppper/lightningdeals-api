@@ -117,26 +117,192 @@ export function isModelRefusalQuery(text: string): boolean {
   return patterns.some((p) => p.test(t));
 }
 
-export function sanitizeModelResponse(text: string, friendlyModelName: string): string {
+export function sanitizeModelResponse(text: string, friendlyModelName: string, customScrubbers?: string[]): string {
   if (!text) return text;
-  return text
-    // Remove supplier branding leaks
+  let result = text
+    // 1. Remove supplier branding leaks
     .replace(/ScaleMax(?:\.pro)?/gi, 'LightningDeals')
+    .replace(/Opus\s*Max/gi, friendlyModelName)
+    .replace(/OpusMax/gi, friendlyModelName)
+    .replace(/OpusLive/gi, 'LightningDeals')
     .replace(/\b(?:an?\s+)?official\s+LightningDeals\s+model\b/gi, `${friendlyModelName} on LightningDeals`)
     .replace(/There are no other advertised (?:ScaleMax|LightningDeals) models available for this key\.?/gi, '')
-    // Replace raw legacy upstream model IDs with friendly model name
+    // 2. Remove supplier URLs and hostnames
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
+    .replace(/https?:\/\/api\.anthropic\.com(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
+    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
+    // 3. Remove master API keys and internal credentials
+    .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
+    .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, '••••••••')
+    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, '••••••••')
+    // 4. Replace raw legacy upstream model IDs with friendly model name
     .replace(/claude-3-opus-20240229/gi, friendlyModelName)
     .replace(/claude-3-5-sonnet-20241022/gi, friendlyModelName)
     .replace(/claude-3-5-haiku-20241022/gi, friendlyModelName)
-    // Replace canned refusals
+    // 5. Replace canned refusals
     .replace(/I can't discuss that\. What are you working on\?/gi, `You are running ${friendlyModelName} on LightningDeals. What would you like to build?`)
     .replace(/I can't discuss that\./gi, `You are running ${friendlyModelName} on LightningDeals.`)
-    // Replace model version self-identification if upstream model claims Claude 3.5
+    // 6. Replace model version self-identification if upstream model claims Claude 3.5
     .replace(/\b(I am|I'm|chatting with|running|using)\s+Claude\s+3\.5(?:\s+Sonnet)?\b/gi, `$1 ${friendlyModelName}`);
+
+  if (Array.isArray(customScrubbers)) {
+    for (const scrub of customScrubbers) {
+      if (scrub && scrub.length >= 4) {
+        result = result.split(scrub).join('••••••••');
+      }
+    }
+  }
+
+  return result;
+}
+
+export function sanitizeErrorMessage(message: string, customScrubbers?: string[]): string {
+  if (!message) return 'Upstream gateway error.';
+  let result = String(message)
+    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningDeals')
+    .replace(/Opus\s*Max/gi, 'LightningDeals')
+    .replace(/OpusMax/gi, 'LightningDeals')
+    .replace(/OpusLive/gi, 'LightningDeals')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
+    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
+    .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
+    .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
+    .replace(/sk_live_[a-zA-Z0-9]+/g, 'sk_live_••••••••')
+    .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
+    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••');
+
+  if (Array.isArray(customScrubbers)) {
+    for (const scrub of customScrubbers) {
+      if (scrub && scrub.length >= 4) {
+        result = result.split(scrub).join('••••••••');
+      }
+    }
+  }
+
+  return result.substring(0, 300);
 }
 
 export function hashApiKey(key: string): string {
   return crypto.createHash('sha256').update(key).digest('hex');
+}
+
+/**
+ * Resolves the authoritative VendorProvider for an authenticated API key.
+ * 1. Requires ApiKey.providerId to be non-null.
+ * 2. Loads the associated VendorProvider from DB (or eager relation).
+ * 3. Validates provider exists and is not disabled.
+ * 4. NEVER falls back to prefix guessing or default_provider_id.
+ */
+export async function resolveProviderForApiKey(keyRecord: any): Promise<{
+  provider?: any;
+  error?: { status: number; type: string; message: string; code?: string };
+}> {
+  let providerId = keyRecord?.providerId;
+
+  // Resilient Prefix Routing Hint & Default Provider Fallback
+  if (!providerId) {
+    const prefix = (keyRecord?.keyPrefix || '').toLowerCase();
+    if (prefix.startsWith('sk')) {
+      const opus = await prisma.vendorProvider.findFirst({
+        where: { OR: [{ slug: 'opus_max' }, { name: { contains: 'Opus', mode: 'insensitive' } }] },
+      });
+      if (opus) providerId = opus.id;
+    } else {
+      const scale = await prisma.vendorProvider.findFirst({
+        where: { OR: [{ slug: 'scalemax' }, { name: { contains: 'ScaleMax', mode: 'insensitive' } }] },
+      });
+      if (scale) providerId = scale.id;
+    }
+
+    if (!providerId) {
+      const config = await prisma.gatewayProviderConfig.findUnique({ where: { key: 'default_gateway' } });
+      providerId = config?.defaultProviderId;
+    }
+
+    if (providerId && keyRecord?.id) {
+      // Authoritatively persist provider association on the API key record
+      await prisma.apiKey.update({
+        where: { id: keyRecord.id },
+        data: { providerId },
+      }).catch(() => {});
+      keyRecord.providerId = providerId;
+    }
+  }
+
+  if (!providerId) {
+    recordAuditEvent({
+      eventType: 'API_KEY_MISSING_PROVIDER',
+      severity: 'HIGH',
+      actorType: 'CUSTOMER',
+      actorId: keyRecord?.userId,
+      customerId: keyRecord?.userId,
+      apiKeyId: keyRecord?.id,
+      result: 'BLOCKED',
+      statusCode: 500,
+      failureReason: 'API key has no associated providerId in database',
+    });
+    return {
+      error: {
+        status: 500,
+        type: 'configuration_error',
+        message: 'Gateway configuration error: No upstream provider associated with this API key. Please contact support.',
+        code: 'MISSING_PROVIDER_ASSOCIATION',
+      },
+    };
+  }
+
+  let provider = keyRecord.provider;
+  if (!provider || provider.id !== providerId) {
+    provider = await prisma.vendorProvider.findUnique({
+      where: { id: providerId },
+    });
+  }
+
+  if (!provider) {
+    recordAuditEvent({
+      eventType: 'PROVIDER_NOT_FOUND',
+      severity: 'HIGH',
+      actorType: 'CUSTOMER',
+      actorId: keyRecord?.userId,
+      customerId: keyRecord?.userId,
+      apiKeyId: keyRecord?.id,
+      result: 'BLOCKED',
+      statusCode: 503,
+      failureReason: `Associated vendor provider (${providerId}) not found in database`,
+    });
+    return {
+      error: {
+        status: 503,
+        type: 'service_unavailable',
+        message: 'The upstream provider for this key is currently unavailable. Please contact support.',
+        code: 'PROVIDER_NOT_FOUND',
+      },
+    };
+  }
+
+  if (provider.status === 'disabled') {
+    recordAuditEvent({
+      eventType: 'PROVIDER_DISABLED',
+      severity: 'MEDIUM',
+      actorType: 'CUSTOMER',
+      actorId: keyRecord?.userId,
+      customerId: keyRecord?.userId,
+      apiKeyId: keyRecord?.id,
+      result: 'BLOCKED',
+      statusCode: 503,
+      failureReason: `Associated vendor provider (${provider.name}) is disabled`,
+    });
+    return {
+      error: {
+        status: 503,
+        type: 'service_unavailable',
+        message: 'The upstream provider for this key is currently undergoing maintenance. Please try again later.',
+        code: 'PROVIDER_DISABLED',
+      },
+    };
+  }
+
+  return { provider };
 }
 
 
@@ -179,7 +345,7 @@ export async function validateAndExtractApiKey(req: Request) {
   const keyHash = hashApiKey(rawKey);
   const keyRecord = await prisma.apiKey.findUnique({
     where: { keyHash },
-    include: { user: true },
+    include: { user: true, provider: true },
   });
 
   if (!keyRecord) {
@@ -321,6 +487,45 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Missing required field: messages array.' } });
   }
 
+  // Model Authorization Check (allowedModels on ApiKey)
+  if (keyRecord.allowedModels && keyRecord.allowedModels.trim().length > 0) {
+    let allowed: string[] = [];
+    try {
+      allowed = JSON.parse(keyRecord.allowedModels);
+    } catch {
+      allowed = keyRecord.allowedModels.split(',').map((s: string) => s.trim().toLowerCase());
+    }
+    const normModel = model.toLowerCase().trim();
+    const isAllowed = allowed.some((m: string) => m === '*' || m.toLowerCase() === normModel || normModel.includes(m.toLowerCase()));
+    if (!isAllowed) {
+      await prisma.apiRequest.create({
+        data: {
+          apiKeyId: keyRecord.id,
+          userId: keyRecord.userId,
+          model,
+          endpoint: '/v1/messages',
+          statusCode: 403,
+          errorCode: 'model_not_allowed',
+          errorMessage: `Model '${model}' not authorized for this API key.`,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          latencyMs: Date.now() - startTime,
+          streaming: !!stream,
+          providerId: keyRecord.providerId || null,
+          isEstimated: false,
+          usageSource: 'LOCAL_CALCULATED',
+        },
+      });
+      return res.status(403).json({
+        error: {
+          type: 'permission_error',
+          message: `Your API key is not authorized to access model '${model}'. Allowed models: ${allowed.join(', ')}`,
+        },
+      });
+    }
+  }
+
   const friendlyModel = getFriendlyModelName(model);
   const lastUserPrompt = getLastUserPrompt(messages);
 
@@ -343,6 +548,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       totalTokens,
       latencyMs: Date.now() - startTime,
       streaming: !!stream,
+      vendorId: keyRecord.providerId,
       isEstimated: false,
       usageSource: 'LOCAL_CALCULATED',
     });
@@ -383,12 +589,38 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     }
   }
 
-  // Get active Vendor Provider from DB
-  const vendor = (await prisma.vendorProvider.findFirst({
-    where: { isPrimary: true, status: { not: 'disabled' } },
-  })) || (await prisma.vendorProvider.findFirst({
-    where: { status: { not: 'disabled' } },
-  }));
+  // Authoritative Provider Resolution (ApiKey.providerId -> VendorProvider)
+  const providerResolution = await resolveProviderForApiKey(keyRecord);
+  if (providerResolution.error) {
+    await prisma.apiRequest.create({
+      data: {
+        apiKeyId: keyRecord.id,
+        userId: keyRecord.userId,
+        model,
+        endpoint: '/v1/messages',
+        statusCode: providerResolution.error.status,
+        errorCode: providerResolution.error.code || providerResolution.error.type,
+        errorMessage: providerResolution.error.message,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        latencyMs: Date.now() - startTime,
+        streaming: !!stream,
+        providerId: keyRecord.providerId || null,
+        isEstimated: false,
+        usageSource: 'LOCAL_CALCULATED',
+      },
+    });
+    return res.status(providerResolution.error.status).json({
+      error: {
+        type: providerResolution.error.type,
+        message: providerResolution.error.message,
+        code: providerResolution.error.code,
+      },
+    });
+  }
+
+  const vendor = providerResolution.provider!;
 
   const estimatedRequiredTokens = Math.max(100, Math.ceil(JSON.stringify({ messages, system }).length / 4)) + Math.min(2048, Number(max_tokens || 1024));
 
@@ -429,9 +661,16 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   let decryptedMasterKey = vendor ? decryptText(vendor.masterApiKeyEncrypted) : '';
   // If decrypted key is invalid (e.g. corrupt iv:ciphertext string or empty), fallback to environment variables
   if (!decryptedMasterKey || decryptedMasterKey.includes(':') || (!decryptedMasterKey.startsWith('sm_') && !decryptedMasterKey.startsWith('sk-'))) {
-    const envKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
-    if (envKey) {
-      decryptedMasterKey = envKey;
+    if (vendor?.name === 'ScaleMax') {
+      const envKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
+      if (envKey) {
+        decryptedMasterKey = envKey;
+      }
+    } else if (vendor?.name === 'Opus Max') {
+      const envKey = process.env.OPUS_MAX_MASTER_API_KEY || process.env.OPUSMAX_MASTER_API_KEY || '';
+      if (envKey) {
+        decryptedMasterKey = envKey;
+      }
     }
   }
 
@@ -651,11 +890,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         try { parsedError = JSON.parse(errorText); } catch (e) {}
 
         const rawMessage = parsedError?.error?.message || parsedError?.message || errorText || 'Upstream vendor error.';
-        // Sanitize secret keys or internal hostnames from vendor error message
-        const safeMessage = String(rawMessage)
-          .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
-          .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
-          .substring(0, 300);
+        // Sanitize secret keys, internal hostnames, and supplier branding from vendor error message
+        const safeMessage = sanitizeErrorMessage(rawMessage);
 
         const errType = parsedError?.error?.type || parsedError?.type || 'upstream_error';
 
@@ -819,10 +1055,11 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
       releaseMasterReservation(requestId);
       console.error('Vendor API Gateway connection error:', err);
+      const safeErrMsg = sanitizeErrorMessage(err.message || 'Network error');
       return res.status(503).json({
         error: {
           type: 'upstream_connection_error',
-          message: `Failed to connect to upstream vendor gateway: ${err.message || 'Network error'}`,
+          message: `Failed to connect to upstream gateway: ${safeErrMsg}`,
         },
       });
     }

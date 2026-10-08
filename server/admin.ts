@@ -10,6 +10,8 @@ import { resolveIpLocation } from './geoService';
 import { isDisposableDomain } from './antiAbuse';
 import { OrderEngine } from './orders/orderEngine';
 import { getPaymentProvider } from './payments';
+import { generateProviderApiKey, generateRotatedKeyMaterial } from './keyService';
+import { ProviderRegistry } from './providerAdapter';
 
 const router = Router();
 
@@ -149,27 +151,79 @@ import { validateVendorBaseUrl } from './ssrf';
 // 2. Vendor Provider Master Credentials Management & Connection Test (/admin/providers)
 router.get('/providers', async (req: AuthRequest, res: Response) => {
   try {
+    const defaultSetting = await prisma.systemSetting.findUnique({
+      where: { key: 'default_provider_id' },
+    });
+    const defaultId = defaultSetting?.value?.trim();
+
     const providers = await prisma.vendorProvider.findMany({
       orderBy: { createdAt: 'desc' },
     });
-    // Mask master API keys for response security
-    const masked = providers.map((p) => {
-      const decrypted = decryptText(p.masterApiKeyEncrypted);
-      const displayKey = decrypted ? `${decrypted.slice(0, 8)}...${decrypted.slice(-4)}` : 'Not Set';
-      return {
-        ...p,
-        masterApiKeyEncrypted: undefined,
-        displayMasterKey: displayKey,
-      };
-    });
-    res.json(masked);
+
+    // Mask master API keys for response security and enrich with provider health/telemetry metrics
+    const enriched = await Promise.all(
+      providers.map(async (p) => {
+        const decrypted = decryptText(p.masterApiKeyEncrypted);
+        const displayKey = decrypted ? `${decrypted.slice(0, 8)}...${decrypted.slice(-4)}` : 'Not Set';
+
+        // Extract clean hostname from baseUrl
+        let baseUrlHostname = p.baseUrl;
+        try {
+          baseUrlHostname = new URL(p.baseUrl).hostname;
+        } catch {}
+
+        // Compute telemetry & associations
+        const [activeKeyCount, totalKeyCount, totalRequests, errorRequests, latencyAgg] = await Promise.all([
+          prisma.apiKey.count({ where: { providerId: p.id, status: 'active' } }),
+          prisma.apiKey.count({ where: { providerId: p.id } }),
+          prisma.apiRequest.count({ where: { providerId: p.id } }),
+          prisma.apiRequest.count({ where: { providerId: p.id, statusCode: { gte: 400 } } }),
+          prisma.apiRequest.aggregate({
+            where: { providerId: p.id, latencyMs: { gt: 0 } },
+            _avg: { latencyMs: true },
+          }),
+        ]);
+
+        const errorRate = totalRequests > 0 ? Number(((errorRequests / totalRequests) * 100).toFixed(2)) : 0;
+        const avgLatencyMs = latencyAgg._avg.latencyMs ? Math.round(latencyAgg._avg.latencyMs) : 0;
+
+        return {
+          ...p,
+          isDefault: p.id === defaultId,
+          masterApiKeyEncrypted: undefined,
+          displayMasterKey: displayKey,
+          baseUrlHostname,
+          activeKeyCount,
+          totalKeyCount,
+          requestCount: totalRequests,
+          errorRate,
+          avgLatencyMs,
+        };
+      })
+    );
+    res.json(enriched);
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }
 });
 
 router.post('/providers', async (req: AuthRequest, res: Response) => {
-  const { name, providerType, protocol, masterApiKey, baseUrl, isPrimary, notes, modelMappingsJson, headersJson } = req.body;
+  const {
+    name,
+    providerType,
+    protocol,
+    masterApiKey,
+    baseUrl,
+    isPrimary,
+    notes,
+    modelMappingsJson,
+    headersJson,
+    status,
+    warningThresholdTokens,
+    criticalThresholdTokens,
+    availableTokens,
+    purchasedTokens,
+  } = req.body;
 
   // Validate Base URL against SSRF threats
   const ssrfCheck = validateVendorBaseUrl(baseUrl || 'https://api.anthropic.com');
@@ -184,6 +238,11 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
       await prisma.vendorProvider.updateMany({ data: { isPrimary: false } });
     }
 
+    const initialAvailable = availableTokens !== undefined ? BigInt(availableTokens) : (masterApiKey ? BigInt(100000000) : BigInt(0));
+    const initialPurchased = purchasedTokens !== undefined ? BigInt(purchasedTokens) : initialAvailable;
+    const warningTokens = warningThresholdTokens !== undefined ? BigInt(warningThresholdTokens) : BigInt(20000000);
+    const criticalTokens = criticalThresholdTokens !== undefined ? BigInt(criticalThresholdTokens) : BigInt(5000000);
+
     const provider = await prisma.vendorProvider.create({
       data: {
         name: name || 'Vendor Provider',
@@ -192,7 +251,11 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
         masterApiKeyEncrypted: encryptedKey,
         baseUrl: ssrfCheck.normalizedUrl || 'https://api.anthropic.com',
         isPrimary: !!isPrimary,
-        status: masterApiKey ? 'connected' : 'disabled',
+        status: status || (masterApiKey ? 'connected' : 'disabled'),
+        availableTokens: initialAvailable,
+        purchasedTokens: initialPurchased,
+        warningThresholdTokens: warningTokens,
+        criticalThresholdTokens: criticalTokens,
         notes,
         modelMappingsJson,
         headersJson,
@@ -217,7 +280,21 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
 
 router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { name, providerType, protocol, masterApiKey, baseUrl, status, isPrimary, notes, modelMappingsJson, headersJson } = req.body;
+  const {
+    name,
+    providerType,
+    protocol,
+    masterApiKey,
+    baseUrl,
+    status,
+    isPrimary,
+    notes,
+    modelMappingsJson,
+    headersJson,
+    warningThresholdTokens,
+    criticalThresholdTokens,
+    availableTokens,
+  } = req.body;
 
   try {
     const updateData: any = {};
@@ -228,7 +305,10 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
     if (notes !== undefined) updateData.notes = notes;
     if (modelMappingsJson !== undefined) updateData.modelMappingsJson = modelMappingsJson;
     if (headersJson !== undefined) updateData.headersJson = headersJson;
-    if (masterApiKey) updateData.masterApiKeyEncrypted = encryptText(masterApiKey);
+    if (masterApiKey && masterApiKey.trim()) updateData.masterApiKeyEncrypted = encryptText(masterApiKey.trim());
+    if (warningThresholdTokens !== undefined) updateData.warningThresholdTokens = BigInt(warningThresholdTokens);
+    if (criticalThresholdTokens !== undefined) updateData.criticalThresholdTokens = BigInt(criticalThresholdTokens);
+    if (availableTokens !== undefined) updateData.availableTokens = BigInt(availableTokens);
 
     if (baseUrl !== undefined) {
       const ssrfCheck = validateVendorBaseUrl(baseUrl);
@@ -264,13 +344,151 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Set default provider for newly generated API keys (SystemSetting.default_provider_id)
+router.post('/providers/:id/set-default', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const provider = await prisma.vendorProvider.findUnique({ where: { id } });
+    if (!provider) {
+      return res.status(404).json({ error: { message: 'Vendor provider not found.' } });
+    }
+    if (provider.status === 'disabled') {
+      return res.status(400).json({ error: { message: 'Cannot set a disabled provider as default.' } });
+    }
+
+    await prisma.systemSetting.upsert({
+      where: { key: 'default_provider_id' },
+      update: { value: id, description: `Authoritative default provider ID (${provider.name})` },
+      create: { key: 'default_provider_id', value: id, description: `Authoritative default provider ID (${provider.name})` },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'SET_DEFAULT_PROVIDER',
+        targetType: 'VendorProvider',
+        targetId: provider.id,
+        metadata: `Set default provider to: ${provider.name}`,
+      },
+    });
+
+    res.json({ success: true, defaultProviderId: id, providerName: provider.name });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/admin/providers/failover-config - Get failover & default provider routing settings
+router.get('/providers/failover-config', async (req: AuthRequest, res: Response) => {
+  try {
+    const config = await ProviderRegistry.getGatewayConfig();
+    res.json(config);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/providers/failover-config - Update failover & default provider settings
+router.post('/providers/failover-config', async (req: AuthRequest, res: Response) => {
+  const { enableAutoFailover, primaryProviderId, fallbackProviderId, failoverStatusCodes, defaultProviderId } = req.body;
+  try {
+    const updateData: any = {};
+    if (enableAutoFailover !== undefined) updateData.enableAutoFailover = Boolean(enableAutoFailover);
+    if (primaryProviderId !== undefined) updateData.primaryProviderId = primaryProviderId;
+    if (fallbackProviderId !== undefined) updateData.fallbackProviderId = fallbackProviderId;
+    if (defaultProviderId !== undefined) updateData.defaultProviderId = defaultProviderId;
+    if (failoverStatusCodes !== undefined) {
+      updateData.failoverStatusCodes = Array.isArray(failoverStatusCodes) ? failoverStatusCodes.join(',') : failoverStatusCodes;
+    }
+
+    const config = await prisma.gatewayProviderConfig.upsert({
+      where: { key: 'default_gateway' },
+      update: updateData,
+      create: {
+        key: 'default_gateway',
+        ...updateData,
+      },
+    });
+
+    ProviderRegistry.clearCache();
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'UPDATE_PROVIDER_FAILOVER_CONFIG',
+        targetType: 'GatewayProviderConfig',
+        targetId: config.id,
+        metadata: JSON.stringify(updateData),
+      },
+    });
+
+    res.json({ success: true, config });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/providers/migrate-keys - Bulk migrate API keys between providers
+router.post('/providers/migrate-keys', async (req: AuthRequest, res: Response) => {
+  const { sourceProviderId, targetProviderId, keyIds, reason } = req.body;
+  try {
+    if (!targetProviderId) {
+      return res.status(400).json({ error: { message: 'targetProviderId is required.' } });
+    }
+
+    const targetProvider = await prisma.vendorProvider.findUnique({ where: { id: targetProviderId } });
+    if (!targetProvider) {
+      return res.status(404).json({ error: { message: 'Target provider not found.' } });
+    }
+
+    const whereClause: any = {};
+    if (Array.isArray(keyIds) && keyIds.length > 0) {
+      whereClause.id = { in: keyIds };
+    } else if (sourceProviderId) {
+      whereClause.providerId = sourceProviderId;
+    } else {
+      return res.status(400).json({ error: { message: 'Either sourceProviderId or keyIds array must be provided.' } });
+    }
+
+    const countToMigrate = await prisma.apiKey.count({ where: whereClause });
+    if (countToMigrate === 0) {
+      return res.json({ success: true, migratedCount: 0, message: 'No keys matched migration criteria.' });
+    }
+
+    const result = await prisma.apiKey.updateMany({
+      where: whereClause,
+      data: { providerId: targetProviderId },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'MIGRATE_API_KEYS_PROVIDER',
+        targetType: 'VendorProvider',
+        targetId: targetProviderId,
+        metadata: `Migrated ${result.count} keys from ${sourceProviderId || 'selection'} to ${targetProvider.name} (${targetProvider.id}). Reason: ${reason || 'Admin bulk migration'}`,
+      },
+    });
+
+    res.json({
+      success: true,
+      migratedCount: result.count,
+      targetProviderName: targetProvider.name,
+      targetProviderId,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // REAL Backend Connection Health Check for Vendor Master Key
 router.post('/providers/test', async (req: AuthRequest, res: Response) => {
-  const { providerId, masterApiKey, baseUrl, protocol } = req.body;
+    const { providerId, masterApiKey, baseUrl, protocol, headersJson } = req.body;
   try {
     let keyToTest = masterApiKey;
     let urlToTest = baseUrl;
     let protoToTest = protocol || 'anthropic';
+    let headersToApply: Record<string, string> = {};
 
     if (providerId) {
       const provider = await prisma.vendorProvider.findUnique({ where: { id: providerId } });
@@ -278,7 +496,19 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
         if (!keyToTest) keyToTest = decryptText(provider.masterApiKeyEncrypted);
         if (!urlToTest) urlToTest = provider.baseUrl;
         if (!protocol) protoToTest = provider.protocol || provider.providerType;
+        if (provider.headersJson) {
+          try {
+            headersToApply = { ...headersToApply, ...JSON.parse(provider.headersJson) };
+          } catch {}
+        }
       }
+    }
+
+    if (headersJson) {
+      try {
+        const parsed = typeof headersJson === 'string' ? JSON.parse(headersJson) : headersJson;
+        headersToApply = { ...headersToApply, ...parsed };
+      } catch {}
     }
 
     if (!urlToTest) urlToTest = 'https://api.anthropic.com';
@@ -292,42 +522,91 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
           data: { status: 'ssrf_blocked', lastTestedAt: new Date(), lastError: ssrfCheck.error },
         });
       }
-      return res.json({ status: 'ssrf_blocked', message: ssrfCheck.error || 'Blocked by SSRF Policy.' });
+      return res.json({ status: 'UNREACHABLE', message: ssrfCheck.error || 'Blocked by SSRF Policy.' });
     }
 
     if (!keyToTest) {
-      return res.status(400).json({ status: 'invalid_credential', message: 'No Master API key provided.' });
+      return res.status(400).json({ status: 'AUTHENTICATION_FAILED', message: 'No Master API key provided.' });
     }
 
     let targetUrl = `${ssrfCheck.normalizedUrl}/v1/models`;
-    let headers: Record<string, string> = { 'x-api-key': keyToTest, 'anthropic-version': '2023-06-01' };
+    let headers: Record<string, string> = {
+      'x-api-key': keyToTest,
+      'authorization': `Bearer ${keyToTest}`,
+      'anthropic-version': '2023-06-01',
+      ...headersToApply,
+    };
 
     if (protoToTest === 'openai-compatible' || protoToTest === 'openai') {
       targetUrl = `${ssrfCheck.normalizedUrl}/models`;
-      headers = { Authorization: `Bearer ${keyToTest}` };
+      headers = { Authorization: `Bearer ${keyToTest}`, ...headersToApply };
     }
 
-    const upstreamRes = await fetch(targetUrl, {
-      method: 'GET',
-      headers,
-    });
+    let upstreamRes: any;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      upstreamRes = await fetch(targetUrl, {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      // If GET /models returns 404/405, fallback to a minimal probe request
+      if (upstreamRes.status === 404 || upstreamRes.status === 405) {
+        const probeUrl = protoToTest === 'openai-compatible' || protoToTest === 'openai'
+          ? `${ssrfCheck.normalizedUrl}/chat/completions`
+          : `${ssrfCheck.normalizedUrl}/v1/messages`;
+        const probeBody = protoToTest === 'openai-compatible' || protoToTest === 'openai'
+          ? { model: 'gpt-4o', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }
+          : { model: 'claude-3-5-haiku-20241022', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 };
+
+        const probeRes = await fetch(probeUrl, {
+          method: 'POST',
+          headers: { ...headers, 'content-type': 'application/json' },
+          body: JSON.stringify(probeBody),
+        });
+        upstreamRes = probeRes;
+      }
+    } catch (netErr: any) {
+      const errMsg = netErr.name === 'AbortError' ? 'Connection timed out after 15s' : netErr.message;
+      if (providerId) {
+        await prisma.vendorProvider.update({
+          where: { id: providerId },
+          data: { status: 'unavailable', lastTestedAt: new Date(), lastError: errMsg },
+        });
+      }
+      return res.json({ status: 'UNREACHABLE', message: `Could not reach provider base URL: ${errMsg}` });
+    }
 
     if (upstreamRes.ok) {
+      let parsedBody: any = null;
+      try {
+        parsedBody = await upstreamRes.json();
+      } catch {
+        return res.json({ status: 'INVALID_RESPONSE', message: 'Provider returned non-JSON payload.' });
+      }
+
       if (providerId) {
         await prisma.vendorProvider.update({
           where: { id: providerId },
           data: { status: 'connected', lastTestedAt: new Date(), lastError: null },
         });
       }
-      return res.json({ status: 'connected', message: 'Vendor connection test successful. Response HTTP 200 OK.' });
+      return res.json({
+        status: 'CONNECTED',
+        message: 'Provider connection test verified. Response HTTP 200 OK.',
+        details: { modelsCount: Array.isArray(parsedBody?.data) ? parsedBody.data.length : undefined },
+      });
     } else if (upstreamRes.status === 401 || upstreamRes.status === 403) {
       if (providerId) {
         await prisma.vendorProvider.update({
           where: { id: providerId },
-          data: { status: 'invalid_credential', lastTestedAt: new Date(), lastError: 'Auth Failed (401/403)' },
+          data: { status: 'invalid_credential', lastTestedAt: new Date(), lastError: `Auth Failed (${upstreamRes.status})` },
         });
       }
-      return res.json({ status: 'invalid_credential', message: `Authentication failed (HTTP ${upstreamRes.status}). Check master API key.` });
+      return res.json({ status: 'AUTHENTICATION_FAILED', message: `Authentication failed (HTTP ${upstreamRes.status}). Verify master API key.` });
     } else {
       if (providerId) {
         await prisma.vendorProvider.update({
@@ -335,7 +614,7 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
           data: { status: 'provider_error', lastTestedAt: new Date(), lastError: `HTTP ${upstreamRes.status}` },
         });
       }
-      return res.json({ status: 'provider_error', message: `Provider returned HTTP ${upstreamRes.status}.` });
+      return res.json({ status: 'INVALID_RESPONSE', message: `Provider returned HTTP ${upstreamRes.status}.` });
     }
   } catch (err: any) {
     if (providerId) {
@@ -344,7 +623,7 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
         data: { status: 'unavailable', lastTestedAt: new Date(), lastError: err.message },
       });
     }
-    return res.json({ status: 'unavailable', message: `Could not reach vendor base URL: ${err.message}` });
+    return res.json({ status: 'UNREACHABLE', message: `Could not reach vendor base URL: ${err.message}` });
   }
 });
 
@@ -1000,7 +1279,7 @@ router.get('/keys', async (req: AuthRequest, res: Response) => {
 
     const keys = await prisma.apiKey.findMany({
       where,
-      include: { user: true },
+      include: { user: true, provider: true },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -1022,6 +1301,8 @@ router.get('/keys', async (req: AuthRequest, res: Response) => {
           type: k.type,
           status: k.status,
           plan: computedPlan,
+          providerId: k.providerId,
+          providerName: k.provider?.name || 'ScaleMax',
           purchasedTokens: windowMetrics.purchasedNum.toString(),
           tokensUsed: windowMetrics.windowTokensUsed.toString(),
           tokensRemaining: windowMetrics.remainingNum.toString(),
@@ -1101,11 +1382,12 @@ router.get('/keys/:id/usage', async (req: AuthRequest, res: Response) => {
 
 
 router.post('/keys', async (req: AuthRequest, res: Response) => {
-  const { name, userId, tokenLimit, rateLimitRpm, expiryDays, plan, isTrial } = req.body;
+  const { name, userId, tokenLimit, rateLimitRpm, expiryDays, plan, isTrial, providerId } = req.body;
   try {
-    const rawKey = (isTrial ? 'ld_trial_' : 'ld_live_') + crypto.randomBytes(18).toString('hex');
-    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
-    const displayKey = `${rawKey.slice(0, 11)}...${rawKey.slice(-4)}`;
+    const keyMaterial = await generateProviderApiKey({
+      providerId: providerId || undefined,
+      isTrial: Boolean(isTrial),
+    });
 
     let expiresAt: Date | null = null;
     if (expiryDays) {
@@ -1121,9 +1403,11 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
     const apiKey = await prisma.apiKey.create({
       data: {
         userId: userId || null,
-        keyPrefix: isTrial ? 'ld_trial_' : 'ld_live_',
-        keyHash,
-        displayKey,
+        providerId: keyMaterial.providerId,
+        keyPrefix: keyMaterial.keyPrefix,
+        keyHash: keyMaterial.keyHash,
+        displayKey: keyMaterial.displayKey,
+        keyEncrypted: encryptText(keyMaterial.rawKeySecret),
         name: name || (isTrial ? 'Free Trial Key' : `Claude Max ${numM}x Key`),
         type: isTrial ? 'trial' : 'production',
         status: 'active',
@@ -1144,15 +1428,17 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
         balanceAfter: initialTokens,
         type: isTrial ? 'TRIAL_GRANT' : 'PURCHASE',
         reference: 'ADMIN-KEY-GEN',
-        notes: `Admin created ${isTrial ? 'trial' : 'production'} key`,
+        notes: `Admin created ${isTrial ? 'trial' : 'production'} key (${keyMaterial.providerName})`,
       },
     });
 
     res.json({
       id: apiKey.id,
-      rawKey,
+      rawKey: keyMaterial.rawKeySecret,
       displayKey: apiKey.displayKey,
       name: apiKey.name,
+      providerId: apiKey.providerId,
+      providerName: keyMaterial.providerName,
       purchasedTokens: apiKey.purchasedTokens.toString(),
       tokensRemaining: apiKey.tokensRemaining.toString(),
     });
@@ -1162,11 +1448,12 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
 });
 
 router.post('/keys/trial', async (req: AuthRequest, res: Response) => {
-  const { customerName, customerEmail, tokenAllowance, expiryDays, rateLimitRpm } = req.body;
+  const { customerName, customerEmail, tokenAllowance, expiryDays, rateLimitRpm, providerId } = req.body;
   try {
-    const rawKey = 'ld_trial_' + crypto.randomBytes(18).toString('hex');
-    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
-    const displayKey = `${rawKey.slice(0, 11)}...${rawKey.slice(-4)}`;
+    const keyMaterial = await generateProviderApiKey({
+      providerId: providerId || undefined,
+      isTrial: true,
+    });
 
     let expiresAt: Date | null = null;
     if (expiryDays) {
@@ -1178,9 +1465,11 @@ router.post('/keys/trial', async (req: AuthRequest, res: Response) => {
 
     const apiKey = await prisma.apiKey.create({
       data: {
-        keyPrefix: 'ld_trial_',
-        keyHash,
-        displayKey,
+        providerId: keyMaterial.providerId,
+        keyPrefix: keyMaterial.keyPrefix,
+        keyHash: keyMaterial.keyHash,
+        displayKey: keyMaterial.displayKey,
+        keyEncrypted: encryptText(keyMaterial.rawKeySecret),
         name: customerName ? `${customerName} (Trial)` : 'Free Trial Key',
         type: 'trial',
         status: 'active',
@@ -1200,15 +1489,17 @@ router.post('/keys/trial', async (req: AuthRequest, res: Response) => {
         balanceAfter: initialTokens,
         type: 'TRIAL_GRANT',
         reference: 'ADMIN-TRIAL-GEN',
-        notes: `Dedicated trial key for ${customerEmail || customerName || 'customer'}`,
+        notes: `Dedicated trial key for ${customerEmail || customerName || 'customer'} (${keyMaterial.providerName})`,
       },
     });
 
     res.json({
       id: apiKey.id,
-      rawKey,
+      rawKey: keyMaterial.rawKeySecret,
       displayKey: apiKey.displayKey,
       name: apiKey.name,
+      providerId: apiKey.providerId,
+      providerName: keyMaterial.providerName,
       purchasedTokens: apiKey.purchasedTokens.toString(),
       tokensRemaining: apiKey.tokensRemaining.toString(),
     });
@@ -1383,16 +1674,15 @@ router.post('/keys/:id/rotate', async (req: AuthRequest, res: Response) => {
     const key = await prisma.apiKey.findUnique({ where: { id } });
     if (!key) return res.status(404).json({ error: { message: 'API key not found.' } });
 
-    const isTrial = key.type === 'trial' || key.keyPrefix === 'ld_trial_';
-    const rawKey = (isTrial ? 'ld_trial_' : 'ld_live_') + crypto.randomBytes(18).toString('hex');
-    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
-    const displayKey = `${rawKey.slice(0, 11)}...${rawKey.slice(-4)}`;
+    const keyMaterial = await generateRotatedKeyMaterial(key);
 
     const updated = await prisma.apiKey.update({
       where: { id },
       data: {
-        keyHash,
-        displayKey,
+        keyPrefix: keyMaterial.keyPrefix,
+        keyHash: keyMaterial.keyHash,
+        displayKey: keyMaterial.displayKey,
+        keyEncrypted: encryptText(keyMaterial.rawKeySecret),
         status: 'active',
       },
     });
@@ -1403,7 +1693,7 @@ router.post('/keys/:id/rotate', async (req: AuthRequest, res: Response) => {
         action: 'ROTATE_API_KEY',
         targetType: 'ApiKey',
         targetId: key.id,
-        metadata: `Rotated key material for ${key.name} (${key.displayKey} -> ${displayKey})`,
+        metadata: `Rotated key material for ${key.name} (${key.displayKey} -> ${keyMaterial.displayKey})`,
       },
     });
 

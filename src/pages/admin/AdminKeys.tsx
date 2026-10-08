@@ -44,6 +44,10 @@ export const AdminKeys: React.FC = () => {
   const [expiryDays, setExpiryDays] = useState('');
   const [plan, setPlan] = useState('Claude Max 20x');
   const [isTrial, setIsTrial] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState('');
+
+  // Providers list state
+  const [providers, setProviders] = useState<any[]>([]);
 
   // Create Trial Key Dedicated Workflow State
   const [showTrialModal, setShowTrialModal] = useState(false);
@@ -52,6 +56,7 @@ export const AdminKeys: React.FC = () => {
   const [trialTokens, setTrialTokens] = useState('1000000'); // 1M default
   const [trialExpiryDays, setTrialExpiryDays] = useState('7');
   const [trialRpm, setTrialRpm] = useState('100');
+  const [trialProvider, setTrialProvider] = useState('');
 
   // Output generated raw key state
   const [createdRawKey, setCreatedRawKey] = useState<string | null>(null);
@@ -167,9 +172,22 @@ export const AdminKeys: React.FC = () => {
     }
   };
 
+  const fetchProviders = async () => {
+    try {
+      const res = await adminFetch('/api/admin/providers');
+      if (res.ok) {
+        const data = await res.json();
+        setProviders(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchKeys();
     fetchUsers();
+    fetchProviders();
   }, [filter, search]);
 
 
@@ -185,6 +203,7 @@ export const AdminKeys: React.FC = () => {
         body: JSON.stringify({
           name: keyName,
           userId: selectedUser || null,
+          providerId: selectedProvider || undefined,
           tokenLimit: tokenAllowance,
           rateLimitRpm,
           expiryDays,
@@ -219,6 +238,7 @@ export const AdminKeys: React.FC = () => {
         body: JSON.stringify({
           customerName: trialCustomerName,
           customerEmail: trialCustomerEmail,
+          providerId: trialProvider || undefined,
           tokenAllowance: trialTokens,
           expiryDays: trialExpiryDays,
           rateLimitRpm: trialRpm,
@@ -318,7 +338,7 @@ export const AdminKeys: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => { setShowTrialModal(true); setCreatedRawKey(null); setModalError(null); }}
+            onClick={() => { setShowTrialModal(true); setTrialProvider(''); setCreatedRawKey(null); setModalError(null); }}
             className="ui-button-secondary text-xs py-2 px-3.5 gap-2"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -326,7 +346,7 @@ export const AdminKeys: React.FC = () => {
           </button>
 
           <button
-            onClick={() => { setShowCreateModal(true); setCreatedRawKey(null); setModalError(null); }}
+            onClick={() => { setShowCreateModal(true); setSelectedProvider(''); setCreatedRawKey(null); setModalError(null); }}
             className="ui-button-primary text-xs py-2 px-4 gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -377,6 +397,7 @@ export const AdminKeys: React.FC = () => {
                 <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
                   <th className="py-3 px-4 font-bold">Key Name & Prefix</th>
                   <th className="py-3 px-4 font-bold">Plan Name</th>
+                  <th className="py-3 px-4 font-bold">Provider</th>
                   <th className="py-3 px-4 font-bold">Customer</th>
                   <th className="py-3 px-4 font-bold">Type</th>
                   <th className="py-3 px-4 font-bold">Status</th>
@@ -395,6 +416,11 @@ export const AdminKeys: React.FC = () => {
                       <p className="font-mono text-[11px] text-muted">{k.displayKey}</p>
                     </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-violet-700">{k.plan || 'Claude Max 20x'}</td>
+                    <td className="py-3.5 px-4 font-mono">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                        {k.providerName || 'ScaleMax'}
+                      </span>
+                    </td>
                     <td className="py-3.5 px-4 font-mono text-muted">{k.customer}</td>
 
                     <td className="py-3.5 px-4 font-mono font-bold">
@@ -660,6 +686,25 @@ export const AdminKeys: React.FC = () => {
                     </select>
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Upstream Provider</label>
+                    <select
+                      value={selectedProvider}
+                      onChange={(e) => setSelectedProvider(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                    >
+                      <option value="">Default Provider (System Default)</option>
+                      {providers.filter((p) => p.status !== 'disabled').map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.status === 'connected' ? 'Connected' : p.status})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-muted mt-1">
+                      New key will be bound to this provider and use its convention ({selectedProvider && providers.find(p => p.id === selectedProvider)?.name.toLowerCase().includes('opus') ? 'sk_live_' : 'ld_live_'}).
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-fg mb-1">5-Hour Rolling Token Allowance</label>
@@ -814,6 +859,25 @@ export const AdminKeys: React.FC = () => {
                       />
                     </div>
 
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Upstream Provider</label>
+                    <select
+                      value={trialProvider}
+                      onChange={(e) => setTrialProvider(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                    >
+                      <option value="">Default Provider (System Default)</option>
+                      {providers.filter((p) => p.status !== 'disabled').map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.status === 'connected' ? 'Connected' : p.status})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-muted mt-1">
+                      Trial key will be bound to this provider ({trialProvider && providers.find(p => p.id === trialProvider)?.name.toLowerCase().includes('opus') ? 'sk_trial_' : 'ld_trial_'}).
+                    </p>
                   </div>
 
 

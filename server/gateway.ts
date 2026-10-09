@@ -489,40 +489,64 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
   // Model Authorization Check (allowedModels on ApiKey)
   if (keyRecord.allowedModels && keyRecord.allowedModels.trim().length > 0) {
-    let allowed: string[] = [];
-    try {
-      allowed = JSON.parse(keyRecord.allowedModels);
-    } catch {
-      allowed = keyRecord.allowedModels.split(',').map((s: string) => s.trim().toLowerCase());
-    }
-    const normModel = model.toLowerCase().trim();
-    const isAllowed = allowed.some((m: string) => m === '*' || m.toLowerCase() === normModel || normModel.includes(m.toLowerCase()));
-    if (!isAllowed) {
-      await prisma.apiRequest.create({
-        data: {
-          apiKeyId: keyRecord.id,
-          userId: keyRecord.userId,
-          model,
-          endpoint: '/v1/messages',
-          statusCode: 403,
-          errorCode: 'model_not_allowed',
-          errorMessage: `Model '${model}' not authorized for this API key.`,
-          inputTokens: 0,
-          outputTokens: 0,
-          totalTokens: 0,
-          latencyMs: Date.now() - startTime,
-          streaming: !!stream,
-          providerId: keyRecord.providerId || null,
-          isEstimated: false,
-          usageSource: 'LOCAL_CALCULATED',
-        },
-      });
-      return res.status(403).json({
-        error: {
-          type: 'permission_error',
-          message: `Your API key is not authorized to access model '${model}'. Allowed models: ${allowed.join(', ')}`,
-        },
-      });
+    const rawAllowed = keyRecord.allowedModels.trim().toLowerCase();
+    // 'all', '*', or empty wildcard configurations allow all models
+    if (rawAllowed !== 'all' && rawAllowed !== '*' && rawAllowed !== '["*"]' && rawAllowed !== '["all"]') {
+      let allowed: string[] = [];
+      try {
+        const parsed = JSON.parse(keyRecord.allowedModels);
+        allowed = Array.isArray(parsed) ? parsed.map((s: any) => String(s).trim().toLowerCase()) : [String(parsed).trim().toLowerCase()];
+      } catch {
+        allowed = keyRecord.allowedModels.split(',').map((s: string) => s.trim().toLowerCase());
+      }
+
+      const hasWildcard = allowed.some((m: string) => m === '*' || m === 'all' || m === 'all_models');
+      if (!hasWildcard) {
+        const normModel = model.toLowerCase().trim();
+        const mappedModel = mapToUpstreamModel(model).toLowerCase().trim();
+
+        const isAllowed = allowed.some((m: string) => {
+          const normAllowed = m.trim().toLowerCase();
+          return (
+            normAllowed === '*' ||
+            normAllowed === 'all' ||
+            normAllowed === normModel ||
+            normAllowed === mappedModel ||
+            normModel.includes(normAllowed) ||
+            mappedModel.includes(normAllowed) ||
+            normAllowed.includes(normModel) ||
+            normAllowed.includes(mappedModel)
+          );
+        });
+
+        if (!isAllowed) {
+          await prisma.apiRequest.create({
+            data: {
+              apiKeyId: keyRecord.id,
+              userId: keyRecord.userId,
+              model,
+              endpoint: '/v1/messages',
+              statusCode: 403,
+              errorCode: 'model_not_allowed',
+              errorMessage: `Model '${model}' not authorized for this API key.`,
+              inputTokens: 0,
+              outputTokens: 0,
+              totalTokens: 0,
+              latencyMs: Date.now() - startTime,
+              streaming: !!stream,
+              providerId: keyRecord.providerId || null,
+              isEstimated: false,
+              usageSource: 'LOCAL_CALCULATED',
+            },
+          });
+          return res.status(403).json({
+            error: {
+              type: 'permission_error',
+              message: `Your API key is not authorized to access model '${model}'. Allowed models: ${allowed.join(', ')}`,
+            },
+          });
+        }
+      }
     }
   }
 

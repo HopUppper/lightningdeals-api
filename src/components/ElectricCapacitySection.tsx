@@ -48,91 +48,89 @@ export const ElectricCapacitySection: React.FC = () => {
 
   const fallbackPlans: PlanItem[] = [
     {
-      id: 'plan_5x',
-      name: 'Claude Max 5x',
-      displayName: 'Claude Max 5x (5M / 5h)',
+      id: 'pro',
+      name: 'PRO',
+      displayName: 'PRO (5M / 5h Window)',
       tokenAllowance: '5000000',
-      tokenDisplay: '5M Tokens / 5h',
+      tokenDisplay: '5M TOKENS / 5 HOURS',
       windowHours: 5,
       validityDays: 30,
-      priceInr: 299,
-      originalPriceInr: 499,
+      priceInr: 2499,
+      originalPriceInr: 3499,
       currency: 'INR',
-      tagline: 'Ideal for light coding, CLI experiments, and small individual scripts with Sonnet 3.5.',
-      badge: 'Starter Pass',
+      tagline: 'High-performance access for active daily coding assistance with Sonnet 5.5 & Sonnet 5',
+      badge: 'STARTER CHOICE',
       featured: false,
       features: [
-        '5,000,000 Tokens / 5h Rolling Window',
-        '30-Day Fixed Active Validity',
-        'Claude Sonnet 3.5 & Haiku 4.5 Access',
-        'Sub-35ms Gateway Ingress',
-        'Instant Key Delivery via Dashboard',
+        '5,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Claude Sonnet 5.5, Sonnet 5 & Haiku 5.5 Access',
+        'Sub-35ms Gateway Routing',
+        'Instant Automated Delivery',
       ],
     },
     {
-      id: 'plan_20x',
-      name: 'Claude Max 20x',
-      displayName: 'Claude Max 20x (20M / 5h)',
+      id: 'max',
+      name: 'MAX',
+      displayName: 'MAX (20M / 5h Window)',
       tokenAllowance: '20000000',
-      tokenDisplay: '20M Tokens / 5h',
+      tokenDisplay: '20M TOKENS / 5 HOURS',
       windowHours: 5,
       validityDays: 30,
-      priceInr: 899,
-      originalPriceInr: 1499,
+      priceInr: 5999,
+      originalPriceInr: 22999,
       currency: 'INR',
-      tagline: 'Great for daily coding assistance, Cursor Composer, and persistent Claude Code sessions.',
-      badge: 'Most Popular',
+      tagline: 'Best value for heavy IDE power users & builders with Opus 5.5, Fable 5 & Sonnet 5.5',
+      badge: 'MOST POPULAR',
       featured: true,
       features: [
-        '20,000,000 Tokens / 5h Rolling Window',
-        '30-Day Fixed Active Validity',
-        'Full Model Access: Opus 5, Sonnet & Haiku',
-        'Priority Gateway Routing',
-        'Standard Developer Support Desk',
-      ],
-    },
-    {
-      id: 'plan_40x',
-      name: 'Claude Max 40x',
-      displayName: 'Claude Max 40x (40M / 5h)',
-      tokenAllowance: '40000000',
-      tokenDisplay: '40M Tokens / 5h',
-      windowHours: 5,
-      validityDays: 30,
-      priceInr: 1699,
-      originalPriceInr: 2499,
-      currency: 'INR',
-      tagline: 'Popular choice for active professional developers and deep architectural refactoring.',
-      badge: 'High Velocity',
-      featured: false,
-      features: [
-        '40,000,000 Tokens / 5h Rolling Window',
-        '30-Day Fixed Active Validity',
-        'All Top Claude 5 & Extended Thinking Models',
+        '20,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Claude Opus 5.5, Fable 5, Sonnet 5.5 & Thinking Models',
         'Cursor, Windsurf & CLI Ready',
-        'Priority Ticket Support Desk',
+        'Instant Automated Delivery',
       ],
     },
     {
-      id: 'plan_100x',
-      name: 'Claude Max 100x',
-      displayName: 'Claude Max 100x (100M / 5h)',
-      tokenAllowance: '100000000',
-      tokenDisplay: '100M Tokens / 5h',
+      id: 'ultra',
+      name: 'ULTRA',
+      displayName: 'ULTRA (40M / 5h Window)',
+      tokenAllowance: '40000000',
+      tokenDisplay: '40M TOKENS / 5 HOURS',
       windowHours: 5,
       validityDays: 30,
-      priceInr: 3999,
-      originalPriceInr: 5999,
+      priceInr: 8999,
+      originalPriceInr: 12999,
       currency: 'INR',
-      tagline: 'Best value for heavy IDE power users, complex codebases, and production engineering.',
-      badge: 'Maximum Headroom',
+      tagline: 'Maximum high-volume capacity for engineering teams with all Top 10 Claude Models',
+      badge: 'BEST VALUE',
       featured: false,
       features: [
-        '100,000,000 Tokens / 5h Rolling Window',
-        '30-Day Fixed Active Validity',
-        'All Claude Models with 1M Context Window',
-        'Sub-20ms Time-to-First-Token Ingress',
+        '40,000,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Max Concurrency & Priority Throughput',
+        'All Top 10 Claude Models with 1M Context Window',
         'VIP Direct Engineering Support',
+      ],
+    },
+    {
+      id: '41b639d6-6370-49f7-9b6c-88447578ef43',
+      name: 'Test plan',
+      displayName: 'Test plan',
+      tokenAllowance: '1000',
+      tokenDisplay: '0.001M TOKENS / 5 HOURS',
+      windowHours: 5,
+      validityDays: 30,
+      priceInr: 10,
+      originalPriceInr: 3499,
+      currency: 'INR',
+      tagline: 'Test evaluation capacity tier',
+      badge: undefined,
+      featured: false,
+      features: [
+        '1,000 Tokens / 5h Window',
+        '30-Day Fixed Validity',
+        'Claude Sonnet 5.5 & Haiku 5.5 Access',
       ],
     },
   ];
@@ -150,16 +148,22 @@ export const ElectricCapacitySection: React.FC = () => {
             name: p.name,
             displayName: p.displayName || p.name,
             tokenAllowance: String(p.tokenAllowance || 5000000),
-            tokenDisplay: `${(Number(p.tokenAllowance || 5000000) / 1000000).toFixed(0)}M Tokens / 5h`,
+            tokenDisplay: p.tokenDisplay || `${(Number(p.tokenAllowance || 5000000) / 1000000).toFixed(0)}M Tokens / 5h`,
             windowHours: p.windowHours || 5,
             validityDays: p.validityDays || 30,
             priceInr: p.priceInr || 2499,
             originalPriceInr: p.originalPriceInr,
             currency: 'INR',
-            tagline: p.description || 'Prepaid token access with 5-hour rolling renewal',
+            tagline: p.tagline || p.description || 'Prepaid token capacity with 5-hour rolling renewal',
             badge: p.badge || undefined,
-            features: p.features || undefined,
-            featured: p.isPopular || false,
+            features: Array.isArray(p.features) && p.features.length > 0 ? p.features : [
+              `${(Number(p.tokenAllowance || 5000000) / 1000000).toFixed(0)}M Tokens / 5h Window`,
+              '30-Day Fixed Active Validity',
+              'Top Claude Models Access',
+              'Sub-35ms Gateway Ingress',
+              'Instant Key Delivery via Dashboard',
+            ],
+            featured: Boolean(p.featured || p.isPopular),
           }));
           setPlans(mapped);
         } else {
@@ -256,7 +260,7 @@ export const ElectricCapacitySection: React.FC = () => {
               Start with 1,000,000 Complimentary Tokens
             </h3>
             <p className="text-xs sm:text-sm text-[#57534e]">
-              Full access to Sonnet 3.5 and Haiku 4.5. Valid for 24 hours. No credit card required.
+              Full access to Claude Sonnet 5.5 and Haiku 5.5. Valid for 24 hours. No credit card required.
             </p>
           </div>
 
@@ -421,29 +425,29 @@ export const ElectricCapacitySection: React.FC = () => {
                 <thead>
                   <tr className="bg-[#fbf9f5] border-b border-[#e7e5e4]">
                     <th className="p-4 sm:p-5 font-bold text-[#1c1917]">Feature Specification</th>
-                    <th className="p-4 sm:p-5 font-bold text-[#1c1917]">PRO CREATOR</th>
-                    <th className="p-4 sm:p-5 font-bold text-[#6d28d9]">STUDIO MAX</th>
-                    <th className="p-4 sm:p-5 font-bold text-[#1c1917]">ENTERPRISE SCALE</th>
+                    <th className="p-4 sm:p-5 font-bold text-[#1c1917]">PRO</th>
+                    <th className="p-4 sm:p-5 font-bold text-[#6d28d9]">MAX (MOST POPULAR)</th>
+                    <th className="p-4 sm:p-5 font-bold text-[#1c1917]">ULTRA</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#e7e5e4]">
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Price (30 Days)</td>
                     <td className="p-4 font-mono">₹2,499</td>
-                    <td className="p-4 font-mono font-bold text-[#6d28d9]">₹6,999</td>
-                    <td className="p-4 font-mono">₹14,999</td>
+                    <td className="p-4 font-mono font-bold text-[#6d28d9]">₹5,999</td>
+                    <td className="p-4 font-mono">₹8,999</td>
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Rolling Quota (Every 5 Hours)</td>
                     <td className="p-4 font-mono">5,000,000 Tokens</td>
                     <td className="p-4 font-mono font-bold text-[#6d28d9]">20,000,000 Tokens</td>
-                    <td className="p-4 font-mono">50,000,000 Tokens</td>
+                    <td className="p-4 font-mono">40,000,000 Tokens</td>
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Supported Models</td>
-                    <td className="p-4">Sonnet 3.5 & Haiku 4.5</td>
-                    <td className="p-4 font-medium text-[#6d28d9]">All Models (Opus, Sonnet, Haiku)</td>
-                    <td className="p-4">All Models + Priority Concurrency</td>
+                    <td className="p-4">Claude Sonnet 5.5, Sonnet 5 & Haiku 5.5</td>
+                    <td className="p-4 font-medium text-[#6d28d9]">Claude Opus 5.5, Fable 5, Sonnet 5.5 & Thinking Models</td>
+                    <td className="p-4">All Top 10 Claude Models (Opus 5.5, Sonnet 5.5, Fable 5, Thinking)</td>
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Protocol Compatibility</td>

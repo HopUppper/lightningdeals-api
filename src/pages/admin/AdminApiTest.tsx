@@ -3,7 +3,7 @@ import { Terminal, Play, Server, Zap, Check } from 'lucide-react';
 
 export const AdminApiTest: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('claude-3-5-sonnet-20241022');
+  const [model, setModel] = useState('claude-sonnet-5.5');
   const [prompt, setPrompt] = useState('Verify LightningDeals vendor master key routing and token deduction.');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -79,10 +79,10 @@ export const AdminApiTest: React.FC = () => {
               onChange={(e) => setModel(e.target.value)}
               className="w-full px-3.5 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
             >
-              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-              <option value="claude-sonnet-5">Claude Sonnet 5</option>
+              <option value="claude-sonnet-5.5">Claude Sonnet 5.5</option>
+              <option value="claude-opus-5.5">Claude Opus 5.5</option>
               <option value="claude-fable-5">Claude Fable 5</option>
-              <option value="claude-opus-5">Claude Opus 5</option>
+              <option value="claude-haiku-5.5">Claude Haiku 5.5</option>
             </select>
           </div>
 

@@ -10,14 +10,13 @@ interface ModelRate {
 
 export const UsageCalculator: React.FC = () => {
   const models: ModelRate[] = [
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet ($3.00 / $15.00)', inputPerM: 3.0, outputPerM: 15.0 },
-    { id: 'claude-sonnet-5', name: 'Claude Sonnet 5 ($3.00 / $15.00)', inputPerM: 3.0, outputPerM: 15.0 },
-    { id: 'claude-fable-5', name: 'Claude Fable 5 ($0.80 / $4.00)', inputPerM: 0.8, outputPerM: 4.0 },
-    { id: 'claude-opus-5', name: 'Claude Opus 5 ($15.00 / $75.00)', inputPerM: 15.0, outputPerM: 75.0 },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku ($0.80 / $4.00)', inputPerM: 0.8, outputPerM: 4.0 },
+    { id: 'claude-opus-5.5', name: 'Claude Opus 5.5 ($15.00 / $75.00)', inputPerM: 15.0, outputPerM: 75.0 },
+    { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5 ($3.00 / $15.00)', inputPerM: 3.0, outputPerM: 15.0 },
+    { id: 'claude-fable-5', name: 'Claude Fable 5 ($1.50 / $6.00)', inputPerM: 1.5, outputPerM: 6.0 },
+    { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5 ($0.80 / $4.00)', inputPerM: 0.8, outputPerM: 4.0 },
   ];
 
-  const [selectedModelId, setSelectedModelId] = useState<string>('claude-3-5-sonnet-20241022');
+  const [selectedModelId, setSelectedModelId] = useState<string>('claude-sonnet-5.5');
   const [inputTokensM, setInputTokensM] = useState<number>(10); // in millions
   const [outputTokensM, setOutputTokensM] = useState<number>(2); // in millions
 
@@ -112,12 +111,12 @@ export const UsageCalculator: React.FC = () => {
 
             <div className="pt-4 border-t border-border">
               <p className="text-xs font-semibold text-fg">Recommended Package:</p>
-              <p className="text-sm font-mono text-amber-500 font-bold mt-1">Claude Max 20x</p>
+              <p className="text-sm font-mono text-amber-500 font-bold mt-1">MAX (120M / 5h Window)</p>
               <a
                 href="#pricing"
                 className="ui-button-primary mt-4 w-full justify-center text-center shadow-sm"
               >
-                View Claude Max Packages →
+                View Production Plans →
               </a>
             </div>
           </div>

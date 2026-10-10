@@ -23,7 +23,7 @@ export const EditorialContrast: React.FC = () => {
       statusQuoTitle: 'Provider Fragmentation & Multiple Keys',
       statusQuoDesc: 'Separate developer accounts, invoices, and token consoles across individual AI model providers.',
       lightningTitle: 'One Master Key for Claude Family',
-      lightningDesc: 'Claude 3.5 Sonnet, Claude Opus 5, and Claude Haiku accessible through one unified Anthropic-compatible endpoint.',
+      lightningDesc: 'Claude Opus 5.5, Sonnet 5.5, and Fable 5 accessible through one unified Anthropic-compatible endpoint.',
     },
     {
       dimension: 'Data Privacy',

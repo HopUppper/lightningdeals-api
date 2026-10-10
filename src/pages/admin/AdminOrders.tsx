@@ -195,7 +195,7 @@ export const AdminOrders: React.FC = () => {
                       <div className="text-[11px] font-mono text-muted">{o.user?.email}</div>
                     </td>
                     <td className="py-3.5 px-4 font-mono">
-                      <div className="font-bold text-violet-600">{o.planName || 'Claude Max'}</div>
+                      <div className="font-bold text-violet-600">{o.planName || 'PRO'}</div>
                       <div className="text-fg font-extrabold">₹{(o.paidAmountInr || o.amountInr || 0).toLocaleString()}</div>
                     </td>
                     <td className="py-3.5 px-4 font-mono">

@@ -104,7 +104,7 @@ export const RefundPage: React.FC = () => {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
                 <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-[#6d28d9]">Claude Max Plans (5x, 20x, 40x, 100x)</p>
+                  <p className="font-bold text-[#6d28d9]">Production Plans (PRO, MAX, ULTRA)</p>
                   <p className="text-[#57534e]">Full refund for non-delivery or duplicate charge. Non-refundable after active quota utilization.</p>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">

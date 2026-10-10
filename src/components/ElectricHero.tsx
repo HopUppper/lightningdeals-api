@@ -46,10 +46,10 @@ export const ElectricHero: React.FC = () => {
       id: 'coding',
       name: 'Agentic Coding',
       category: 'Software Engineering',
-      model: 'Claude 3.5 Sonnet',
+      model: 'Claude Sonnet 5.5',
       latency: '28ms TTFT',
       speed: '82 tokens/sec',
-      context: '200,000 Tokens',
+      context: '1,000,000 Tokens',
       icon: Terminal,
       accent: 'text-[#6d28d9]',
       accentBg: 'bg-[#f5f3ff]',
@@ -63,10 +63,10 @@ export const ElectricHero: React.FC = () => {
       id: 'reasoning',
       name: 'Deep Reasoning',
       category: 'Frontier Heavyweight',
-      model: 'Claude Opus 5',
+      model: 'Claude Opus 5.5',
       latency: '42ms TTFT',
       speed: '64 tokens/sec',
-      context: '200,000 Tokens',
+      context: '1,000,000 Tokens',
       icon: Cpu,
       accent: 'text-[#2563eb]',
       accentBg: 'bg-[#eff6ff]',
@@ -80,10 +80,10 @@ export const ElectricHero: React.FC = () => {
       id: 'thinking',
       name: 'Hybrid Thinking',
       category: 'Extended Chain-of-Thought',
-      model: 'Claude 3.7 Sonnet',
+      model: 'Claude Sonnet 5 Extended Thinking',
       latency: '35ms TTFT',
       speed: '76 tokens/sec',
-      context: '200,000 Tokens (64k Out)',
+      context: '1,000,000 Tokens (64k Out)',
       icon: Sparkles,
       accent: 'text-[#ea580c]',
       accentBg: 'bg-[#fff7ed]',
@@ -97,10 +97,10 @@ export const ElectricHero: React.FC = () => {
       id: 'velocity',
       name: 'High Velocity',
       category: 'Instant Dispatch',
-      model: 'Claude Haiku 4.5',
+      model: 'Claude Haiku 5.5',
       latency: '18ms TTFT',
       speed: '142 tokens/sec',
-      context: '200,000 Tokens',
+      context: '500,000 Tokens',
       icon: Zap,
       accent: 'text-[#059669]',
       accentBg: 'bg-[#ecfdf5]',
@@ -143,7 +143,7 @@ export const ElectricHero: React.FC = () => {
           </h1>
 
           <p className="text-lg sm:text-xl text-[#57534e] leading-relaxed max-w-2xl font-normal">
-            A single drop-in Anthropic API key routing directly to Claude 3.5 Sonnet, Opus 5, and Haiku. Dedicated 5-hour rolling token renewal protects your flow from sudden midday rate lockouts and unpredictable cloud bills.
+            A single drop-in Anthropic API key routing directly to Claude Opus 5.5, Sonnet 5.5, and Haiku 5.5. Dedicated 5-hour rolling token renewal protects your flow from sudden midday rate lockouts and unpredictable cloud bills.
           </p>
 
           {/* Action Row */}

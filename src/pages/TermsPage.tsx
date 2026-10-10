@@ -114,25 +114,20 @@ export const TermsPage: React.FC = () => {
               <p>
                 LightningAPI.pro offers digital capacity packages calculated using a continuous 5-hour rolling mathematical allowance:
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-[#faf8f5] rounded-xl border border-[#e7e5e4] text-xs font-mono">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-[#faf8f5] rounded-xl border border-[#e7e5e4] text-xs font-mono">
                 <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-[#6d28d9]">Claude Max 5x (₹299)</p>
-                  <p className="text-[#78716c]">Capacity: 5M Tokens / 5-hour window</p>
+                  <p className="font-bold text-[#6d28d9]">PRO (₹2,499)</p>
+                  <p className="text-[#78716c]">Capacity: 50M Tokens / 5-hour window</p>
                   <p className="text-[#78716c]">Validity: 30 Days</p>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-[#6d28d9]">Claude Max 20x (₹899)</p>
-                  <p className="text-[#78716c]">Capacity: 20M Tokens / 5-hour window</p>
+                  <p className="font-bold text-[#6d28d9]">MAX (₹5,999)</p>
+                  <p className="text-[#78716c]">Capacity: 120M Tokens / 5-hour window</p>
                   <p className="text-[#78716c]">Validity: 30 Days</p>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-[#6d28d9]">Claude Max 40x (₹1,699)</p>
-                  <p className="text-[#78716c]">Capacity: 40M Tokens / 5-hour window</p>
-                  <p className="text-[#78716c]">Validity: 30 Days</p>
-                </div>
-                <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-[#6d28d9]">Claude Max 100x (₹3,999)</p>
-                  <p className="text-[#78716c]">Capacity: 100M Tokens / 5-hour window</p>
+                  <p className="font-bold text-[#6d28d9]">ULTRA (₹8,999)</p>
+                  <p className="text-[#78716c]">Capacity: 250M Tokens / 5-hour window</p>
                   <p className="text-[#78716c]">Validity: 30 Days</p>
                 </div>
               </div>

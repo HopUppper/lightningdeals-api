@@ -168,11 +168,11 @@ export const UserApiTestConsole: React.FC = () => {
               onChange={(e) => setModel(e.target.value)}
               className="w-full px-3.5 py-2.5 text-xs font-mono bg-[#faf8f5] border border-[#ede8e1] rounded-2xl focus:outline-none focus:border-violet-500 text-[#1e1b2e]"
             >
-              <option value="claude-sonnet-5">🎨 Claude Sonnet 5 (Recommended for Coding & General)</option>
-              <option value="claude-opus-5">🧠 Claude Opus 5 (Premier Deep Architecture & Logic)</option>
-              <option value="claude-haiku-4-5">⚡ Claude Haiku 4.5 (Ultra Fast Budget Completion)</option>
-              <option value="claude-3-7-sonnet-20250219">💡 Claude 3.7 Sonnet (Extended Reasoning)</option>
-              <option value="claude-3-5-sonnet-20241022">🚀 Claude 3.5 Sonnet (Classic Stable)</option>
+              <option value="claude-sonnet-5.5">⚡ Claude Sonnet 5.5 (Flagship Coding & Autonomous Agents)</option>
+              <option value="claude-opus-5.5">🧠 Claude Opus 5.5 (Cognitive Frontier & Architecture)</option>
+              <option value="claude-fable-5">✨ Claude Fable 5 (Ultra-Fast IDE Specialist)</option>
+              <option value="claude-opus-5-thinking">💡 Claude Opus 5 Extended Thinking (Deliberative Logic)</option>
+              <option value="claude-haiku-5.5">🚀 Claude Haiku 5.5 (High-Throughput Streaming)</option>
             </select>
           </div>
 

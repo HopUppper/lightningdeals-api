@@ -1292,12 +1292,10 @@ export const AdminCustomers: React.FC = () => {
                     onChange={(e) => setIssuePlanId(e.target.value)}
                     className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
                   >
-                    <option value="1000000">1 Million Tokens (Trial / Starter)</option>
-                    <option value="5000000">5 Million Tokens</option>
-                    <option value="10000000">10 Million Tokens</option>
-                    <option value="20000000">20 Million Tokens (Claude Max 20x)</option>
-                    <option value="40000000">40 Million Tokens (Claude Max 40x)</option>
-                    <option value="100000000">100 Million Tokens (Claude Max 100x)</option>
+                    <option value="1000000">1 Million Tokens (Trial Pass)</option>
+                    <option value="50000000">50 Million Tokens (PRO Plan)</option>
+                    <option value="120000000">120 Million Tokens (MAX Plan)</option>
+                    <option value="250000000">250 Million Tokens (ULTRA Plan)</option>
                   </select>
                 </div>
 

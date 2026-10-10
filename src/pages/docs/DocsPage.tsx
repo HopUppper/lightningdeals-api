@@ -357,9 +357,9 @@ export const DocsPage: React.FC = () => {
                     code={`curl https://lightningapi.pro/v1/messages \\
   -H "content-type: application/json" \\
   -H "x-api-key: ld_live_your_api_key_here" \\
-  -H "anthropic-version: 2023-06-01" \\
+  -H "anthropic-version: 2023-06-01" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-sonnet-5.5",
     "max_tokens": 1024,
     "messages": [
       {"role": "user", "content": "Hello LightningAPI! Confirm connection."}
@@ -377,11 +377,11 @@ export const DocsPage: React.FC = () => {
   "id": "msg_01XyZ987AbCdEfGhIjKlMnOp",
   "type": "message",
   "role": "assistant",
-  "model": "claude-3-5-sonnet-20241022",
+  "model": "claude-sonnet-5.5",
   "content": [
     {
       "type": "text",
-      "text": "Connection confirmed! LightningAPI.pro gateway is operational and routing to Claude 3.5 Sonnet."
+      "text": "Connection confirmed! LightningAPI.pro gateway is operational and routing to Claude Sonnet 5.5."
     }
   ],
   "stop_reason": "end_turn",
@@ -518,7 +518,7 @@ export const DocsPage: React.FC = () => {
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">model</td>
                           <td className="py-2 pr-4 font-mono text-purple-700">string</td>
                           <td className="py-2 pr-4 font-bold text-rose-600">Yes</td>
-                          <td className="py-2">Supported model ID (e.g., <code className="font-mono">claude-3-5-sonnet-20241022</code>) or short alias.</td>
+                          <td className="py-2">Supported model ID (e.g., <code className="font-mono">claude-sonnet-5.5</code>) or short alias.</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">messages</td>
@@ -548,7 +548,7 @@ export const DocsPage: React.FC = () => {
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">thinking</td>
                           <td className="py-2 pr-4 font-mono text-purple-700">object</td>
                           <td className="py-2 pr-4 text-[#78716c]">Optional</td>
-                          <td className="py-2">Extended Thinking control for Claude 3.7: <code className="font-mono">{"{\"type\": \"enabled\", \"budget_tokens\": 4096}"}</code>.</td>
+                          <td className="py-2">Extended Thinking control for reasoning models: <code className="font-mono">{"{\"type\": \"enabled\", \"budget_tokens\": 4096}"}</code>.</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">tools</td>
@@ -579,16 +579,16 @@ export const DocsPage: React.FC = () => {
   "object": "list",
   "data": [
     {
-      "id": "claude-3-5-sonnet-20241022",
+      "id": "claude-opus-5.5",
       "object": "model",
-      "created": 1729555200,
+      "created": 1740000000,
       "owned_by": "anthropic",
       "context_window": 1000000
     },
     {
-      "id": "claude-opus-5",
+      "id": "claude-sonnet-5.5",
       "object": "model",
-      "created": 1730000000,
+      "created": 1740000000,
       "owned_by": "anthropic",
       "context_window": 1000000
     }
@@ -635,11 +635,11 @@ export const DocsPage: React.FC = () => {
                     code={`{
   "valid": true,
   "keyPrefix": "ld_live_a1b2...",
-  "planName": "Claude Max 20x",
-  "rollingLimit": 20000000,
+  "planName": "MAX",
+  "rollingLimit": 120000000,
   "windowUsage": 4350120,
-  "remainingInWindow": 15649880,
-  "utilizationPercent": 21.75,
+  "remainingInWindow": 115649880,
+  "utilizationPercent": 3.63,
   "windowDuration": "5h"
 }`}
                   />
@@ -707,13 +707,13 @@ export ANTHROPIC_BASE_URL="https://lightningapi.pro"
 export ANTHROPIC_API_KEY="ld_live_your_key_here"
 
 # (Optional) Select default model
-export ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"
+export ANTHROPIC_MODEL="claude-sonnet-5.5"
 
 # Launch Claude Code agent
 claude`}
                     />
                     <p className="text-[11px] text-[#78716c]">
-                      *Note: The gateway automatically normalizes Claude Code model hints such as <code className="font-mono text-[#1c1917]">claude-3-5-sonnet-20241022[1m]</code> to ensure seamless context window handling.
+                      *Note: The gateway automatically normalizes Claude Code model hints such as <code className="font-mono text-[#1c1917]">claude-sonnet-5.5[1m]</code> to ensure seamless context window handling.
                     </p>
                   </div>
                 )}
@@ -730,7 +730,7 @@ claude`}
                       <li>Locate the <strong className="text-[#1c1917]">Anthropic API Key</strong> input.</li>
                       <li>Paste your key (<code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>).</li>
                       <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> on and enter: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code>.</li>
-                      <li>In the model dropdown, ensure <code className="font-mono">claude-3-5-sonnet-20241022</code> is enabled.</li>
+                      <li>In the model dropdown, ensure <code className="font-mono">claude-sonnet-5.5</code> is enabled.</li>
                     </ol>
                   </div>
                 )}
@@ -770,7 +770,7 @@ client = Anthropic(
 )
 
 message = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-5.5",
     max_tokens=1024,
     messages=[
         {"role": "user", "content": "Explain raft consensus algorithm succinctly."}
@@ -800,7 +800,7 @@ const anthropic = new Anthropic({
 
 async function run() {
   const stream = await anthropic.messages.stream({
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-sonnet-5.5',
     max_tokens: 1024,
     messages: [{ role: 'user', content: 'Generate high-throughput Express proxy' }],
   });
@@ -897,53 +897,74 @@ run();`}
                       </thead>
                       <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
                         <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude 3.5 Sonnet</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-3-5-sonnet-20241022</td>
-                          <td className="py-3 px-4 font-mono">sonnet</td>
+                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5.5</td>
+                          <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5.5</td>
+                          <td className="py-3 px-4 font-mono">opus-5.5, opus</td>
                           <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Multi-file coding, agent loops, AST refactoring</td>
+                          <td className="py-3">Cognitive frontier, deep scientific analysis, architectural synthesis</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Sonnet 5.5</td>
+                          <td className="py-3 px-4 font-mono text-purple-700">claude-sonnet-5.5</td>
+                          <td className="py-3 px-4 font-mono">sonnet-5.5, sonnet</td>
+                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
+                          <td className="py-3">Flagship multi-file coding, autonomous agent execution, refactoring</td>
                         </tr>
                         <tr>
                           <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5</td>
                           <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5</td>
-                          <td className="py-3 px-4 font-mono">opus</td>
+                          <td className="py-3 px-4 font-mono">opus-5</td>
                           <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Formal proofs, architecture RFCs, system invariants</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude 3.7 Sonnet</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-3-7-sonnet-20250219</td>
-                          <td className="py-3 px-4 font-mono">sonnet-3-7</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Extended Thinking, deep bug diagnosis, compilers</td>
+                          <td className="py-3">Formal verification, mathematical proofs, system invariants</td>
                         </tr>
                         <tr>
                           <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Sonnet 5</td>
                           <td className="py-3 px-4 font-mono text-purple-700">claude-sonnet-5</td>
                           <td className="py-3 px-4 font-mono">sonnet-5</td>
                           <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Next-generation cognitive inference</td>
+                          <td className="py-3">High-speed production software engineering, automated workflows</td>
                         </tr>
                         <tr>
                           <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Fable 5</td>
                           <td className="py-3 px-4 font-mono text-purple-700">claude-fable-5</td>
-                          <td className="py-3 px-4 font-mono">fable</td>
+                          <td className="py-3 px-4 font-mono">fable-5, fable</td>
                           <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Long-context creative synthesis</td>
+                          <td className="py-3">Ultra-fast IDE copilot, creative prose, rapid code synthesis</td>
                         </tr>
                         <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude 3 Opus</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-3-opus-20240229</td>
-                          <td className="py-3 px-4 font-mono">opus-3</td>
-                          <td className="py-3 px-4">200,000 tokens</td>
-                          <td className="py-3">Deep philosophical and structural evaluation</td>
+                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Fable 5 Flash</td>
+                          <td className="py-3 px-4 font-mono text-purple-700">claude-fable-5-flash</td>
+                          <td className="py-3 px-4 font-mono">fable-flash</td>
+                          <td className="py-3 px-4 font-bold text-emerald-700">500,000 tokens</td>
+                          <td className="py-3">Sub-second bot loops, instant completions, interactive CLI tools</td>
                         </tr>
                         <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude 3.5 Haiku</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-3-5-haiku-20241022</td>
-                          <td className="py-3 px-4 font-mono">haiku</td>
-                          <td className="py-3 px-4">500,000 tokens</td>
-                          <td className="py-3">Low-latency CI/CD pipelines, sub-20ms webhook triage</td>
+                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5 Extended Thinking</td>
+                          <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5-thinking</td>
+                          <td className="py-3 px-4 font-mono">opus-thinking</td>
+                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
+                          <td className="py-3">Exhaustive reasoning traces, compiler optimization, complex bug trees</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Sonnet 5 Extended Thinking</td>
+                          <td className="py-3 px-4 font-mono text-purple-700">claude-sonnet-5-thinking</td>
+                          <td className="py-3 px-4 font-mono">sonnet-thinking</td>
+                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
+                          <td className="py-3">Hybrid verification, test generation, formal spec evaluation</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Haiku 5.5</td>
+                          <td className="py-3 px-4 font-mono text-purple-700">claude-haiku-5.5</td>
+                          <td className="py-3 px-4 font-mono">haiku-5.5, haiku</td>
+                          <td className="py-3 px-4 font-bold text-emerald-700">500,000 tokens</td>
+                          <td className="py-3">High-throughput streaming, low-latency triage, real-time embeddings</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Haiku 5</td>
+                          <td className="py-3 px-4 font-mono text-purple-700">claude-haiku-5</td>
+                          <td className="py-3 px-4 font-mono">haiku-5</td>
+                          <td className="py-3 px-4 font-bold text-emerald-700">500,000 tokens</td>
+                          <td className="py-3">Background classification, CI/CD parsing, webhook data transform</td>
                         </tr>
                       </tbody>
                     </table>

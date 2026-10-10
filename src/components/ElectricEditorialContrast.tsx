@@ -34,7 +34,7 @@ export const ElectricEditorialContrast: React.FC = () => {
       problemTitle: 'Provider Key Fragmentation',
       problemDetail: 'Juggling separate billing portals, token balances, and API endpoints for Sonnet, Opus, and secondary agentic utilities.',
       solutionTitle: 'One Sovereign Master Key',
-      solutionDetail: 'Drop-in Anthropic protocol compatibility (/v1/messages) routing seamlessly to Claude 3.5 Sonnet, Opus 5, and Haiku with zero code changes.',
+      solutionDetail: 'Drop-in Anthropic protocol compatibility (/v1/messages) routing seamlessly to Claude Opus 5.5, Sonnet 5.5, and Fable 5 with zero code changes.',
     },
     {
       label: 'DATA GOVERNANCE',

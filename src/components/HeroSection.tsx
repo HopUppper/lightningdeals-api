@@ -14,7 +14,7 @@ export const HeroSection: React.FC = () => {
       accent: 'text-[#6d28d9]',
       accentBg: 'bg-[#f5f3ff]',
       accentBorder: 'border-[#ddd6fe]',
-      model: 'Claude 3.5 Sonnet',
+      model: 'Claude Sonnet 5.5',
       latency: '34ms',
       tokens: '1,420 tokens',
       prompt: 'Synthesize the 40-page technical whitepaper into 3 narrative takeaways for non-technical executives.',
@@ -27,7 +27,7 @@ export const HeroSection: React.FC = () => {
       accent: 'text-[#2563eb]',
       accentBg: 'bg-[#eff6ff]',
       accentBorder: 'border-[#bfdbfe]',
-      model: 'Claude 3.5 Sonnet & Haiku 4.5',
+      model: 'Claude Sonnet 5.5 & Haiku 5.5',
       latency: '28ms',
       tokens: '840 tokens',
       prompt: 'Refactor express gateway middleware to stream chunked SSE deltas directly to Cursor IDE.',
@@ -81,7 +81,7 @@ export const HeroSection: React.FC = () => {
 
             {/* Plain-Language Narrative */}
             <p className="text-base sm:text-lg text-[#57534e] leading-relaxed font-normal max-w-xl">
-              One master key for Claude 3.5 Sonnet, Opus 5, and Haiku. Dedicated 5-hour rolling token renewal so your creative flow, research, and coding workflows never hit sudden billing walls.
+              One master key for Claude Opus 5.5, Sonnet 5.5, and Haiku 5.5. Dedicated 5-hour rolling token renewal so your creative flow, research, and coding workflows never hit sudden billing walls.
             </p>
 
             {/* Core Actions */}

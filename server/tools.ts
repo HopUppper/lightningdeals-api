@@ -184,7 +184,18 @@ export async function handleGetModels(req: Request, res: Response) {
       orderBy: { displayName: 'asc' },
     });
 
-    const priority = ['claude-opus-5', 'claude-fable-5', 'claude-sonnet-5', 'claude-haiku-4-5'];
+    const priority = [
+      'claude-opus-5.5',
+      'claude-sonnet-5.5',
+      'claude-opus-5',
+      'claude-sonnet-5',
+      'claude-fable-5',
+      'claude-fable-5-flash',
+      'claude-opus-5-thinking',
+      'claude-sonnet-5-thinking',
+      'claude-haiku-5.5',
+      'claude-haiku-5',
+    ];
     models.sort((a, b) => {
       const idxA = priority.indexOf(a.modelId);
       const idxB = priority.indexOf(b.modelId);

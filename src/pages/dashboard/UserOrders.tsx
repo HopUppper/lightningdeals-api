@@ -266,7 +266,7 @@ export const UserOrders: React.FC = () => {
                       {o.internalOrderId || o.id.slice(0, 10)}
                     </td>
                     <td className="py-3.5 px-3 font-bold text-fg">
-                      <div>{o.planName || o.productName || 'Claude Max Plan'}</div>
+                      <div>{o.planName || o.productName || 'Production Plan'}</div>
                       {o.tokensAllocated && (
                         <div className="text-[11px] text-violet-700 font-bold">
                           {formatTokens(o.tokensAllocated)} tokens
@@ -328,7 +328,7 @@ export const UserOrders: React.FC = () => {
                 <div>
                   <span className="text-muted block text-[11px]">Product</span>
                   <span className="font-bold text-fg text-sm">
-                    {selectedOrder.planName || 'Claude Max'}
+                    {selectedOrder.planName || 'Production Plan'}
                   </span>
                 </div>
                 <div>

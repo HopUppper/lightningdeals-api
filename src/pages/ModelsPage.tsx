@@ -24,7 +24,7 @@ export const ModelsPage: React.FC = () => {
                 Supported Claude Models
               </h1>
               <p className="text-sm text-[#57534e] leading-relaxed max-w-xl">
-                From high-throughput Haiku 4.5 to deep-thinking Opus 5, select the ideal model for your programming, research, and production workflows.
+                From high-throughput Haiku 5.5 to deep-thinking Opus 5.5, select the ideal model for your programming, research, and production workflows.
               </p>
             </div>
 

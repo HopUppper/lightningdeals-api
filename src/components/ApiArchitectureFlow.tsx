@@ -28,7 +28,7 @@ export const ApiArchitectureFlow: React.FC = () => {
     },
     {
       title: 'Model Router',
-      subtitle: 'Supports Claude Fable 5, Sonnet 5, Opus 5, 3.5 Sonnet',
+      subtitle: 'Supports Claude Opus 5.5, Sonnet 5.5, Fable 5',
       icon: Server,
       accent: 'text-cyan-500',
       border: 'border-cyan-500/40',

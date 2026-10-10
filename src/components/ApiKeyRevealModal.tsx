@@ -14,7 +14,7 @@ export const ApiKeyRevealModal: React.FC<ApiKeyRevealModalProps> = ({
   isOpen,
   onClose,
   apiKey,
-  planName = 'Claude Max',
+  planName = 'PRO',
   quotaDisplay,
   windowHours = 5,
 }) => {

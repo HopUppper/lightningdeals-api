@@ -61,11 +61,17 @@ export function isSupportedModel(inputModel: string): boolean {
 
 export function getFriendlyModelName(model: string): string {
   const m = (model || '').toLowerCase().trim();
+  if (m.includes('opus-5.5') || m.includes('opus-5-5')) return 'Claude Opus 5.5';
+  if (m.includes('sonnet-5.5') || m.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
+  if (m.includes('fable-5-flash') || m.includes('fable-flash')) return 'Claude Fable 5 Flash';
   if (m.includes('fable')) return 'Claude Fable 5';
-  if (m.includes('opus-5') || m.includes('opus-4') || m.includes('opus')) return 'Claude Opus 5';
-  if (m.includes('sonnet-5') || m.includes('sonnet-4') || m.includes('sonnet')) return 'Claude Sonnet 5';
-  if (m.includes('haiku')) return 'Claude Haiku 4.5';
-  return 'Claude Opus 5';
+  if (m.includes('opus') && m.includes('thinking')) return 'Claude Opus 5 Extended Thinking';
+  if (m.includes('sonnet') && m.includes('thinking')) return 'Claude Sonnet 5 Extended Thinking';
+  if (m.includes('haiku-5.5') || m.includes('haiku-5-5')) return 'Claude Haiku 5.5';
+  if (m.includes('haiku')) return 'Claude Haiku 5';
+  if (m.includes('opus')) return 'Claude Opus 5';
+  if (m.includes('sonnet')) return 'Claude Sonnet 5';
+  return 'Claude Sonnet 5.5';
 }
 
 export function getLastUserPrompt(messages: any[]): string {
@@ -499,7 +505,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     return res.status(404).json({
       error: {
         type: 'not_found_error',
-        message: `Model '${model}' not found. Please provide a supported Claude model or model alias (e.g. claude-sonnet-5, claude-opus-5, claude-fable-5, claude-haiku-4.5, claude-3-5-sonnet-20241022). See GET /v1/models for full catalog.`,
+        message: `Model '${model}' not found. Please provide a supported Claude model or model alias (e.g. claude-opus-5.5, claude-sonnet-5.5, claude-fable-5, claude-opus-5, claude-sonnet-5). See GET /v1/models for full catalog.`,
       },
     });
   }

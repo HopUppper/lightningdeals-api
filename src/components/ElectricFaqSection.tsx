@@ -18,7 +18,7 @@ const FAQS: FaqItem[] = [
     answer: (
       <div className="space-y-2">
         <p>
-          LightningAPI.pro is a high-performance, developer-first AI API gateway designed to provide reliable, low-latency access to premier frontier models—including Claude 3.5 Sonnet, Claude Opus 5, Claude Haiku 4.5, and Claude 3.7 Sonnet.
+          LightningAPI.pro is a high-performance, developer-first AI API gateway designed to provide reliable, low-latency access to premier frontier models—including Claude Opus 5.5, Claude Sonnet 5.5, Claude Fable 5, and Claude Opus 5 Extended Thinking.
         </p>
         <p>
           Instead of unpredictable monthly subscription tiers with arbitrary mid-day usage caps, LightningAPI.pro pairs the official Anthropic Messages API specification with a continuous 5-hour rolling token replenishment engine, giving developers sustained coding velocity across Claude Code CLI, Cursor, Windsurf, and custom software.
@@ -50,16 +50,22 @@ const FAQS: FaqItem[] = [
     answer: (
       <div className="space-y-2">
         <p>
-          The gateway natively supports the full suite of state-of-the-art Anthropic Claude models:
+          The gateway natively supports the Top 10 Latest Claude Models with drop-in Anthropic compatibility:
         </p>
         <ul className="list-disc list-inside space-y-1 pl-1 text-[#57534e]">
-          <li><strong className="text-[#1c1917]">Claude 3.5 Sonnet</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-3-5-sonnet-20241022</code>) · 1M token context · Ideal for agentic refactoring.</li>
-          <li><strong className="text-[#1c1917]">Claude 3.7 Sonnet</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-3-7-sonnet-20250219</code>) · Extended hybrid reasoning with controllable thinking budgets.</li>
-          <li><strong className="text-[#1c1917]">Claude Opus 5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-opus-5</code> / <code className="font-mono text-xs text-[#1c1917]">claude-3-opus-20240229</code>) · Exhaustive architecture and formal logic.</li>
-          <li><strong className="text-[#1c1917]">Claude Haiku 4.5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-3-5-haiku-20241022</code>) · High throughput, sub-20ms TTFT for CI/CD runners.</li>
+          <li><strong className="text-[#1c1917]">Claude Opus 5.5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-opus-5.5</code>) · Pinnacle frontier intelligence for architectural proofs and formal logic.</li>
+          <li><strong className="text-[#1c1917]">Claude Sonnet 5.5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-sonnet-5.5</code>) · Flagship multi-file agentic coding engine for Cursor, Windsurf & Claude Code.</li>
+          <li><strong className="text-[#1c1917]">Claude Opus 5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-opus-5</code>) · Deep cognitive reasoning for enterprise systems and synthesis.</li>
+          <li><strong className="text-[#1c1917]">Claude Sonnet 5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-sonnet-5</code>) · High-speed daily engineering workhorse with 1M context.</li>
+          <li><strong className="text-[#1c1917]">Claude Fable 5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-fable-5</code>) · Ultra-fast IDE completion with sub-25ms first-token latency.</li>
+          <li><strong className="text-[#1c1917]">Claude Fable 5 Flash</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-fable-5-flash</code>) · Sub-second high-concurrency bot engine for CI/CD triage.</li>
+          <li><strong className="text-[#1c1917]">Claude Opus 5 Extended Thinking</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-opus-5-thinking</code>) · Reflective reasoning with controllable thinking tokens.</li>
+          <li><strong className="text-[#1c1917]">Claude Sonnet 5 Extended Thinking</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-sonnet-5-thinking</code>) · Deliberative logic for compiler bug audits.</li>
+          <li><strong className="text-[#1c1917]">Claude Haiku 5.5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-haiku-5.5</code>) · Next-gen high-velocity streaming completions.</li>
+          <li><strong className="text-[#1c1917]">Claude Haiku 5</strong> (<code className="font-mono text-xs text-[#1c1917]">claude-haiku-5</code>) · High-frequency token streaming and automated test generation.</li>
         </ul>
         <p className="pt-1 text-xs">
-          Convenient aliases such as <code className="font-mono text-xs text-[#1c1917]">opus</code>, <code className="font-mono text-xs text-[#1c1917]">sonnet</code>, <code className="font-mono text-xs text-[#1c1917]">haiku</code>, and Claude Code <code className="font-mono text-xs text-[#1c1917]">[1m]</code> suffix tags are automatically normalized by the router. Review the live catalog on our <Link to="/models" className="text-[#6d28d9] underline font-medium">Models Page</Link>.
+          Convenient aliases such as <code className="font-mono text-xs text-[#1c1917]">opus</code>, <code className="font-mono text-xs text-[#1c1917]">sonnet</code>, <code className="font-mono text-xs text-[#1c1917]">fable</code>, and <code className="font-mono text-xs text-[#1c1917]">haiku</code> are automatically normalized. Review the full catalog on our <Link to="/models" className="text-[#6d28d9] underline font-medium">Models Page</Link>.
         </p>
       </div>
     ),
@@ -75,7 +81,7 @@ const FAQS: FaqItem[] = [
         </p>
         <ul className="list-disc list-inside space-y-1 pl-1 text-[#57534e]">
           <li><strong className="text-[#1c1917]">Free 1M Trial:</strong> Visit our <Link to="/trial" className="text-[#6d28d9] underline font-medium">Trial Page</Link> to receive an instant 1,000,000 token key (<code className="font-mono text-xs text-[#1c1917]">ld_trial_...</code>) in under 15 seconds without a credit card.</li>
-          <li><strong className="text-[#1c1917]">Capacity Plans:</strong> Choose a capacity plan on our <a href="#pricing" className="text-[#6d28d9] underline font-medium">Pricing Section</a> (5x, 20x, 40x, or 100x). Keys (<code className="font-mono text-xs text-[#1c1917]">ld_live_...</code>) are provisioned immediately upon successful UPI or card checkout.</li>
+          <li><strong className="text-[#1c1917]">Capacity Plans:</strong> Choose a capacity plan on our <a href="#pricing" className="text-[#6d28d9] underline font-medium">Pricing Section</a> (PRO, MAX, or ULTRA). Keys (<code className="font-mono text-xs text-[#1c1917]">ld_live_...</code>) are provisioned immediately upon successful UPI or card checkout.</li>
         </ul>
         <p className="pt-1 text-xs">
           You can inspect your key’s status, active token reservoir, and rolling expiration countdown at any time using our <Link to="/check-key" className="text-[#6d28d9] underline font-medium">Check Key Tool</Link>.
@@ -154,10 +160,9 @@ const FAQS: FaqItem[] = [
           Pricing is strictly prepaid with straightforward flat rates in Indian Rupees (INR):
         </p>
         <ul className="list-disc list-inside space-y-1 pl-1 text-[#57534e]">
-          <li><strong className="text-[#1c1917]">Claude Max 5x:</strong> ₹299 / month · 5M tokens per 5-hour rolling window.</li>
-          <li><strong className="text-[#1c1917]">Claude Max 20x:</strong> ₹899 / month · 20M tokens per 5-hour rolling window.</li>
-          <li><strong className="text-[#1c1917]">Claude Max 40x:</strong> ₹1,699 / month · 40M tokens per 5-hour rolling window.</li>
-          <li><strong className="text-[#1c1917]">Claude Max 100x:</strong> ₹3,999 / month · 100M tokens per 5-hour rolling window.</li>
+          <li><strong className="text-[#1c1917]">PRO:</strong> ₹2,499 / 30 days · 5,000,000 tokens per 5-hour rolling window.</li>
+          <li><strong className="text-[#1c1917]">MAX (Most Popular):</strong> ₹5,999 / 30 days · 20,000,000 tokens per 5-hour rolling window.</li>
+          <li><strong className="text-[#1c1917]">ULTRA:</strong> ₹8,999 / 30 days · 40,000,000 tokens per 5-hour rolling window.</li>
         </ul>
         <p className="pt-1">
           There are zero surprise overage fees, zero hidden seat licensing charges, and no automated recurring card deductions without your explicit instruction.

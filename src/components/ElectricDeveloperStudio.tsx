@@ -51,7 +51,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
       name: 'Python SDK',
       targetFile: 'main.py',
       badge: 'Official Anthropic SDK',
-      code: `import os\nfrom anthropic import Anthropic\n\n# Direct drop-in initialization with official Anthropic SDK\nclient = Anthropic(\n    base_url="https://lightningapi.pro/v1",\n    api_key=os.environ.get("LIGHTNING_API_KEY", "ld_live_...")\n)\n\nmessage = client.messages.create(\n    model="claude-3-5-sonnet-20241022",\n    max_tokens=1024,\n    messages=[\n        {"role": "user", "content": "Analyze document insights with deep reasoning."}\n    ]\n)\n\nprint(message.content[0].text)`,
+      code: `import os\nfrom anthropic import Anthropic\n\n# Direct drop-in initialization with official Anthropic SDK\nclient = Anthropic(\n    base_url="https://lightningapi.pro/v1",\n    api_key=os.environ.get("LIGHTNING_API_KEY", "ld_live_...")\n)\n\nmessage = client.messages.create(\n    model="claude-sonnet-5.5",\n    max_tokens=1024,\n    messages=[\n        {"role": "user", "content": "Analyze document insights with deep reasoning."}\n    ]\n)\n\nprint(message.content[0].text)`,
       explanatoryNote: 'Strictly mirrors /v1/messages specifications. Works directly with official Anthropic SDKs without modification.',
     },
     node: {
@@ -59,7 +59,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
       name: 'Node.js / TypeScript',
       targetFile: 'index.ts',
       badge: 'Official TypeScript SDK',
-      code: `import Anthropic from '@anthropic-ai/sdk';\n\n// Initialize official client with LightningAPI gateway base URL\nconst anthropic = new Anthropic({\n  baseURL: 'https://lightningapi.pro/v1',\n  apiKey: process.env.LIGHTNING_API_KEY || 'ld_live_...',\n});\n\nconst response = await anthropic.messages.create({\n  model: 'claude-3-5-sonnet-20241022',\n  max_tokens: 1024,\n  messages: [{ role: 'user', content: 'Generate robust unit tests.' }],\n});\n\nconsole.log(response.content[0]);`,
+      code: `import Anthropic from '@anthropic-ai/sdk';\n\n// Initialize official client with LightningAPI gateway base URL\nconst anthropic = new Anthropic({\n  baseURL: 'https://lightningapi.pro/v1',\n  apiKey: process.env.LIGHTNING_API_KEY || 'ld_live_...',\n});\n\nconst response = await anthropic.messages.create({\n  model: 'claude-sonnet-5.5',\n  max_tokens: 1024,\n  messages: [{ role: 'user', content: 'Generate robust unit tests.' }],\n});\n\nconsole.log(response.content[0]);`,
       explanatoryNote: 'Full TypeScript type safety and native SSE streaming delta listeners work out of the box.',
     },
   };

@@ -205,7 +205,7 @@ export const UserSubscriptions: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-black text-fg">
-                        {sub.planName || 'Claude Max Plan'}
+                        {sub.planName || 'Active Capacity Plan'}
                       </h3>
                       <p className="text-xs text-muted mt-0.5">
                         {sub.quotaDisplay || `${sub.rollingWindowTokens || '2.5M'} tokens / 5 hours`}

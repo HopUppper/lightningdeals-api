@@ -48,7 +48,7 @@ export const AdminProviders: React.FC = () => {
   const [warningThresholdTokens, setWarningThresholdTokens] = useState('20000000');
   const [criticalThresholdTokens, setCriticalThresholdTokens] = useState('5000000');
   const [availableTokens, setAvailableTokens] = useState('100000000');
-  const [modelMappingsJson, setModelMappingsJson] = useState('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
+  const [modelMappingsJson, setModelMappingsJson] = useState('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
   const [headersJson, setHeadersJson] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -214,7 +214,7 @@ export const AdminProviders: React.FC = () => {
     setWarningThresholdTokens('20000000');
     setCriticalThresholdTokens('5000000');
     setAvailableTokens('100000000');
-    setModelMappingsJson('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
+    setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     setHeadersJson('');
     setNotes('');
     setFormError(null);
@@ -226,19 +226,19 @@ export const AdminProviders: React.FC = () => {
       setName('Opus Max');
       setProviderType('custom_http');
       setProtocol('anthropic');
-      setModelMappingsJson('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
+      setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     } else if (preset === 'scalemax') {
       setName('ScaleMax');
       setProviderType('custom_http');
       setProtocol('anthropic');
       setBaseUrl('https://api2.scalemax.pro');
-      setModelMappingsJson('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
+      setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     } else if (preset === 'anthropic_direct') {
       setName('Anthropic Official');
       setProviderType('anthropic');
       setProtocol('anthropic');
       setBaseUrl('https://api.anthropic.com');
-      setModelMappingsJson('{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}');
+      setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     } else if (preset === 'openai_compat') {
       setName('OpenAI Gateway');
       setProviderType('openai');
@@ -1224,7 +1224,7 @@ export const AdminProviders: React.FC = () => {
                   rows={4}
                   value={modelMappingsJson}
                   onChange={(e) => setModelMappingsJson(e.target.value)}
-                  placeholder={'{\n  "claude-sonnet-5": "claude-3-5-sonnet-20241022",\n  "claude-opus-5": "claude-3-opus-20240229"\n}'}
+                  placeholder={'{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}'}
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
               </div>

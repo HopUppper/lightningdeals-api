@@ -57,8 +57,8 @@ export const AdminWhatsApp: React.FC = () => {
   // Negotiate Price Modal
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceForm, setPriceForm] = useState({
-    productId: 'claude_max_5x',
-    productName: 'Claude Max 5x',
+    productId: 'pro_plan',
+    productName: 'PRO Plan',
     amount: '',
     notes: '',
     expiresInHours: 48,
@@ -564,8 +564,8 @@ export const AdminWhatsApp: React.FC = () => {
                   <button
                     onClick={() => {
                       setPriceForm({
-                        productId: activeConv.currentProductId || 'claude_max_5x',
-                        productName: activeConv.currentProductName || 'Claude Max 5x',
+                        productId: activeConv.currentProductId || 'pro_plan',
+                        productName: activeConv.currentProductName || 'PRO Plan',
                         amount: '',
                         notes: '',
                         expiresInHours: 48,
@@ -732,7 +732,7 @@ export const AdminWhatsApp: React.FC = () => {
                   }
                   className="w-full px-3 py-2 bg-white border border-border rounded-xl text-fg text-xs focus:ring-1 focus:ring-violet-500"
                 >
-                  <option value="Claude Max 5x">Claude Max 5x (20M Tokens)</option>
+                  <option value="PRO Plan">PRO Plan (50M Tokens / 5h)</option>
                   <option value="Claude Pro Account">Claude Pro Account</option>
                   <option value="Cursor Pro AI IDE">Cursor Pro AI IDE</option>
                   <option value="ChatGPT Team Workspace">ChatGPT Team Workspace</option>
@@ -886,7 +886,7 @@ export const AdminWhatsApp: React.FC = () => {
                     {botTelemetry?.summary?.activeProvider ?? 'ScaleMax'}
                   </div>
                   <div className="text-[10px] text-muted truncate mt-0.5">
-                    {botTelemetry?.summary?.activeModel ?? 'claude-3-5-sonnet-20241022'}
+                    {botTelemetry?.summary?.activeModel ?? 'claude-sonnet-5.5'}
                   </div>
                 </div>
               </div>

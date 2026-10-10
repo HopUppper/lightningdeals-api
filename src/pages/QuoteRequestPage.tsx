@@ -136,12 +136,10 @@ export const QuoteRequestPage: React.FC = () => {
                   onChange={(e) => setTokenAmount(e.target.value)}
                   className="w-full px-4 py-2.5 text-xs bg-white border border-border/80 rounded-2xl focus:outline-none focus:border-violet-500 text-fg shadow-2xs cursor-pointer"
                 >
-                  <option value="5M / 5h Window">5M / 5h Window (Claude Max 5x)</option>
-                  <option value="20M / 5h Window">20M / 5h Window (Claude Max 20x)</option>
-                  <option value="40M / 5h Window">40M / 5h Window (Claude Max 40x)</option>
-                  <option value="100M / 5h Window">100M / 5h Window (Claude Max 100x)</option>
-                  <option value="250M / 5h Window">250M / 5h Window (Claude Max 250x)</option>
-                  <option value="500M+ / 5h Window">500M+ / 5h Window (Enterprise Scale)</option>
+                  <option value="50M / 5h Window">50M / 5h Window (PRO Plan — ₹2,499)</option>
+                  <option value="120M / 5h Window">120M / 5h Window (MAX Plan — ₹5,999)</option>
+                  <option value="250M / 5h Window">250M / 5h Window (ULTRA Plan — ₹8,999)</option>
+                  <option value="500M+ / 5h Window">500M+ / 5h Window (Custom Enterprise)</option>
                 </select>
               </div>
 

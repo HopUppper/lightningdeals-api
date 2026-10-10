@@ -365,7 +365,7 @@ export const UserPlan: React.FC = () => {
                   originalPriceInr: 3499,
                   badge: 'STARTER CHOICE',
                   featured: false,
-                  features: ['5,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Sonnet 5 & Haiku 4.5 Access', 'Sub-50ms Gateway Routing', 'Instant Automated Delivery'],
+                  features: ['5,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Sonnet 5.5 & Haiku 5.5 Access', 'Sub-50ms Gateway Routing', 'Instant Automated Delivery'],
                 },
                 {
                   id: 'max',
@@ -379,7 +379,7 @@ export const UserPlan: React.FC = () => {
                   originalPriceInr: 22999,
                   badge: 'MOST POPULAR',
                   featured: true,
-                  features: ['20,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Opus 5, Fable 5 & Sonnet 5 Access', 'Cursor, Windsurf & CLI Ready', 'Instant Automated Delivery'],
+                  features: ['20,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Opus 5.5, Sonnet 5.5 & Fable 5 Access', 'Cursor, Windsurf & CLI Ready', 'Instant Automated Delivery'],
                 },
                 {
                   id: 'ultra',
@@ -393,7 +393,7 @@ export const UserPlan: React.FC = () => {
                   originalPriceInr: 12999,
                   badge: 'HIGH CAPACITY',
                   featured: false,
-                  features: ['40,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Max Concurrency & Throughput', 'All Top Claude Opus 5, Fable 5 & Sonnet 5 Models', 'VIP Priority Support'],
+                  features: ['40,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Max Concurrency & Throughput', 'All Top Claude Opus 5.5, Sonnet 5.5 & Fable 5 Models', 'VIP Priority Support'],
                 },
               ]
           ).map((p: any) => (

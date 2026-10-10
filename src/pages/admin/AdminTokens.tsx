@@ -72,7 +72,7 @@ export const AdminTokens: React.FC = () => {
             >
               {keys.map((k) => (
                 <option key={k.id} value={k.id}>
-                  {k.name} ({k.plan || 'Claude Max 20x'}) — {k.displayKey} — Remaining: {Number(k.tokensRemaining).toLocaleString()}
+                  {k.name} ({k.plan || 'PRO'}) — {k.displayKey} — Remaining: {Number(k.tokensRemaining).toLocaleString()}
                 </option>
 
               ))}

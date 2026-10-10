@@ -483,7 +483,7 @@ export const UserFeedback: React.FC = () => {
               rows={4}
               value={publicContent}
               onChange={(e) => setPublicContent(e.target.value)}
-              placeholder="Describe your workflow with LightningAPI, reliability with Claude 3.5 Sonnet / Opus, and rolling quota experience..."
+              placeholder="Describe your workflow with LightningAPI, reliability with Claude Sonnet 5.5 / Opus 5.5, and rolling quota experience..."
               className="w-full p-3.5 text-xs rounded-xl border border-[#e5e7eb] bg-[#fbfbfa] text-[#111827] placeholder:text-gray-400 focus:outline-none focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9] leading-relaxed"
               maxLength={2000}
               required

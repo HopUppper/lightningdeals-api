@@ -200,7 +200,7 @@ export const AdminPricing: React.FC = () => {
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Claude Max 20x (20M / 5h)"
+                  placeholder="MAX (120M / 5h Window)"
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
                 />
               </div>

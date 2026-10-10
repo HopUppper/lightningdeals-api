@@ -61,7 +61,7 @@ export const AdminAIControl: React.FC = () => {
   // Settings State
   const [config, setConfig] = useState<any>({
     modelProvider: 'auto',
-    modelName: 'claude-3-5-sonnet-20241022',
+    modelName: 'claude-sonnet-5.5',
     temperature: 0.3,
     handoffThreshold: 0.6,
     enabled: true,
@@ -847,7 +847,7 @@ export const AdminAIControl: React.FC = () => {
                 className="w-full mt-1 p-2.5 rounded-xl border border-border bg-card text-fg"
               >
                 <option value="auto">Auto-Detect (Best Available Key / Seamless Local Fallback)</option>
-                <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Opus)</option>
+                <option value="anthropic">Anthropic (Claude Sonnet 5.5 / Opus 5.5)</option>
                 <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
                 <option value="gemini">Google Gemini (Gemini 1.5 Flash)</option>
                 <option value="rule_based">Local High-Precision Semantic NLU (Zero API Key)</option>

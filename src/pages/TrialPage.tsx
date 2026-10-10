@@ -106,7 +106,7 @@ export const TrialPage: React.FC = () => {
             </div>
             <div className="flex items-center justify-between pb-2.5 border-b border-[#e7e5e4]">
               <span className="text-[#78716c]">Included Models:</span>
-              <span className="font-semibold text-[#6d28d9]">Sonnet 5, Opus 5, Haiku 4.5</span>
+              <span className="font-semibold text-[#6d28d9]">Claude Sonnet 5.5, Opus 5.5, Haiku 5.5</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[#78716c]">Payment Required:</span>

@@ -39,10 +39,10 @@ export const AdminKeys: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [keyName, setKeyName] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
-  const [tokenAllowance, setTokenAllowance] = useState('20000000'); // 20M default
+  const [tokenAllowance, setTokenAllowance] = useState('50000000'); // 50M PRO default
   const [rateLimitRpm, setRateLimitRpm] = useState('60');
   const [expiryDays, setExpiryDays] = useState('');
-  const [plan, setPlan] = useState('Claude Max 20x');
+  const [plan, setPlan] = useState('PRO');
   const [isTrial, setIsTrial] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('');
 
@@ -69,7 +69,7 @@ export const AdminKeys: React.FC = () => {
   const [editingKey, setEditingKey] = useState<any | null>(null);
   const [editName, setEditName] = useState('');
   const [editStatus, setEditStatus] = useState('active');
-  const [editPlan, setEditPlan] = useState('Claude Max 20x');
+  const [editPlan, setEditPlan] = useState('PRO');
   const [editAddTokens, setEditAddTokens] = useState('');
   const [editWithdrawTokens, setEditWithdrawTokens] = useState('');
   const [editExpiryMode, setEditExpiryMode] = useState('unchanged');
@@ -84,7 +84,7 @@ export const AdminKeys: React.FC = () => {
     setEditingKey(key);
     setEditName(key.name || '');
     setEditStatus(key.status || 'active');
-    setEditPlan(key.plan || 'Claude Max 20x');
+    setEditPlan(key.plan || 'PRO');
     setEditAddTokens('');
     setEditWithdrawTokens('');
     setEditExpiryMode('unchanged');
@@ -415,7 +415,7 @@ export const AdminKeys: React.FC = () => {
                       <p className="font-bold text-fg">{k.name}</p>
                       <p className="text-[11px] text-muted">{k.displayKey}</p>
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-accent">{k.plan || 'Claude Max 20x'}</td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-accent">{k.plan || 'PRO'}</td>
                     <td className="py-3.5 px-4 font-mono">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20">
                         {k.providerName || 'ScaleMax'}
@@ -752,27 +752,25 @@ export const AdminKeys: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-fg mb-1">Claude Max Plan Tier</label>
+                      <label className="block text-xs font-semibold text-fg mb-1">Plan Package Tier</label>
                       <select
                         value={plan}
                         onChange={(e) => {
                           const sel = e.target.value;
                           setPlan(sel);
-                          if (sel === 'Claude Max 5x') setTokenAllowance('5000000');
-                          else if (sel === 'Claude Max 20x') setTokenAllowance('20000000');
-                          else if (sel === 'Claude Max 40x') setTokenAllowance('40000000');
-                          else if (sel === 'Claude Max 100x') setTokenAllowance('100000000');
-                          else if (sel === 'Claude Max 250x') setTokenAllowance('250000000');
+                          if (sel === 'PRO') setTokenAllowance('50000000');
+                          else if (sel === 'MAX') setTokenAllowance('120000000');
+                          else if (sel === 'ULTRA') setTokenAllowance('250000000');
+                          else if (sel === 'Test plan') setTokenAllowance('10000');
                           else if (sel === 'Trial Key') setTokenAllowance('1000000');
                         }}
                         className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono font-bold"
                       >
-                        <option value="Claude Max 5x">Claude Max 5x (5M / 5h)</option>
-                        <option value="Claude Max 20x">Claude Max 20x (20M / 5h)</option>
-                        <option value="Claude Max 40x">Claude Max 40x (40M / 5h)</option>
-                        <option value="Claude Max 100x">Claude Max 100x (100M / 5h)</option>
-                        <option value="Claude Max 250x">Claude Max 250x (250M / 5h)</option>
-                        <option value="Trial Key">Trial Key (1M / 7-day)</option>
+                        <option value="PRO">PRO (50M / 5h Window — ₹2,499)</option>
+                        <option value="MAX">MAX (120M / 5h Window — ₹5,999)</option>
+                        <option value="ULTRA">ULTRA (250M / 5h Window — ₹8,999)</option>
+                        <option value="Test plan">Test plan (10k / 5h Window — ₹10)</option>
+                        <option value="Trial Key">Trial Key (1M / 24h)</option>
                         <option value="Custom Enterprise">Custom Enterprise Allocation</option>
                       </select>
                     </div>
@@ -1024,11 +1022,10 @@ export const AdminKeys: React.FC = () => {
                       onChange={(e) => setEditPlan(e.target.value)}
                       className="w-full px-3 py-2 text-xs bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono"
                     >
-                      <option value="Claude Max 5x">Claude Max 5x</option>
-                      <option value="Claude Max 20x">Claude Max 20x</option>
-                      <option value="Claude Max 40x">Claude Max 40x</option>
-                      <option value="Claude Max 100x">Claude Max 100x</option>
-                      <option value="Claude Max 250x">Claude Max 250x</option>
+                      <option value="PRO">PRO (50M / 5h Window)</option>
+                      <option value="MAX">MAX (120M / 5h Window)</option>
+                      <option value="ULTRA">ULTRA (250M / 5h Window)</option>
+                      <option value="Test plan">Test plan (10k / 5h Window)</option>
                       <option value="Trial Key">Trial Key</option>
                       <option value="Custom Enterprise">Custom Enterprise</option>
                     </select>

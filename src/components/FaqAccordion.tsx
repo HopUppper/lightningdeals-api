@@ -6,7 +6,7 @@ export const FaqAccordion: React.FC = () => {
   const faqs = [
     {
       question: 'What is LightningAPI in simple terms?',
-      answer: 'LightningAPI is a unified, high-speed API gateway for the Claude model family (including Claude 3.5 Sonnet, Opus 5, and Haiku 4.5). Instead of maintaining separate accounts or worrying about surprise monthly overage bills, you use a single master key that connects directly to Claude Code CLI, Cursor, Windsurf, or your custom applications.',
+      answer: 'LightningAPI is a unified, high-speed API gateway for the latest Claude model family (including Claude Opus 5.5, Sonnet 5.5, Fable 5, and Haiku 5.5). Instead of maintaining separate accounts or worrying about surprise monthly overage bills, you use a single master key that connects directly to Claude Code CLI, Cursor, Windsurf, or your custom applications.',
     },
     {
       question: 'How does the 5-hour rolling token quota work?',
@@ -26,7 +26,7 @@ export const FaqAccordion: React.FC = () => {
     },
     {
       question: 'Which models are supported through the gateway?',
-      answer: 'The gateway supports Claude Sonnet 5, Claude Opus 5, Claude Haiku 4.5, Claude 3.7 Sonnet (with controllable Extended Thinking), and Claude 3.5 Sonnet—all via standard /v1/messages endpoints.',
+      answer: 'The gateway supports the Top 10 latest Claude models including Claude Opus 5.5, Claude Sonnet 5.5, Claude Opus 5, Claude Sonnet 5, Claude Fable 5, Claude Fable 5 Flash, Claude Opus 5 Extended Thinking, Claude Sonnet 5 Extended Thinking, Claude Haiku 5.5, and Claude Haiku 5—all via standard Anthropic /v1/messages endpoints.',
     },
   ];
 

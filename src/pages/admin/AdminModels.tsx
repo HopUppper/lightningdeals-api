@@ -167,7 +167,7 @@ export const AdminModels: React.FC = () => {
                   required
                   value={modelId}
                   onChange={(e) => setModelId(e.target.value)}
-                  placeholder="claude-3-5-sonnet-20241022 or claude-opus-5"
+                  placeholder="claude-sonnet-5.5 or claude-opus-5.5"
                   className="w-full px-3.5 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
                 />
               </div>

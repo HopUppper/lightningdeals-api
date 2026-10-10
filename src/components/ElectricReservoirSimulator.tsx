@@ -49,7 +49,7 @@ export const ElectricReservoirSimulator: React.FC = () => {
       hourOffset: 3,
       label: 'Midday Continuation',
       actionTitle: 'Writing Integration Tests & Verifying APIs',
-      actionDetail: 'You run test generation with Claude 3.5 Sonnet, consuming an additional 1,000,000 tokens. Available balance reaches 2,000,000 tokens.',
+      actionDetail: 'You run test generation with Claude Sonnet 5.5, consuming an additional 1,000,000 tokens. Available balance reaches 2,000,000 tokens.',
       consumedThisStep: 1000000,
       tokensRestored: 0,
       activeBalance: 2000000,

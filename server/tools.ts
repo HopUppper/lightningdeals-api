@@ -179,11 +179,6 @@ export async function handleSystemStatus(req: Request, res: Response) {
 // 3. Public Models Endpoint (/v1/models)
 export async function handleGetModels(req: Request, res: Response) {
   try {
-    const models = await prisma.model.findMany({
-      where: { enabled: true },
-      orderBy: { displayName: 'asc' },
-    });
-
     const priority = [
       'claude-opus-5.5',
       'claude-sonnet-5.5',
@@ -196,6 +191,14 @@ export async function handleGetModels(req: Request, res: Response) {
       'claude-haiku-5.5',
       'claude-haiku-5',
     ];
+
+    const models = await prisma.model.findMany({
+      where: {
+        modelId: { in: priority },
+        enabled: true,
+      },
+      orderBy: { displayName: 'asc' },
+    });
     models.sort((a, b) => {
       const idxA = priority.indexOf(a.modelId);
       const idxB = priority.indexOf(b.modelId);

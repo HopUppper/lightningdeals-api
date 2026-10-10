@@ -316,6 +316,80 @@ export const ElectricModelObservatory: React.FC = () => {
           </div>
         </div>
 
+        {/* ------------------------------------------------------------- */}
+        {/* COMPLETE TOP 10 MODEL GATEWAY ROSTER (SECTION B REQUIREMENT)   */}
+        {/* ------------------------------------------------------------- */}
+        <div className="space-y-6 pt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+            <div>
+              <span className="text-xs font-mono font-bold text-[#6d28d9] uppercase tracking-wider block">
+                GATEWAY ROSTER
+              </span>
+              <h3 className="text-xl sm:text-2xl font-bold text-[#1c1917] tracking-tight">
+                All 10 Supported Claude Frontier Models
+              </h3>
+            </div>
+            <Link
+              to="/models"
+              className="text-xs font-bold text-[#6d28d9] hover:text-[#581c87] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-[#e7e5e4] shadow-xs shrink-0 self-start sm:self-auto"
+            >
+              <span>Explore Model Catalog & Benchmarks</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {[
+              { id: 'claude-opus-5.5', name: 'Claude Opus 5.5', context: '1M context', tier: 'Deep Reasoning', bestFor: 'Formal logic & architecture' },
+              { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5', context: '1M context', tier: 'Autonomous Coding', bestFor: 'Cursor & multi-file refactoring' },
+              { id: 'claude-fable-5', name: 'Claude Fable 5', context: '1M context', tier: 'Ultra-Fast Velocity', bestFor: 'Interactive IDE autocompletion' },
+              { id: 'claude-opus-5-thinking', name: 'Claude Opus 5 Thinking', context: '1M context', tier: 'Auditable Reflection', bestFor: 'Kernel invariants & security' },
+              { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5', context: '1M context', tier: 'High Concurrency', bestFor: 'Background triage & classification' },
+              { id: 'claude-sonnet-5-thinking', name: 'Claude Sonnet 5 Thinking', context: '1M context', tier: 'Deliberative Coding', bestFor: 'Complex AST transformations' },
+              { id: 'claude-fable-5-fast', name: 'Claude Fable 5 Fast', context: '1M context', tier: 'Low-Latency Stream', bestFor: 'Real-time diff generation' },
+              { id: 'claude-opus-5', name: 'Claude Opus 5', context: '1M context', tier: 'Cognitive Workhorse', bestFor: 'Synthesis & enterprise logic' },
+              { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', context: '1M context', tier: 'Production Coding', bestFor: 'Full-stack engineering' },
+              { id: 'claude-haiku-5', name: 'Claude Haiku 5', context: '1M context', tier: 'Lightweight Dispatch', bestFor: 'High-volume routing' },
+            ].map((m) => (
+              <div
+                key={m.id}
+                className="p-3.5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs flex flex-col justify-between hover:border-[#6d28d9]/40 transition-colors"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#6d28d9] bg-[#f5f3ff] px-2 py-0.5 rounded">
+                      {m.tier}
+                    </span>
+                    <span className="text-[10px] font-mono text-[#78716c]">
+                      {m.context}
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-[#1c1917] tracking-tight">
+                    {m.name}
+                  </h4>
+                  <p className="text-[11px] text-[#57534e] line-clamp-2 leading-relaxed">
+                    {m.bestFor}
+                  </p>
+                </div>
+                <div className="pt-2.5 mt-2 border-t border-[#f0eee9] flex items-center justify-between font-mono text-[10px] text-[#78716c]">
+                  <span className="truncate pr-1">{m.id}</span>
+                  <button
+                    onClick={() => handleCopyIdentifier(m.id)}
+                    className="p-1 hover:bg-[#f5f2eb] rounded text-[#6d28d9] transition-colors cursor-pointer shrink-0"
+                    title="Copy Model Identifier"
+                  >
+                    {copiedIdentifier === m.id ? (
+                      <Check className="w-3 h-3 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
     </section>
   );

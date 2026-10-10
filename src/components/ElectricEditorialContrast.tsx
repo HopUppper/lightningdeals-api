@@ -46,7 +46,7 @@ export const ElectricEditorialContrast: React.FC = () => {
   ];
 
   return (
-    <section className="bg-[#141210] text-[#fbf9f5] py-20 sm:py-24 lg:py-32 font-sans border-b border-[#292524] relative overflow-hidden">
+    <section id="why-us" className="bg-[#141210] text-[#fbf9f5] py-20 sm:py-24 lg:py-32 font-sans border-b border-[#292524] relative overflow-hidden">
       
       {/* Editorial Ambient Light */}
       <div className="absolute top-1/2 left-0 w-[500px] h-[500px] bg-[#6d28d9]/10 blur-[120px] pointer-events-none -translate-y-1/2" />

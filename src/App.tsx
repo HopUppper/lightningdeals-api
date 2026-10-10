@@ -34,7 +34,9 @@ const ScrollToHash: React.FC = () => {
 
 // Public Landing Components (Electric Editorial Direction)
 import { ElectricNavbar } from './components/ElectricNavbar';
-import { LivingGatewayHero } from './components/LivingGatewayHero';
+import { ProductHero } from './components/ProductHero';
+import { HowItWorksSection } from './components/HowItWorksSection';
+import { InteractiveGatewayDemo } from './components/InteractiveGatewayDemo';
 import { ElectricEditorialContrast } from './components/ElectricEditorialContrast';
 import { ElectricModelObservatory } from './components/ElectricModelObservatory';
 import { ElectricReservoirSimulator } from './components/ElectricReservoirSimulator';
@@ -182,15 +184,32 @@ export const LandingPage: React.FC = () => {
       <ElectricNavbar />
       <PromotionalOfferModal />
       <main id="main-content">
-        <LivingGatewayHero />
-        <ElectricEditorialContrast />
+        {/* Section A: Hero (Product introduction & visual gateway concept) */}
+        <ProductHero />
+
+        {/* Section B: Supported Model Ecosystem (Top 10 latest Claude models & direct link to /models) */}
         <ElectricModelObservatory />
-        <ElectricReservoirSimulator />
-        <ElectricDeveloperStudio />
-        <ElectricCapacitySection />
+
+        {/* Section C: How It Works (3 clear, verified integration steps) */}
+        <HowItWorksSection />
+
+        {/* Section D: Why LightningAPI (Architectural contrast & Zero-logging SLA) */}
+        <ElectricEditorialContrast />
         <ElectricGovernanceSla />
+
+        {/* Section E: Interactive Gateway Demonstration (Conduit simulator & real-time SSE stream playground) */}
+        <InteractiveGatewayDemo />
+
+        {/* Section F: Capacity & Plans (The 4 verified plans & Token reservoir simulator) */}
+        <ElectricCapacitySection />
+        <ElectricReservoirSimulator />
+
+        {/* Section G: Developer Resources, Reviews & FAQ */}
+        <ElectricDeveloperStudio />
         <ElectricPublicReviews />
         <ElectricFaqSection />
+
+        {/* Section H: Final Call to Action */}
         <ElectricFinalCta />
       </main>
       <ElectricFooter />

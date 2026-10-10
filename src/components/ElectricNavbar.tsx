@@ -31,10 +31,11 @@ export const ElectricNavbar: React.FC = () => {
   };
 
   const navLinks = [
-    { name: 'Workflows', href: '/#workflows' },
     { name: 'Models', href: '/#models' },
-    { name: 'Capacity & Plans', href: '/#pricing' },
-    { name: 'Integration', href: '/#integration' },
+    { name: 'How It Works', href: '/#how-it-works' },
+    { name: 'Why LightningAPI', href: '/#why-us' },
+    { name: 'Demo', href: '/#demo' },
+    { name: 'Capacity Plans', href: '/#pricing' },
     { name: 'Documentation', href: '/docs' },
     { name: 'FAQ', href: '/#faq' },
   ];
@@ -70,10 +71,10 @@ export const ElectricNavbar: React.FC = () => {
             <Link
               to="/status"
               className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ecfdf5] border border-[#a7f3d0] text-[11px] font-medium text-[#047857] hover:bg-[#d1fae5] transition-colors"
-              title="Live Gateway Latency: Sub-35ms"
+              title="Live Gateway Status: TLS 1.3 Active"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-[#059669] shrink-0" />
-              <span>Gateway 34ms TTFT</span>
+              <span>Gateway Operational</span>
             </Link>
           </div>
 

@@ -140,13 +140,13 @@ export const ElectricModelObservatory: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-[#e7e5e4]">
           <div className="space-y-3 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] text-xs font-mono font-medium text-[#6d28d9] uppercase tracking-wider shadow-xs">
-              <span>THE FRONTIER MODEL OBSERVATORY</span>
+              <span>SUPPORTED MODEL ECOSYSTEM</span>
             </div>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#1c1917] leading-[1.1]">
-              Switch models instantly with one universal key.
+              The models behind your workflow.
             </h2>
             <p className="text-base text-[#57534e] leading-relaxed">
-              Every LightningAPI subscription grants complete access across the entire Anthropic Claude family. Never maintain multiple provider subscriptions again.
+              Every LightningAPI subscription grants complete access across the Anthropic Claude family with a single universal key. Switch models on demand with zero configuration changes.
             </p>
           </div>
 

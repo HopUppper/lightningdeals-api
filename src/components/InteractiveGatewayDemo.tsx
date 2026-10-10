@@ -155,17 +155,17 @@ export const InteractiveGatewayDemo: React.FC = () => {
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
             <span className="flex h-1.5 w-1.5 rounded-full bg-[#6d28d9] animate-pulse" />
-            <span className="text-[#6d28d9] font-bold">INTERACTIVE DEMONSTRATION</span>
+            <span className="text-[#6d28d9] font-bold">ARCHITECTURE IN ACTION</span>
             <span className="text-[#d6d3d1]">·</span>
-            <span>LIVE CONDUIT PLAYGROUND</span>
+            <span>INTERACTIVE ROUTING PLAYGROUND</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#1c1917] leading-[1.12]">
-            Simulate real-time gateway routing across models.
+            How the gateway works.
           </h2>
 
           <p className="text-sm sm:text-base text-[#57534e] max-w-2xl mx-auto leading-relaxed">
-            Test how the unified gateway directs requests to specific models, streams output via standard Anthropic SSE payloads, and maintains zero disk-logging security.
+            Experience how a single Anthropic request is authenticated in memory, directed to the chosen model destination, and streamed back over native Server-Sent Events with zero disk logging.
           </p>
         </div>
 

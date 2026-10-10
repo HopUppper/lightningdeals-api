@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   BookOpen,
@@ -104,21 +104,103 @@ export const DocsPage: React.FC = () => {
     },
   ];
 
+  const sectionIds = [
+    'overview',
+    'quick-start',
+    'authentication',
+    'api-reference',
+    'client-config',
+    'streaming',
+    'models',
+    'quotas',
+    'errors',
+    'support',
+  ];
+
+  const isManualScrollingRef = useRef(false);
+  const manualScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const scrollToSection = (id: string) => {
     setActiveSection(id);
     setMobileMenuOpen(false);
+    isManualScrollingRef.current = true;
+
+    if (manualScrollTimerRef.current) {
+      clearTimeout(manualScrollTimerRef.current);
+    }
+
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const yOffset = -90;
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+      window.history.replaceState(null, '', `#${id}`);
     }
+
+    manualScrollTimerRef.current = setTimeout(() => {
+      isManualScrollingRef.current = false;
+    }, 800);
   };
 
   useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (isManualScrollingRef.current) return;
+
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          // Bottom of page activation for last section
+          const isAtBottom =
+            window.innerHeight + window.scrollY >=
+            document.documentElement.scrollHeight - 70;
+
+          if (isAtBottom) {
+            setActiveSection(sectionIds[sectionIds.length - 1]);
+            ticking = false;
+            return;
+          }
+
+          // Active reading threshold (just below sticky header)
+          const READ_THRESHOLD = Math.max(260, window.innerHeight * 0.35);
+          let currentId = sectionIds[0];
+
+          for (const id of sectionIds) {
+            const el = document.getElementById(id);
+            if (el) {
+              const rect = el.getBoundingClientRect();
+              if (rect.top <= READ_THRESHOLD) {
+                currentId = id;
+              }
+            }
+          }
+
+          setActiveSection(currentId);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Initial evaluation on page load
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (manualScrollTimerRef.current) {
+        clearTimeout(manualScrollTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const hash = location.hash.replace('#', '');
-    if (hash) {
+    if (hash && sectionIds.includes(hash)) {
       scrollToSection(hash);
     }
-  }, [location]);
+  }, [location.hash]);
+
+  const activeSectionItem = sidebarNav.flatMap((g) => g.items).find((i) => i.id === activeSection);
 
   return (
     <div className="min-h-screen bg-[#faf8f5] text-[#1c1917] flex flex-col font-sans selection:bg-[#6d28d9]/10 selection:text-[#6d28d9]">
@@ -132,16 +214,24 @@ export const DocsPage: React.FC = () => {
             {/* SIDEBAR NAVIGATION (DESKTOP)                                  */}
             {/* ------------------------------------------------------------- */}
             <aside className="hidden lg:sticky lg:block lg:h-[calc(100vh-65px)] lg:overflow-y-auto lg:py-10 top-[65px] border-r border-[#e7e5e4] pr-6">
-              <div className="mb-6 pb-4 border-b border-[#e7e5e4]">
+              <div className="mb-6 pb-4 border-b border-[#e7e5e4] space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 rounded-full bg-[#6d28d9]" />
+                  <span className="flex h-2 w-2 rounded-full bg-[#6d28d9] animate-pulse" />
                   <span className="font-mono text-[11px] font-bold text-[#6d28d9] tracking-wider uppercase">
                     API DOCS v2.4
                   </span>
                 </div>
-                <p className="text-xs text-[#78716c] mt-1">
+                <p className="text-xs text-[#78716c]">
                   Anthropic Messages Gateway
                 </p>
+                <div className="pt-2 border-t border-[#f0eee9]">
+                  <span className="text-[10px] font-mono text-[#a8a29e] uppercase font-semibold block">
+                    CURRENT SECTION:
+                  </span>
+                  <span className="text-xs font-bold text-[#1c1917] truncate block pt-0.5">
+                    {activeSectionItem?.label || '1. Overview & Architecture'}
+                  </span>
+                </div>
               </div>
 
               <nav className="space-y-6">
@@ -159,14 +249,19 @@ export const DocsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => scrollToSection(item.id)}
-                              className={`-ml-[2px] flex w-full items-center gap-2 border-l-2 py-1.5 pl-3 text-left text-xs transition-colors cursor-pointer ${
+                              className={`-ml-[2px] flex w-full items-center justify-between border-l-2 py-1.5 pl-3 pr-2 text-left text-xs transition-all cursor-pointer rounded-r-lg ${
                                 isActive
-                                  ? 'border-[#6d28d9] font-bold text-[#6d28d9] bg-[#f5f3ff]/60'
+                                  ? 'border-[#6d28d9] font-bold text-[#6d28d9] bg-[#f5f3ff]'
                                   : 'border-transparent text-[#57534e] hover:border-[#a8a29e] hover:text-[#1c1917]'
                               }`}
                             >
-                              <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-[#6d28d9]' : 'text-[#a8a29e]'}`} />
-                              <span className="truncate">{item.label}</span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Icon className={`h-3.5 w-3.5 shrink-0 transition-colors ${isActive ? 'text-[#6d28d9]' : 'text-[#a8a29e]'}`} />
+                                <span className="truncate">{item.label}</span>
+                              </div>
+                              {isActive && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#6d28d9] shrink-0" />
+                              )}
                             </button>
                           </li>
                         );
@@ -209,7 +304,7 @@ export const DocsPage: React.FC = () => {
                   <span className="flex items-center gap-2">
                     <List className="h-4 w-4 text-[#6d28d9]" />
                     <span className="font-mono text-[10px] uppercase font-bold text-[#78716c]">DOCS INDEX:</span>
-                    <span className="truncate text-xs font-bold text-[#1c1917] capitalize">{activeSection.replace('-', ' ')}</span>
+                    <span className="truncate text-xs font-bold text-[#1c1917]">{activeSectionItem?.label || activeSection.replace('-', ' ')}</span>
                   </span>
                   <ChevronDown className={`h-4 w-4 shrink-0 text-[#78716c] transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} />
                 </button>

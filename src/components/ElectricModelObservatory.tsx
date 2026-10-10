@@ -344,12 +344,12 @@ export const ElectricModelObservatory: React.FC = () => {
               { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5', context: '1M context', tier: 'Autonomous Coding', bestFor: 'Cursor & multi-file refactoring' },
               { id: 'claude-fable-5', name: 'Claude Fable 5', context: '1M context', tier: 'Ultra-Fast Velocity', bestFor: 'Interactive IDE autocompletion' },
               { id: 'claude-opus-5-thinking', name: 'Claude Opus 5 Thinking', context: '1M context', tier: 'Auditable Reflection', bestFor: 'Kernel invariants & security' },
-              { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5', context: '1M context', tier: 'High Concurrency', bestFor: 'Background triage & classification' },
+              { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5', context: '500K context', tier: 'High Concurrency', bestFor: 'Background triage & classification' },
               { id: 'claude-sonnet-5-thinking', name: 'Claude Sonnet 5 Thinking', context: '1M context', tier: 'Deliberative Coding', bestFor: 'Complex AST transformations' },
-              { id: 'claude-fable-5-fast', name: 'Claude Fable 5 Fast', context: '1M context', tier: 'Low-Latency Stream', bestFor: 'Real-time diff generation' },
+              { id: 'claude-fable-5-flash', name: 'Claude Fable 5 Flash', context: '500K context', tier: 'Low-Latency Stream', bestFor: 'Real-time diff generation' },
               { id: 'claude-opus-5', name: 'Claude Opus 5', context: '1M context', tier: 'Cognitive Workhorse', bestFor: 'Synthesis & enterprise logic' },
               { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', context: '1M context', tier: 'Production Coding', bestFor: 'Full-stack engineering' },
-              { id: 'claude-haiku-5', name: 'Claude Haiku 5', context: '1M context', tier: 'Lightweight Dispatch', bestFor: 'High-volume routing' },
+              { id: 'claude-haiku-5', name: 'Claude Haiku 5', context: '500K context', tier: 'Lightweight Dispatch', bestFor: 'High-volume routing' },
             ].map((m) => (
               <div
                 key={m.id}

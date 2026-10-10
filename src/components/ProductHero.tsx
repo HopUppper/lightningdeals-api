@@ -121,9 +121,9 @@ export const ProductHero: React.FC = () => {
               <span className="text-[#6d28d9] inline">beautifully connected.</span>
             </h1>
 
-            {/* Clear Customer-Benefit Supporting Text */}
+            {/* Clear Customer-Benefit Supporting Text (Simplified to 2 concise sentences) */}
             <p className="text-base sm:text-lg text-[#57534e] leading-relaxed max-w-xl">
-              One integration for the supported models your workflow depends on. Drop-in Anthropic compatibility (<code className="px-1.5 py-0.5 rounded bg-white border border-[#e7e5e4] font-mono text-xs text-[#1c1917]">/v1/messages</code>), continuous 5-hour rolling token renewal, and zero prompt retention in volatile memory.
+              Access the frontier Claude models your engineering workflow depends on through a single reliable connection. Keep your coding agents and IDE tools moving forward without midday quota freezes.
             </p>
 
             {/* Primary & Secondary CTAs */}
@@ -163,15 +163,15 @@ export const ProductHero: React.FC = () => {
               </div>
             </div>
 
-            {/* Trust Guarantees */}
+            {/* Evidence-Based Trust Guarantees */}
             <div className="flex flex-wrap items-center gap-y-2 gap-x-5 pt-1 text-xs text-[#78716c]">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Instant 60s Key Issuance</span>
+                <span>Instant Key Issuance</span>
               </span>
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Zero Prompt Disk Retention</span>
+                <span>Zero Prompt Logging SLA</span>
               </span>
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Zap className="w-3.5 h-3.5 text-emerald-600" />
@@ -182,13 +182,13 @@ export const ProductHero: React.FC = () => {
           </div>
 
           {/* ============================================================ */}
-          {/* RIGHT COLUMN: Distinctive, Polished Gateway Visualization    */}
+          {/* RIGHT COLUMN: Polished, Uncluttered Gateway Visualization     */}
           {/* ============================================================ */}
           <div className="lg:col-span-6 xl:col-span-6">
-            <div className="relative rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 shadow-warm space-y-5">
+            <div className="relative rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 shadow-warm space-y-4">
               
               {/* Visual Card Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-[#e7e5e4]">
+              <div className="flex items-center justify-between pb-3.5 border-b border-[#e7e5e4]">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-[#f5f3ff] border border-[#c4b5fd] flex items-center justify-center text-[#6d28d9]">
                     <Zap className="w-4 h-4 fill-current" />
@@ -198,25 +198,36 @@ export const ProductHero: React.FC = () => {
                       LightningAPI Gateway
                     </h3>
                     <span className="text-[10px] font-mono text-[#78716c] block">
-                      Universal Ingress · /v1/messages
+                      Drop-in Anthropic connection
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-mono text-emerald-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>One Sovereign Key</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>Single Master Key</span>
                 </div>
               </div>
 
-              {/* Central Connection Graphic: Gateway Routing to Destinations */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between text-[11px] font-mono text-[#78716c] px-1">
-                  <span>SUPPORTED DESTINATIONS</span>
-                  <span>1M CONTEXT WINDOW</span>
+              {/* Subtle Lightweight Connection Graphic */}
+              <div className="relative py-1 flex items-center justify-center" aria-hidden="true">
+                <div className="w-full h-px bg-gradient-to-r from-transparent via-[#c4b5fd] to-transparent" />
+                {!prefersReducedMotion && (
+                  <motion.div
+                    className="absolute w-2 h-2 rounded-full bg-[#6d28d9] shadow-[0_0_8px_#6d28d9]"
+                    animate={{ x: [-100, 100] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                  />
+                )}
+              </div>
+
+              {/* Verified Destination Model Cards Grid */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-mono text-[#78716c] px-0.5">
+                  <span>VERIFIED DESTINATIONS</span>
+                  <span className="text-[10px] text-[#6d28d9]">Select to preview</span>
                 </div>
 
-                {/* Model Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {DESTINATIONS.map((dest) => {
                     const isSelected = activeModelId === dest.id;
@@ -225,7 +236,7 @@ export const ProductHero: React.FC = () => {
                         key={dest.id}
                         type="button"
                         onClick={() => setActiveModelId(dest.id)}
-                        className={`p-3.5 rounded-2xl text-left border transition-all cursor-pointer relative ${
+                        className={`p-3 rounded-2xl text-left border transition-all cursor-pointer relative ${
                           isSelected
                             ? `bg-white ${dest.borderColor} shadow-md ring-2 ring-[#6d28d9]/15`
                             : 'bg-[#faf8f5]/80 border-[#e7e5e4] hover:bg-white hover:border-[#d6d3d1]'
@@ -235,11 +246,8 @@ export const ProductHero: React.FC = () => {
                           <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded ${dest.accentBg} ${dest.accent}`}>
                             {dest.badge}
                           </span>
-                          <span className="text-[10px] font-mono text-[#78716c]">
-                            1,000,000
-                          </span>
                         </div>
-                        <h4 className="text-xs sm:text-sm font-bold text-[#1c1917] tracking-tight pt-1">
+                        <h4 className="text-xs sm:text-sm font-bold text-[#1c1917] tracking-tight pt-0.5">
                           {dest.name}
                         </h4>
                         <p className="text-[11px] text-[#57534e] line-clamp-2 pt-1 leading-snug">
@@ -251,28 +259,23 @@ export const ProductHero: React.FC = () => {
                 </div>
               </div>
 
-              {/* Active Route Summary Callout */}
-              <div className="p-3.5 rounded-2xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#6d28d9] font-bold">Target Route:</span>
-                    <code className="font-mono text-xs font-semibold text-[#1c1917] bg-white px-2 py-0.5 rounded border border-[#e7e5e4]">
-                      {activeDestination.identifier}
-                    </code>
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Drop-In Ready
-                  </span>
+              {/* Concise Route Indicator */}
+              <div className="p-3 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="text-[#6d28d9] font-bold shrink-0">Selected:</span>
+                  <code className="font-mono text-xs font-semibold text-[#1c1917] bg-white px-2 py-0.5 rounded border border-[#e7e5e4] truncate">
+                    {activeDestination.identifier}
+                  </code>
                 </div>
-                <p className="text-[11px] text-[#57534e] leading-relaxed">
-                  Call standard Anthropic client libraries or CLI tools directly without rewriting requests or managing multiple subscription portals.
-                </p>
+                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                  Drop-In Ready
+                </span>
               </div>
 
-              {/* Visual Card Footer: Catalog Link */}
+              {/* Clean Footer Link */}
               <div className="flex items-center justify-between pt-1 border-t border-[#f0eee9] text-xs">
                 <span className="text-[11px] text-[#78716c]">
-                  All 10 Claude models accessible via single master key
+                  All 10 Claude models accessible via one key
                 </span>
                 <Link
                   to="/models"

@@ -1,70 +1,65 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export const FinalCta: React.FC = () => {
   return (
-    <section className="relative border-b border-border bg-slate-950 py-20 text-white overflow-hidden">
-      
-      {/* Background Subtle Gradient Light Orbs (Hardware-Accelerated) */}
-      <div
-        className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-600/30 via-indigo-600/10 to-transparent pointer-events-none transform-gpu"
-      />
-
-      <div className="relative mx-auto max-w-page px-5 text-center sm:px-6 z-10 space-y-6">
+    <section className="py-16 sm:py-20 lg:py-24 bg-[#fbf9f5] border-b border-[#e7e5e4] px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-6xl mx-auto">
         
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-1 text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
-          <span>Ready to start building?</span>
-        </motion.div>
+        {/* Warm, Balanced Editorial Invitation (Replaced giant dark panel) */}
+        <div className="rounded-3xl bg-white p-8 sm:p-12 md:p-16 text-[#1c1917] border border-[#e7e5e4] text-center space-y-6 shadow-warm relative overflow-hidden">
+          
+          <div className="max-w-2xl mx-auto space-y-4">
+            
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f5f3ff] text-[#6d28d9] text-xs font-medium uppercase tracking-wider border border-[#ddd6fe]">
+              <Sparkles className="w-3.5 h-3.5 text-[#6d28d9]" />
+              <span>Get Started in 60 Seconds</span>
+            </div>
 
-        <motion.h2
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl max-w-2xl mx-auto leading-tight"
-        >
-          Power your AI tools with <span className="animated-gradient-text">LightningDeals</span>.
-        </motion.h2>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#1c1917] leading-[1.12]">
+              Uninterrupted intelligence for your daily workflow.
+            </h2>
 
-        <motion.p
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.1 }}
-          className="max-w-xl mx-auto text-xs sm:text-sm leading-relaxed text-slate-400 font-sans"
-        >
-          Claim a trial API key or request custom 5-hour rolling window package quotes. Connect your favorite tools in seconds with <code className="font-mono text-cyan-400 font-bold bg-white/10 px-2 py-0.5 rounded">npx lightningdeals</code>.
-        </motion.p>
+            <p className="text-sm sm:text-base text-[#57534e] leading-relaxed max-w-xl mx-auto">
+              Claim your free 1,000,000 token trial pass today. Zero billing commitment, instant key reveal, and native compatibility with Claude Code, Cursor, and custom tools.
+            </p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.2 }}
-          className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-2"
-        >
-          <Link
-            to="/trial"
-            className="ui-button-primary text-xs py-3 px-6 font-bold gap-2"
-          >
-            <span>Claim Free 1M Token Trial Key</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-3">
+              <Link
+                to="/trial"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-sm transition-all shadow-plum flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Claim Free 1M Trial Pass</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
 
-          <Link
-            to="/request-quote"
-            className="ui-button-secondary border-white/20 bg-white/10 text-white hover:bg-white/20 text-xs py-3 px-6 font-semibold"
-          >
-            <span>Request Custom Enterprise Quote</span>
-          </Link>
-        </motion.div>
+              <a
+                href="#pricing"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white hover:bg-[#f5f2eb] border border-[#e7e5e4] text-[#1c1917] font-medium text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              >
+                <span>View Capacity Plans</span>
+              </a>
+            </div>
+
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[#78716c]">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#059669]" />
+                <span>Zero credit card required</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#059669]" />
+                <span>5-hour rolling renewal</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#059669]" />
+                <span>Strict zero retention SLA</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
 
       </div>
     </section>

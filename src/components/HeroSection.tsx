@@ -1,12 +1,56 @@
 import React, { useState } from 'react';
+import { ArrowRight, Copy, Check, CheckCircle2, Terminal, PenTool, BookOpen, Activity, Lock, Cpu, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Zap, ArrowRight, Check, Copy, Server, Sparkles, Cpu, Layers, ShieldCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { ThreeDCard } from './ThreeDCard';
 
 export const HeroSection: React.FC = () => {
+  const [activePersona, setActivePersona] = useState<'creators' | 'engineers' | 'founders'>('creators');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const baseUrl = 'https://lightningapi.pro/v1';
+
+  const personas = {
+    creators: {
+      label: 'Creators & Writers',
+      icon: PenTool,
+      accent: 'text-[#6d28d9]',
+      accentBg: 'bg-[#f5f3ff]',
+      accentBorder: 'border-[#ddd6fe]',
+      model: 'Claude 3.5 Sonnet',
+      latency: '34ms',
+      tokens: '1,420 tokens',
+      prompt: 'Synthesize the 40-page technical whitepaper into 3 narrative takeaways for non-technical executives.',
+      response: '1. Autonomous routing eliminates cold-starts by multiplexing Anthropic sessions.\n2. The 5-hour rolling renewal prevents project halts during deep creative sprints.\n3. Zero disk persistence ensures proprietary IP remains strictly confidential.',
+      focus: 'Long-form editorial drafting & document synthesis',
+    },
+    engineers: {
+      label: 'Software Engineers',
+      icon: Terminal,
+      accent: 'text-[#2563eb]',
+      accentBg: 'bg-[#eff6ff]',
+      accentBorder: 'border-[#bfdbfe]',
+      model: 'Claude 3.5 Sonnet & Haiku 4.5',
+      latency: '28ms',
+      tokens: '840 tokens',
+      prompt: 'Refactor express gateway middleware to stream chunked SSE deltas directly to Cursor IDE.',
+      response: 'export async function streamProxy(req: Request, res: Response) {\n  const stream = await anthropic.messages.stream({ ...req.body });\n  res.setHeader("Content-Type", "text/event-stream");\n  return stream.pipe(res); // Sub-30ms first-token latency\n}',
+      focus: 'Claude Code CLI, Cursor IDE, Windsurf agentic loops',
+    },
+    founders: {
+      label: 'Students & Founders',
+      icon: BookOpen,
+      accent: 'text-[#ea580c]',
+      accentBg: 'bg-[#fff7ed]',
+      accentBorder: 'border-[#fed7aa]',
+      model: 'Claude Opus 5 & Sonnet',
+      latency: '42ms',
+      tokens: '1,890 tokens',
+      prompt: 'Audit current monthly cloud API expenditures vs LightningAPI prepaid 5-hour rolling quotas.',
+      response: 'Analysis: Replacing pay-as-you-go metering with 5-hour rolling renewal caps monthly expenditure at ₹2,499 with 0 risk of runaway invoice spikes during automated evaluation runs.',
+      focus: 'Prepaid fixed budgets with zero surprise cloud overages',
+    },
+  };
+
+  const current = personas[activePersona];
+  const PersonaIcon = current.icon;
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(baseUrl);
@@ -15,207 +59,199 @@ export const HeroSection: React.FC = () => {
   };
 
   return (
-    <section className="relative overflow-hidden py-16 sm:py-24 border-b border-border bg-bg hero-grid-3d">
-      
-      {/* Background Subtle Gradient Glowing Blobs (Hardware-Accelerated) */}
-      <div
-        className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-tr from-violet-600/15 via-indigo-600/15 to-cyan-500/15 blur-3xl pointer-events-none transform-gpu"
-      />
-      <div
-        className="absolute top-1/2 -right-32 w-96 h-96 rounded-full bg-gradient-to-br from-cyan-500/15 via-indigo-600/15 to-violet-600/15 blur-3xl pointer-events-none transform-gpu"
-      />
-
-      <div className="max-w-page mx-auto px-5 sm:px-6 relative z-10">
-        <div className="grid lg:grid-cols-12 gap-12 items-center">
+    <section className="relative bg-[#fbf9f5] border-b border-[#e7e5e4] pt-12 pb-16 sm:pt-16 sm:pb-20 lg:pt-20 lg:pb-24 font-sans">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16">
+        
+        {/* Asymmetrical 2-Column Editorial Hero Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 items-center">
           
-          {/* Left Hero Content */}
-          <div className="lg:col-span-7 space-y-6 text-left">
+          {/* Left Column: Proposition & Direct Actions */}
+          <div className="md:col-span-7 space-y-6">
             
-            {/* Announcement Pill */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/90 border border-violet-200/80 text-xs font-mono font-bold text-fg shadow-xs backdrop-blur-md"
-            >
-              <span className="h-2 w-2 rounded-full bg-violet-600 animate-ping" />
-              <span className="uppercase text-[11px] tracking-wider text-violet-700">● CLAUDE FABLE 5 & SONNET 5 ARE LIVE</span>
-              <Sparkles className="w-3.5 h-3.5 text-violet-600" />
-            </motion.div>
+            {/* Subtle Brand Kicker */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f5f3ff] border border-[#ddd6fe] text-xs font-medium text-[#6d28d9]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#6d28d9]" />
+              <span>The Claude-Compatible AI Gateway</span>
+            </div>
 
-            {/* 3D Animated Gradient Headline */}
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-4xl sm:text-6xl font-extrabold tracking-tight text-fg leading-[1.08]"
-            >
-              One base URL. <br />
-              <span className="animated-gradient-text">The entire Claude lineup.</span>
-            </motion.h1>
+            {/* Monumental Headline */}
+            <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-bold tracking-tight text-[#1c1917] leading-[1.08]">
+              Intelligence without interruption.
+            </h1>
 
-            {/* Subhead */}
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-base sm:text-lg text-muted font-normal leading-relaxed max-w-xl"
-            >
-              Drop-in Anthropic API gateway for Claude Code CLI, Cursor, Windsurf, and VS Code. Point your existing client to our endpoint — same SDK, same request shape, zero code changes required.
-            </motion.p>
+            {/* Plain-Language Narrative */}
+            <p className="text-base sm:text-lg text-[#57534e] leading-relaxed font-normal max-w-xl">
+              One master key for Claude 3.5 Sonnet, Opus 5, and Haiku. Dedicated 5-hour rolling token renewal so your creative flow, research, and coding workflows never hit sudden billing walls.
+            </p>
 
-            {/* Side-by-Side CTAs with Shimmer Animations */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 w-full sm:w-auto"
-            >
-              <Link to="/trial" className="ui-button-primary text-sm px-6 py-3.5 font-bold gap-2 justify-center w-full sm:w-auto text-center shadow-md">
-                <span>Claim Free 1M Token Trial</span>
+            {/* Core Actions */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
+              <Link
+                to="/trial"
+                className="px-6 py-3.5 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-sm transition-all shadow-plum flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Start Free Trial (1M Tokens)</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link to="/docs" className="ui-button-secondary text-sm px-6 py-3.5 font-semibold gap-2 justify-center w-full sm:w-auto text-center">
-                <span>Read Setup Guide</span>
-              </Link>
-            </motion.div>
 
-            {/* Copyable Base-URL Box */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="pt-2 max-w-md"
-            >
-              <div className="flex items-center border border-violet-200/80 bg-white/90 rounded-panel overflow-hidden shadow-xs backdrop-blur-md hover:border-violet-400 transition-colors">
-                <span className="flex shrink-0 items-center border-r border-violet-200/80 px-3.5 py-2.5 font-mono text-[10px] font-bold uppercase tracking-wider text-violet-700 bg-violet-50">
-                  <Server className="w-3.5 h-3.5 mr-1.5 text-violet-600" />
+              <a
+                href="#pricing"
+                className="px-6 py-3.5 rounded-xl bg-white hover:bg-[#f5f2eb] border border-[#e7e5e4] text-[#1c1917] font-medium text-sm transition-colors flex items-center justify-center cursor-pointer shadow-xs"
+              >
+                <span>View Capacity & Plans</span>
+              </a>
+            </div>
+
+            {/* Copyable Base URL Bar */}
+            <div className="pt-1 flex items-center gap-2 max-w-md min-w-0">
+              <div className="flex-1 flex items-center border border-[#e7e5e4] bg-white rounded-lg overflow-hidden shadow-xs min-w-0">
+                <span className="px-2.5 py-1.5 text-[10px] font-mono text-[#78716c] bg-[#f5f2eb] border-r border-[#e7e5e4] shrink-0 font-semibold">
                   BASE URL
                 </span>
-                <code className="flex-1 overflow-x-auto whitespace-nowrap px-3.5 py-2.5 font-mono text-xs font-semibold text-fg">
+                <code className="flex-1 px-3 py-1.5 font-mono text-xs text-[#1c1917] overflow-x-auto whitespace-nowrap min-w-0">
                   {baseUrl}
                 </code>
                 <button
                   type="button"
                   onClick={handleCopyUrl}
-                  className="flex shrink-0 items-center border-l border-violet-200/80 px-3.5 py-2.5 text-muted hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                  className="px-2.5 py-1.5 text-xs text-[#57534e] hover:text-[#1c1917] hover:bg-[#f5f2eb] border-l border-[#e7e5e4] transition-colors cursor-pointer shrink-0 flex items-center gap-1"
                   title="Copy base URL"
                 >
-                  {copiedUrl ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  {copiedUrl ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-700 text-[11px] font-medium">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span className="text-[11px] font-medium">Copy</span>
+                    </>
+                  )}
                 </button>
               </div>
-            </motion.div>
+            </div>
+
+            {/* Trust Reassurance Row */}
+            <div className="pt-1 flex flex-wrap items-center gap-y-2 gap-x-5 text-xs text-[#78716c]">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#059669]" />
+                <span>Instant 60s activation</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#059669]" />
+                <span>Zero prompt retention SLA</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#059669]" />
+                <span>No credit card required</span>
+              </div>
+            </div>
 
           </div>
 
-          {/* Right 3D Perspective Spec Cards Deck */}
-          <div className="lg:col-span-5 relative space-y-4">
+          {/* Right Column: Authentic Product Experience Preview */}
+          <div className="md:col-span-5 space-y-4">
             
-            {/* 3D Card 1 */}
-            <ThreeDCard intensity={12}>
-              <div className="glass-3d-card rounded-panel p-5 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-border/80">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-violet-600" />
-                    <span className="font-mono font-bold text-xs text-fg">claude-sonnet-5</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-violet-50 text-violet-700 border border-violet-200">
-                    Active Gateway
+            {/* Live Gateway Telemetry Console (Replaces generic AI artwork) */}
+            <div className="rounded-2xl border border-[#e7e5e4] bg-white shadow-warm overflow-hidden">
+              
+              {/* Console Window Header */}
+              <div className="px-4 py-2.5 border-b border-[#e7e5e4] bg-[#fdfbf7] flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#fca5a5]/80" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#fcd34d]/80" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#86efac]/80" />
+                  <span className="ml-2 font-mono text-[11px] text-[#78716c] font-medium truncate">
+                    gateway.lightningapi.pro
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-2 pt-1 text-[11px] font-mono">
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">Context</span>
-                    <span className="font-bold text-fg">1,000,000</span>
-                  </div>
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">Tools</span>
-                    <span className="font-bold text-fg">Web & Vision</span>
-                  </div>
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">Latency</span>
-                    <span className="font-bold text-emerald-600">&lt;45ms</span>
-                  </div>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#ecfdf5] border border-[#a7f3d0] text-[10px] font-mono text-[#047857]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#059669] animate-pulse" />
+                  <span>{current.latency} TTFT</span>
                 </div>
               </div>
-            </ThreeDCard>
 
-            {/* 3D Card 2 */}
-            <ThreeDCard intensity={15}>
-              <div className="glass-3d-card rounded-panel p-5 space-y-3 border-cyan-200">
-                <div className="flex items-center justify-between pb-2 border-b border-border/80">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-cyan-600 fill-cyan-600" />
-                    <span className="font-mono font-bold text-xs text-fg">claude-fable-5</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-50 text-cyan-700 border border-cyan-200">
-                    High Speed
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 pt-1 text-[11px] font-mono">
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">Reasoning</span>
-                    <span className="font-bold text-fg">Sub-Second</span>
-                  </div>
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">Max Tokens</span>
-                    <span className="font-bold text-fg">200k Output</span>
-                  </div>
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">Window</span>
-                    <span className="font-bold text-violet-600">5h Rolling</span>
-                  </div>
-                </div>
+              {/* Persona Selector Tabs */}
+              <div className="p-1.5 bg-[#f5f2eb] border-b border-[#e7e5e4] flex items-center gap-1">
+                {(['creators', 'engineers', 'founders'] as const).map((key) => {
+                  const p = personas[key];
+                  const Icon = p.icon;
+                  const isActive = activePersona === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setActivePersona(key)}
+                      className={`flex-1 py-1 px-1.5 sm:px-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        isActive
+                          ? 'bg-white text-[#1c1917] shadow-xs font-semibold'
+                          : 'text-[#78716c] hover:text-[#1c1917] hover:bg-white/60'
+                      }`}
+                    >
+                      <Icon className={`w-3.5 h-3.5 ${isActive ? p.accent : 'text-[#78716c]'}`} />
+                      <span className="truncate">{key === 'creators' ? 'Creators' : key === 'engineers' ? 'Engineers' : 'Founders'}</span>
+                    </button>
+                  );
+                })}
               </div>
-            </ThreeDCard>
 
-            {/* 3D Card 3 */}
-            <ThreeDCard intensity={10}>
-              <div className="glass-3d-card rounded-panel p-5 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-border/80">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-indigo-600" />
-                    <span className="font-mono font-bold text-xs text-fg">claude-opus-5</span>
+              {/* Live Request & Response Streaming Simulation */}
+              <div className="p-4 sm:p-5 space-y-3.5 font-mono text-xs">
+                
+                {/* Simulated Request */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-[#78716c]">
+                    <span className="font-semibold text-[#6d28d9]">POST /v1/messages</span>
+                    <span>{current.model}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    Deep Intelligence
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 pt-1 text-[11px] font-mono">
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">Protocol</span>
-                    <span className="font-bold text-fg">Anthropic /v1</span>
-                  </div>
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">IDE</span>
-                    <span className="font-bold text-fg">Cursor/CLI</span>
-                  </div>
-                  <div>
-                    <span className="text-muted block text-[9px] uppercase">Status</span>
-                    <span className="font-bold text-emerald-600">100% Up</span>
+                  <div className="p-2.5 rounded-lg bg-[#fdfbf7] border border-[#e7e5e4] text-[#57534e] text-[11px] leading-relaxed">
+                    <span className="text-[#a8a29e] mr-1">&gt;</span> {current.prompt}
                   </div>
                 </div>
+
+                {/* Simulated Streaming Response */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-[#78716c]">
+                    <span className="text-[#059669] flex items-center gap-1">
+                      <Activity className="w-3 h-3" />
+                      <span>200 Streaming Chunk</span>
+                    </span>
+                    <span>{current.tokens}</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-[#1c1917] text-[#e7e5e4] text-[11px] leading-relaxed overflow-x-auto min-w-0 max-h-36">
+                    <pre className="whitespace-pre-wrap font-mono">{current.response}</pre>
+                  </div>
+                </div>
+
+                {/* Persona Recommendation Subtext */}
+                <div className="pt-2 border-t border-[#f5f2eb] flex items-center justify-between text-[11px] text-[#78716c]">
+                  <span className="font-medium text-[#1c1917]">Target Workflow:</span>
+                  <span className="truncate max-w-[200px] text-right font-sans">{current.focus}</span>
+                </div>
+
               </div>
-            </ThreeDCard>
+
+            </div>
+
+            {/* Quick 3-Pillar Verification Stats */}
+            <div className="grid grid-cols-3 gap-2 text-center font-sans">
+              <div className="p-2.5 rounded-xl bg-white border border-[#e7e5e4] shadow-xs space-y-0.5">
+                <p className="text-base font-bold text-[#1c1917]">200,000</p>
+                <p className="text-[10px] text-[#78716c]">Tokens Context</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-[#e7e5e4] shadow-xs space-y-0.5">
+                <p className="text-base font-bold text-[#6d28d9]">5 Hours</p>
+                <p className="text-[10px] text-[#78716c]">Rolling Renewal</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-[#e7e5e4] shadow-xs space-y-0.5">
+                <p className="text-base font-bold text-[#059669]">0 Retention</p>
+                <p className="text-[10px] text-[#78716c]">Private Memory</p>
+              </div>
+            </div>
 
           </div>
 
-        </div>
-
-        {/* Bottom-of-hero Stat Strip */}
-        <div className="mt-16 pt-8 border-t border-border/80 grid grid-cols-3 gap-6 text-left font-mono">
-          <div>
-            <span className="text-2xl sm:text-3xl font-extrabold text-fg block tracking-tight">13</span>
-            <span className="text-xs text-muted font-sans font-medium">models, one endpoint</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-extrabold text-fg block tracking-tight">1M</span>
-            <span className="text-xs text-muted font-sans font-medium">token context, up to</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-extrabold text-fg block tracking-tight">Prepaid</span>
-            <span className="text-xs text-muted font-sans font-medium">tokens, no subscription</span>
-          </div>
         </div>
 
       </div>

@@ -1,245 +1,231 @@
 import React from 'react';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
-import { FileText, Shield, AlertTriangle, CheckCircle2, Lock, Scale, HelpCircle, Server, CreditCard, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  FileText,
+  Scale,
+  CheckCircle2,
+  Lock,
+  Server,
+  CreditCard,
+  AlertTriangle,
+  Shield,
+  HelpCircle,
+  ExternalLink,
+  Zap,
+} from 'lucide-react';
+import { ElectricNavbar } from '../components/ElectricNavbar';
+import { ElectricFooter } from '../components/ElectricFooter';
 
 export const TermsPage: React.FC = () => {
-  const lastUpdatedDate = "August 16, 2026";
+  const lastUpdatedDate = 'October 10, 2026';
 
   return (
-    <div className="min-h-screen bg-bg text-fg flex flex-col font-sans antialiased">
-      <Navbar />
-      <main className="flex-1 py-12 px-5 sm:px-6">
-        <div className="max-w-reading mx-auto space-y-10 bg-card border border-border p-8 sm:p-12 rounded-panel shadow-sm">
+    <div className="min-h-screen bg-[#faf8f5] text-[#1c1917] flex flex-col font-sans selection:bg-[#6d28d9]/10 selection:text-[#6d28d9]">
+      <ElectricNavbar />
+
+      <main className="flex-1 py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto space-y-10 bg-white border border-[#e7e5e4] p-6 sm:p-10 lg:p-12 rounded-2xl sm:rounded-3xl shadow-warm">
           
           {/* Header */}
-          <div className="border-b border-border pb-6 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-200 inline-flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" /> TERMS & CONDITIONS
+          <div className="border-b border-[#e7e5e4] pb-6 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#6d28d9] bg-[#f5f3ff] px-3 py-1 rounded-full border border-[#ddd6fe] inline-flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-[#6d28d9]" />
+                TERMS OF SERVICE
               </span>
-              <span className="text-xs font-mono text-muted">Effective Date: {lastUpdatedDate}</span>
+              <span className="text-xs font-mono text-[#78716c]">Effective Date: {lastUpdatedDate}</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-fg tracking-tight">Terms & Conditions of Service</h1>
-            <p className="text-xs text-muted leading-relaxed font-mono">
-              Operational & Legal Usage Agreement for Lightning Deals Digital Products, AI Subscriptions, and API Access.
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1c1917] tracking-tight">
+              Terms &amp; Conditions of Service
+            </h1>
+            <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
+              Legal Usage Agreement &amp; Operating Standards for LightningAPI.pro Gateway, API Keys, and Digital Compute Packages.
             </p>
           </div>
 
+          {/* Table of Contents Pill Box */}
+          <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] text-xs text-[#57534e] space-y-2">
+            <span className="font-mono text-[10px] uppercase font-bold text-[#78716c] tracking-wider">SECTION INDEX</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 font-medium text-[11px]">
+              <a href="#term-1" className="hover:text-[#6d28d9]">1. Introduction &amp; Gateway Scope</a>
+              <a href="#term-2" className="hover:text-[#6d28d9]">2. Account Registration &amp; Eligibility</a>
+              <a href="#term-3" className="hover:text-[#6d28d9]">3. API Keys &amp; Bearer Custody</a>
+              <a href="#term-4" className="hover:text-[#6d28d9]">4. Capacity Plans &amp; 5-Hour Window</a>
+              <a href="#term-5" className="hover:text-[#6d28d9]">5. Payments &amp; Prepaid Terms</a>
+              <a href="#term-6" className="hover:text-[#6d28d9]">6. Acceptable Use &amp; Anti-Abuse</a>
+              <a href="#term-7" className="hover:text-[#6d28d9]">7. Upstream Providers Disclaimer</a>
+              <a href="#term-8" className="hover:text-[#6d28d9]">8. Service Availability &amp; Telemetry</a>
+              <a href="#term-9" className="hover:text-[#6d28d9]">9. AI Output &amp; Liability Limits</a>
+              <a href="#term-10" className="hover:text-[#6d28d9]">10. Intellectual Property Rights</a>
+              <a href="#term-11" className="hover:text-[#6d28d9]">11. Governing Law &amp; Notices</a>
+            </div>
+          </div>
+
           {/* Legal Sections */}
-          <div className="space-y-8 text-sm text-muted leading-relaxed font-sans">
+          <div className="space-y-8 text-xs sm:text-sm text-[#57534e] leading-relaxed">
             
-            {/* 1. Introduction & Definitions */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Scale className="w-4 h-4 text-violet-600" />
-                <span>1. Introduction & Definitions</span>
+            {/* 1. Introduction */}
+            <section id="term-1" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Scale className="w-4 h-4 text-[#6d28d9]" />
+                <span>1. Introduction &amp; Gateway Scope</span>
               </h2>
               <p>
-                Welcome to <strong>Lightning Deals</strong> ("we", "us", "our", "Lightning Deals API Gateway"). Lightning Deals operates an online digital commerce platform through which customers can purchase digital products, software-related services, digital subscriptions, and AI model API access.
+                Welcome to <strong>LightningAPI.pro</strong> (operated by LightningDeals AI Infrastructure, "we", "us", or "our"). LightningAPI.pro operates an independent, high-performance API gateway engineered to provide drop-in Anthropic Messages API compatible inference to supported models.
               </p>
-              <p>For the purposes of these Terms & Conditions ("Terms"):</p>
-              <ul className="list-disc pl-5 space-y-1 text-xs font-mono">
-                <li><strong>"Customer", "User", "You", "Your"</strong> refers to any individual, developer, company, or legal entity creating an account, making a purchase, or utilizing our services.</li>
-                <li><strong>"Products", "Services"</strong> refers to all digital subscriptions, API token allocations, key credentials, digital passes, and software access provided via <a href="https://lightningapi.pro" className="text-violet-600 underline font-bold">lightningapi.pro</a>.</li>
-                <li><strong>"API Key"</strong> refers to the digital authentication token credentials issued to grant programmatic HTTP access to AI models.</li>
+              <p>
+                By creating an account, claiming a trial pass, purchasing a capacity plan, or generating an API request through <code className="font-mono text-[#1c1917]">https://lightningapi.pro</code>, you agree to be legally bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you must not use or access our gateway.
+              </p>
+            </section>
+
+            {/* 2. Account Registration & Eligibility */}
+            <section id="term-2" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#6d28d9]" />
+                <span>2. Account Registration &amp; Eligibility</span>
+              </h2>
+              <p>
+                To utilize the gateway, customers must be at least 18 years of age or possess valid legal authority to bind an entity. You represent that all registration details provided (including email address) are authentic, accurate, and current. Accounts created using temporary or disposable email domains to circumvent trial limits are subject to immediate suspension.
+              </p>
+            </section>
+
+            {/* 3. API Keys & Bearer Custody */}
+            <section id="term-3" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Lock className="w-4 h-4 text-[#6d28d9]" />
+                <span>3. API Keys &amp; Bearer Token Custody</span>
+              </h2>
+              <p>
+                Access to the gateway is authorized via cryptographically generated API keys (<code className="font-mono text-[#1c1917]">ld_live_...</code> or <code className="font-mono text-[#1c1917]">ld_trial_...</code>). These keys operate as confidential bearer credentials:
+              </p>
+              <ul className="list-disc pl-5 space-y-1.5 text-xs text-[#57534e]">
+                <li><strong>Strict Confidentiality:</strong> You are solely responsible for maintaining key custody. Never hardcode keys into publicly readable GitHub repositories, client-side web bundles, or public forums.</li>
+                <li><strong>Custodial Liability:</strong> Any request originating with your key credential is treated as authorized by you, and token usage incurred will be deducted from your plan's rolling capacity.</li>
+                <li><strong>Revocation:</strong> If you suspect that a key has been compromised, you must revoke or regenerate the credential immediately via the Customer Dashboard.</li>
               </ul>
             </section>
 
-            {/* 2. Eligibility */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-violet-600" />
-                <span>2. Eligibility & Usage Requirements</span>
+            {/* 4. Capacity Plans & 5-Hour Window */}
+            <section id="term-4" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Server className="w-4 h-4 text-[#6d28d9]" />
+                <span>4. Capacity Plans &amp; 5-Hour Continuous Rolling Window</span>
               </h2>
               <p>
-                By accessing our website or purchasing any product, you represent and warrant that:
+                LightningAPI.pro offers digital capacity packages calculated using a continuous 5-hour rolling mathematical allowance:
               </p>
-              <ul className="list-disc pl-5 space-y-2 text-xs">
-                <li>You are at least 18 years of age or possess legal parental/guardian consent to enter into binding legal agreements.</li>
-                <li>All registration information provided to Lightning Deals is accurate, current, and complete.</li>
-                <li>You are responsible for maintaining the confidentiality and security of your account credentials and assigned API keys.</li>
-              </ul>
-            </section>
-
-            {/* 3. Account Registration & Security */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Lock className="w-4 h-4 text-violet-600" />
-                <span>3. Account Registration & Fraud Prevention</span>
-              </h2>
-              <p>
-                To access digital products or API keys, users must register an account with a verified email address. You agree that:
-              </p>
-              <ul className="list-disc pl-5 space-y-2 text-xs font-mono">
-                <li>You are strictly responsible for all activity conducted under your account credentials.</li>
-                <li>You must not attempt to access another customer's account or private API credentials without explicit authorization.</li>
-                <li>Accounts must not be created using disposable email services or automated bots to conduct fraudulent activity.</li>
-                <li>We reserve the right to suspend accounts suspected of multi-account registration for trial exploitation.</li>
-              </ul>
-            </section>
-
-            {/* 4. Digital Products & AI Access */}
-            <section className="space-y-4">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Server className="w-4 h-4 text-violet-600" />
-                <span>4. Digital Products & AI Quota Architecture</span>
-              </h2>
-              <p>
-                Lightning Deals provides digital subscriptions and API access delivered electronically via API key credentials (`ld_live_...` or `ld_trial_...`). Usage is governed by 5-hour rolling token windows, rate limits, and fixed validity periods.
-              </p>
-
-              <div className="p-4 bg-bg border border-border rounded-panel space-y-3 font-mono text-xs">
-                <p className="font-bold text-fg">Claude Max Product Plans & Quota Specifications:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3 bg-white border border-border rounded">
-                    <p className="font-bold text-violet-700">FREE 1-DAY TRIAL</p>
-                    <p className="text-muted">Quota: 1M Tokens / 5 Hours</p>
-                    <p className="text-muted">Validity: 1 Day (24 Hours)</p>
-                    <p className="text-[10px] text-emerald-600 font-bold">1 per verified customer account</p>
-                  </div>
-                  <div className="p-3 bg-white border border-border rounded">
-                    <p className="font-bold text-violet-700">PRO PLAN (₹2,499)</p>
-                    <p className="text-muted">Quota: 5M Tokens / 5 Hours</p>
-                    <p className="text-muted">Validity: 30 Days</p>
-                    <p className="text-[10px] text-violet-600 font-bold">Automatic 5h Quota Refresh</p>
-                  </div>
-                  <div className="p-3 bg-white border border-border rounded">
-                    <p className="font-bold text-violet-700">MAX PLAN (₹5,499)</p>
-                    <p className="text-muted">Quota: 20M Tokens / 5 Hours</p>
-                    <p className="text-muted">Validity: 30 Days</p>
-                    <p className="text-[10px] text-violet-600 font-bold">Automatic 5h Quota Refresh</p>
-                  </div>
-                  <div className="p-3 bg-white border border-border rounded">
-                    <p className="font-bold text-violet-700">ULTRA PLAN (₹9,999)</p>
-                    <p className="text-muted">Quota: 40M Tokens / 5 Hours</p>
-                    <p className="text-muted">Validity: 30 Days</p>
-                    <p className="text-[10px] text-violet-600 font-bold">Automatic 5h Quota Refresh</p>
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-[#faf8f5] rounded-xl border border-[#e7e5e4] text-xs font-mono">
+                <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
+                  <p className="font-bold text-[#6d28d9]">Claude Max 5x (₹299)</p>
+                  <p className="text-[#78716c]">Capacity: 5M Tokens / 5-hour window</p>
+                  <p className="text-[#78716c]">Validity: 30 Days</p>
+                </div>
+                <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
+                  <p className="font-bold text-[#6d28d9]">Claude Max 20x (₹899)</p>
+                  <p className="text-[#78716c]">Capacity: 20M Tokens / 5-hour window</p>
+                  <p className="text-[#78716c]">Validity: 30 Days</p>
+                </div>
+                <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
+                  <p className="font-bold text-[#6d28d9]">Claude Max 40x (₹1,699)</p>
+                  <p className="text-[#78716c]">Capacity: 40M Tokens / 5-hour window</p>
+                  <p className="text-[#78716c]">Validity: 30 Days</p>
+                </div>
+                <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
+                  <p className="font-bold text-[#6d28d9]">Claude Max 100x (₹3,999)</p>
+                  <p className="text-[#78716c]">Capacity: 100M Tokens / 5-hour window</p>
+                  <p className="text-[#78716c]">Validity: 30 Days</p>
                 </div>
               </div>
-
-              <p className="text-xs text-muted">
-                <strong>Important Notice:</strong> Our plans provide structured 5-hour rolling token capacity. We do NOT describe or market any plan as "unlimited" or "lifetime". Token allocations refresh continuously on a rolling 5-hour window schedule during the active validity period.
+              <p className="text-xs text-[#78716c]">
+                <strong>No "Unlimited" Representation:</strong> We do not market or sell "unlimited" or "lifetime" token passes. All packages enforce high-precision mathematical rolling quotas. Tokens roll back into available headroom exactly 5 hours (300 minutes) after generation. Unused capacity does not accumulate beyond the plan's ceiling.
               </p>
             </section>
 
-            {/* 5. Third-Party Services Disclaimer */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Shield className="w-4 h-4 text-violet-600" />
-                <span>5. Third-Party Services & Independence Disclaimer</span>
+            {/* 5. Payments & Prepaid Terms */}
+            <section id="term-5" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-[#6d28d9]" />
+                <span>5. Payments, Pricing &amp; Prepaid Terms</span>
               </h2>
               <p>
-                Lightning Deals operates an independent API gateway infrastructure. Certain digital products or model proxies rely on third-party model providers, cloud infrastructure, or upstream APIs. Lightning Deals does not directly control third-party upstream outages, scheduled maintenance, provider API protocol updates, or model availability changes.
-              </p>
-              <p className="text-xs text-muted">
-                <strong>Trademark Disclaimer:</strong> Lightning Deals is an independent platform and is <strong>NOT affiliated, endorsed by, or sponsored by Anthropic PBC or OpenAI Inc.</strong> All product names, trademarks, and registered trademarks belong to their respective owners.
+                All prices are denominated in Indian Rupees (INR ₹) inclusive of applicable taxes unless specified otherwise. Purchases represent one-time prepaid digital capacity allocations for the stated duration (30 days). Unless explicitly requested, <strong>we do not perform recurring auto-renewal deductions</strong> without your affirmative authorization. Payments are settled securely via certified third-party payment gateways.
               </p>
             </section>
 
-            {/* 6. Payments & Billing */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-violet-600" />
-                <span>6. Payments, Checkout & Currency</span>
+            {/* 6. Acceptable Use & Anti-Abuse */}
+            <section id="term-6" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span>6. Acceptable Use &amp; Anti-Abuse Policy</span>
               </h2>
-              <p>
-                All product prices are displayed in Indian Rupees (INR ₹) on the website checkout page. Payments are securely processed through encrypted third-party payment processors and certified banking gateways. Lightning Deals does NOT store complete credit card numbers, CVV codes, or banking passwords on our servers. The price presented at final checkout is the binding purchase price.
-              </p>
-            </section>
-
-            {/* 7. Subscriptions & Fixed Validity */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 text-violet-600" />
-                <span>7. Subscriptions & Fixed Validity (No Auto-Renewal)</span>
-              </h2>
-              <p>
-                All paid plans (PRO, MAX, ULTRA) come with a fixed 30-day validity period calculated from the moment of payment activation. Unless explicitly stated otherwise, <strong>subscriptions do NOT automatically renew</strong> or charge recurring fees to your payment method. Upon expiration after 30 days, customers may manually purchase a new plan to continue access.
-              </p>
-            </section>
-
-            {/* 8. Prohibited Conduct */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span>8. Prohibited Conduct & Infrastructure Abuse</span>
-              </h2>
-              <p>Customers strictly agree NOT to engage in:</p>
-              <ul className="list-disc pl-5 space-y-2 text-xs font-mono">
-                <li>Reselling or publicly sharing private API key credentials without express written authorization.</li>
-                <li>Attempting to manipulate, bypass, or flood token accounting engines or rolling rate limits.</li>
-                <li>Using API access for denial-of-service attacks, automated spamming, or unlawful activities.</li>
-                <li>Reverse engineering protected gateway infrastructure or attempting unauthorized database access.</li>
-                <li>Exploiting payment system bugs or conducting fraudulent chargebacks after full quota delivery.</li>
+              <p>Customers agree to use the service in compliance with all applicable laws and agree NOT to:</p>
+              <ul className="list-disc pl-5 space-y-1.5 text-xs text-[#57534e]">
+                <li>Attempt to bypass, manipulate, or tamper with token counters or rate-limiting middleware.</li>
+                <li>Resell, redistribute, or publicly broker access to private API keys without prior written authorization.</li>
+                <li>Conduct denial-of-service (DoS) attacks, flood requests, or compromise platform infrastructure.</li>
+                <li>Generate content prohibited by law, including malware, unauthorized surveillance, or abusive material.</li>
               </ul>
             </section>
 
-            {/* 9. Suspension & Termination */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                <span>9. Account Suspension & Termination</span>
+            {/* 7. Upstream Providers Disclaimer */}
+            <section id="term-7" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#6d28d9]" />
+                <span>7. Upstream AI Providers &amp; Independence Disclaimer</span>
               </h2>
               <p>
-                Lightning Deals reserves the right to suspend or terminate service access immediately in cases of payment fraud, infrastructure abuse, unauthorized key resale, or serious violations of these Terms. In cases of service termination due to gross misconduct or illegal activity, access credentials will be permanently revoked.
+                LightningAPI.pro operates as an independent technical gateway. Inference requests are processed using upstream AI infrastructure. <strong>LightningAPI.pro is NOT affiliated, endorsed, or sponsored by Anthropic PBC, OpenAI Inc., or their affiliates.</strong> All product names, model identifiers, and trademarks are the property of their respective owners. We do not control upstream scheduled maintenance, protocol modifications, or external provider outages.
               </p>
             </section>
 
-            {/* 10. Service Availability */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Server className="w-4 h-4 text-violet-600" />
-                <span>10. Service Availability & Maintenance</span>
+            {/* 8. Availability, Maintenance & Telemetry */}
+            <section id="term-8" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#6d28d9]" />
+                <span>8. Service Availability &amp; Telemetry</span>
               </h2>
               <p>
-                While Lightning Deals strives for continuous 99.9% gateway availability, uninterrupted service cannot be guaranteed 100% of the time. Unscheduled downtime may occur due to cloud server maintenance, network provider issues, or upstream AI supplier disruptions.
+                While we engineer our gateway for 99.9% availability and sub-35ms time-to-first-token latency, uninterrupted uptime cannot be guaranteed 100% of the time due to internet routing variances and upstream provider dependencies. Real-time platform telemetry is publicly accessible on our <Link to="/status" className="text-[#6d28d9] underline font-medium">Status Page</Link>.
               </p>
             </section>
 
-            {/* 11. Limitation of Liability */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Scale className="w-4 h-4 text-violet-600" />
-                <span>11. Limitation of Liability</span>
+            {/* 9. AI Output & Limitation of Liability */}
+            <section id="term-9" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Scale className="w-4 h-4 text-[#6d28d9]" />
+                <span>9. AI Output Disclaimer &amp; Limitation of Liability</span>
               </h2>
               <p>
-                To the maximum extent permitted under applicable law, Lightning Deals shall not be liable for indirect, incidental, special, or consequential damages resulting from lost profits, service interruptions, or data loss. In all circumstances, Lightning Deals' aggregate liability under any claim shall be strictly limited to the amount paid by you for the active subscription in the 30 days prior to the claim.
+                AI models generate probabilistic completions. LightningAPI.pro does not warrant the factual accuracy, completeness, or fitness for purpose of any model output. The customer is solely responsible for verifying code, text, or recommendations before deployment in production environments.
+              </p>
+              <p className="text-xs text-[#78716c]">
+                To the maximum extent permitted by applicable law, LightningAPI.pro and its operators shall not be liable for indirect, incidental, or consequential damages resulting from downtime or output errors. In all circumstances, our maximum aggregate liability is limited to the fees actually paid by you in the 30 days preceding the event giving rise to liability.
               </p>
             </section>
 
-            {/* 12. Intellectual Property */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Shield className="w-4 h-4 text-violet-600" />
-                <span>12. Intellectual Property Rights</span>
+            {/* 10. Intellectual Property Rights */}
+            <section id="term-10" className="space-y-3 scroll-mt-24">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#6d28d9]" />
+                <span>10. Intellectual Property Rights</span>
               </h2>
               <p>
-                All proprietary branding, website designs, original logos, code, documentation, and user interfaces of Lightning Deals remain the exclusive intellectual property of Lightning Deals. Third-party trademarks, logos, and model names belong exclusively to their respective corporate owners.
+                All proprietary gateway software, documentation, website design, and logos are the exclusive property of LightningAPI.pro. You retain all ownership rights in the code, prompts, and application files you transmit through the gateway.
               </p>
             </section>
 
-            {/* 13. Governing Law & Jurisdiction */}
-            <section className="space-y-3 border-t border-border pt-6">
-              <h2 className="text-base font-bold text-fg">13. Governing Law & Jurisdiction</h2>
-              <p>
-                These Terms & Conditions are governed by and construed in accordance with the laws of <strong>India</strong>. Any legal disputes or claims arising under these Terms shall be subject to the exclusive jurisdiction of the competent courts in India.
-              </p>
-            </section>
-
-            {/* 14. Contact Information */}
-            <section className="space-y-3 border-t border-border pt-6">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-violet-600" />
-                <span>14. Support & Official Contact</span>
+            {/* 11. Governing Law & Notices */}
+            <section id="term-11" className="space-y-3 scroll-mt-24 border-t border-[#e7e5e4] pt-6">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-[#6d28d9]" />
+                <span>11. Governing Law &amp; Legal Notices</span>
               </h2>
               <p>
-                For legal inquiries, terms clarification, or customer support, please contact our team via your Customer Portal ticket system or email us at:
+                These Terms of Service are governed by and construed in accordance with the laws of <strong>India</strong>. Any disputes arising hereunder shall be subject to the exclusive jurisdiction of the competent courts in India.
               </p>
-              <div className="p-4 bg-bg border border-border rounded-control font-mono text-xs space-y-1">
-                <p className="font-bold text-fg">Official Support Desk: <a href="mailto:support@lightningdeals.in" className="text-violet-600 underline">support@lightningdeals.in</a></p>
-                <p className="text-muted">Business Legal Entity: Lightning Deals API Gateway (`[BUSINESS LEGAL NAME]`) / Operating from India</p>
+              <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] text-xs font-mono space-y-1 text-[#57534e]">
+                <p><strong>Official Legal Inquiries:</strong> <a href="mailto:support@lightningapi.pro" className="text-[#6d28d9] underline">support@lightningapi.pro</a></p>
+                <p><strong>Operator:</strong> LightningDeals AI Infrastructure · India</p>
               </div>
             </section>
 
@@ -247,7 +233,8 @@ export const TermsPage: React.FC = () => {
 
         </div>
       </main>
-      <Footer />
+
+      <ElectricFooter />
     </div>
   );
 };

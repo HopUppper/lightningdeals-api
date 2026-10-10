@@ -411,36 +411,36 @@ export const AdminPlans: React.FC = () => {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-panel bg-card border border-border space-y-1">
+        <div className="technical-panel p-4 space-y-1">
           <span className="text-[11px] font-mono text-muted uppercase">Active Plans</span>
-          <div className="text-xl font-extrabold font-mono text-fg">
+          <div className="text-xl font-bold font-mono text-fg tabular-nums">
             {plans.filter((p) => p.enabled).length} / {plans.length}
           </div>
-          <p className="text-[10px] text-muted">Configured in database</p>
+          <p className="text-[10px] text-muted font-mono">Configured in database</p>
         </div>
 
-        <div className="p-4 rounded-panel bg-card border border-border space-y-1">
+        <div className="technical-panel p-4 space-y-1">
           <span className="text-[11px] font-mono text-muted uppercase">Active Promo Codes</span>
-          <div className="text-xl font-extrabold font-mono text-emerald-600">
+          <div className="text-xl font-bold font-mono text-emerald-600 tabular-nums">
             {coupons.filter((c) => c.status === 'ACTIVE').length}
           </div>
-          <p className="text-[10px] text-muted">Ready for checkout</p>
+          <p className="text-[10px] text-muted font-mono">Ready for checkout</p>
         </div>
 
-        <div className="p-4 rounded-panel bg-card border border-border space-y-1">
+        <div className="technical-panel p-4 space-y-1">
           <span className="text-[11px] font-mono text-muted uppercase">Live Subscriptions</span>
-          <div className="text-xl font-extrabold font-mono text-violet-700">
+          <div className="text-xl font-bold font-mono text-accent tabular-nums">
             {overview?.activeSubscriptions || 0}
           </div>
-          <p className="text-[10px] text-muted">Paying customer keys</p>
+          <p className="text-[10px] text-muted font-mono">Paying customer keys</p>
         </div>
 
-        <div className="p-4 rounded-panel bg-card border border-border space-y-1">
+        <div className="technical-panel p-4 space-y-1">
           <span className="text-[11px] font-mono text-muted uppercase">Today's Revenue</span>
-          <div className="text-xl font-extrabold font-mono text-fg">
+          <div className="text-xl font-bold font-mono text-fg tabular-nums">
             ₹{(overview?.todayRevenueInr || 0).toLocaleString()}
           </div>
-          <p className="text-[10px] text-muted">{overview?.todaySalesCount || 0} orders today</p>
+          <p className="text-[10px] text-muted font-mono">{overview?.todaySalesCount || 0} orders today</p>
         </div>
       </div>
 
@@ -450,7 +450,7 @@ export const AdminPlans: React.FC = () => {
           onClick={() => setActiveTab('plans')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'plans'
-              ? 'border-violet-600 text-violet-700'
+              ? 'border-accent text-accent'
               : 'border-transparent text-muted hover:text-fg'
           }`}
         >
@@ -462,7 +462,7 @@ export const AdminPlans: React.FC = () => {
           onClick={() => setActiveTab('coupons')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'coupons'
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-emerald-600 text-emerald-600'
               : 'border-transparent text-muted hover:text-fg'
           }`}
         >
@@ -474,7 +474,7 @@ export const AdminPlans: React.FC = () => {
           onClick={() => setActiveTab('subscriptions')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'subscriptions'
-              ? 'border-violet-600 text-violet-700'
+              ? 'border-accent text-accent'
               : 'border-transparent text-muted hover:text-fg'
           }`}
         >
@@ -486,7 +486,7 @@ export const AdminPlans: React.FC = () => {
           onClick={() => setActiveTab('trials')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'trials'
-              ? 'border-violet-600 text-violet-700'
+              ? 'border-accent text-accent'
               : 'border-transparent text-muted hover:text-fg'
           }`}
         >

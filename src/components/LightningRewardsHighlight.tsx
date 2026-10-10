@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, ArrowRight, Sparkles, CheckCircle2, TrendingUp, ShieldCheck, Flame } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowRight, Check, Coins, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { adminFetch } from '../utils/api';
 
@@ -14,7 +13,6 @@ export const LightningRewardsHighlight: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
 
-    // Fetch active promotional offer
     const fetchOffer = async () => {
       try {
         const res = await fetch('/api/rewards/active-offer');
@@ -30,7 +28,6 @@ export const LightningRewardsHighlight: React.FC = () => {
     };
     fetchOffer();
 
-    // Fetch customer balance if logged in
     if (user) {
       const fetchBalance = async () => {
         try {
@@ -61,269 +58,128 @@ export const LightningRewardsHighlight: React.FC = () => {
   const isPromo = Boolean(activeOffer);
 
   return (
-    <section className="py-20 px-5 sm:px-6 relative overflow-hidden bg-gradient-to-b from-bg via-violet-50/20 to-bg border-y border-border/60">
-      {/* Background Decorative Blur */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-violet-500/10 via-indigo-500/10 to-amber-500/10 blur-3xl pointer-events-none rounded-full -z-10" />
-
+    <section className="py-16 lg:py-24 px-4 sm:px-6 bg-white border-b border-[#e5e7eb] font-sans">
       <div className="max-w-page mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           
           {/* Left Column: Heading & Value Proposition */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="lg:col-span-7 space-y-6"
-          >
-            {isPromo ? (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400 text-amber-800 text-xs font-mono font-bold uppercase tracking-wider shadow-xs">
-                <Flame className="w-3.5 h-3.5 fill-current text-amber-600 animate-pulse" />
-                <span>{activeOffer.badge || 'FLASH OFFER ACTIVE'}</span>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-100/80 border border-violet-300 text-violet-800 text-xs font-mono font-bold uppercase tracking-wider shadow-xs">
-                <Zap className="w-3.5 h-3.5 fill-current text-violet-600 animate-pulse" />
-                <span>Customer Loyalty Program</span>
-              </div>
-            )}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#f4f4f0] border border-[#e5e7eb] text-xs font-medium text-[#4b5563] uppercase tracking-wider">
+              {isPromo ? (activeOffer.badge || 'PROMOTION') : 'REWARDS PROGRAM'}
+            </div>
 
             <div className="space-y-3">
               {isPromo ? (
                 <>
-                  <h2 className="text-3xl sm:text-5xl font-extrabold text-fg tracking-tight leading-tight">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#111827] tracking-tight">
                     {activeOffer.title}
                   </h2>
-                  <p className="text-base sm:text-lg text-muted font-normal leading-relaxed max-w-xl">
+                  <p className="text-sm sm:text-base text-[#4b5563] leading-relaxed max-w-xl">
                     {activeOffer.subtitle}
                   </p>
                 </>
               ) : (
                 <>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold text-fg tracking-tight leading-tight">
-                    Spend with Lightning. <br />
-                    <span className="animated-gradient-text">Earn 10% Back in Credits.</span>
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#111827] tracking-tight">
+                    Power your projects. Earn 10% back in credits.
                   </h2>
-                  <p className="text-base text-muted font-normal leading-relaxed max-w-xl">
-                    Get <strong className="text-fg font-semibold">10% back in Lightning Credits</strong> on eligible purchases.
-                    Earn up to <strong className="text-fg font-semibold">₹500 Lightning Credits per transaction</strong> and use your accumulated credits toward future subscriptions and renewals.
+                  <p className="text-sm sm:text-base text-[#4b5563] leading-relaxed max-w-xl">
+                    Receive 10% back in Lightning Credits on eligible plan recharges. Every ₹1 credit equals a ₹1 discount applied automatically toward your renewals.
                   </p>
                 </>
               )}
             </div>
 
             {/* Feature Bullets */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div className="flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
-                  <p className="text-xs font-bold text-fg">
-                    {isPromo ? `${activeOffer.multiplier}X Boost` : '10% Back'}
-                  </p>
-                  <p className="text-[11px] text-muted font-mono">
-                    {isPromo ? (activeOffer.minPurchaseAmount > 0 ? `On orders of ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : 'Boost on all purchases') : 'On first ₹5,000 per order'}
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+              <div className="bg-[#fbfbfa] p-4 rounded-lg border border-[#e5e7eb] space-y-1">
+                <p className="text-xs font-bold text-[#111827] flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>{isPromo ? `${activeOffer.multiplier}X Multiplier` : '10% Cash Back'}</span>
+                </p>
+                <p className="text-[11px] text-[#6b7280]">
+                  {isPromo ? (activeOffer.minPurchaseAmount > 0 ? `Orders of ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : 'All plan orders') : 'On first ₹5,000 per order'}
+                </p>
               </div>
 
-              <div className="flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
-                  <p className="text-xs font-bold text-fg">
-                    {isPromo ? `Up to ₹${activeOffer.maxCredits.toLocaleString()} Max` : 'Unlimited Wallet'}
-                  </p>
-                  <p className="text-[11px] text-muted font-mono">
-                    {isPromo ? 'Per order cap (up to ₹5k)' : 'No balance cap restriction'}
-                  </p>
-                </div>
+              <div className="bg-[#fbfbfa] p-4 rounded-lg border border-[#e5e7eb] space-y-1">
+                <p className="text-xs font-bold text-[#111827] flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>No Expiration</span>
+                </p>
+                <p className="text-[11px] text-[#6b7280]">
+                  {isPromo ? `Cap: ₹${activeOffer.maxCredits} bonus` : 'Your credits never expire'}
+                </p>
               </div>
 
-              <div className="flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
-                  <p className="text-xs font-bold text-fg">Instant Redemption</p>
-                  <p className="text-[11px] text-muted font-mono">Apply directly at checkout</p>
-                </div>
+              <div className="bg-[#fbfbfa] p-4 rounded-lg border border-[#e5e7eb] space-y-1">
+                <p className="text-xs font-bold text-[#111827] flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>Auto-Applied</span>
+                </p>
+                <p className="text-[11px] text-[#6b7280]">
+                  Redeem with 1 click at checkout
+                </p>
               </div>
             </div>
 
-            {/* CTAs */}
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              {user ? (
-                <Link
-                  to="/dashboard/rewards"
-                  className="ui-button-primary text-xs py-3 px-6 font-bold flex items-center gap-2 shadow-lg shadow-violet-500/20"
-                >
-                  <Zap className="w-4 h-4 fill-current" />
-                  <span>View Your Lightning Rewards</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              ) : (
-                <Link
-                  to="/pricing"
-                  className="ui-button-primary text-xs py-3 px-6 font-bold flex items-center gap-2 shadow-lg shadow-violet-500/20"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Explore Plans & Claim Offer</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              )}
-
+            <div className="flex items-center gap-4 pt-2">
               <Link
-                to={user ? "/dashboard/plan" : "/pricing"}
-                className="ui-button-secondary text-xs py-3 px-5 font-bold"
+                to={user ? '/dashboard/rewards' : '/register?redirect=rewards'}
+                className="ui-button-primary text-xs font-medium px-5 py-2.5"
               >
-                Browse Plans & Offers
+                <span>{user ? 'Open Rewards Wallet' : 'Create Free Account to Earn'}</span>
+                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </Link>
             </div>
-          </motion.div>
+          </div>
 
-          {/* Right Column: Dynamic Live Card */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="lg:col-span-5"
-          >
-            <div className={`relative rounded-2xl border-2 ${isPromo ? 'border-amber-400/90 shadow-amber-500/15' : 'border-violet-300/80 shadow-violet-500/10'} bg-white p-7 shadow-2xl space-y-6`}>
-              
-              {/* Badge & Program Header */}
-              <div className="flex items-center justify-between border-b border-border/80 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${isPromo ? 'bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-600' : 'bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500'} text-white font-extrabold shadow-md`}>
-                    <Zap className="w-4 h-4 fill-current" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold text-fg tracking-tight">
-                      ⚡ LIGHTNING REWARDS
-                    </h3>
-                    <p className="text-[10px] text-muted font-mono uppercase tracking-wider">
-                      {isPromo ? 'Flash Promotion Active' : 'Authoritative Member Benefits'}
-                    </p>
-                  </div>
+          {/* Right Column: Digital Wallet Preview */}
+          <div className="lg:col-span-5">
+            <div className="bg-[#fbfbfa] border border-[#e5e7eb] rounded-xl p-6 sm:p-7 space-y-5 shadow-xs">
+              <div className="flex items-center justify-between border-b border-[#e5e7eb] pb-4">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-5 h-5 text-[#1e40af]" />
+                  <span className="text-sm font-bold text-[#111827]">Lightning Credit Wallet</span>
                 </div>
-
-                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${isPromo ? 'text-amber-950 bg-gradient-to-r from-amber-400 to-yellow-400 border border-amber-300 shadow-xs' : 'text-emerald-700 bg-emerald-50 border border-emerald-200'} px-2.5 py-1 rounded-full`}>
-                  {isPromo ? `${activeOffer.multiplier}X Multiplier` : '10% Back'}
-                </span>
+                <span className="text-xs font-medium text-[#6b7280]">1 Credit = ₹1 INR</span>
               </div>
 
-              {/* Center Content: Logged-in vs Public */}
-              {user ? (
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-xs font-mono text-muted uppercase font-bold">
-                      Your Available Balance
-                    </p>
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className="text-4xl sm:text-5xl font-extrabold text-fg font-mono tracking-tight">
-                        ₹{loadingBalance ? '...' : (balance !== null ? balance.toLocaleString() : '0')}
-                      </span>
-                      <span className="text-xs font-mono font-bold text-violet-700">Lightning Credits</span>
-                    </div>
-                  </div>
-
-                  <div className={`p-3.5 rounded-xl ${isPromo ? 'bg-amber-50/90 border border-amber-200' : 'bg-violet-50/80 border border-violet-200/80'} text-xs font-mono space-y-1`}>
-                    <p className={`${isPromo ? 'text-amber-950' : 'text-violet-900'} font-bold flex items-center gap-1.5`}>
-                      <CheckCircle2 className={`w-3.5 h-3.5 ${isPromo ? 'text-amber-600' : 'text-violet-600'}`} />
-                      <span>{isPromo ? (activeOffer.minPurchaseAmount > 0 ? `Boost Active: Earn ${activeOffer.multiplier}X on orders of ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : `Boost Active: Earn ${activeOffer.multiplier}X on ALL purchases today!`) : 'Ready for Instant Redemption'}</span>
-                    </p>
-                    <p className="text-muted text-[11px]">
-                      {isPromo ? `Capped at max ${activeOffer.maxCredits} credits (on up to ₹5,000 purchase cap). Credits never expire!` : 'Apply these credits at checkout to discount your next Claude plan.'}
-                    </p>
-                  </div>
-
-                  <Link
-                    to="/dashboard/rewards"
-                    className="w-full py-2.5 rounded-control bg-subtle hover:bg-violet-50 text-violet-700 font-bold text-xs flex items-center justify-center gap-1.5 border border-violet-200 transition-colors"
-                  >
-                    <span>Open Rewards Dashboard</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+              <div className="p-5 rounded-lg bg-white border border-[#e5e7eb] space-y-2">
+                <div className="text-xs font-medium text-[#6b7280]">Available Credit Balance</div>
+                <div className="text-3xl font-bold text-[#111827]">
+                  {loadingBalance ? (
+                    '...'
+                  ) : user ? (
+                    `₹${(balance ?? 0).toLocaleString()}`
+                  ) : (
+                    '₹0'
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-xs font-mono text-muted uppercase font-bold">
-                      {isPromo ? 'Flash Promotion Potential' : 'Example Customer Earnings'}
-                    </p>
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-4xl sm:text-5xl font-extrabold ${isPromo ? 'text-amber-600' : 'text-emerald-600'} font-mono tracking-tight`}>
-                        +{isPromo ? activeOffer.maxCredits.toLocaleString() : '500'}
-                      </span>
-                      <span className="text-xs font-mono font-bold text-muted">Credits / Order</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-xs font-mono border-t border-border/60 pt-3">
-                    {isPromo ? (
-                      <>
-                        <div className="flex justify-between text-muted">
-                          <span>₹1,000 Purchase:</span>
-                          <span className="font-bold text-fg">+{Math.min(100 * (activeOffer.multiplier || 2), activeOffer.maxCredits)} Credits ({activeOffer.multiplier}X)</span>
-                        </div>
-                        <div className="flex justify-between text-muted">
-                          <span>₹3,000 Purchase:</span>
-                          <span className="font-bold text-fg">+{Math.min(300 * (activeOffer.multiplier || 2), activeOffer.maxCredits)} Credits ({activeOffer.multiplier}X)</span>
-                        </div>
-                        <div className="flex justify-between text-amber-800 font-extrabold bg-amber-50/80 p-1.5 rounded">
-                          <span>₹5,000+ Purchase:</span>
-                          <span className="text-amber-700">+{activeOffer.maxCredits.toLocaleString()} Credits (Max Cap)</span>
-                        </div>
-                        <div className="flex justify-between text-muted text-[11px]">
-                          <span>Calculation Ceiling:</span>
-                          <span className="font-bold text-fg">Up to ₹5,000 purchase cap</span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex justify-between text-muted">
-                          <span>₹1,000 Purchase:</span>
-                          <span className="font-bold text-fg">+₹100 Credits</span>
-                        </div>
-                        <div className="flex justify-between text-muted">
-                          <span>₹3,000 Purchase:</span>
-                          <span className="font-bold text-fg">+₹300 Credits</span>
-                        </div>
-                        <div className="flex justify-between text-muted">
-                          <span>₹5,000 Purchase:</span>
-                          <span className="font-bold text-emerald-600">+₹500 Credits (Max)</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-subtle/80 text-[11px] font-mono text-muted leading-relaxed">
-                    Credits accumulate indefinitely without expiry or wallet balance cap.
-                  </div>
-
-                  <Link
-                    to="/pricing"
-                    className="w-full py-2.5 rounded-control bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all"
-                  >
-                    <span>Browse Plans & Claim Offer</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                <div className="text-xs text-[#6b7280]">
+                  {user ? 'Ready for your next subscription renewal' : 'Sign in to inspect and apply your credits'}
                 </div>
-              )}
-
-              {/* Bottom Guarantee */}
-              <div className="pt-3 border-t border-border/80 flex items-center justify-between text-[11px] font-mono text-muted">
-                <span className="flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Authoritative Server-Verified</span>
-                </span>
-                <span>₹1 Credit = ₹1 INR</span>
               </div>
 
+              <div className="space-y-2 pt-2 text-xs text-[#4b5563]">
+                <div className="flex justify-between">
+                  <span>Base Earning Rate</span>
+                  <span className="font-semibold text-[#111827]">10% of purchase value</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Referral Matching Bonus</span>
+                  <span className="font-semibold text-[#111827]">10% lifetime match</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Usage Scope</span>
+                  <span className="font-semibold text-[#111827]">All prepaid token tiers</span>
+                </div>
+              </div>
             </div>
-          </motion.div>
+          </div>
 
         </div>
       </div>
     </section>
   );
 };
-
-export default LightningRewardsHighlight;

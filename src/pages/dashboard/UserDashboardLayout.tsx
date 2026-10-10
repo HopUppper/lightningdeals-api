@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { Zap, LayoutDashboard, Key, Activity, ShieldCheck, LifeBuoy, Settings, LogOut, BookOpen, CreditCard, Layers, Users } from 'lucide-react';
+import { Zap, LayoutDashboard, Key, Activity, LifeBuoy, Settings, LogOut, BookOpen, CreditCard, Layers, Users, Menu, X, Play, Star } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-
 import { NotificationCenter } from '../../components/NotificationCenter';
 
 export const UserDashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -15,47 +15,68 @@ export const UserDashboardLayout: React.FC = () => {
   };
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, end: true },
+    { name: 'Overview', path: '/dashboard', icon: LayoutDashboard, end: true },
     { name: 'API Keys', path: '/dashboard/keys', icon: Key },
-    { name: 'My Subscriptions', path: '/dashboard/subscriptions', icon: Layers },
-    { name: 'Usage', path: '/dashboard/usage', icon: Activity },
-    { name: 'Plan', path: '/dashboard/plan', icon: CreditCard },
-    { name: '⚡ Rewards', path: '/dashboard/rewards', icon: Zap },
-    { name: '🤝 Referral', path: '/dashboard/referrals', icon: Users },
+    { name: 'Playground', path: '/dashboard/api-test', icon: Play },
+    { name: 'Usage & Quota', path: '/dashboard/usage', icon: Activity },
+    { name: 'Active Plans', path: '/dashboard/plan', icon: CreditCard },
+    { name: 'Subscriptions', path: '/dashboard/subscriptions', icon: Layers },
+    { name: 'Rewards & Wallet', path: '/dashboard/rewards', icon: Zap },
+    { name: 'Referral Program', path: '/dashboard/referrals', icon: Users },
+    { name: 'Orders & Receipts', path: '/dashboard/orders', icon: CreditCard },
     { name: 'Documentation', path: '/dashboard/docs', icon: BookOpen },
-    { name: 'Support', path: '/dashboard/support', icon: LifeBuoy },
-    { name: 'Account', path: '/dashboard/settings', icon: Settings },
+    { name: 'Support Desk', path: '/dashboard/support', icon: LifeBuoy },
+    { name: 'Feedback & Reviews', path: '/dashboard/feedback', icon: Star },
+    { name: 'Settings', path: '/dashboard/settings', icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-bg text-fg flex flex-col font-sans antialiased">
+    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
       {/* Top Header */}
-      <header className="h-16 border-b border-border bg-white/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-8 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 text-white font-extrabold shadow-md shadow-violet-500/20 transition-transform group-hover:scale-105">
-              <Zap className="w-4 h-4 fill-current" />
+      <header className="h-16 border-b border-[#e5e7eb] bg-white sticky top-0 z-40 px-4 sm:px-6 flex items-center justify-between">
+        <div className="flex items-center gap-3.5">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 md:hidden border border-[#e5e7eb] bg-[#fbfbfa]"
+            aria-label="Toggle Navigation"
+          >
+            {mobileNavOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+
+          <Link to="/" className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0f172a] text-white">
+              <Zap className="w-3.5 h-3.5 fill-current text-white" />
             </div>
-            <span className="text-base font-extrabold text-fg tracking-tight">
-              Lightning<span className="animated-gradient-text">Deals</span>
-            </span>
+            <div className="flex items-baseline">
+              <span className="text-sm sm:text-base font-bold text-[#111827] tracking-tight">
+                LightningAPI
+              </span>
+              <span className="text-xs text-gray-400 ml-0.5 hidden sm:inline">
+                Console
+              </span>
+            </div>
           </Link>
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 border border-violet-200/80 px-2.5 py-0.5 rounded-full hidden sm:inline-block">
-            Customer Portal
+
+          <span className="text-[11px] font-medium text-emerald-800 bg-[#f0fdf4] border border-emerald-200 px-2 py-0.5 rounded hidden sm:inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+            <span>Operational</span>
           </span>
         </div>
 
         <div className="flex items-center gap-3">
           <NotificationCenter />
-          <div className="flex items-center gap-2.5 border-l border-border pl-3">
+          <div className="flex items-center gap-2.5 border-l border-[#e5e7eb] pl-3">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-fg">{user?.name}</p>
-              <p className="text-[10px] text-muted font-mono">{user?.email}</p>
+              <p className="text-xs font-semibold text-[#111827]">{user?.name || 'Account'}</p>
+              <p className="text-[11px] text-[#6b7280] font-mono">{user?.email}</p>
             </div>
             <button
+              type="button"
               onClick={handleLogout}
-              className="p-2 rounded-control text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
               title="Sign Out"
+              aria-label="Sign out"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -64,10 +85,10 @@ export const UserDashboardLayout: React.FC = () => {
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8 grid lg:grid-cols-[220px_1fr] gap-8">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid md:grid-cols-[220px_1fr] gap-6 items-start">
         {/* Sidebar Navigation */}
-        <aside className="space-y-1">
-          <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-muted px-3 mb-2">
+        <aside className={`md:block ${mobileNavOpen ? 'block' : 'hidden'} space-y-1 bg-white p-3 rounded-xl border border-[#e5e7eb] shadow-xs`}>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6b7280] px-2.5 py-1 mb-1">
             Navigation
           </p>
           {navItems.map((item) => (
@@ -75,18 +96,24 @@ export const UserDashboardLayout: React.FC = () => {
               key={item.path}
               to={item.path}
               end={item.end}
+              onClick={() => setMobileNavOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3.5 py-2.5 rounded-control text-xs font-bold transition-all ${
+                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-violet-600 text-white shadow-xs font-extrabold'
-                    : 'text-muted hover:text-fg hover:bg-subtle'
+                    ? 'bg-[#0f172a] text-white font-semibold'
+                    : 'text-[#4b5563] hover:text-[#111827] hover:bg-[#f4f4f0]'
                 }`
               }
             >
-              <item.icon className="w-4 h-4" />
+              <item.icon className="w-4 h-4 shrink-0" />
               <span>{item.name}</span>
             </NavLink>
           ))}
+
+          <div className="pt-3 mt-3 border-t border-[#e5e7eb] px-2.5 text-[11px] text-[#6b7280]">
+            <p className="font-semibold text-[#111827]">Gateway v1.4</p>
+            <p className="text-emerald-700 mt-0.5">● Anthropic /v1/messages</p>
+          </div>
         </aside>
 
         {/* Content Outlet */}

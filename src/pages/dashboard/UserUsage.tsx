@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Clock, ShieldCheck, FileText, Zap, RefreshCw } from 'lucide-react';
+import { Activity, Clock, ShieldCheck, FileText, Zap, RefreshCw, BarChart2, CheckCircle2, ArrowUpRight, Check, AlertCircle } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 
 export const UserUsage: React.FC = () => {
@@ -15,10 +15,10 @@ export const UserUsage: React.FC = () => {
       if (res.ok) {
         setStats(await res.json());
       } else {
-        setError('Unable to load your account data.');
+        setError('Unable to load your account telemetry data.');
       }
     } catch (e) {
-      setError('Unable to load your account data.');
+      setError('Unable to load your account telemetry data.');
     } finally {
       setLoading(false);
     }
@@ -60,132 +60,222 @@ export const UserUsage: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="py-12 text-center text-xs text-muted font-mono">Loading usage analytics...</div>;
+    return (
+      <div className="py-20 text-center space-y-3">
+        <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs text-[#64607d]">Synchronizing token usage ledger...</p>
+      </div>
+    );
   }
 
   if (error || !stats) {
     return (
-      <div className="p-6 bg-card border border-border rounded-panel text-center space-y-4">
-        <p className="text-xs text-red-500 font-mono">{error || 'Unable to load your account data.'}</p>
-        <button onClick={loadStats} className="ui-button-secondary text-xs px-4 py-2">
-          Retry
+      <div className="bg-white p-8 rounded-3xl border border-[#ede8e1] shadow-2xs text-center space-y-4 max-w-lg mx-auto">
+        <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+        <h3 className="text-sm font-bold text-[#1e1b2e]">{error || 'Unable to load account usage'}</h3>
+        <button
+          type="button"
+          onClick={loadStats}
+          className="ui-button-secondary text-xs px-4 py-2 font-bold cursor-pointer"
+        >
+          Retry Sync
         </button>
       </div>
     );
   }
 
+  const purchased = Number(stats?.totalPurchased || 0);
+  const used = Number(stats?.totalUsed || 0);
+  const remaining = Number(stats?.totalRemaining || Math.max(0, purchased - used));
+  const usagePct = purchased > 0 ? Math.min(100, Math.round((used / purchased) * 100)) : 0;
+
+  const recentRequests: any[] = stats?.recentRequests || [];
+  const avgLatency = recentRequests.length > 0
+    ? `${Math.round(recentRequests.reduce((acc: number, r: any) => acc + (Number(r.latencyMs) || 0), 0) / recentRequests.length)}ms`
+    : '—';
+  const successfulReqs = recentRequests.filter((r: any) => r.statusCode >= 200 && r.statusCode < 400).length;
+  const successRate = recentRequests.length > 0
+    ? `${((successfulReqs / recentRequests.length) * 100).toFixed(1)}%`
+    : '—';
+
   return (
     <div className="space-y-6 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#ede8e1]">
         <div>
-          <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
-            <Activity className="w-6 h-6 text-violet-600" />
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-violet-800 bg-violet-100 px-2.5 py-0.5 rounded-full border border-violet-200">
+              AUDIT TELEMETRY
+            </span>
+            <span className="text-xs text-[#64607d]">EDGE REGION: ASIA-PACIFIC</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#1e1b2e] tracking-tight flex items-center gap-2.5">
+            <div className="p-2 rounded-2xl bg-blue-100 text-blue-700">
+              <Activity className="w-5 h-5" />
+            </div>
             <span>Usage & Token Ledger</span>
           </h1>
-          <p className="text-xs text-muted mt-1">
-            Detailed API request logs, model token consumption, and rolling allowance history.
+          <p className="text-xs text-[#64607d] mt-1">
+            Real-time API gateway request history, completion tokens, and rolling 5-hour quota accounting.
           </p>
         </div>
 
-        <button onClick={loadStats} className="ui-button-secondary text-xs px-3 py-1.5 font-bold gap-1.5 shrink-0">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        <button 
+          type="button"
+          onClick={loadStats} 
+          className="ui-button-secondary text-xs px-4 py-2 font-bold gap-2 shrink-0 self-start sm:self-auto cursor-pointer"
+        >
+          <RefreshCw className="w-3.5 h-3.5 text-violet-600" />
+          <span>Sync Ledger</span>
         </button>
       </div>
 
-      {/* 5-Hour Window Card */}
-      <div className="bg-card border border-border p-6 rounded-panel space-y-4 shadow-xs">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-fg">
+      {/* 5-Hour Rolling Window Allowance Card */}
+      <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#ede8e1] space-y-6 shadow-playful">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#ede8e1] pb-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b2e]">
             <Zap className="w-4 h-4 text-violet-600 fill-current" />
-            <span>5-HOUR ROLLING ALLOWANCE METRICS</span>
+            <span>Active 5-Hour Cycle Metrics</span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs font-mono text-violet-600 bg-violet-50 px-3 py-1 rounded-full border border-violet-200">
-            <Clock className="w-3.5 h-3.5 animate-pulse" />
-            <span>Next Refresh: {timeLeft}</span>
+          <div className="inline-flex items-center gap-2 text-xs bg-violet-50 text-violet-800 px-3 py-1 rounded-full border border-violet-200 self-start sm:self-auto font-semibold">
+            <Clock className="w-3.5 h-3.5 text-violet-600 animate-pulse" />
+            <span>Next Window Reset:</span>
+            <span className="font-bold font-mono text-[#1e1b2e]">{timeLeft}</span>
           </div>
         </div>
 
+        {/* Metric Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-bg border border-border p-4 rounded-control space-y-1">
-            <p className="text-[11px] font-mono text-muted uppercase">Purchased Allowance</p>
-            <p className="text-2xl font-bold font-mono text-fg">{formatTokens(stats?.totalPurchased)}</p>
+          <div className="bg-[#faf8f5] border border-[#ede8e1] p-4.5 rounded-2xl space-y-1">
+            <span className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Window Allowance</span>
+            <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">{formatTokens(purchased)}</p>
+            <p className="text-[11px] text-[#64607d]">Tokens allotted per cycle</p>
           </div>
-          <div className="bg-bg border border-border p-4 rounded-control space-y-1">
-            <p className="text-[11px] font-mono text-muted uppercase">Consumed Tokens</p>
-            <p className="text-2xl font-bold font-mono text-amber-600">{formatTokens(stats?.totalUsed)}</p>
+
+          <div className="bg-[#faf8f5] border border-[#ede8e1] p-4.5 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Spent in Cycle</span>
+              <span className="text-xs text-amber-600 font-bold">{usagePct}%</span>
+            </div>
+            <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">{formatTokens(used)}</p>
+            <div className="w-full bg-[#ede8e1] h-1.5 rounded-full overflow-hidden mt-1">
+              <div 
+                className="bg-amber-500 h-full transition-all duration-300" 
+                style={{ width: `${usagePct}%` }}
+              />
+            </div>
           </div>
-          <div className="bg-bg border border-border p-4 rounded-control space-y-1">
-            <p className="text-[11px] font-mono text-muted uppercase">Tokens Available</p>
-            <p className="text-2xl font-bold font-mono text-emerald-600">{formatTokens(stats?.totalRemaining)}</p>
+
+          <div className="bg-[#faf8f5] border border-[#ede8e1] p-4.5 rounded-2xl space-y-1">
+            <span className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Available Capacity</span>
+            <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{formatTokens(remaining)}</p>
+            <p className="text-[11px] text-[#64607d]">Restores to full at next reset</p>
+          </div>
+        </div>
+
+        {/* Sub-telemetry strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-[#ede8e1] text-xs">
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1]">
+            <span className="text-[#64607d] text-xs font-semibold">Active Keys</span>
+            <span className="font-extrabold text-[#1e1b2e]">{stats.activeKeysCount ?? 0}</span>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1]">
+            <span className="text-[#64607d] text-xs font-semibold">Avg Latency</span>
+            <span className="font-extrabold text-emerald-700 font-mono">{avgLatency}</span>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1]">
+            <span className="text-[#64607d] text-xs font-semibold">Success Rate</span>
+            <span className="font-extrabold text-[#1e1b2e] font-mono">{successRate}</span>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1]">
+            <span className="text-[#64607d] text-xs font-semibold">Transport</span>
+            <span className="font-extrabold text-violet-700">SSE (HTTP/2)</span>
           </div>
         </div>
       </div>
 
-      {/* Toggle Tabs */}
-      <div className="flex items-center gap-2 border-b border-border pb-2">
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-[#ede8e1] pb-3">
         <button
+          type="button"
           onClick={() => setActiveTab('requests')}
-          className={`px-4 py-2 rounded-control text-xs font-bold transition-all ${
-            activeTab === 'requests' ? 'bg-violet-600 text-white shadow-xs' : 'text-muted hover:text-fg hover:bg-subtle'
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'requests'
+              ? 'bg-violet-600 text-white shadow-xs'
+              : 'text-[#64607d] hover:text-[#1e1b2e] hover:bg-[#faf8f5]'
           }`}
         >
-          API Request History
+          API Request History ({stats?.recentRequests?.length || 0})
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 rounded-control text-xs font-bold transition-all ${
-            activeTab === 'ledger' ? 'bg-violet-600 text-white shadow-xs' : 'text-muted hover:text-fg hover:bg-subtle'
+          className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'ledger'
+              ? 'bg-violet-600 text-white shadow-xs'
+              : 'text-[#64607d] hover:text-[#1e1b2e] hover:bg-[#faf8f5]'
           }`}
         >
-          Token Ledger History
+          Token Ledger Audits ({stats?.ledgerEntries?.length || 0})
         </button>
       </div>
 
-      {/* Request Log History */}
+      {/* API Request History Tab */}
       {activeTab === 'requests' && (
-        <div className="bg-card border border-border rounded-panel p-6 space-y-4">
-          <h3 className="text-xs font-bold text-fg uppercase tracking-wider font-mono">Recent Gateway Requests</h3>
+        <div className="bg-white rounded-3xl border border-[#ede8e1] overflow-hidden shadow-playful">
+          <div className="p-4.5 border-b border-[#ede8e1] flex items-center justify-between bg-[#faf8f5]">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b2e]">
+              <BarChart2 className="w-4 h-4 text-violet-600" />
+              <span>Recent Gateway Request Stream</span>
+            </div>
+            <span className="text-xs text-[#64607d]">Last 50 requests</span>
+          </div>
 
           {!stats?.recentRequests || stats.recentRequests.length === 0 ? (
-            <div className="py-12 text-center text-xs text-muted border border-dashed border-border rounded-control font-mono">
-              No API request activity recorded yet.
+            <div className="py-16 text-center text-xs text-[#64607d] space-y-2">
+              <p className="font-bold text-[#1e1b2e]">No API requests logged yet in this rolling window.</p>
+              <p>Make a request using Cursor, Claude Code, or our interactive playground to view real-time logs.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs font-mono">
                 <thead>
-                  <tr className="border-b border-border text-muted uppercase bg-bg/50">
-                    <th className="py-2.5 px-3">Timestamp</th>
-                    <th className="py-2.5 px-3">Model Target</th>
-                    <th className="py-2.5 px-3">Tokens Used</th>
-                    <th className="py-2.5 px-3">Latency</th>
-                    <th className="py-2.5 px-3">Status</th>
+                  <tr className="border-b border-[#ede8e1] text-[#64607d] uppercase bg-[#faf8f5] text-[10px] font-bold">
+                    <th className="py-3 px-4">Timestamp</th>
+                    <th className="py-3 px-4">Target Model</th>
+                    <th className="py-3 px-4 text-right">Tokens Consumed</th>
+                    <th className="py-3 px-4 text-right">Latency</th>
+                    <th className="py-3 px-4 text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-[#ede8e1]">
                   {stats.recentRequests.map((req: any, i: number) => (
-                    <tr key={i} className="hover:bg-bg/40">
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <div className="font-bold text-fg text-xs font-mono">
-                          {new Date(req.createdAt).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
+                    <tr key={i} className="hover:bg-[#faf8f5]/60 transition-colors">
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="font-semibold text-[#1e1b2e]">
+                          {new Date(req.createdAt).toLocaleDateString()}
                         </div>
-                        <div className="text-[10px] text-muted font-mono">
-                          {new Date(req.createdAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                          })}
+                        <div className="text-[10px] text-[#64607d]">
+                          {new Date(req.createdAt).toLocaleTimeString()}
                         </div>
                       </td>
-                      <td className="py-2.5 px-3 text-fg font-bold">{req.model}</td>
-                      <td className="py-2.5 px-3 text-amber-600 font-bold">{formatTokens(req.totalTokens)}</td>
-                      <td className="py-2.5 px-3 text-emerald-600">{req.latencyMs}ms</td>
-                      <td className="py-2.5 px-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-600 font-bold">200 OK</span>
+                      <td className="py-3 px-4 font-semibold text-violet-700">
+                        {req.model}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-[#1e1b2e]">
+                        {formatTokens(req.totalTokens || (req.promptTokens + req.completionTokens))}
+                      </td>
+                      <td className="py-3 px-4 text-right text-emerald-700">
+                        {req.latencyMs ? `${req.latencyMs}ms` : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          req.statusCode >= 200 && req.statusCode < 300
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {req.statusCode || 200}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -196,33 +286,48 @@ export const UserUsage: React.FC = () => {
         </div>
       )}
 
-      {/* Token Ledger */}
+      {/* Ledger Entries Tab */}
       {activeTab === 'ledger' && (
-        <div className="bg-card border border-border rounded-panel p-6 space-y-4">
-          <h3 className="text-xs font-bold text-fg uppercase tracking-wider font-mono">Token Ledger Audit Entries</h3>
+        <div className="bg-white rounded-3xl border border-[#ede8e1] overflow-hidden shadow-playful">
+          <div className="p-4.5 border-b border-[#ede8e1] flex items-center justify-between bg-[#faf8f5]">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b2e]">
+              <FileText className="w-4 h-4 text-violet-600" />
+              <span>Immutable Token Ledger Entries</span>
+            </div>
+            <span className="text-xs text-[#64607d]">Deduction auditing</span>
+          </div>
 
           {!stats?.ledgerEntries || stats.ledgerEntries.length === 0 ? (
-            <div className="py-12 text-center text-xs text-muted border border-dashed border-border rounded-control font-mono">
-              No token ledger entries recorded yet.
+            <div className="py-16 text-center text-xs text-[#64607d] space-y-2">
+              <p className="font-bold text-[#1e1b2e]">No ledger transactions in this window.</p>
+              <p>Every token deduction is registered and verified cryptographically in real time.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs font-mono">
                 <thead>
-                  <tr className="border-b border-border text-muted uppercase bg-bg/50">
-                    <th className="py-2.5 px-3">Timestamp</th>
-                    <th className="py-2.5 px-3">Action Type</th>
-                    <th className="py-2.5 px-3">Token Amount</th>
-                    <th className="py-2.5 px-3">Balance After</th>
+                  <tr className="border-b border-[#ede8e1] text-[#64607d] uppercase bg-[#faf8f5] text-[10px] font-bold">
+                    <th className="py-3 px-4">Date & Time</th>
+                    <th className="py-3 px-4">Action</th>
+                    <th className="py-3 px-4 text-right">Tokens Charged</th>
+                    <th className="py-3 px-4 text-right">Balance After</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
-                  {stats.ledgerEntries.map((l: any, i: number) => (
-                    <tr key={i} className="hover:bg-bg/40">
-                      <td className="py-2.5 px-3 text-muted text-[11px]">{new Date(l.createdAt).toLocaleString()}</td>
-                      <td className="py-2.5 px-3 font-bold text-fg">{l.type}</td>
-                      <td className="py-2.5 px-3 text-emerald-600 font-bold">+{formatTokens(l.amount)}</td>
-                      <td className="py-2.5 px-3 text-fg font-bold">{formatTokens(l.balanceAfter)}</td>
+                <tbody className="divide-y divide-[#ede8e1]">
+                  {stats.ledgerEntries.map((entry: any, i: number) => (
+                    <tr key={i} className="hover:bg-[#faf8f5]/60 transition-colors">
+                      <td className="py-3 px-4 text-[#1e1b2e]">
+                        {new Date(entry.createdAt).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-violet-700">
+                        {entry.reason || 'Completion Deduction'}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-amber-600">
+                        -{formatTokens(entry.amount)}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-emerald-700">
+                        {formatTokens(entry.balanceAfter)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

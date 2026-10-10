@@ -1,82 +1,83 @@
 import React from 'react';
-import { Wallet, RefreshCw, Search, Layers } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { ThreeDCard } from './ThreeDCard';
+import { Check, X, Shield, RefreshCw, Zap, Layers } from 'lucide-react';
 
 export const WhyChooseUs: React.FC = () => {
-  const benefits = [
+  const comparisonItems = [
     {
-      num: '01',
-      title: 'Permanent Prepaid Token Balance',
-      desc: 'Pay per token allowance without monthly subscriptions, recurring seats, or expiring credits.',
-      icon: Wallet,
+      feature: 'API Key Management',
+      traditional: 'Separate accounts, keys, and billing cycles for every model provider',
+      lightning: 'One master key providing access to the entire Claude model lineup',
     },
     {
-      num: '02',
-      title: 'Drop-in Anthropic /v1 Endpoint',
-      desc: 'Identical request/response payload shape for Claude Code CLI, Cursor, Windsurf, and VS Code.',
-      icon: RefreshCw,
+      feature: 'Quota & Billing Model',
+      traditional: 'Sudden rate limit lockouts or unexpected monthly usage overage invoices',
+      lightning: 'Predictable prepaid packages with automated 5-hour rolling replenishment',
     },
     {
-      num: '03',
-      title: 'Built-in Web Search & Vision Tools',
-      desc: 'Native web search and image understanding tools supported natively out of the box.',
-      icon: Search,
+      feature: 'Tool Integration',
+      traditional: 'Manual editing of hidden configuration files, shell exports, and paths',
+      lightning: '1-command automated configuration via npx lightningdeals in 60 seconds',
     },
     {
-      num: '04',
-      title: 'Full 13-Model Catalog Access',
-      desc: 'Seamlessly switch between Claude Fable 5, Sonnet 5, Sonnet 3.5, Opus 3, and Haiku 3.5.',
-      icon: Layers,
+      feature: 'Data Confidentiality',
+      traditional: 'Opaque retention policies and potential training on prompt completions',
+      lightning: 'Zero retention passthrough proxy; prompts stream unlogged directly to you',
+    },
+    {
+      feature: 'Getting Started',
+      traditional: 'Credit card verification required before any API access is granted',
+      lightning: 'Immediate 1,000,000 token trial pass available with zero payment required',
     },
   ];
 
   return (
-    <section id="why-us" className="border-b border-border bg-bg py-16 sm:py-24 relative overflow-hidden" aria-labelledby="why-us-title">
-      <div className="mx-auto max-w-page px-5 sm:px-6 space-y-12 relative z-10">
+    <section id="why-us" className="border-b border-[#e5e7eb] bg-white py-16 lg:py-24 font-sans" aria-labelledby="why-us-title">
+      <div className="mx-auto max-w-page px-4 sm:px-6 space-y-12">
         
         {/* Header */}
-        <div className="max-w-xl space-y-3">
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-200">
-            Why LightningDeals
-          </span>
-          <h2 id="why-us-title" className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-            Built for developers who demand reliability.
+        <div className="max-w-2xl space-y-3">
+          <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#f4f4f0] border border-[#e5e7eb] text-xs font-medium text-[#4b5563] uppercase tracking-wider">
+            Comparison
+          </div>
+          <h2 id="why-us-title" className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#111827]">
+            Built for developers and teams who value clarity.
           </h2>
-          <p className="text-sm text-muted leading-relaxed">
-            High-performance API infrastructure designed for speed, clarity, and zero lock-in.
+          <p className="text-sm sm:text-base text-[#4b5563] leading-relaxed">
+            High-performance model access without complicated cloud consoles, sudden monthly billing spikes, or setup frustration.
           </p>
         </div>
 
-        {/* 4 Feature 3D Cards Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {benefits.map((b, idx) => {
-            const IconComp = b.icon;
-            return (
-              <motion.div
-                key={b.num}
-                initial={{ opacity: 0, y: 25 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: idx * 0.1 }}
-              >
-                <ThreeDCard intensity={12} className="h-full">
-                  <div className="glass-3d-card p-6 rounded-panel space-y-3 h-full flex flex-col justify-between group">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold text-muted">{b.num}</span>
-                        <div className="p-2 rounded-lg bg-gradient-to-tr from-violet-600 to-cyan-500 text-white shadow-xs">
-                          <IconComp className="h-4 w-4" />
-                        </div>
-                      </div>
-                      <h3 className="text-base font-bold text-fg group-hover:text-violet-600 transition-colors">{b.title}</h3>
-                      <p className="text-xs leading-relaxed text-muted font-normal">{b.desc}</p>
-                    </div>
-                  </div>
-                </ThreeDCard>
-              </motion.div>
-            );
-          })}
+        {/* Clean Editorial Comparison Matrix */}
+        <div className="border border-[#e5e7eb] rounded-xl overflow-hidden bg-white shadow-xs">
+          <div className="grid grid-cols-1 md:grid-cols-12 border-b border-[#e5e7eb] bg-[#f8f7f4] text-xs font-semibold text-[#111827]">
+            <div className="md:col-span-4 p-4 text-[#6b7280] uppercase tracking-wider">
+              Capability
+            </div>
+            <div className="md:col-span-4 p-4 text-[#6b7280] uppercase tracking-wider border-t md:border-t-0 md:border-l border-[#e5e7eb]">
+              Traditional API Providers
+            </div>
+            <div className="md:col-span-4 p-4 text-[#1e40af] uppercase tracking-wider border-t md:border-t-0 md:border-l border-[#e5e7eb] bg-[#eff6ff]/50">
+              LightningAPI Standard
+            </div>
+          </div>
+
+          <div className="divide-y divide-[#e5e7eb]">
+            {comparisonItems.map((item, idx) => (
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-12 text-xs">
+                <div className="md:col-span-4 p-4 font-semibold text-[#111827] bg-[#fbfbfa]/50">
+                  {item.feature}
+                </div>
+                <div className="md:col-span-4 p-4 text-[#6b7280] md:border-l border-[#e5e7eb] flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5 shrink-0">—</span>
+                  <span>{item.traditional}</span>
+                </div>
+                <div className="md:col-span-4 p-4 text-[#111827] font-medium md:border-l border-[#e5e7eb] bg-[#eff6ff]/20 flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                  <span>{item.lightning}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
       </div>

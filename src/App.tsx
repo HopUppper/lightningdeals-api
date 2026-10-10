@@ -32,24 +32,20 @@ const ScrollToHash: React.FC = () => {
   return null;
 };
 
-// Public Landing Components
-import { HeroSection } from './components/HeroSection';
-import { ContextVisualizer } from './components/ContextVisualizer';
-import { OneCommandSetup } from './components/OneCommandSetup';
-import { TrustEvidence } from './components/TrustEvidence';
-import { WhyChooseUs } from './components/WhyChooseUs';
-import { ApiQuickStart } from './components/ApiQuickStart';
-import { ModelCatalog } from './components/ModelCatalog';
-import { PricingSection } from './components/PricingSection';
-import { DeveloperEcosystem } from './components/DeveloperEcosystem';
-import { OneLineMigration } from './components/OneLineMigration';
-import { FaqAccordion } from './components/FaqAccordion';
-import { FinalCta } from './components/FinalCta';
-import { Footer } from './components/Footer';
-import { Navbar } from './components/Navbar';
+// Public Landing Components (Electric Editorial Direction)
+import { ElectricNavbar } from './components/ElectricNavbar';
+import { LivingGatewayHero } from './components/LivingGatewayHero';
+import { ElectricEditorialContrast } from './components/ElectricEditorialContrast';
+import { ElectricModelObservatory } from './components/ElectricModelObservatory';
+import { ElectricReservoirSimulator } from './components/ElectricReservoirSimulator';
+import { ElectricDeveloperStudio } from './components/ElectricDeveloperStudio';
+import { ElectricCapacitySection } from './components/ElectricCapacitySection';
+import { ElectricGovernanceSla } from './components/ElectricGovernanceSla';
+import { ElectricPublicReviews } from './components/ElectricPublicReviews';
+import { ElectricFaqSection } from './components/ElectricFaqSection';
+import { ElectricFinalCta } from './components/ElectricFinalCta';
+import { ElectricFooter } from './components/ElectricFooter';
 import { SupportWidget } from './components/SupportWidget';
-import { SocialProofStrip } from './components/SocialProofStrip';
-import { LightningRewardsHighlight } from './components/LightningRewardsHighlight';
 import { PromotionalOfferBanner } from './components/PromotionalOfferBanner';
 import { PromotionalOfferModal } from './components/PromotionalOfferModal';
 
@@ -144,11 +140,13 @@ const UserSettings = lazy(() => import('./pages/dashboard/UserSettings').then(m 
 const UserRewards = lazy(() => import('./pages/dashboard/UserRewards').then(m => ({ default: m.UserRewards })));
 const UserSubscriptions = lazy(() => import('./pages/dashboard/UserSubscriptions').then(m => ({ default: m.UserSubscriptions })));
 const UserReferrals = lazy(() => import('./pages/dashboard/UserReferrals').then(m => ({ default: m.UserReferrals })));
+const UserFeedback = lazy(() => import('./pages/dashboard/UserFeedback').then(m => ({ default: m.UserFeedback })));
 
 // Admin Control Center Pages (Lazy Loaded)
 import { AdminAuthGuard } from './pages/admin/AdminAuthGuard';
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
+const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback').then(m => ({ default: m.AdminFeedback })));
 const AdminOverview = lazy(() => import('./pages/admin/AdminOverview').then(m => ({ default: m.AdminOverview })));
 const AdminFulfillment = lazy(() => import('./pages/admin/AdminFulfillment').then(m => ({ default: m.AdminFulfillment })));
 const AdminSubscriptions = lazy(() => import('./pages/admin/AdminSubscriptions').then(m => ({ default: m.AdminSubscriptions })));
@@ -179,27 +177,23 @@ const AdminAIControl = lazy(() => import('./pages/admin/AdminAIControl').then(m 
 
 export const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-bg text-fg selection:bg-violet-500/20 selection:text-violet-700 font-sans antialiased">
+    <div className="min-h-screen bg-[#fbf9f5] text-[#1c1917] selection:bg-[#6d28d9]/10 selection:text-[#6d28d9] font-sans antialiased">
       <PromotionalOfferBanner />
-      <Navbar />
+      <ElectricNavbar />
       <PromotionalOfferModal />
       <main id="main-content">
-        <HeroSection />
-        <SocialProofStrip />
-        <ContextVisualizer />
-        <OneCommandSetup />
-        <TrustEvidence />
-        <WhyChooseUs />
-        <ApiQuickStart />
-        <ModelCatalog />
-        <PricingSection />
-        <LightningRewardsHighlight />
-        <DeveloperEcosystem />
-        <OneLineMigration />
-        <FaqAccordion />
-        <FinalCta />
+        <LivingGatewayHero />
+        <ElectricEditorialContrast />
+        <ElectricModelObservatory />
+        <ElectricReservoirSimulator />
+        <ElectricDeveloperStudio />
+        <ElectricCapacitySection />
+        <ElectricGovernanceSla />
+        <ElectricPublicReviews />
+        <ElectricFaqSection />
+        <ElectricFinalCta />
       </main>
-      <Footer />
+      <ElectricFooter />
       <SupportWidget />
     </div>
   );
@@ -207,14 +201,14 @@ export const LandingPage: React.FC = () => {
 
 export const PublicPricingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
+    <div className="min-h-screen bg-[#fbf9f5] text-[#1c1917] selection:bg-[#6d28d9]/10 selection:text-[#6d28d9] flex flex-col font-sans antialiased">
       <PromotionalOfferBanner />
-      <Navbar />
+      <ElectricNavbar />
       <PromotionalOfferModal />
       <main className="flex-1">
-        <PricingSection />
+        <ElectricCapacitySection />
       </main>
-      <Footer />
+      <ElectricFooter />
     </div>
   );
 };
@@ -277,6 +271,8 @@ export function App() {
                   <Route path="orders" element={<UserOrders />} />
                   <Route path="api-test" element={<UserApiTestConsole />} />
                   <Route path="support" element={<UserSupport />} />
+                  <Route path="feedback" element={<UserFeedback />} />
+                  <Route path="reviews" element={<UserFeedback />} />
                   <Route path="settings" element={<UserSettings />} />
                   <Route path="account" element={<UserSettings />} />
                 </Route>
@@ -296,6 +292,8 @@ export function App() {
                 >
                   <Route index element={<AdminOverview />} />
                   <Route path="fulfillment" element={<AdminFulfillment />} />
+                  <Route path="feedback" element={<AdminFeedback />} />
+                  <Route path="reviews" element={<AdminFeedback />} />
                   <Route path="subscriptions" element={<AdminSubscriptions />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
                   <Route path="rewards" element={<AdminRewards />} />

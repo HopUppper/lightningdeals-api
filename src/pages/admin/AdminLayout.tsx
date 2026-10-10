@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift, MessageSquare, Bot } from 'lucide-react';
+import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift, MessageSquare, Bot, Star } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
@@ -53,39 +53,37 @@ export const AdminLayout: React.FC = () => {
 
   const primaryNavItems: NavItem[] = [
     { name: 'Overview', path: '/admin', icon: LayoutDashboard, end: true },
-    { name: '⚡ Fulfillment', path: '/admin/fulfillment', icon: CheckCircle2, badge: 'SLA' },
-    { name: '📦 Subscriptions', path: '/admin/subscriptions', icon: Layers, badge: 'CYCLE' },
-    { name: 'Plans & Offers', path: '/admin/plans', icon: Zap, badge: 'OFFERS' },
-    { name: 'Orders & Sales', path: '/admin/orders', icon: ShoppingBag, badge: 'ORDERS' },
-    { name: '💬 WhatsApp', path: '/admin/whatsapp', icon: MessageSquare, badge: 'SALES' },
-    { name: '🤖 AI Agent 2.0', path: '/admin/ai-control', icon: Bot, badge: 'RAG' },
-    { name: '⚡ Rewards', path: '/admin/rewards', icon: Award, badge: 'LOYALTY' },
-    { name: '🤝 Referrals', path: '/admin/referrals', icon: Gift, badge: 'GROWTH' },
+    { name: 'Fulfillment', path: '/admin/fulfillment', icon: CheckCircle2, badge: 'SLA' },
+    { name: 'Customer Feedback', path: '/admin/feedback', icon: Star, badge: 'FEEDBACK' },
+    { name: 'Subscriptions', path: '/admin/subscriptions', icon: Layers, badge: 'CYCLES' },
+    { name: 'Plans & Offers', path: '/admin/plans', icon: Zap },
+    { name: 'Orders & Sales', path: '/admin/orders', icon: ShoppingBag },
+    { name: 'WhatsApp Desk', path: '/admin/whatsapp', icon: MessageSquare },
+    { name: 'AI Control', path: '/admin/ai-control', icon: Bot },
+    { name: 'Rewards', path: '/admin/rewards', icon: Award },
+    { name: 'Referrals', path: '/admin/referrals', icon: Gift },
     { name: 'Customers', path: '/admin/customers', icon: Users },
-    { name: 'Live Analytics', path: '/admin/analytics', icon: Globe, badge: 'REALTIME' },
-    { name: 'Support Tickets', path: '/admin/support', icon: LifeBuoy, badge: 'DESK' },
-    { name: 'Products / Keys', path: '/admin/keys', icon: Key, badge: 'KEYS' },
-    { name: 'Providers', path: '/admin/providers', icon: Server, badge: 'VENDOR' },
+    { name: 'Live Analytics', path: '/admin/analytics', icon: Globe },
+    { name: 'Support Tickets', path: '/admin/support', icon: LifeBuoy },
+    { name: 'API Keys', path: '/admin/keys', icon: Key },
+    { name: 'Providers', path: '/admin/providers', icon: Server },
     { name: 'Usage', path: '/admin/usage', icon: Activity },
-    { name: 'Audit Logs', path: '/admin/logs', icon: FileText, badge: 'LOGS' },
-    { name: 'Emergency Controls', path: '/admin/emergency', icon: ShieldAlert, badge: 'DEFENSE' },
+    { name: 'Audit Logs', path: '/admin/logs', icon: FileText },
+    { name: 'Emergency Controls', path: '/admin/emergency', icon: ShieldAlert },
     { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
+    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
       {/* Top Bar */}
-      <header className="h-16 border-b border-border/80 bg-white/90 backdrop-blur-xl sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
+      <header className="h-16 border-b border-[#e5e7eb] bg-white sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link to="/admin" className="flex items-center gap-2.5 group">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 text-white font-extrabold shadow-md shadow-violet-500/20 transition-transform group-hover:scale-105">
-              <Zap className="w-4 h-4 fill-current" />
+          <Link to="/admin" className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-[#0f172a] text-white flex items-center justify-center">
+              <Zap className="w-3.5 h-3.5 fill-current text-white" />
             </div>
-            <span className="text-base font-extrabold text-fg tracking-tight">
-              Lightning<span className="animated-gradient-text">Deals</span>
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-bold font-mono uppercase tracking-wider border border-violet-200">
-              Control Center
+            <span className="text-base font-bold text-[#111827] tracking-tight">
+              LightningAPI<span className="text-gray-400 font-normal ml-0.5">Admin</span>
             </span>
           </Link>
         </div>
@@ -93,17 +91,22 @@ export const AdminLayout: React.FC = () => {
         {/* Global Admin Search Bar */}
         <div className="relative max-w-md w-full hidden md:block">
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => { if (searchResults) setShowSearchDropdown(true); }}
+              onFocus={() => {
+                if (searchResults) setShowSearchDropdown(true);
+              }}
               placeholder="Search keys, customers, orders... (⌘K)"
-              className="w-full pl-10 pr-8 py-2 text-xs bg-white border border-violet-200 rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono shadow-xs"
+              className="w-full pl-9 pr-8 py-1.5 text-xs bg-[#fbfbfa] border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827] transition-colors"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-fg">
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 cursor-pointer"
+              >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
@@ -111,23 +114,31 @@ export const AdminLayout: React.FC = () => {
 
           {/* Search Dropdown Overlay */}
           {showSearchDropdown && searchResults && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl border border-violet-200 rounded-panel shadow-2xl p-4 z-50 space-y-4 max-h-[400px] overflow-y-auto text-xs font-sans">
-              <div className="flex items-center justify-between border-b border-border pb-2">
-                <span className="font-mono text-[10px] uppercase font-bold text-muted">Search Results</span>
-                <button onClick={() => setShowSearchDropdown(false)} className="text-muted hover:text-fg text-xs font-mono">Close</button>
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#e5e7eb] rounded-xl p-4 z-50 space-y-3 max-h-[400px] overflow-y-auto text-xs shadow-lg">
+              <div className="flex items-center justify-between border-b border-[#e5e7eb] pb-2">
+                <span className="text-[11px] uppercase font-semibold text-[#6b7280]">Search Results</span>
+                <button
+                  onClick={() => setShowSearchDropdown(false)}
+                  className="text-[#6b7280] hover:text-[#111827] text-xs font-medium cursor-pointer"
+                >
+                  Close
+                </button>
               </div>
 
               {searchResults.customers?.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-mono font-bold uppercase text-violet-700 mb-1">Customers</p>
+                  <p className="text-[11px] font-semibold uppercase text-[#1e40af] mb-1">Customers</p>
                   {searchResults.customers.map((c: any) => (
                     <div
                       key={c.id}
-                      onClick={() => { navigate('/admin/customers'); setShowSearchDropdown(false); }}
-                      className="p-2 hover:bg-violet-50/60 rounded cursor-pointer flex justify-between items-center"
+                      onClick={() => {
+                        navigate('/admin/customers');
+                        setShowSearchDropdown(false);
+                      }}
+                      className="p-2 hover:bg-[#f4f4f0] rounded-lg cursor-pointer flex justify-between items-center transition-colors"
                     >
-                      <span className="font-semibold text-fg">{c.name} ({c.email})</span>
-                      <span className="text-[10px] font-mono text-muted uppercase">{c.role}</span>
+                      <span className="font-medium text-[#111827]">{c.email}</span>
+                      <span className="text-[#6b7280] text-[11px]">{c.name || 'User'}</span>
                     </div>
                   ))}
                 </div>
@@ -135,60 +146,59 @@ export const AdminLayout: React.FC = () => {
 
               {searchResults.keys?.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-mono font-bold uppercase text-violet-700 mb-1">API Keys</p>
+                  <p className="text-[11px] font-semibold uppercase text-[#1e40af] mb-1">API Keys</p>
                   {searchResults.keys.map((k: any) => (
                     <div
                       key={k.id}
-                      onClick={() => { navigate('/admin/keys'); setShowSearchDropdown(false); }}
-                      className="p-2 hover:bg-violet-50/60 rounded cursor-pointer flex justify-between items-center"
+                      onClick={() => {
+                        navigate('/admin/keys');
+                        setShowSearchDropdown(false);
+                      }}
+                      className="p-2 hover:bg-[#f4f4f0] rounded-lg cursor-pointer flex justify-between items-center transition-colors font-mono"
                     >
-                      <span className="font-mono text-fg">{k.name} ({k.displayKey})</span>
-                      <span className="text-[10px] font-mono text-emerald-600 font-bold">{Number(k.tokensRemaining).toLocaleString()} tokens</span>
+                      <span>{k.maskedKey}</span>
+                      <span className="text-[#6b7280] text-[11px]">{k.user?.email}</span>
                     </div>
                   ))}
                 </div>
-              )}
-
-              {!searchResults.customers?.length && !searchResults.keys?.length && (
-                <div className="py-4 text-center text-muted font-mono">No matching records found.</div>
               )}
             </div>
           )}
         </div>
 
+        {/* Right Section: Admin Profile & Actions */}
         <div className="flex items-center gap-3">
           <Link
-            to="/admin/rewards"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold font-mono transition-colors shadow-xs"
-            title="Record WhatsApp / Universal Purchase"
+            to="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#4b5563] hover:text-[#111827] hover:bg-[#f4f4f0] rounded-lg transition-colors border border-[#e5e7eb]"
           >
-            <Zap className="w-3.5 h-3.5 fill-current text-emerald-600" />
-            <span>+ Record Purchase</span>
+            <span>View Site</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 pl-3 border-l border-[#e5e7eb]">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold text-fg">{adminUser?.name || 'Administrator'}</p>
-              <p className="text-[10px] text-muted font-mono">{adminUser?.email || 'admin@lightningapi.pro'}</p>
+              <p className="text-xs font-semibold text-[#111827]">{adminUser?.name || 'Administrator'}</p>
+              <p className="text-[10px] text-[#6b7280] font-mono">{adminUser?.email}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="p-2 rounded-control text-muted hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1.5 text-xs font-semibold"
-              title="Sign out of Admin Control Center"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
+              title="Sign Out of Admin Console"
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-8 py-8 grid lg:grid-cols-[220px_1fr] gap-8">
-        {/* Sidebar */}
-        <aside className="space-y-1.5">
-          <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted px-3 mb-2">
-            ADMIN OPERATIONS
+      {/* Admin Body Container */}
+      <div className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 grid md:grid-cols-[230px_1fr] gap-6 items-start">
+        {/* Sidebar Navigation */}
+        <aside className="space-y-1 bg-white p-3 rounded-xl border border-[#e5e7eb] shadow-xs">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6b7280] px-2.5 py-1 mb-1">
+            Admin Management
           </p>
           {primaryNavItems.map((item) => (
             <NavLink
@@ -196,19 +206,19 @@ export const AdminLayout: React.FC = () => {
               to={item.path}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center justify-between px-3.5 py-2.5 rounded-control text-xs font-semibold transition-all ${
+                `flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 text-white font-extrabold shadow-md shadow-violet-500/20'
-                    : 'text-muted hover:text-fg hover:bg-white border border-transparent'
+                    ? 'bg-[#0f172a] text-white font-semibold'
+                    : 'text-[#4b5563] hover:text-[#111827] hover:bg-[#f4f4f0]'
                 }`
               }
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <item.icon className="w-4 h-4 shrink-0" />
                 <span>{item.name}</span>
               </div>
               {item.badge && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-violet-50 text-violet-700 border border-violet-200">
+                <span className="text-[9.5px] px-1.5 py-0.5 rounded font-mono font-medium bg-gray-100 text-gray-600">
                   {item.badge}
                 </span>
               )}
@@ -216,7 +226,7 @@ export const AdminLayout: React.FC = () => {
           ))}
         </aside>
 
-        {/* Dynamic Outlet */}
+        {/* Content Outlet */}
         <main className="min-w-0">
           <Outlet />
         </main>
@@ -224,3 +234,5 @@ export const AdminLayout: React.FC = () => {
     </div>
   );
 };
+
+export default AdminLayout;

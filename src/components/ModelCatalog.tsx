@@ -1,212 +1,211 @@
 import React, { useState } from 'react';
-import { Cpu, Plus } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ThreeDCard } from './ThreeDCard';
+import { Cpu, ArrowRight, Check, Layers, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const ModelCatalog: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'all' | 'flagship' | 'fast'>('all');
+  const [filter, setFilter] = useState<'all' | 'flagship' | 'fast'>('all');
 
-  const catalog = [
+  const models = [
+    {
+      id: 'claude-3-5-sonnet-20241022',
+      alias: 'sonnet',
+      name: 'Claude 3.5 Sonnet',
+      tier: 'Flagship Engineering',
+      type: 'flagship',
+      context: '1,000,000 Tokens',
+      strengths: 'Industry benchmark for multi-file code synthesis, agent loops in Claude Code CLI, Cursor, and Windsurf.',
+      latency: '28ms TTFT',
+    },
     {
       id: 'claude-opus-5',
+      alias: 'opus',
       name: 'Claude Opus 5',
-      family: 'Claude 5 Generation',
-      category: 'flagship',
-      description: 'Premier heavy-lifting flagship for complex agentic coding and deep enterprise architecture tasks with adaptive thinking.',
-      contextWindow: '1,000,000 Tokens (1M)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Premier Flagship',
-    },
-    {
-      id: 'claude-fable-5',
-      name: 'Claude Fable 5',
-      family: 'Claude 5 Generation',
-      category: 'flagship',
-      description: 'Elite Mythos-class intelligence model optimized for long-running, complex multi-step workflows and agentic loops.',
-      contextWindow: '1,000,000 Tokens (1M)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Mythos Class',
-    },
-    {
-      id: 'claude-sonnet-5',
-      name: 'Claude Sonnet 5',
-      family: 'Claude 5 Generation',
-      category: 'flagship',
-      description: 'Default everyday balance of speed and high-end intelligence for active software development.',
-      contextWindow: '1,000,000 Tokens (1M)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Everyday Flagship',
-    },
-    {
-      id: 'claude-haiku-4-5',
-      name: 'Claude Haiku 4.5',
-      family: 'Claude Generation',
-      category: 'fast',
-      description: 'Fastest budget model optimized for high-volume, lightweight tasks, automated linting, and quick edits.',
-      contextWindow: '500,000 Tokens (500K)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Ultra Fast Budget',
+      tier: 'Cognitive Frontier',
+      type: 'flagship',
+      context: '1,000,000 Tokens',
+      strengths: 'Deepest reasoning depth for distributed architecture RFCs, formal logic invariants, and system proofs.',
+      latency: '42ms TTFT',
     },
     {
       id: 'claude-3-7-sonnet-20250219',
+      alias: 'sonnet-3-7',
       name: 'Claude 3.7 Sonnet',
-      family: 'Claude Generation',
-      category: 'flagship',
-      description: 'Hybrid reasoning model featuring extended thinking mode for complex engineering tasks.',
-      contextWindow: '1,000,000 Tokens (1M)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Extended Thinking',
+      tier: 'Hybrid Extended Thinking',
+      type: 'flagship',
+      context: '1,000,000 Tokens',
+      strengths: 'Controllable visible reasoning depth via budget_tokens. Exceptional for subtle race-conditions and compiler bugs.',
+      latency: '34ms TTFT',
     },
     {
-      id: 'claude-3-5-sonnet-20241022',
-      name: 'Claude 3.5 Sonnet',
-      family: 'Claude Generation',
-      category: 'flagship',
-      description: 'Primary workhorse model for high-confidence software engineering and Claude Code CLI.',
-      contextWindow: '1,000,000 Tokens (1M)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Workhorse',
+      id: 'claude-sonnet-5',
+      alias: 'sonnet-5',
+      name: 'Claude Sonnet 5',
+      tier: 'Next-Gen Inference',
+      type: 'flagship',
+      context: '1,000,000 Tokens',
+      strengths: 'Next-generation cognitive inference with high semantic comprehension and multi-modal tool calling.',
+      latency: '30ms TTFT',
+    },
+    {
+      id: 'claude-fable-5',
+      alias: 'fable',
+      name: 'Claude Fable 5',
+      tier: 'Creative Synthesis',
+      type: 'flagship',
+      context: '1,000,000 Tokens',
+      strengths: 'Specialized for extensive long-context narrative synthesis and open-ended technical documentation.',
+      latency: '35ms TTFT',
+    },
+    {
+      id: 'claude-3-opus-20240229',
+      alias: 'opus-3',
+      name: 'Claude 3 Opus',
+      tier: 'Deep Architecture',
+      type: 'flagship',
+      context: '200,000 Tokens',
+      strengths: 'Proven foundation for complex academic research, philosophical analysis, and nuanced multi-turn evaluations.',
+      latency: '48ms TTFT',
     },
     {
       id: 'claude-3-5-haiku-20241022',
+      alias: 'haiku',
       name: 'Claude 3.5 Haiku',
-      family: 'Claude Generation',
-      category: 'fast',
-      description: 'Lightweight high-speed model for automated completions and fast response loops.',
-      contextWindow: '500,000 Tokens (500K)',
-      availability: 'Self-service',
-      protocol: 'Anthropic Messages API',
-      badge: 'Fast Response',
+      tier: 'High-Throughput Fast',
+      type: 'fast',
+      context: '500,000 Tokens',
+      strengths: 'Blazing sub-20ms response time designed for CI/CD runners, real-time webhook triage, and classification.',
+      latency: '18ms TTFT',
     },
   ];
 
-  const filteredModels = catalog.filter((m) => activeTab === 'all' || m.category === activeTab);
+  const filtered = filter === 'all' ? models : models.filter((m) => m.type === filter);
 
   return (
-    <section id="models" className="py-16 sm:py-24 border-b border-border bg-card/30">
-      <div className="max-w-page mx-auto px-5 sm:px-6 space-y-12">
-        {/* Header & Filter Tabs */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="max-w-2xl space-y-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-600 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200 inline-flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5" /> Latest Model Lineup
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-              The Entire Latest Claude Model Generation
+    <section id="models" className="border-b border-[#e7e5e4] bg-[#faf8f5] py-16 sm:py-24 font-sans">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10">
+        
+        {/* Header & Filter Controls */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-[#e7e5e4] pb-6">
+          <div className="max-w-xl space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
+              <Sparkles className="w-3.5 h-3.5 text-[#6d28d9]" />
+              <span className="text-[#6d28d9] font-bold">MODEL INTELLIGENCE</span>
+              <span className="text-[#d6d3d1]">·</span>
+              <span>LIVE REPERTOIRE</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[#1c1917]">
+              The Claude Model Family
             </h2>
-            <p className="text-sm text-muted leading-relaxed">
-              Featuring <strong>Claude Opus 5</strong>, <strong>Claude Fable 5</strong>, <strong>Claude Sonnet 5</strong>, <strong>Claude Haiku 4.5</strong>... and many more.
+            <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
+              Switch freely between reasoning powerhouses and high-throughput execution through a single master key.
             </p>
           </div>
 
-          {/* Filter Pill Tabs */}
-          <div className="flex items-center gap-1.5 bg-card border border-border p-1 rounded-control shadow-xs font-mono text-xs font-semibold">
+          <div className="flex items-center gap-1.5 bg-white border border-[#e7e5e4] p-1 rounded-xl text-xs font-medium shadow-xs">
             <button
-              onClick={() => setActiveTab('all')}
-              className={`px-3.5 py-1.5 rounded transition-all ${
-                activeTab === 'all' ? 'bg-fg text-bg shadow-xs font-bold' : 'text-muted hover:text-fg'
+              type="button"
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                filter === 'all'
+                  ? 'bg-[#1c1917] text-white shadow-xs font-semibold'
+                  : 'text-[#57534e] hover:text-[#1c1917]'
               }`}
             >
-              All Models ({catalog.length}+)
+              All Models ({models.length})
             </button>
             <button
-              onClick={() => setActiveTab('flagship')}
-              className={`px-3.5 py-1.5 rounded transition-all ${
-                activeTab === 'flagship' ? 'bg-fg text-bg shadow-xs font-bold' : 'text-muted hover:text-fg'
+              type="button"
+              onClick={() => setFilter('flagship')}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                filter === 'flagship'
+                  ? 'bg-[#1c1917] text-white shadow-xs font-semibold'
+                  : 'text-[#57534e] hover:text-[#1c1917]'
               }`}
             >
-              Flagship Reasoning
+              Flagship &amp; Reasoning
             </button>
             <button
-              onClick={() => setActiveTab('fast')}
-              className={`px-3.5 py-1.5 rounded transition-all ${
-                activeTab === 'fast' ? 'bg-fg text-bg shadow-xs font-bold' : 'text-muted hover:text-fg'
+              type="button"
+              onClick={() => setFilter('fast')}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                filter === 'fast'
+                  ? 'bg-[#1c1917] text-white shadow-xs font-semibold'
+                  : 'text-[#57534e] hover:text-[#1c1917]'
               }`}
             >
-              High Speed
+              High-Throughput
             </button>
           </div>
         </div>
 
-        {/* Model Cards Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <AnimatePresence mode="popLayout">
-            {filteredModels.map((model) => (
-              <motion.div
+        {/* Model Comparison Table */}
+        <div className="border border-[#e7e5e4] rounded-2xl sm:rounded-3xl overflow-hidden bg-white shadow-warm">
+          <div className="hidden md:grid md:grid-cols-12 border-b border-[#e7e5e4] bg-[#faf8f5] px-6 py-3.5 text-xs font-mono font-bold text-[#78716c] uppercase tracking-wider">
+            <div className="md:col-span-3">Model &amp; Canonical ID</div>
+            <div className="md:col-span-2">Classification</div>
+            <div className="md:col-span-2">Context &amp; Speed</div>
+            <div className="md:col-span-5">Primary Use Case &amp; Capabilities</div>
+          </div>
+
+          <div className="divide-y divide-[#f5f2eb]">
+            {filtered.map((model) => (
+              <div
                 key={model.id}
-                layout
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
-                transition={{ duration: 0.2 }}
-                className="h-full"
+                className="grid grid-cols-1 md:grid-cols-12 px-6 py-5 gap-3 md:gap-0 items-center text-xs hover:bg-[#faf8f5]/60 transition-colors"
               >
-                <ThreeDCard intensity={8} className="h-full">
-                  <div className="glass-3d-card relative rounded-panel p-6 border border-border bg-white flex flex-col justify-between h-full space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-mono font-bold text-violet-600 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200">
-                          {model.family}
-                        </span>
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-fg bg-subtle px-2 py-0.5 rounded border border-border">
-                          {model.badge}
-                        </span>
-                      </div>
-
-                      <div>
-                        <h3 className="text-lg font-bold text-fg tracking-tight">{model.name}</h3>
-                        <p className="text-xs font-mono text-muted mt-0.5">{model.id}</p>
-                      </div>
-
-                      <p className="text-xs text-muted leading-relaxed min-h-[40px]">{model.description}</p>
-                    </div>
-
-                    <div className="pt-4 border-t border-border space-y-2 font-mono text-xs text-muted">
-                      <div className="flex justify-between">
-                        <span>Context Window</span>
-                        <span className="font-bold text-fg">{model.contextWindow}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Protocol</span>
-                        <span className="text-emerald-600 font-semibold">{model.protocol}</span>
-                      </div>
-                    </div>
+                {/* Model Name & ID */}
+                <div className="md:col-span-3 space-y-1">
+                  <div className="text-sm font-bold text-[#1c1917] flex items-center gap-2">
+                    <span>{model.name}</span>
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#f5f2eb] text-[#78716c]">
+                      alias: {model.alias}
+                    </span>
                   </div>
-                </ThreeDCard>
-              </motion.div>
+                  <code className="text-[11px] font-mono text-[#6d28d9] block">
+                    {model.id}
+                  </code>
+                </div>
+
+                {/* Tier */}
+                <div className="md:col-span-2">
+                  <span className="inline-block px-2.5 py-1 rounded-full bg-[#faf8f5] border border-[#e7e5e4] text-[11px] font-medium text-[#57534e]">
+                    {model.tier}
+                  </span>
+                </div>
+
+                {/* Context Window & Latency */}
+                <div className="md:col-span-2 space-y-0.5">
+                  <div className="font-mono text-xs font-bold text-[#1c1917]">
+                    {model.context}
+                  </div>
+                  <div className="text-[11px] font-mono text-emerald-700">
+                    {model.latency}
+                  </div>
+                </div>
+
+                {/* Primary Use Case */}
+                <div className="md:col-span-5 text-[#57534e] leading-relaxed pr-2">
+                  {model.strengths}
+                </div>
+              </div>
             ))}
-          </AnimatePresence>
-        </div>
-
-        {/* AND MANY MORE CARD / BANNER */}
-        <div className="p-6 sm:p-8 rounded-panel bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-cyan-500/10 border border-violet-200/80 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-violet-600 text-white shadow-md">
-              <Plus className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-fg">...and Many More Top Models Supported!</h3>
-              <p className="text-xs text-muted mt-0.5">
-                New models are automatically provisioned and routed seamlessly through your single API endpoint.
-              </p>
-            </div>
           </div>
-
-          <a
-            href="https://wa.me/917695956938?text=Hi%20LightningDeals!%20I%20want%20to%20inquire%20about%20the%20latest%20Claude%20models."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-5 py-2.5 rounded-control bg-fg text-bg hover:bg-fg/90 font-bold text-xs font-mono shrink-0 shadow-sm"
-          >
-            Inquire Model Support →
-          </a>
         </div>
+
+        {/* Footer Note */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs pt-1 px-1">
+          <span className="text-[#78716c]">
+            Need complete parameters or token limits? Inspect full documentation.
+          </span>
+          <Link
+            to="/docs"
+            className="font-semibold text-[#6d28d9] hover:text-[#581c87] inline-flex items-center gap-1.5 transition-colors"
+          >
+            <span>Read Complete Developer API Reference</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
       </div>
     </section>
   );

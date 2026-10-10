@@ -1,139 +1,151 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Zap, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { ThreeDCard } from './ThreeDCard';
+import React, { useState } from 'react';
+import { RefreshCw, Lock, Zap, ArrowRight, ChevronDown, Check } from 'lucide-react';
 
 export const ContextVisualizer: React.FC = () => {
-  const whatsappUrl = `https://wa.me/917695956938?text=${encodeURIComponent('Hi LightningDeals Team! I would like to get a free trial API key for testing.')}`;
-
-  const controlPillars = [
-    {
-      num: '01',
-      title: 'Per-Key 5-Hour Rolling Budgets',
-      desc: 'Every key carries its allowance on a rolling five-hour window. Watch it drain in real time; it resets automatically on cycle.',
-    },
-    {
-      num: '02',
-      title: 'Isolated Rate Limits (RPM)',
-      desc: 'Requests per minute and expiration dates are set per key. No single high-volume key can starve another developer.',
-    },
-    {
-      num: '03',
-      title: 'Pass-Through SSE Streaming',
-      desc: 'Server-sent events are streamed token-by-token with sub-50ms latency directly to your IDE or application.',
-    },
-    {
-      num: '04',
-      title: 'Zero-Cost Prompt Caching',
-      desc: 'Cache hits and prompt cache reads do not count against your 5-hour rolling window. Only fresh completions deduct.',
-    },
-    {
-      num: '05',
-      title: 'Drop-In Protocol Compatibility',
-      desc: 'Full Anthropic Messages (/v1/messages) and OpenAI ChatCompletions (/v1/chat/completions) drop-in endpoints.',
-    },
-    {
-      num: '06',
-      title: 'Multi-Surface Stack Support',
-      desc: 'Use one key across Claude Code CLI, Cursor, Windsurf, Continue, VS Code, Python SDK, TypeScript SDK, and cURL.',
-    },
-  ];
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   return (
-    <section className="py-20 sm:py-28 border-b border-border bg-bg relative overflow-hidden">
-      
-      {/* Background Radial Glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-600/10 via-transparent to-transparent pointer-events-none" />
-
-      <div className="max-w-page mx-auto px-5 sm:px-6 space-y-16 relative z-10">
+    <section id="gateway" className="py-16 lg:py-24 border-b border-[#e5e7eb] bg-[#fbfbfa] font-sans">
+      <div className="max-w-page mx-auto px-4 sm:px-6 space-y-16">
         
-        {/* Top Feature Banner & 3D Aperture Visualizer */}
-        <div className="grid gap-12 lg:grid-cols-[1fr_.9fr] lg:items-center">
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="space-y-6"
-          >
-            <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-200">
-              <Zap className="w-3.5 h-3.5 fill-current text-violet-600" />
-              <span>Engineered for Production Scale</span>
+        {/* Section Header */}
+        <div className="max-w-2xl space-y-3">
+          <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#f4f4f0] border border-[#e5e7eb] text-xs font-medium text-[#4b5563] tracking-wider uppercase">
+            Platform Architecture
+          </div>
+          
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#111827]">
+            Predictable rolling quotas. Zero data retention.
+          </h2>
+
+          <p className="text-sm sm:text-base text-[#4b5563] leading-relaxed">
+            Designed for continuous development without surprise monthly cloud bills, sudden quota lockouts, or prompt logging.
+          </p>
+        </div>
+
+        {/* 2-Column Editorial Split */}
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Column 1: Rolling Token Window Engine */}
+          <div className="lg:col-span-6 bg-white border border-[#e5e7eb] rounded-xl p-6 sm:p-8 space-y-6 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="p-2 rounded-lg bg-[#eff6ff] text-[#1e40af]">
+                <RefreshCw className="w-5 h-5" />
+              </span>
+              <span className="text-xs font-semibold text-[#1e40af] bg-[#eff6ff] px-2.5 py-1 rounded">
+                Automatic Replenishment
+              </span>
             </div>
 
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-fg leading-tight">
-              Built for whoever holds the API keys.
-            </h2>
-
-            <p className="text-sm sm:text-base text-muted leading-relaxed">
-              LightningDeals delivers high-throughput infrastructure with real enforcement rules: 5-hour rolling token windows, RPM rate limits, isolated key scopes, and transparent usage ledgers.
-            </p>
-
-            <div className="pt-2 flex flex-wrap gap-4">
-              <Link to="/trial" className="ui-button-primary text-xs py-3 px-6 font-bold gap-2">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Claim Free 1M Trial Key</span>
-              </Link>
-              <Link to="/docs" className="ui-button-secondary text-xs py-3 px-6 font-semibold">
-                Read Infrastructure Docs
-              </Link>
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-[#111827]">
+                Continuous 5-Hour Rolling Token Windows
+              </h3>
+              <p className="text-sm text-[#4b5563] leading-relaxed">
+                Unlike standard API providers that enforce monthly hard cutoffs or expensive pay-as-you-go overages, LightningAPI allocates tokens across a continuous 5-hour rolling cycle. Tokens used earlier replenish as they exit the 5-hour window, providing consistent daily throughput.
+              </p>
             </div>
-          </motion.div>
 
-          {/* Aperture 3D Glowing Context Window Visualizer */}
-          <ThreeDCard intensity={15}>
-            <div className="glass-3d-card p-8 rounded-panel text-center relative overflow-hidden shadow-2xl flex flex-col items-center justify-center space-y-6">
-              <div className="relative w-56 h-56 flex items-center justify-center">
-                {/* Outer Animated Glowing Gradient Rings */}
-                <div className="absolute inset-0 rounded-full border-2 border-dashed border-violet-500/40 animate-[spin_20s_linear_infinite]" />
-                <div className="absolute inset-2 rounded-full border border-cyan-500/30" />
-                <div className="absolute inset-8 rounded-full border border-indigo-500/20" />
-
-                <div className="relative z-10 space-y-1">
-                  <span className="font-mono text-3xl sm:text-4xl font-extrabold animated-gradient-text tracking-tight">Up to 1M</span>
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted font-bold">Model Context Window</p>
-                </div>
+            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#e5e7eb]">
+              <div className="p-3 rounded-lg bg-[#fbfbfa] border border-[#e5e7eb]">
+                <div className="text-[10px] text-[#6b7280] uppercase font-semibold">Cycle Length</div>
+                <div className="text-base font-bold text-[#111827] mt-0.5">5 Hours</div>
+                <div className="text-[11px] text-[#6b7280]">Rolling window</div>
               </div>
-
-              <div className="pt-4 border-t border-border/80 w-full flex items-center justify-between text-xs font-mono text-muted">
-                <span>Primary Models: <strong className="text-fg">Claude 3.5 Sonnet / Sonnet 5</strong></span>
-                <span className="text-emerald-600 font-bold">✓ Live Gateway Routing</span>
+              <div className="p-3 rounded-lg bg-[#fbfbfa] border border-[#e5e7eb]">
+                <div className="text-[10px] text-[#6b7280] uppercase font-semibold">Context Window</div>
+                <div className="text-base font-bold text-[#111827] mt-0.5">200K / 1M</div>
+                <div className="text-[11px] text-[#6b7280]">Full model depth</div>
+              </div>
+              <div className="p-3 rounded-lg bg-[#fbfbfa] border border-[#e5e7eb]">
+                <div className="text-[10px] text-[#6b7280] uppercase font-semibold">Prompt Cache</div>
+                <div className="text-base font-bold text-emerald-700 mt-0.5">0 Cost</div>
+                <div className="text-[11px] text-[#6b7280]">Cache hits free</div>
               </div>
             </div>
-          </ThreeDCard>
+          </div>
+
+          {/* Column 2: Zero Retention Privacy Guarantee */}
+          <div className="lg:col-span-6 bg-white border border-[#e5e7eb] rounded-xl p-6 sm:p-8 space-y-6 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="p-2 rounded-lg bg-[#f0fdf4] text-emerald-700">
+                <Lock className="w-5 h-5" />
+              </span>
+              <span className="text-xs font-semibold text-emerald-800 bg-[#f0fdf4] px-2.5 py-1 rounded">
+                Strict Privacy SLA
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-[#111827]">
+                Zero Prompt Retention (100% Direct Passthrough)
+              </h3>
+              <p className="text-sm text-[#4b5563] leading-relaxed">
+                Your prompts, proprietary source code, and AI completions stream token-by-token directly to your client. LightningAPI maintains zero disk persistence, zero database logging of content, and zero data sharing for model training.
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-4 border-t border-[#e5e7eb]">
+              <div className="flex items-start gap-2.5 text-xs text-[#4b5563]">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>Zero prompt or response storage in persistent databases</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs text-[#4b5563]">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>Encrypted transit via HTTP/2 and modern TLS 1.3 standards</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs text-[#4b5563]">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>Strict isolation between user environments and proxy routing nodes</span>
+              </div>
+            </div>
+          </div>
 
         </div>
 
-        {/* 6 Control Pillars 3D Grid */}
-        <div className="space-y-6">
-          <div className="border-b border-border pb-4">
-            <h3 className="text-xl font-bold text-fg">Infrastructure Control & Isolation</h3>
-            <p className="text-xs text-muted mt-1">Multi-tenant key management built to support teams and developers with 5-hour rolling windows.</p>
-          </div>
+        {/* Technical Specs Expandable Row */}
+        <div className="border border-[#e5e7eb] rounded-lg bg-white overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+            className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[#f9fafb] transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <Zap className="w-4 h-4 text-[#1e40af]" />
+              <span className="text-xs sm:text-sm font-semibold text-[#111827]">
+                Developer Specifications (Protocol, Headers, and Rate Limiting)
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-medium text-[#1e40af]">
+              <span>{showTechnicalDetails ? 'Hide Details' : 'Show Details'}</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showTechnicalDetails ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {controlPillars.map((p, idx) => (
-              <motion.div
-                key={p.num}
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.3, delay: idx * 0.05 }}
-              >
-                <ThreeDCard intensity={8} className="h-full">
-                  <div className="glass-3d-card p-6 rounded-panel space-y-3 h-full flex flex-col justify-between group">
-                    <div className="space-y-2">
-                      <span className="font-mono text-xs font-bold text-violet-700 bg-violet-50 px-2.5 py-1 rounded border border-violet-200 inline-block">
-                        {p.num}
-                      </span>
-                      <h4 className="text-base font-bold text-fg pt-1 group-hover:text-violet-600 transition-colors">{p.title}</h4>
-                      <p className="text-xs text-muted leading-relaxed">{p.desc}</p>
-                    </div>
-                  </div>
-                </ThreeDCard>
-              </motion.div>
-            ))}
-          </div>
+          {showTechnicalDetails && (
+            <div className="px-6 py-5 border-t border-[#e5e7eb] bg-[#fbfbfa] text-xs text-[#4b5563] space-y-4">
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <div className="font-semibold text-[#111827] mb-1">Header Authentication</div>
+                  <code className="bg-white border border-[#e5e7eb] px-2 py-1 rounded text-[11px] block text-[#111827]">
+                    x-api-key: ld_live_...
+                  </code>
+                </div>
+                <div>
+                  <div className="font-semibold text-[#111827] mb-1">Anthropic Version Header</div>
+                  <code className="bg-white border border-[#e5e7eb] px-2 py-1 rounded text-[11px] block text-[#111827]">
+                    anthropic-version: 2023-06-01
+                  </code>
+                </div>
+                <div>
+                  <div className="font-semibold text-[#111827] mb-1">Streaming Endpoint</div>
+                  <code className="bg-white border border-[#e5e7eb] px-2 py-1 rounded text-[11px] block text-[#111827]">
+                    POST /v1/messages
+                  </code>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

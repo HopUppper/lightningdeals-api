@@ -42,8 +42,12 @@ export async function calculateKeyRollingWindow(keyRecord: any) {
   }
 
   const purchasedNum = Number(keyRecord.purchasedTokens || 0);
-  const remainingNum = Math.max(0, purchasedNum - windowTokensUsed);
-  const consumptionPercent = purchasedNum > 0 ? Math.min(100, Math.round((windowTokensUsed / purchasedNum) * 1000) / 10) : 0;
+  const walletRemaining = keyRecord.tokensRemaining !== undefined && keyRecord.tokensRemaining !== null
+    ? Math.max(0, Number(keyRecord.tokensRemaining))
+    : purchasedNum;
+  const rollingRemaining = Math.max(0, purchasedNum - windowTokensUsed);
+  const remainingNum = Math.min(walletRemaining, rollingRemaining);
+  const consumptionPercent = purchasedNum > 0 ? Math.min(100, Math.round(((purchasedNum - remainingNum) / purchasedNum) * 1000) / 10) : 0;
 
   return {
     windowActive,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { Lock, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Mail, KeyRound } from 'lucide-react';
+import { Lock, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Mail, KeyRound, Sparkles } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
@@ -80,7 +80,7 @@ export const ResetPasswordPage: React.FC = () => {
         }
         setTimeout(() => {
           navigate('/dashboard');
-        }, 2200);
+        }, 2000);
       } else {
         setError(data.error?.message || 'Failed to reset password. Link or code may be expired.');
       }
@@ -92,93 +92,103 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
+    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
       <Navbar />
+
       <main className="flex-1 flex items-center justify-center p-6 my-12">
-        <div className="max-w-md w-full bg-white rounded-3xl border border-violet-100 p-8 shadow-xl space-y-6">
+        <div className="max-w-md w-full bg-white rounded-xl border border-[#e5e7eb] p-8 sm:p-10 shadow-xs space-y-6">
           <div className="text-center space-y-2">
-            <div className="inline-flex p-3 rounded-2xl bg-violet-50 text-violet-600 border border-violet-200 mb-2">
-              <Lock className="w-8 h-8" />
+            <div className="w-10 h-10 rounded-lg bg-[#0f172a] text-white flex items-center justify-center mx-auto shadow-xs">
+              <KeyRound className="w-5 h-5 text-slate-100" />
             </div>
-            <h1 className="text-2xl font-black text-fg tracking-tight">Set New Password</h1>
-            <p className="text-xs text-muted font-mono">
-              Choose a strong, unique password to secure your account.
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-[11px] font-medium text-slate-700 border border-slate-200">
+              <span>Security Check</span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#111827]">
+              Create New Password
+            </h1>
+            <p className="text-xs text-[#4b5563]">
+              Choose a strong password to protect your account and API keys.
             </p>
           </div>
 
-          {/* Mode Selector Tabs */}
-          <div className="flex bg-slate-100 p-1 rounded-2xl text-xs font-mono">
-            <button
-              type="button"
-              onClick={() => { setMode('code'); setError(null); }}
-              className={`flex-1 py-2 rounded-xl font-bold transition-all ${
-                mode === 'code'
-                  ? 'bg-white text-violet-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              6-Digit Code
-            </button>
-            <button
-              type="button"
-              onClick={() => { setMode('token'); setError(null); }}
-              className={`flex-1 py-2 rounded-xl font-bold transition-all ${
-                mode === 'token'
-                  ? 'bg-white text-violet-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Direct Link / Token
-            </button>
-          </div>
-
-          {error && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-            </div>
-          )}
-
           {success ? (
-            <div className="space-y-6 text-center">
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-mono flex items-center gap-2 text-left">
-                <CheckCircle2 className="w-5 h-5 shrink-0" />
-                Password reset successfully! All prior active sessions have been securely revoked. Redirecting to your dashboard...
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="w-full py-3 rounded-2xl bg-violet-600 text-white font-bold text-xs shadow-md"
-              >
-                Go to Dashboard Now →
-              </button>
+            <div className="p-6 rounded-lg bg-emerald-50/80 border border-emerald-200 text-center space-y-3">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+              <h3 className="text-sm font-semibold text-emerald-950">Password Updated Successfully</h3>
+              <p className="text-xs text-emerald-800">
+                Logging you into your dashboard now...
+              </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === 'code' ? (
-                <>
-                  <div>
-                    <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
-                      Account Email Address
+            <>
+              {error && (
+                <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50/80 text-rose-800 text-xs flex items-center gap-2 font-medium">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Mode Switcher */}
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#f3f4f6] rounded-lg border border-[#e5e7eb]">
+                <button
+                  type="button"
+                  onClick={() => setMode('token')}
+                  className={`py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                    mode === 'token'
+                      ? 'bg-white text-[#111827] shadow-xs font-semibold'
+                      : 'text-[#6b7280] hover:text-[#111827]'
+                  }`}
+                >
+                  Email Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('code')}
+                  className={`py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                    mode === 'code'
+                      ? 'bg-white text-[#111827] shadow-xs font-semibold'
+                      : 'text-[#6b7280] hover:text-[#111827]'
+                  }`}
+                >
+                  6-Digit Code
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {mode === 'token' ? (
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-[#111827]">
+                      Reset Token
                     </label>
-                    <div className="relative">
-                      <Mail className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder="Paste token from email link"
+                      className="w-full px-3.5 py-2.5 text-xs font-mono bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-[#111827]">
+                        Account Email
+                      </label>
                       <input
                         type="email"
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="name@example.com"
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono focus:outline-none focus:border-violet-500"
+                        placeholder="name@company.com"
+                        className="w-full px-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
-                      6-Digit Password Reset Code
-                    </label>
-                    <div className="relative">
-                      <KeyRound className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-[#111827]">
+                        6-Digit Code
+                      </label>
                       <input
                         type="text"
                         required
@@ -186,79 +196,67 @@ export const ResetPasswordPage: React.FC = () => {
                         value={code}
                         onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                         placeholder="123456"
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono tracking-widest font-bold focus:outline-none focus:border-violet-500"
+                        className="w-full text-center tracking-widest font-mono text-base font-bold py-2 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
                       />
                     </div>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
-                    Reset Token (from email link)
+                  </>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#111827]">
+                    New Password
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder="Enter cryptographic token from email URL"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono focus:outline-none focus:border-violet-500"
-                  />
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af]" />
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                    />
+                  </div>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
-                  New Password (min 8 chars)
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono focus:outline-none focus:border-violet-500"
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#111827]">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af]" />
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat password"
+                      className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                    />
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-xs font-mono font-bold text-slate-700 mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-fg font-mono focus:outline-none focus:border-violet-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? 'Updating Password...' : 'Update Password & Sign In'} <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <div className="text-center pt-2">
-                <Link
-                  to="/forgot-password"
-                  className="text-xs text-violet-600 hover:text-violet-700 font-medium font-mono"
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full ui-button-brand text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
                 >
-                  Need a new reset link or code? Request here →
-                </Link>
-              </div>
-            </form>
+                  {loading ? 'Updating Password...' : 'Save Password & Enter →'}
+                </button>
+              </form>
+            </>
           )}
 
-          <div className="pt-2 border-t border-slate-100 text-[11px] text-muted font-mono flex items-center justify-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Password hashed using scrypt with high-entropy salt
+          <div className="pt-4 border-t border-[#e5e7eb] text-center">
+            <Link to="/login" className="text-xs text-[#6b7280] hover:text-[#111827] font-medium">
+              ← Return to Sign In
+            </Link>
           </div>
         </div>
       </main>
+
       <Footer />
     </div>
   );

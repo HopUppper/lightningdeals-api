@@ -22,34 +22,63 @@ export interface RewardCalculation {
  * Fetch or initialize global RewardSettings
  */
 export async function getRewardSettings() {
-  let settings = await prisma.rewardSettings.findUnique({
-    where: { id: 'default' },
-  });
+  const defaultFallback = {
+    id: 'default',
+    rewardPercentage: 10.0,
+    maxEligiblePurchaseAmount: 5000.0,
+    maxRewardPerTransaction: 500.0,
+    currency: 'INR',
+    isActive: true,
+    promoActive: false,
+    promoMultiplier: 2.0,
+    promoMinPurchaseAmount: 0.0,
+    promoMaxCredits: 1000.0,
+    promoTitle: '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
+    promoSubtitle: 'Get 2X credits on ALL purchases today (up to 1,000 credits max on purchases up to ₹5,000)!',
+    promoBadge: 'SUNDAY BOOST',
+    promoShowPopup: true,
+    promoShowBanner: true,
+    promoEndsAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
-  if (!settings) {
-    settings = await prisma.rewardSettings.create({
-      data: {
-        id: 'default',
-        rewardPercentage: 10.0,
-        maxEligiblePurchaseAmount: 5000.0,
-        maxRewardPerTransaction: 500.0,
-        currency: 'INR',
-        isActive: true,
-        promoActive: false,
-        promoMultiplier: 2.0,
-        promoMinPurchaseAmount: 0.0,
-        promoMaxCredits: 1000.0,
-        promoTitle: '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
-        promoSubtitle: 'Get 2X credits on ALL purchases today (up to 1,000 credits max on purchases up to ₹5,000)!',
-        promoBadge: 'SUNDAY BOOST',
-        promoShowPopup: true,
-        promoShowBanner: true,
-        promoEndsAt: null,
-      },
+  try {
+    let settings = await prisma.rewardSettings.findUnique({
+      where: { id: 'default' },
     });
-  }
 
-  return settings;
+    if (!settings) {
+      try {
+        settings = await prisma.rewardSettings.create({
+          data: {
+            id: 'default',
+            rewardPercentage: 10.0,
+            maxEligiblePurchaseAmount: 5000.0,
+            maxRewardPerTransaction: 500.0,
+            currency: 'INR',
+            isActive: true,
+            promoActive: false,
+            promoMultiplier: 2.0,
+            promoMinPurchaseAmount: 0.0,
+            promoMaxCredits: 1000.0,
+            promoTitle: '⚡ SUNDAY SPECIAL: 2X LIGHTNING CREDITS',
+            promoSubtitle: 'Get 2X credits on ALL purchases today (up to 1,000 credits max on purchases up to ₹5,000)!',
+            promoBadge: 'SUNDAY BOOST',
+            promoShowPopup: true,
+            promoShowBanner: true,
+            promoEndsAt: null,
+          },
+        });
+      } catch {
+        return defaultFallback as any;
+      }
+    }
+
+    return settings;
+  } catch {
+    return defaultFallback as any;
+  }
 }
 
 /**

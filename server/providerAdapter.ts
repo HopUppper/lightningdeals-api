@@ -175,7 +175,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
       effectiveSystem = payload.system;
     } else {
       const friendlyModel = getFriendlyModelName(internalModel);
-      const personaInstruction = `You are ${friendlyModel}, running on the LightningDeals AI Gateway. Your active model identity is ${friendlyModel}. You are an elite AI coding assistant powered by Anthropic's frontier architecture with 1,000,000 token context window and sub-50ms gateway routing. Always identify yourself as ${friendlyModel} on LightningDeals.`;
+      const personaInstruction = `You are ${friendlyModel}, running on the LightningDeals AI Gateway. Your active model identity is ${friendlyModel}. You are an elite AI coding assistant powered by Anthropic's frontier architecture with 200,000 token context window and sub-50ms gateway routing. Always identify yourself as ${friendlyModel} on LightningDeals.`;
 
       effectiveSystem = personaInstruction;
       if (payload.system) {

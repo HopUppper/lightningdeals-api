@@ -98,9 +98,7 @@ export const CheckoutCartDrawer: React.FC = () => {
     e.preventDefault();
     if (!inputCode.trim()) return;
     const success = await applyCoupon(inputCode);
-    if (success) {
-      setInputCode('');
-    }
+    if (success) setInputCode('');
   };
 
   const handleCheckout = async () => {
@@ -118,9 +116,10 @@ export const CheckoutCartDrawer: React.FC = () => {
     try {
       const res = await adminFetch('/api/checkout/create-order', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planId: item.planId || item.id,
-          couponCode: appliedCoupon?.code,
+          couponCode: appliedCoupon?.code || undefined,
         }),
       });
 
@@ -181,32 +180,33 @@ export const CheckoutCartDrawer: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden animate-fadeIn">
+    <div className="fixed inset-0 z-50 overflow-hidden font-sans">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-[#1c1917]/50 backdrop-blur-xs transition-opacity"
         onClick={closeCart}
       />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
-        <div className="w-screen max-w-md bg-white border-l border-border shadow-2xl flex flex-col font-sans h-full max-h-screen">
+        <div className="w-screen max-w-md bg-[#fbf9f5] border-l border-[#e7e5e4] shadow-warm flex flex-col font-sans h-full max-h-screen">
           
           {/* Header */}
-          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
+          <div className="p-4 sm:p-5 border-b border-[#e7e5e4] flex items-center justify-between bg-white shrink-0 sticky top-0 z-10">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-violet-600 text-white shadow-md shadow-violet-500/20">
+              <div className="p-2 rounded-xl bg-[#6d28d9] text-white shadow-xs">
                 <ShoppingBag className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-fg">Your Checkout Cart</h2>
-                <p className="text-[11px] text-muted font-mono">
-                  {cartItems.length} {cartItems.length === 1 ? 'Subscription' : 'Items'} Selected
+                <h2 className="text-base font-bold text-[#1c1917]">Your Checkout Cart</h2>
+                <p className="text-[11px] text-[#78716c] font-mono">
+                  {cartItems.length} {cartItems.length === 1 ? 'Plan' : 'Plans'} Selected
                 </p>
               </div>
             </div>
             <button
               onClick={closeCart}
-              className="p-1.5 rounded-control text-muted hover:text-fg hover:bg-subtle transition-colors"
+              className="min-h-[40px] min-w-[40px] p-2 rounded-lg text-[#78716c] hover:text-[#1c1917] hover:bg-[#f5f2eb] transition-colors cursor-pointer flex items-center justify-center"
+              aria-label="Close cart"
             >
               <X className="w-4 h-4" />
             </button>
@@ -216,13 +216,13 @@ export const CheckoutCartDrawer: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {cartItems.length === 0 ? (
               <div className="py-16 text-center space-y-4">
-                <div className="w-14 h-14 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center mx-auto border border-violet-200">
+                <div className="w-14 h-14 rounded-full bg-[#f5f3ff] text-[#6d28d9] flex items-center justify-center mx-auto border border-[#ddd6fe]">
                   <ShoppingBag className="w-7 h-7" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-fg">Your Cart is Empty</h3>
-                  <p className="text-xs text-muted max-w-xs mx-auto">
-                    Select a Claude Max plan to activate high-performance API access instantly.
+                  <h3 className="text-base font-bold text-[#1c1917]">Your Cart is Empty</h3>
+                  <p className="text-xs text-[#78716c] max-w-xs mx-auto">
+                    Select a Claude capacity plan to activate high-performance API access instantly.
                   </p>
                 </div>
                 <button
@@ -230,49 +230,49 @@ export const CheckoutCartDrawer: React.FC = () => {
                     closeCart();
                     navigate('/pricing');
                   }}
-                  className="ui-button-primary text-xs py-2.5 px-5 font-bold"
+                  className="px-5 py-2.5 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white text-xs font-semibold shadow-plum transition-all cursor-pointer"
                 >
-                  BROWSE CLAUDE PLANS
+                  BROWSE CAPACITY PLANS
                 </button>
               </div>
             ) : (
               <>
                 {/* Item Card */}
-                <div className="p-4 rounded-control bg-subtle/70 border border-border space-y-3 relative group">
+                <div className="p-4 rounded-xl bg-white border border-[#e7e5e4] space-y-3 relative shadow-xs">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       {item.badge && (
-                        <span className="text-[10px] font-mono font-bold uppercase text-violet-700 bg-violet-100 px-2 py-0.5 rounded mr-2">
+                        <span className="text-[10px] font-mono font-semibold uppercase text-[#6d28d9] bg-[#f5f3ff] border border-[#ddd6fe] px-2 py-0.5 rounded mr-2">
                           {item.badge}
                         </span>
                       )}
-                      <span className="font-extrabold text-sm text-fg">Claude Max {item.name}</span>
-                      <p className="text-xs text-muted font-mono mt-0.5">{item.tokenDisplay}</p>
+                      <span className="font-bold text-sm text-[#1c1917]">{item.name}</span>
+                      <p className="text-xs text-[#78716c] font-mono mt-0.5">{item.tokenDisplay}</p>
                     </div>
 
                     <button
                       onClick={() => removeFromCart(item.planId || item.id)}
-                      className="p-1.5 text-muted hover:text-rose-600 rounded-control hover:bg-rose-50 transition-colors"
+                      className="p-1.5 text-[#78716c] hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
                       title="Remove plan"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-muted pt-2 border-t border-border/60">
-                    <div>Window: <strong>{item.windowHours}h Refresh</strong></div>
-                    <div>Validity: <strong>{item.validityDays} Days</strong></div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-[#78716c] pt-2 border-t border-[#f5f2eb]">
+                    <div>Window: <strong className="text-[#1c1917]">{item.windowHours}h Refresh</strong></div>
+                    <div>Validity: <strong className="text-[#1c1917]">{item.validityDays} Days</strong></div>
                   </div>
 
-                  <div className="flex items-baseline justify-between pt-1 border-t border-border/60">
-                    <span className="text-xs text-muted font-mono">Plan Price</span>
+                  <div className="flex items-baseline justify-between pt-1 border-t border-[#f5f2eb]">
+                    <span className="text-xs text-[#78716c] font-mono">Plan Price</span>
                     <div className="text-right">
                       {item.originalPriceInr && (
-                        <span className="text-xs text-muted line-through mr-2 font-mono">
+                        <span className="text-xs text-[#a8a29e] line-through mr-2 font-mono">
                           ₹{item.originalPriceInr.toLocaleString()}
                         </span>
                       )}
-                      <span className="text-base font-extrabold font-mono text-fg">
+                      <span className="text-base font-bold font-mono text-[#1c1917]">
                         ₹{item.priceInr.toLocaleString()}
                       </span>
                     </div>
@@ -280,26 +280,26 @@ export const CheckoutCartDrawer: React.FC = () => {
                 </div>
 
                 {/* Promo Code / Coupon Section */}
-                <div className="p-4 rounded-control bg-bg border border-border space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-fg">
-                    <Tag className="w-3.5 h-3.5 text-violet-600" />
+                <div className="p-4 rounded-xl bg-white border border-[#e7e5e4] space-y-3 shadow-xs">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#1c1917]">
+                    <Tag className="w-3.5 h-3.5 text-[#6d28d9]" />
                     <span>Have a Coupon or Promo Code?</span>
                   </div>
 
                   {appliedCoupon ? (
-                    <div className="p-3 rounded bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+                    <div className="p-3 rounded-lg bg-[#ecfdf5] border border-[#a7f3d0] flex items-center justify-between text-xs">
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5 text-emerald-800 font-bold font-mono">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <div className="flex items-center gap-1.5 text-[#065f46] font-bold font-mono">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#059669]" />
                           <span>COUPON APPLIED: {appliedCoupon.code}</span>
                         </div>
-                        <p className="text-[11px] text-emerald-700 font-mono">
+                        <p className="text-[11px] text-[#047857] font-mono">
                           You saved ₹{discountAmount.toLocaleString()} ({appliedCoupon.discountType === 'PERCENTAGE' ? `${appliedCoupon.discountValue}% OFF` : `₹${appliedCoupon.discountValue} OFF`})
                         </p>
                       </div>
                       <button
                         onClick={removeCoupon}
-                        className="text-[11px] font-bold text-rose-600 hover:underline ml-2"
+                        className="text-[11px] font-bold text-rose-600 hover:underline ml-2 cursor-pointer"
                       >
                         Remove
                       </button>
@@ -312,12 +312,12 @@ export const CheckoutCartDrawer: React.FC = () => {
                           placeholder="e.g. LAUNCH20"
                           value={inputCode}
                           onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-                          className="flex-1 ui-input text-xs font-mono py-2 px-3 uppercase"
+                          className="flex-1 text-xs font-mono py-2 px-3 uppercase border border-[#e7e5e4] rounded-lg bg-[#fdfbf7] text-[#1c1917] focus:outline-none focus:border-[#6d28d9]"
                         />
                         <button
                           type="submit"
                           disabled={couponLoading || !inputCode.trim()}
-                          className="ui-button-secondary text-xs py-2 px-4 font-bold disabled:opacity-50 flex items-center gap-1"
+                          className="text-xs py-2 px-4 font-semibold rounded-lg bg-[#1c1917] text-white hover:bg-black transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
                         >
                           {couponLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'APPLY'}
                         </button>
@@ -334,14 +334,14 @@ export const CheckoutCartDrawer: React.FC = () => {
                 </div>
 
                 {/* Order Cost Breakdown */}
-                <div className="space-y-2.5 font-mono text-xs text-muted border-t border-border pt-4">
+                <div className="space-y-2.5 font-mono text-xs text-[#78716c] border-t border-[#e7e5e4] pt-4">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>₹{subtotal.toLocaleString()}</span>
+                    <span className="text-[#1c1917]">₹{subtotal.toLocaleString()}</span>
                   </div>
 
                   {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-600 font-bold">
+                    <div className="flex justify-between text-[#059669] font-bold">
                       <span>Coupon Discount ({appliedCoupon?.code})</span>
                       <span>-₹{discountAmount.toLocaleString()}</span>
                     </div>
@@ -349,48 +349,17 @@ export const CheckoutCartDrawer: React.FC = () => {
 
                   <div className="flex justify-between">
                     <span>Platform & Gateway Fee</span>
-                    <span className="text-emerald-600">FREE</span>
+                    <span className="text-[#059669]">FREE</span>
                   </div>
 
-                  {/* Reward Earn Teaser */}
-                  {isPromoApplied ? (
-                    <div className="p-2.5 rounded-lg bg-gradient-to-r from-amber-50 via-orange-50/70 to-amber-50 border-2 border-amber-400/90 shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <div className="flex items-center gap-1.5 font-extrabold text-amber-950">
-                          <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-600 animate-pulse shrink-0" />
-                          <span>Reward ({activeOffer?.multiplier}X {activeOffer?.badge || 'BOOST'}):</span>
-                        </div>
-                        <span className="font-black text-amber-700">
-                          +₹{estimatedEarnedCredits.toLocaleString()} Credits
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] font-mono text-amber-800/90 pt-0.5 border-t border-amber-200/60">
-                        <span>Standard: <span className="line-through">₹{baseRewardCredits.toLocaleString()}</span> → <strong className="text-amber-950 font-extrabold">{activeOffer?.multiplier}X Boost Applied!</strong></span>
-                        <span className="text-[9px] bg-amber-200 text-amber-950 font-bold px-1 rounded">
-                          1 Credit = ₹1
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-2 rounded bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between text-xs font-mono text-emerald-800">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Reward on this order:</span>
-                      </div>
-                      <span className="font-extrabold text-emerald-700">
-                        +₹{estimatedEarnedCredits.toLocaleString()} Credits
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between text-fg font-extrabold text-base pt-2 border-t border-border">
+                  <div className="flex justify-between text-[#1c1917] font-bold text-base pt-2 border-t border-[#e7e5e4]">
                     <span>Total Payable</span>
-                    <span className="text-violet-700">₹{totalPayable.toLocaleString()}</span>
+                    <span className="text-[#6d28d9]">₹{totalPayable.toLocaleString()}</span>
                   </div>
                 </div>
 
                 {checkoutError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-600 font-mono flex items-center gap-2">
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-600 font-mono flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{checkoutError}</span>
                   </div>
@@ -401,11 +370,11 @@ export const CheckoutCartDrawer: React.FC = () => {
 
           {/* Footer Checkout Action */}
           {cartItems.length > 0 && (
-            <div className="p-4 sm:p-5 border-t border-border bg-bg/50 space-y-3 shrink-0">
+            <div className="p-4 sm:p-5 border-t border-[#e7e5e4] bg-white space-y-3 shrink-0">
               <button
                 onClick={handleCheckout}
                 disabled={checkoutLoading}
-                className="w-full py-3.5 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] disabled:opacity-50"
+                className="w-full py-3 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-plum disabled:opacity-50 transition-all"
               >
                 {checkoutLoading ? (
                   <>
@@ -420,8 +389,8 @@ export const CheckoutCartDrawer: React.FC = () => {
                 )}
               </button>
 
-              <div className="flex items-center justify-center gap-3 text-[10px] font-mono text-muted text-center">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <div className="flex items-center justify-center gap-2 text-[10px] font-mono text-[#78716c] text-center">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#059669] shrink-0" />
                 <span>256-Bit Encrypted · Instant Key Delivery · No Auto-Renewal</span>
               </div>
             </div>

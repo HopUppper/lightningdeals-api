@@ -65,96 +65,78 @@ export const UserPlan: React.FC = () => {
 
   useEffect(() => {
     fetchSubscriptions();
-    const interval = setInterval(fetchSubscriptions, 30000); // Poll every 30s
-    const handleSync = () => {
-      if (document.visibilityState === 'visible') {
-        fetchSubscriptions();
-      }
-    };
-    window.addEventListener('focus', handleSync);
-    document.addEventListener('visibilitychange', handleSync);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleSync);
-      document.removeEventListener('visibilitychange', handleSync);
-    };
   }, []);
-
-  // Live timer tick for reset and expiry countdowns
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const activeSub = data?.activeSubscription;
-      if (!activeSub) return;
-
-      const now = Date.now();
-
-      // Next reset countdown
-      if (activeSub.nextResetTime) {
-        const resetDiff = new Date(activeSub.nextResetTime).getTime() - now;
-        if (resetDiff > 0) {
-          const hours = Math.floor(resetDiff / (1000 * 3600));
-          const mins = Math.floor((resetDiff % (1000 * 3600)) / (1000 * 60));
-          const secs = Math.floor((resetDiff % (1000 * 60)) / 1000);
-          setResetCountdown(`${hours}h ${mins}m ${secs}s`);
-        } else {
-          setResetCountdown('Refreshing quota...');
-        }
-      }
-
-      // Expiry countdown
-      if (activeSub.expiryTime) {
-        const expiryDiff = new Date(activeSub.expiryTime).getTime() - now;
-        if (expiryDiff > 0) {
-          const days = Math.floor(expiryDiff / (1000 * 3600 * 24));
-          const hours = Math.floor((expiryDiff % (1000 * 3600 * 24)) / (1000 * 3600));
-          const mins = Math.floor((expiryDiff % (1000 * 3600)) / (1000 * 60));
-          setExpiryCountdown(`${days}d ${hours}h ${mins}m`);
-        } else {
-          setExpiryCountdown('Expired');
-        }
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [data]);
 
   const handleClaimTrial = async () => {
     setClaimingTrial(true);
     setTrialError(null);
     try {
-      const res = await adminFetch('/api/user/trial/claim', { method: 'POST' });
-      const trialData = await res.json();
-      if (!res.ok || !trialData.success) {
-        setTrialError(trialData.error?.message || 'Failed to claim trial.');
+      const res = await adminFetch('/api/user/trial/claim', {
+        method: 'POST',
+      });
+      const resData = await res.json();
+      if (!res.ok || !resData.success) {
+        setTrialError(resData.error?.message || 'Failed to claim trial.');
       } else {
-        const rawKey = trialData.trial?.rawKeySecret || trialData.trial?.apiKey || trialData.rawKeySecret || trialData.apiKey;
-        if (rawKey) {
-          setRevealedKeyData({
-            key: rawKey,
-            planName: 'Free 1-Day Trial',
-            quotaDisplay: '1M TOKENS / 5 HOURS',
-            windowHours: 5,
-          });
-        }
-        await fetchSubscriptions();
+        setRevealedKeyData({
+          key: resData.key,
+          planName: '1-Day Free Trial',
+          quotaDisplay: '1M Tokens / 5h Window',
+          windowHours: 5,
+        });
       }
-    } catch (e: any) {
-      setTrialError(e.message || 'Network error claiming trial.');
+    } catch (err: any) {
+      setTrialError(err.message || 'Network error claiming trial.');
     } finally {
       setClaimingTrial(false);
     }
   };
 
+  // Live countdown to next 5-hour reset & plan expiry
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const nextWindow = new Date(now);
+      const currentHour = now.getHours();
+      const nextHour = Math.ceil((currentHour + 1) / 5) * 5;
+      nextWindow.setHours(nextHour % 24, 0, 0, 0);
+      if (nextHour >= 24) nextWindow.setDate(nextWindow.getDate() + 1);
+
+      const diff = Math.max(0, nextWindow.getTime() - now.getTime());
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setResetCountdown(
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      );
+
+      if (data?.activeSubscription?.expiryTime) {
+        const expDiff = Math.max(0, new Date(data.activeSubscription.expiryTime).getTime() - now.getTime());
+        const days = Math.floor(expDiff / (1000 * 60 * 60 * 24));
+        const expHours = Math.floor((expDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        setExpiryCountdown(`${days}d ${expHours}h`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [data]);
+
   const formatTokens = (val: string | number) => {
     const num = Number(val || 0);
     if (num >= 1000000000) return `${(num / 1000000000).toFixed(2)}B`;
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+    if (num >= 1000) return `${(num / 1000).toFixed(0)}k`;
     return num.toLocaleString();
   };
 
   if (loading) {
-    return <div className="py-16 text-center text-xs text-muted font-mono">Loading My Claude Plans...</div>;
+    return (
+      <div className="py-20 text-center space-y-3 font-mono text-xs">
+        <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <span className="text-[#64607d]">Loading plan capacity...</span>
+      </div>
+    );
   }
 
   const activeSub = data?.activeSubscription;
@@ -164,16 +146,26 @@ export const UserPlan: React.FC = () => {
   const usagePercentage = quotaLimit > 0 ? Math.min(100, Math.round((currentUsage / quotaLimit) * 100)) : 0;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+    <div className="space-y-8 font-sans">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ede8e1] pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-fg">MY CLAUDE PLANS</h1>
-          <p className="text-xs text-muted mt-1">
-            Authoritative quota tracking, rolling 5-hour resets, plan validity, and purchase history.
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-violet-800 bg-violet-100 px-2.5 py-0.5 rounded-full border border-violet-200">
+              SUBSCRIPTION CAPACITY
+            </span>
+            <span className="text-xs text-[#64607d]">30-DAY ACTIVE VALIDITY</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#1e1b2e] tracking-tight">
+            Active Plan & Token Capacity
+          </h1>
+          <p className="text-xs text-[#64607d] mt-1">
+            Manage your rolling 5-hour quota, token limits, and instant plan activations.
           </p>
         </div>
 
         <button
+          type="button"
           onClick={() => {
             const planToSelect = (availablePlans.length > 0 ? availablePlans.find((p: any) => p.priceInr > 0) : null) || {
               id: 'pro',
@@ -185,92 +177,93 @@ export const UserPlan: React.FC = () => {
             };
             setSelectedPlanForCheckout(planToSelect);
           }}
-          className="ui-button-primary text-xs py-2.5 px-4 gap-2 font-bold self-start sm:self-auto shadow-md"
+          className="ui-button-primary text-xs py-2.5 px-5 gap-2 font-bold self-start sm:self-auto shadow-xs cursor-pointer"
         >
-          <Zap className="w-4 h-4" />
-          <span>UPGRADE / BUY PLAN</span>
+          <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
+          <span>Purchase / Upgrade Plan</span>
         </button>
       </div>
 
-      {/* Free Trial Eligibility Card if eligible */}
+      {/* Free Trial Eligibility Card */}
       {!activeSub && trialStatus?.isEligible && (
-        <div className="p-6 rounded-panel bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="space-y-2 text-center sm:text-left">
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/20 text-white font-mono text-[10px] font-bold uppercase tracking-wider">
-              <Gift className="w-3.5 h-3.5" />
-              <span>TRY BEFORE YOU BUY</span>
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-50 via-rose-50 to-violet-50 border border-amber-300/80 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-playful">
+          <div className="space-y-1.5 text-center sm:text-left">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-200/80 text-amber-900 text-[10.5px] font-bold uppercase tracking-wider border border-amber-300">
+              <Gift className="w-3.5 h-3.5 text-amber-800" />
+              <span>FREE TRIAL READY</span>
             </div>
-            <h2 className="text-xl font-extrabold">FREE 1-DAY TRIAL</h2>
-            <p className="text-xs text-violet-100 font-mono">
-              1M TOKENS / 5 HOURS • 24 HOURS VALIDITY • No payment required
+            <h2 className="text-lg sm:text-xl font-extrabold text-[#1e1b2e]">Claim Your Free 1-Day Evaluation Pass</h2>
+            <p className="text-xs text-[#64607d]">
+              1,000,000 Tokens / 5-Hour Window • 24 Hours Duration • Zero Credit Card Required
             </p>
-            {trialError && <p className="text-xs font-mono text-rose-200 bg-rose-900/40 p-2 rounded">{trialError}</p>}
+            {trialError && <p className="text-xs font-semibold text-rose-600 bg-rose-50 p-2 rounded-xl border border-rose-200">{trialError}</p>}
           </div>
 
           <button
+            type="button"
             onClick={handleClaimTrial}
             disabled={claimingTrial}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-control bg-white text-violet-700 hover:bg-violet-50 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 shrink-0"
+            className="ui-button-primary text-xs px-6 py-3 font-bold shrink-0 self-stretch sm:self-auto shadow-md cursor-pointer"
           >
-            {claimingTrial ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Gift className="w-4 h-4" />}
-            <span>START FREE TRIAL</span>
+            {claimingTrial ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Gift className="w-3.5 h-3.5" />}
+            <span>{claimingTrial ? 'Provisioning Key...' : 'Claim 1M Free Trial'}</span>
           </button>
         </div>
       )}
 
       {/* ACTIVE PLAN SECTION */}
       {activeSub ? (
-        <div className="bg-card border border-border rounded-panel p-6 sm:p-8 space-y-6 shadow-md">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#ede8e1] space-y-6 shadow-playful">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ede8e1] pb-5">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                  ACTIVE PLAN
+                <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  ACTIVE SUBSCRIPTION
                 </span>
-                <span className="text-xs font-mono text-muted">ID: {activeSub.id.slice(0, 8)}</span>
+                <span className="text-xs text-[#64607d]">ID: {activeSub.id.slice(0, 8)}</span>
               </div>
-              <h2 className="text-2xl font-extrabold text-fg tracking-tight">CLAUDE MAX {activeSub.planName}</h2>
-              <p className="text-xs font-mono font-bold text-violet-700">
-                {formatTokens(activeSub.quotaLimit)} TOKENS / {activeSub.quotaWindowHours} HOURS
+              <h2 className="text-2xl font-extrabold text-[#1e1b2e] tracking-tight">{activeSub.planName}</h2>
+              <p className="text-xs font-bold text-violet-700">
+                ⚡ {formatTokens(activeSub.quotaLimit)} TOKENS / {activeSub.quotaWindowHours} HOURS
               </p>
             </div>
 
-            <div className="flex flex-col sm:items-end font-mono text-xs space-y-1">
-              <span className="text-muted">Status: <strong className="text-emerald-600 uppercase">ACTIVE</strong></span>
-              <span className="text-muted">Plan Expiry: <strong className="text-fg">{new Date(activeSub.expiryTime).toLocaleDateString()}</strong></span>
-              <span className="text-[11px] text-violet-600 font-bold">{expiryCountdown} remaining</span>
+            <div className="flex flex-col sm:items-end text-xs space-y-1">
+              <span className="text-[#64607d]">Status: <strong className="text-emerald-700 uppercase">ACTIVE</strong></span>
+              <span className="text-[#64607d]">Expiry Date: <strong className="text-[#1e1b2e]">{new Date(activeSub.expiryTime).toLocaleDateString()}</strong></span>
+              <span className="text-[11px] text-violet-700 font-bold bg-violet-50 px-2 py-0.5 rounded-full border border-violet-200">{expiryCountdown} remaining</span>
             </div>
           </div>
 
           {/* TOKEN USAGE PROGRESS SECTION */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-fg flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b2e] flex items-center gap-2">
                   <Activity className="w-4 h-4 text-violet-600" />
-                  CURRENT USAGE
+                  Rolling Cycle Usage
                 </h3>
-                <p className="text-xs text-muted font-mono mt-0.5">
-                  {formatTokens(currentUsage)} / {formatTokens(quotaLimit)} TOKENS ({usagePercentage}%)
+                <p className="text-xs text-[#64607d] mt-0.5">
+                  {formatTokens(currentUsage)} / {formatTokens(quotaLimit)} Tokens Spent ({usagePercentage}%)
                 </p>
               </div>
 
               <div className="text-right">
-                <span className="text-base font-extrabold font-mono text-emerald-600">
-                  {formatTokens(remainingTokens)} tokens remaining
+                <span className="text-sm font-extrabold text-emerald-700">
+                  {formatTokens(remainingTokens)} tokens available
                 </span>
               </div>
             </div>
 
             {/* Visual Progress Bar */}
             <div className="space-y-1.5">
-              <div className="h-3.5 w-full bg-subtle rounded-full overflow-hidden p-0.5 border border-border">
+              <div className="h-3 w-full bg-[#faf8f5] rounded-full overflow-hidden p-0.5 border border-[#ede8e1]">
                 <div
-                  className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-emerald-500 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-violet-600 to-indigo-600 rounded-full transition-all duration-500"
                   style={{ width: `${usagePercentage}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[11px] font-mono text-muted">
+              <div className="flex justify-between text-[11px] text-[#64607d]">
                 <span>0 Tokens</span>
                 <span>{formatTokens(quotaLimit)} Quota Limit</span>
               </div>
@@ -278,21 +271,22 @@ export const UserPlan: React.FC = () => {
           </div>
 
           {/* RESET & API KEY SUMMARY */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-border">
-            <div className="p-4 bg-bg border border-border rounded-control space-y-1">
-              <p className="text-[11px] text-muted font-mono flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-violet-600" /> NEXT RESET
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-[#ede8e1]">
+            <div className="p-4 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+              <p className="text-[11px] text-[#64607d] font-bold flex items-center gap-1.5 uppercase">
+                <Clock className="w-3.5 h-3.5 text-violet-600" /> Next Cycle Reset
               </p>
-              <p className="text-lg font-extrabold font-mono text-violet-700">{resetCountdown || 'Calculating...'}</p>
-              <p className="text-[10px] text-muted font-mono">Refreshes every {activeSub.quotaWindowHours}h</p>
+              <p className="text-lg font-extrabold text-[#1e1b2e]">{resetCountdown || 'Calculating...'}</p>
+              <p className="text-[10px] text-[#64607d]">Restores 100% tokens every {activeSub.quotaWindowHours}h</p>
             </div>
 
-            <div className="p-4 bg-bg border border-border rounded-control space-y-1.5">
+            <div className="p-4 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1.5">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] text-muted font-mono flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> ASSIGNED KEY
+                <p className="text-[11px] text-[#64607d] font-bold flex items-center gap-1.5 uppercase">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Active API Key
                 </p>
                 <button
+                  type="button"
                   onClick={() => {
                     const keyToCopy = activeSub.apiKeySecret || activeSub.apiKeyDisplay;
                     if (keyToCopy) {
@@ -301,44 +295,44 @@ export const UserPlan: React.FC = () => {
                       setTimeout(() => setCopiedKey(false), 2000);
                     }
                   }}
-                  className="px-2 py-0.5 rounded bg-violet-600 hover:bg-violet-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs"
+                  className="px-2 py-0.5 rounded-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   {copiedKey ? (
                     <>
-                      <Check className="w-2.5 h-2.5 text-emerald-300" />
-                      <span>Copied!</span>
+                      <Check className="w-2.5 h-2.5" />
+                      <span>Copied</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-2.5 h-2.5" />
-                      <span>Copy Full Key</span>
+                      <span>Copy</span>
                     </>
                   )}
                 </button>
               </div>
-              <p className="text-sm font-bold font-mono text-fg">{activeSub.apiKeyDisplay || 'Key Issued'}</p>
-              <Link to="/dashboard/keys" className="text-[11px] text-violet-600 font-bold hover:underline">
-                Manage & Reveal Keys →
+              <p className="text-xs font-bold font-mono text-[#1e1b2e] truncate">{activeSub.apiKeyDisplay || 'Key Assigned'}</p>
+              <Link to="/dashboard/keys" className="text-[11px] text-violet-700 font-bold hover:underline inline-block">
+                Manage Keys & Reveal Secret →
               </Link>
             </div>
 
-            <div className="p-4 bg-bg border border-border rounded-control space-y-1">
-              <p className="text-[11px] text-muted font-mono flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5 text-cyan-600" /> ORDER REFERENCE
+            <div className="p-4 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+              <p className="text-[11px] text-[#64607d] font-bold flex items-center gap-1.5 uppercase">
+                <CreditCard className="w-3.5 h-3.5 text-violet-600" /> Order Reference
               </p>
-              <p className="text-sm font-bold font-mono text-fg">{activeSub.orderId ? activeSub.orderId.slice(0, 12) : 'Trial Grant'}</p>
-              <p className="text-[10px] text-muted font-mono">Activated: {new Date(activeSub.activationTime).toLocaleDateString()}</p>
+              <p className="text-xs font-bold text-[#1e1b2e] truncate">{activeSub.orderId ? activeSub.orderId.slice(0, 16) : 'Trial Provisioning'}</p>
+              <p className="text-[10px] text-[#64607d]">Activated: {new Date(activeSub.activationTime).toLocaleDateString()}</p>
             </div>
           </div>
         </div>
       ) : (
-        <div className="p-6 bg-card border border-border rounded-panel text-center space-y-3 max-w-xl mx-auto my-2 shadow-xs">
-          <div className="w-10 h-10 rounded-full bg-violet-500/10 text-violet-600 flex items-center justify-center mx-auto border border-violet-500/20">
-            <Zap className="w-5 h-5" />
+        <div className="bg-white p-8 rounded-3xl border border-[#ede8e1] text-center space-y-3 max-w-lg mx-auto shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center mx-auto">
+            <Zap className="w-6 h-6 fill-current" />
           </div>
-          <h2 className="text-lg font-bold text-fg">No Active Subscription</h2>
-          <p className="text-xs text-muted leading-relaxed">
-            Select a plan below to activate your high-speed Claude Opus 5, Fable 5 & Sonnet 5 API key instantly.
+          <h2 className="text-base font-bold text-[#1e1b2e]">No Active Plan Detected</h2>
+          <p className="text-xs text-[#64607d] leading-relaxed">
+            Select a capacity tier below to receive an active key and enjoy sub-50ms streaming.
           </p>
         </div>
       )}
@@ -346,22 +340,22 @@ export const UserPlan: React.FC = () => {
       {/* AVAILABLE PLANS CATALOG */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-base font-bold text-fg flex items-center gap-2">
-            <Zap className="w-4 h-4 text-violet-600" />
-            Available Claude Max Plans
+          <h2 className="text-base font-extrabold text-[#1e1b2e] flex items-center gap-2">
+            <Zap className="w-4 h-4 text-violet-600 fill-current" />
+            <span>Available Capacity Plans</span>
           </h2>
-          <p className="text-xs text-muted font-mono">
-            30-day fixed validity · 5-hour rolling token refresh · Instant automated key delivery
+          <p className="text-xs text-[#64607d]">
+            30-day fixed validity • 5-hour rolling token reload • Instant automated key delivery
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {(availablePlans.length > 0
             ? availablePlans
             : [
                 {
                   id: 'pro',
-                  name: 'PRO',
+                  name: 'PRO CREATOR',
                   displayName: 'PRO (5M / 5h Window)',
                   tokenAllowance: '5000000',
                   tokenDisplay: '5M TOKENS / 5 HOURS',
@@ -375,7 +369,7 @@ export const UserPlan: React.FC = () => {
                 },
                 {
                   id: 'max',
-                  name: 'MAX',
+                  name: 'STUDIO MAX',
                   displayName: 'MAX (20M / 5h Window)',
                   tokenAllowance: '20000000',
                   tokenDisplay: '20M TOKENS / 5 HOURS',
@@ -389,7 +383,7 @@ export const UserPlan: React.FC = () => {
                 },
                 {
                   id: 'ultra',
-                  name: 'ULTRA',
+                  name: 'ENTERPRISE SCALE',
                   displayName: 'ULTRA (40M / 5h Window)',
                   tokenAllowance: '40000000',
                   tokenDisplay: '40M TOKENS / 5 HOURS',
@@ -397,7 +391,7 @@ export const UserPlan: React.FC = () => {
                   validityDays: 30,
                   priceInr: 8999,
                   originalPriceInr: 12999,
-                  badge: 'BEST VALUE',
+                  badge: 'HIGH CAPACITY',
                   featured: false,
                   features: ['40,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Max Concurrency & Throughput', 'All Top Claude Opus 5, Fable 5 & Sonnet 5 Models', 'VIP Priority Support'],
                 },
@@ -405,61 +399,61 @@ export const UserPlan: React.FC = () => {
           ).map((p: any) => (
             <div
               key={p.id}
-              className={`p-6 rounded-panel bg-card border flex flex-col justify-between space-y-5 shadow-xs relative transition-all ${
+              className={`p-7 rounded-3xl bg-white flex flex-col justify-between space-y-5 relative transition-all shadow-2xs ${
                 p.featured
-                  ? 'border-2 border-violet-500 shadow-lg shadow-violet-500/10'
-                  : 'border-border hover:border-violet-300'
+                  ? 'border-2 border-violet-500 shadow-playful ring-4 ring-violet-500/10'
+                  : 'border border-[#ede8e1] hover:border-violet-300'
               }`}
             >
               {p.badge && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-violet-600 to-cyan-600 text-white text-[10px] font-mono font-extrabold uppercase px-3 py-0.5 rounded-full shadow-sm">
+                <div className="absolute -top-3.5 left-7 bg-violet-600 text-white text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-xs tracking-wider">
                   {p.badge}
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded border border-violet-200/60">
+                  <span className="text-xs font-bold uppercase text-violet-800 bg-violet-100 px-3 py-1 rounded-full border border-violet-200">
                     {p.name}
                   </span>
-                  <span className="text-xs font-mono text-muted">{p.validityDays || 30} Days</span>
+                  <span className="text-xs text-[#64607d]">{p.validityDays || 30} Days</span>
                 </div>
                 <div>
-                  <h3 className="text-xl font-extrabold text-fg">{p.displayName || p.name}</h3>
-                  <p className="text-xs text-muted font-mono mt-0.5">{p.tokenDisplay}</p>
+                  <h3 className="text-xl font-extrabold text-[#1e1b2e]">{p.displayName || p.name}</h3>
+                  <p className="text-xs font-bold text-violet-700 mt-0.5">{p.tokenDisplay}</p>
                 </div>
-                <div className="pt-2 border-t border-border flex items-baseline gap-2">
-                  <span className={`text-2xl font-extrabold font-mono ${p.featured ? 'text-violet-700' : 'text-fg'}`}>
+                <div className="pt-2 border-t border-[#ede8e1] flex items-baseline gap-2">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">
                     ₹{p.priceInr.toLocaleString()}
                   </span>
                   {p.originalPriceInr && (
-                    <span className="text-xs text-muted line-through font-mono">
+                    <span className="text-xs text-[#64607d] line-through">
                       ₹{p.originalPriceInr.toLocaleString()}
                     </span>
                   )}
-                  <span className="text-xs text-muted font-mono"> / month</span>
+                  <span className="text-xs text-[#64607d]"> / 30 days</span>
                 </div>
 
-                <ul className="space-y-2 text-xs font-mono text-muted pt-2">
+                <ul className="space-y-2 text-xs text-[#4b485c] pt-2">
                   {p.features && p.features.length > 0 ? (
                     p.features.map((feat: string, idx: number) => (
                       <li key={idx} className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>{feat}</span>
                       </li>
                     ))
                   ) : (
                     <>
                       <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>{p.tokenDisplay}</span>
                       </li>
                       <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>{p.windowHours || 5}h Refresh Window</span>
                       </li>
                       <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>Instant Automated Delivery</span>
                       </li>
                     </>
@@ -467,8 +461,9 @@ export const UserPlan: React.FC = () => {
                 </ul>
               </div>
 
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2.5 pt-2">
                 <button
+                  type="button"
                   onClick={() =>
                     setSelectedPlanForCheckout({
                       id: p.id,
@@ -479,17 +474,18 @@ export const UserPlan: React.FC = () => {
                       validityDays: p.validityDays || 30,
                     })
                   }
-                  className={`w-full py-3 rounded-control font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs ${
+                  className={`w-full py-3 rounded-full font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs ${
                     p.featured
-                      ? 'bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white shadow-violet-500/25'
-                      : 'bg-fg text-bg hover:bg-fg/90'
+                      ? 'ui-button-primary'
+                      : 'bg-[#1e1b2e] hover:bg-black text-white'
                   }`}
                 >
-                  <Zap className="w-4 h-4" />
-                  <span>BUY {p.name} — ₹{p.priceInr.toLocaleString()}</span>
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  <span>Activate {p.name} — ₹{p.priceInr.toLocaleString()}</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() =>
                     addToCart({
                       id: p.id,
@@ -504,10 +500,10 @@ export const UserPlan: React.FC = () => {
                       badge: p.badge,
                     })
                   }
-                  className="w-full py-2 rounded-control font-bold text-xs border border-border text-muted hover:text-fg hover:bg-subtle flex items-center justify-center gap-1.5 transition-all"
+                  className="w-full py-2 rounded-full font-semibold text-xs border border-[#ede8e1] text-[#64607d] hover:text-[#1e1b2e] hover:bg-[#faf8f5] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>ADD TO CART</span>
+                  <span>Add to Cart</span>
                 </button>
               </div>
             </div>
@@ -517,51 +513,51 @@ export const UserPlan: React.FC = () => {
 
       {/* PURCHASE HISTORY TABLE */}
       <div className="space-y-4">
-        <h2 className="text-base font-bold text-fg flex items-center gap-2">
+        <h2 className="text-base font-extrabold text-[#1e1b2e] flex items-center gap-2">
           <ShoppingBag className="w-4 h-4 text-violet-600" />
-          Purchase & Order History
+          <span>Purchase & Order History</span>
         </h2>
 
         {data?.orders && data.orders.length > 0 ? (
-          <div className="overflow-x-auto rounded-panel border border-border shadow-xs bg-card">
-            <table className="w-full text-left border-collapse">
+          <div className="bg-white rounded-3xl border border-[#ede8e1] overflow-hidden shadow-2xs">
+            <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-subtle border-b border-border text-xs font-mono font-bold uppercase tracking-wider text-muted">
-                  <th className="p-3.5">Order ID</th>
-                  <th className="p-3.5">Plan</th>
-                  <th className="p-3.5">Amount</th>
-                  <th className="p-3.5">Payment</th>
-                  <th className="p-3.5">Date</th>
+                <tr className="bg-[#faf8f5] border-b border-[#ede8e1] text-[10.5px] font-bold uppercase tracking-wider text-[#64607d]">
+                  <th className="py-3.5 px-5">Order Reference</th>
+                  <th className="py-3.5 px-5">Plan Allotted</th>
+                  <th className="py-3.5 px-5 text-right">Amount (INR)</th>
+                  <th className="py-3.5 px-5 text-center">Status</th>
+                  <th className="py-3.5 px-5 text-right">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border text-xs font-mono">
+              <tbody className="divide-y divide-[#ede8e1]">
                 {data.orders.map((o: any) => (
-                  <tr key={o.id} className="hover:bg-subtle/50 transition-colors">
-                    <td className="p-3.5 font-bold text-fg">{o.internalOrderId}</td>
-                    <td className="p-3.5 text-violet-700 font-semibold">{o.planName}</td>
-                    <td className="p-3.5 font-bold">₹{o.amountInr.toLocaleString()}</td>
-                    <td className="p-3.5">
+                  <tr key={o.id} className="hover:bg-[#faf8f5]/60 transition-colors">
+                    <td className="py-3.5 px-5 font-mono text-xs font-bold text-[#1e1b2e]">{o.internalOrderId}</td>
+                    <td className="py-3.5 px-5 font-bold text-violet-700">{o.planName}</td>
+                    <td className="py-3.5 px-5 text-right font-extrabold text-[#1e1b2e]">₹{o.amountInr.toLocaleString()}</td>
+                    <td className="py-3.5 px-5 text-center">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                           o.paymentStatus === 'CAPTURED' || o.paymentStatus === 'PAID'
-                            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                             : o.paymentStatus === 'PENDING'
-                            ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                            : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : 'bg-rose-100 text-rose-800 border border-rose-200'
                         }`}
                       >
                         {o.paymentStatus}
                       </span>
                     </td>
-                    <td className="p-3.5 text-muted">{new Date(o.createdAt).toLocaleDateString()}</td>
+                    <td className="py-3.5 px-5 text-right text-[#64607d]">{new Date(o.createdAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="p-6 bg-card border border-border rounded-panel text-center text-xs font-mono text-muted">
-            No previous order history.
+          <div className="bg-white p-6 rounded-3xl border border-[#ede8e1] text-center text-xs text-[#64607d]">
+            No previous order transactions recorded yet.
           </div>
         )}
       </div>

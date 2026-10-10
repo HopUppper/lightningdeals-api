@@ -47,6 +47,18 @@ export function mapToUpstreamModel(inputModel: string, providerType = 'anthropic
   return inputModel;
 }
 
+export function isSupportedModel(inputModel: string): boolean {
+  if (!inputModel) return false;
+  const n = inputModel.toLowerCase().trim();
+  return (
+    n.startsWith('claude-') ||
+    n.includes('fable') ||
+    n.includes('sonnet') ||
+    n.includes('opus') ||
+    n.includes('haiku')
+  );
+}
+
 export function getFriendlyModelName(model: string): string {
   const m = (model || '').toLowerCase().trim();
   if (m.includes('fable')) return 'Claude Fable 5';
@@ -483,6 +495,15 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Missing required field: model.' } });
   }
 
+  if (!isSupportedModel(model)) {
+    return res.status(404).json({
+      error: {
+        type: 'not_found_error',
+        message: `Model '${model}' not found. Please provide a supported Claude model or model alias (e.g. claude-sonnet-5, claude-opus-5, claude-fable-5, claude-haiku-4.5, claude-3-5-sonnet-20241022). See GET /v1/models for full catalog.`,
+      },
+    });
+  }
+
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Missing required field: messages array.' } });
   }
@@ -558,7 +579,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     const isRefusal = isModelRefusalQuery(lastUserPrompt);
     const responseText = isRefusal
       ? `You are running ${friendlyModel} on the LightningDeals AI Gateway. I am ready to discuss and help you build all aspects of your codebase, architecture, and engineering workflows. What would you like to build?`
-      : `I am ${friendlyModel}, running on the LightningDeals AI Gateway. Powered by Anthropic's flagship architecture with sub-50ms routing, extended 1,000,000 token context, and frontier agentic coding capabilities. How can I assist you with your project today?`;
+      : `I am ${friendlyModel}, running on the LightningDeals AI Gateway. Powered by Anthropic's flagship architecture with sub-50ms routing, extended 200,000 token context window, and frontier agentic coding capabilities. How can I assist you with your project today?`;
 
     const inputTokens = Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
     const outputTokens = Math.max(25, Math.ceil(responseText.length / 4));

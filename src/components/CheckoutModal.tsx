@@ -329,23 +329,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
     >
       <div className="min-h-full flex items-center justify-center py-4">
         <div
-          className="bg-white border border-border rounded-panel w-full max-w-lg shadow-2xl overflow-hidden font-sans relative flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh]"
+          className="bg-white border border-[#e5e7eb] rounded-xl w-full max-w-lg shadow-xl overflow-hidden font-sans relative flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-bg/50 shrink-0 sticky top-0 z-10">
+          <div className="p-4 sm:p-5 border-b border-[#e7e5e4] flex items-center justify-between bg-[#fbf9f5] shrink-0 sticky top-0 z-10">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-violet-600 text-white shadow-md shadow-violet-500/20">
-                <Zap className="w-4 h-4 fill-current" />
+              <div className="w-9 h-9 rounded-xl bg-[#6d28d9] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Zap className="w-4 h-4 fill-current text-white" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-fg">Claude Max Checkout</h2>
-                <p className="text-[11px] text-muted font-mono">Instant Automated Activation · 256-Bit Encrypted Checkout</p>
+                <h2 className="text-base font-bold text-[#1c1917]">Order Checkout</h2>
+                <p className="text-[11px] text-[#78716c]">Instant Automated Activation • 256-Bit Encrypted</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-control text-muted hover:text-fg hover:bg-subtle transition-colors"
+              className="min-h-[40px] min-w-[40px] p-2 rounded-lg text-[#78716c] hover:text-[#1c1917] hover:bg-[#e7e5e4] transition-colors cursor-pointer flex items-center justify-center"
               title="Close checkout"
             >
               <X className="w-4 h-4" />
@@ -598,13 +598,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
               <div className="space-y-2">
                 <button
                   onClick={handleInitiatePayment}
-                  className="w-full py-3.5 rounded-control bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white font-bold text-xs shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
+                  className="w-full py-3 rounded-lg ui-button-brand text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <CreditCard className="w-4 h-4" />
                   <span>
                     {totalPayable === 0
-                      ? 'COMPLETE ORDER (₹0 — FULLY COVERED BY CREDITS)'
-                      : `PAY ₹${totalPayable.toLocaleString()} — PROCEED TO PAYMENT`}
+                      ? 'Complete Order (₹0 — Covered by Credits)'
+                      : `Pay ₹${totalPayable.toLocaleString()} — Proceed to Payment`}
                   </span>
                 </button>
                 <div className="flex items-center justify-between text-[11px] text-muted font-mono pt-1">

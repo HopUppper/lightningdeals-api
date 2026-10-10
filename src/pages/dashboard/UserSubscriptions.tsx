@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, RefreshCw, Calendar, CheckCircle, AlertTriangle, Clock, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import {
+  Layers,
+  RefreshCw,
+  Calendar,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
+  ArrowRight,
+  ShieldCheck,
+  Zap,
+  X,
+  Sparkles,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { userFetch } from '../../utils/api';
-import { ThreeDCard } from '../../components/ThreeDCard';
 
 export const UserSubscriptions: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
@@ -57,15 +69,11 @@ export const UserSubscriptions: React.FC = () => {
         throw new Error(data.error?.message || 'Failed to process renewal.');
       }
 
-      // If checkout URL provided, redirect to PayU gateway
+      // If checkout URL provided, redirect to gateway
       if (data.order?.checkoutUrl) {
         window.location.href = data.order.checkoutUrl;
       } else if (data.order?.metadata?.checkoutUrl) {
         window.location.href = data.order.metadata.checkoutUrl;
-      } else if (data.fulfillment?.success) {
-        // Zero amount paid / instant renewal
-        setSelectedSub(null);
-        await fetchSubscriptions();
       } else {
         setSelectedSub(null);
         await fetchSubscriptions();
@@ -80,231 +88,245 @@ export const UserSubscriptions: React.FC = () => {
   const getStatusBadge = (status: string, daysRemaining: number) => {
     if (status === 'ACTIVE') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-          <CheckCircle className="w-3.5 h-3.5" />
-          ACTIVE
+        <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+          Active
         </span>
       );
     }
     if (status === 'EXPIRING' || (daysRemaining <= 7 && daysRemaining > 0)) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-          <Clock className="w-3.5 h-3.5" />
-          EXPIRING SOON
+        <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+          <Clock className="w-3.5 h-3.5 text-amber-600" />
+          Expiring Soon ({daysRemaining} days left)
         </span>
       );
     }
     if (status === 'EXPIRED') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-          <AlertTriangle className="w-3.5 h-3.5" />
-          EXPIRED
+        <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+          Expired
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200">
+      <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-medium bg-subtle text-muted border border-border">
         {status}
       </span>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 font-sans pb-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/80 pb-6">
         <div>
-          <h1 className="text-xl font-bold text-fg flex items-center gap-2">
-            <Layers className="w-5 h-5 text-violet-600" />
-            My Subscriptions
-          </h1>
-          <p className="text-xs text-muted mt-1">
-            Track your active service entitlements, validity periods, and manage seamless 1-click renewals.
-          </p>
-        </div>
-        <button
-          onClick={fetchSubscriptions}
-          className="ui-button-secondary text-xs py-2 px-3 self-start sm:self-auto gap-2"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
-      </div>
-
-      {/* Error state */}
-      {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-control text-xs text-rose-700 flex items-center gap-3">
-          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Loading state */}
-      {loading && subscriptions.length === 0 && (
-        <div className="py-20 text-center font-mono text-xs text-muted flex items-center justify-center gap-3">
-          <RefreshCw className="w-5 h-5 animate-spin text-violet-600" />
-          <span>Loading your subscriptions...</span>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!loading && subscriptions.length === 0 && !error && (
-        <div className="text-center py-16 bg-white border border-border rounded-panel p-8 space-y-4">
-          <div className="w-12 h-12 bg-violet-50 text-violet-600 rounded-full flex items-center justify-center mx-auto">
-            <Layers className="w-6 h-6" />
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-violet-500/20">
+              <Layers className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-fg tracking-tight">
+                  Subscriptions & Renewals
+                </h1>
+                <span className="text-[11px] font-bold text-violet-700 bg-violet-100/80 px-2.5 py-0.5 rounded-full border border-violet-200">
+                  Rolling 5h Quota
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-muted mt-0.5">
+                Manage your active subscription allocations and easily renew or apply promotional credits.
+              </p>
+            </div>
           </div>
-          <h3 className="text-base font-bold text-fg">No Active Subscriptions Yet</h3>
-          <p className="text-xs text-muted max-w-md mx-auto">
-            You don't have any active subscriptions. Purchase an AI API plan or subscription to view real-time entitlements and automated renewals here.
-          </p>
-          <a
-            href="/pricing"
-            className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold inline-flex items-center"
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={fetchSubscriptions}
+            disabled={loading}
+            className="ui-button-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 font-bold cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Sync</span>
+          </button>
+          <Link
+            to="/pricing"
+            className="ui-button-primary text-xs py-2 px-4 flex items-center gap-1.5 font-bold"
           >
             <span>Explore Plans</span>
             <ArrowRight className="w-3.5 h-3.5" />
-          </a>
+          </Link>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+          {error}
         </div>
       )}
 
       {/* Subscriptions Grid */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {subscriptions.map((sub) => (
-          <ThreeDCard key={sub.id} className="p-6 bg-white border border-border rounded-panel shadow-xs space-y-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted font-bold">
-                  Entitlement ID: {sub.id.substring(0, 8)}
+      {loading ? (
+        <div className="py-16 text-center text-xs text-muted">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-violet-600" />
+          Loading your subscriptions...
+        </div>
+      ) : subscriptions.length === 0 ? (
+        <div className="p-8 sm:p-12 rounded-3xl bg-white border border-border/80 text-center shadow-playful space-y-4 max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-3xl bg-violet-50 text-violet-600 flex items-center justify-center mx-auto border border-violet-100">
+            <Layers className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold text-fg">No Active Subscriptions</h3>
+          <p className="text-xs sm:text-sm text-muted leading-relaxed">
+            You don't have an active subscription yet. Check out our capacity plans to enjoy unlimited rolling 5-hour Claude intelligence!
+          </p>
+          <Link to="/pricing" className="ui-button-primary text-xs py-2.5 px-6 font-bold inline-block">
+            View Plans & Pricing
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {subscriptions.map((sub) => {
+            const daysRemaining = Math.max(
+              0,
+              Math.ceil(
+                (new Date(sub.currentPeriodEnd).getTime() - new Date().getTime()) /
+                  (1000 * 60 * 60 * 24)
+              )
+            );
+            return (
+              <div
+                key={sub.id}
+                className="rounded-3xl border border-border/80 bg-white p-6 sm:p-7 shadow-playful flex flex-col justify-between space-y-5"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-black text-fg">
+                        {sub.planName || 'Claude Max Plan'}
+                      </h3>
+                      <p className="text-xs text-muted mt-0.5">
+                        {sub.quotaDisplay || `${sub.rollingWindowTokens || '2.5M'} tokens / 5 hours`}
+                      </p>
+                    </div>
+                    {getStatusBadge(sub.status, daysRemaining)}
+                  </div>
+
+                  <div className="mt-5 p-4 rounded-2xl bg-subtle/40 border border-border/80 space-y-2 text-xs">
+                    <div className="flex justify-between text-muted">
+                      <span>Billing Period:</span>
+                      <span className="font-bold text-fg">
+                        {sub.periodType || '30-Day Cycle'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-muted">
+                      <span>Renews / Expires:</span>
+                      <span className="font-bold text-fg">
+                        {new Date(sub.currentPeriodEnd).toLocaleDateString()} ({daysRemaining} days left)
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-muted">
+                      <span>Plan Price:</span>
+                      <span className="font-black text-fg">
+                        ₹{Number(sub.price || 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-border/60 flex items-center justify-between">
+                  <span className="text-xs text-muted font-medium">
+                    Auto-renew with discount
+                  </span>
+                  <button
+                    onClick={() => {
+                      setSelectedSub(sub);
+                      setCouponCode('');
+                      setRedeemCredits(0);
+                    }}
+                    className="ui-button-primary text-xs py-2 px-4 font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Renew Now</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Renewal Modal */}
+      {selectedSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white border border-border/80 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-fg">Renew Subscription</h3>
+                  <p className="text-xs text-muted">{selectedSub.planName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedSub(null)}
+                className="p-1.5 rounded-xl hover:bg-subtle text-muted hover:text-fg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {renewError && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                {renewError}
+              </div>
+            )}
+
+            <div className="space-y-4 text-xs">
+              <div className="p-4 rounded-2xl bg-violet-50/60 border border-violet-200 flex justify-between items-center">
+                <span className="font-bold text-violet-900">Renewal Total:</span>
+                <span className="text-lg font-black text-violet-900">
+                  ₹{Number(selectedSub.price || 0).toLocaleString()}
                 </span>
-                <h3 className="text-base font-extrabold text-fg mt-0.5">{sub.planName}</h3>
               </div>
-              {getStatusBadge(sub.status, sub.daysRemaining)}
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 p-3.5 bg-subtle/50 rounded-control border border-border/60 text-xs">
               <div>
-                <p className="text-[10px] text-muted font-mono uppercase">Activated On</p>
-                <p className="font-bold text-fg mt-0.5 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-muted" />
-                  {new Date(sub.activationTime).toLocaleDateString()}
-                </p>
+                <label className="block font-bold text-fg uppercase tracking-wider mb-1.5">
+                  Coupon Code (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter discount coupon..."
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  className="w-full bg-white border border-border/80 rounded-2xl px-4 py-2.5 text-xs text-fg uppercase focus:outline-none focus:border-violet-500 shadow-2xs"
+                />
               </div>
-              <div>
-                <p className="text-[10px] text-muted font-mono uppercase">Expires On</p>
-                <p className="font-bold text-fg mt-0.5 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-muted" />
-                  {new Date(sub.expiryTime).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
 
-            {/* Days Remaining Meter */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-mono">
-                <span className="text-muted">Days Remaining</span>
-                <span className="font-bold text-fg">{sub.daysRemaining} days</span>
-              </div>
-              <div className="w-full bg-subtle rounded-full h-2 overflow-hidden border border-border/40">
-                <div
-                  className={`h-full transition-all rounded-full ${
-                    sub.daysRemaining <= 3
-                      ? 'bg-rose-500'
-                      : sub.daysRemaining <= 7
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
-                  }`}
-                  style={{ width: `${Math.min(100, Math.max(5, (sub.daysRemaining / (sub.durationDays || 30)) * 100))}%` }}
+              <div>
+                <label className="block font-bold text-fg uppercase tracking-wider mb-1.5">
+                  Redeem Lightning Credits (₹1 = 1 Credit)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={redeemCredits || ''}
+                  onChange={(e) => setRedeemCredits(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full bg-white border border-border/80 rounded-2xl px-4 py-2.5 text-xs text-fg focus:outline-none focus:border-violet-500 shadow-2xs"
                 />
               </div>
             </div>
 
-            {/* API Key Connection if present */}
-            {sub.apiKey && (
-              <div className="p-3 bg-violet-50/50 border border-violet-100 rounded-control text-xs flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-mono text-violet-700 font-bold uppercase">Linked API Key</p>
-                  <p className="font-mono text-fg text-xs font-bold mt-0.5">{sub.apiKey.displayKey}</p>
-                </div>
-                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
-                  Active
-                </span>
-              </div>
-            )}
-
-            {/* Renewal CTA */}
-            <div className="pt-2 flex items-center justify-between border-t border-border/80">
-              <div className="text-[11px] text-muted">
-                {sub.renewalCount > 0 && (
-                  <span>Renewed {sub.renewalCount} time{sub.renewalCount > 1 ? 's' : ''}</span>
-                )}
-              </div>
-              <button
-                onClick={() => setSelectedSub(sub)}
-                className={`text-xs py-2 px-4 rounded-control font-bold flex items-center gap-2 transition-all ${
-                  sub.status === 'EXPIRING' || sub.daysRemaining <= 7
-                    ? 'ui-button-primary bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
-                    : 'ui-button-primary'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>{sub.status === 'EXPIRED' ? 'Reactivate Plan' : 'Renew Now'}</span>
-              </button>
-            </div>
-          </ThreeDCard>
-        ))}
-      </div>
-
-      {/* Renewal Confirmation Modal */}
-      {selectedSub && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-border rounded-panel max-w-md w-full p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-base font-bold text-fg flex items-center gap-2">
-                <Zap className="w-4 h-4 text-violet-600" />
-                Renew Subscription
-              </h3>
-              <button
-                onClick={() => setSelectedSub(null)}
-                className="text-muted hover:text-fg text-sm font-mono p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-4 bg-subtle/60 rounded-control border border-border/60 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted">Plan:</span>
-                <span className="font-bold text-fg">{selectedSub.planName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Current Expiry:</span>
-                <span className="font-mono text-fg">{new Date(selectedSub.expiryTime).toLocaleDateString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">New Expiry (Extended):</span>
-                <span className="font-mono text-emerald-600 font-bold">
-                  +{selectedSub.durationDays || 30} days from current expiration
-                </span>
-              </div>
-              <div className="flex justify-between border-t border-border/60 pt-2">
-                <span className="text-muted">Reward Cash Back:</span>
-                <span className="font-bold text-amber-600">⚡ 10% Lightning Credits earned</span>
-              </div>
-            </div>
-
-            {renewError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-control flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>{renewError}</span>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+            <div className="flex justify-end gap-3 pt-2 border-t border-border/60">
               <button
                 type="button"
                 onClick={() => setSelectedSub(null)}
-                className="ui-button-secondary text-xs py-2 px-3"
-                disabled={renewing}
+                className="px-4 py-2.5 rounded-2xl border border-border/80 text-muted font-bold text-xs hover:bg-subtle cursor-pointer"
               >
                 Cancel
               </button>
@@ -312,10 +334,9 @@ export const UserSubscriptions: React.FC = () => {
                 type="button"
                 onClick={handleRenew}
                 disabled={renewing}
-                className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold flex items-center"
+                className="ui-button-primary text-xs py-2.5 px-5 font-bold cursor-pointer disabled:opacity-50"
               >
-                {renewing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                <span>{renewing ? 'Redirecting to Gateway...' : 'Proceed to Checkout'}</span>
+                {renewing ? 'Processing Renewal...' : 'Proceed to Checkout'}
               </button>
             </div>
           </div>

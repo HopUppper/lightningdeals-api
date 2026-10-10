@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User as UserIcon, Lock, Mail, ArrowRight, AlertCircle, Phone, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, AlertCircle, Check, User as UserIcon, Phone } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 
@@ -63,143 +63,161 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
+    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 flex items-center justify-center px-5 py-12">
-        <div className="w-full max-w-md bg-card border border-border rounded-panel p-6 sm:p-8 shadow-xl">
+      <main className="flex-1 flex items-center justify-center px-4 py-16">
+        <div className="w-full max-w-md bg-white border border-[#e5e7eb] rounded-xl p-8 sm:p-10 shadow-xs space-y-6">
           {registeredEmail ? (
             <div className="space-y-6 text-center">
-              <div className="flex justify-center">
-                <div className="p-4 rounded-3xl bg-violet-50 text-violet-600 border border-violet-200">
-                  <Mail className="w-10 h-10 animate-bounce" />
-                </div>
+              <div className="w-12 h-12 rounded-lg bg-[#f0fdf4] text-emerald-700 border border-emerald-200 flex items-center justify-center mx-auto">
+                <Mail className="w-6 h-6" />
               </div>
 
-              <div>
-                <h2 className="text-xl font-bold text-fg">Check Your Email Inbox</h2>
-                <p className="text-xs text-muted font-mono mt-2 leading-relaxed">
-                  We have sent a security verification link to <span className="font-bold text-violet-600">{registeredEmail}</span>. Please open your email inbox and click the verification link to activate your account.
+              <div className="space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#f0fdf4] text-xs font-medium text-emerald-800 border border-emerald-300">
+                  <Check className="w-3.5 h-3.5" /> Registration Received
+                </span>
+                <h2 className="text-xl font-bold text-[#111827]">Verify Your Email</h2>
+                <p className="text-xs text-[#4b5563] leading-relaxed">
+                  We sent a confirmation code to <strong className="text-[#111827]">{registeredEmail}</strong>.
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2">
-                <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5 font-mono">
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" /> Account Status: PENDING EMAIL VERIFICATION
+              <div className="p-4 rounded-lg bg-[#fbfbfa] border border-[#e5e7eb] text-left space-y-1 text-xs">
+                <div className="font-medium text-[#111827]">
+                  Activation Pending
                 </div>
-                <p className="text-[11px] text-muted">
-                  Unverified accounts cannot generate API keys or access dashboard resources. Once you click the link in your email, your account will be activated automatically.
+                <p className="text-[#6b7280]">
+                  Enter your 6-digit confirmation code on the verification page to activate your keys.
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-border flex flex-col gap-2">
+              <div className="pt-2 flex flex-col gap-2">
                 <Link
                   to={`/verify-email?email=${encodeURIComponent(registeredEmail)}`}
-                  className="w-full py-3 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold text-xs text-center shadow-md hover:brightness-110 transition-all"
+                  className="ui-button-primary w-full text-xs font-medium justify-center py-2.5"
                 >
-                  Have a Verification Code / Token? Enter Here →
+                  Enter Verification Code →
                 </Link>
-                <Link to="/login" className="text-xs text-violet-600 font-bold hover:underline font-mono">
-                  Already Verified? Sign In →
+                <Link
+                  to="/login"
+                  className="text-xs text-[#6b7280] hover:text-[#111827] font-medium"
+                >
+                  Back to Sign In
                 </Link>
               </div>
             </div>
           ) : (
             <>
-              <div className="text-center mb-8">
-                <h1 className="text-2xl font-bold text-fg">Create LightningDeals Account</h1>
-                <p className="text-xs text-muted mt-1.5">
-                  Enterprise-grade authentication with email verification & secure token management.
+              <div className="text-center space-y-2">
+                <div className="w-10 h-10 rounded-lg bg-[#0f172a] text-white flex items-center justify-center mx-auto">
+                  <UserIcon className="w-5 h-5" />
+                </div>
+                <div className="inline-flex items-center px-2 py-0.5 rounded bg-[#f4f4f0] border border-[#e5e7eb] text-xs font-medium text-[#4b5563] uppercase tracking-wider">
+                  Create Account
+                </div>
+                <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
+                  Start with LightningAPI
+                </h1>
+                <p className="text-xs text-[#6b7280]">
+                  Get instant access to API keys and 1,000,000 free evaluation tokens.
                 </p>
               </div>
 
               {error && (
-                <div className="mb-6 p-3.5 rounded-control border border-red-500/30 bg-red-500/5 text-red-600 text-xs flex items-center gap-2.5 font-mono">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
+                <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                   <span>{error}</span>
                 </div>
               )}
 
-              {referralCode && (
-                <div className="mb-6 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">⚡</span>
-                    <span>Referral invite code: <strong className="font-mono">{referralCode}</strong></span>
-                  </div>
-                  <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 tracking-wider">Applied</span>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-fg mb-1.5">Full Name</label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Rahul Sharma"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
-                    />
-                  </div>
+              <form onSubmit={handleSubmit} className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[#111827]">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Jane Doe"
+                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-fg mb-1.5">Email Address</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="rahul@example.com"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[#111827]">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-fg mb-1.5">Phone Number (Optional E.164)</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+919876543210"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[#111827]">
+                    Phone Number (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+1 555 0199"
+                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-fg mb-1.5">Password (Min 8 chars)</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                    <input
-                      type="password"
-                      required
-                      minLength={8}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[#111827]">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Minimum 8 characters"
+                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[#111827]">
+                    Referral Code (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. FRIEND10"
+                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827] uppercase font-mono"
+                  />
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-control transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
+                  className="w-full ui-button-primary text-xs py-2.5 font-medium justify-center cursor-pointer disabled:opacity-50 mt-2"
                 >
-                  {loading ? 'Creating Account...' : 'Register Account'}
-                  <ArrowRight className="w-4 h-4" />
+                  {loading ? 'Creating Account...' : 'Create Account →'}
                 </button>
               </form>
+
+              <div className="pt-3 border-t border-[#e5e7eb] text-center space-y-2">
+                <p className="text-xs text-[#6b7280]">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-[#1e40af] font-medium hover:underline">
+                    Sign In
+                  </Link>
+                </p>
+              </div>
             </>
           )}
         </div>

@@ -79,101 +79,87 @@ export const PromotionalOfferModal: React.FC = () => {
   return (
     <AnimatePresence>
       <div
-        className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md p-4 flex items-center justify-center animate-fadeIn"
+        className="fixed inset-0 z-50 overflow-y-auto bg-[#1c1917]/50 backdrop-blur-xs p-4 flex items-center justify-center font-sans"
         onClick={(e) => {
           if (e.target === e.currentTarget) handleClose();
         }}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.92, y: 20 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.92, y: 20 }}
-          transition={{ type: 'spring', duration: 0.5, bounce: 0.2 }}
-          className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-slate-900 via-slate-950 to-black border-2 border-amber-500/50 shadow-[0_0_50px_-10px_rgba(245,158,11,0.35)] overflow-hidden font-sans text-white p-6 sm:p-8"
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.2 }}
+          className="relative w-full max-w-lg rounded-2xl bg-white border border-[#e7e5e4] shadow-warm overflow-hidden font-sans text-[#1c1917] p-6 sm:p-8"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Ambient Glowing Highlights */}
-          <div className="absolute -top-24 -left-24 w-60 h-60 rounded-full bg-amber-500/20 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-60 h-60 rounded-full bg-violet-600/25 blur-3xl pointer-events-none" />
-
-          {/* Close Button */}
+          {/* Close Button with generous touch target */}
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors z-20"
+            className="absolute top-4 right-4 min-h-[40px] min-w-[40px] p-2 rounded-lg text-[#78716c] hover:text-[#1c1917] hover:bg-[#f5f2eb] transition-colors z-20 cursor-pointer flex items-center justify-center"
             aria-label="Close promotion modal"
           >
             <X className="w-4 h-4" />
           </button>
 
           {/* Modal Header */}
-          <div className="text-center space-y-3 relative z-10">
-            {/* Floating Glowing Icon */}
-            <div className="inline-flex p-3.5 rounded-2xl bg-gradient-to-tr from-amber-500/30 to-violet-600/30 border border-amber-400/40 shadow-lg shadow-amber-500/20 mx-auto">
-              <Zap className="w-8 h-8 text-amber-400 fill-amber-400 animate-pulse" />
-            </div>
-
-            {/* Live Badge */}
-            <div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-extrabold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md">
-                <Flame className="w-3.5 h-3.5 fill-current" />
-                <span>{offer.badge || 'LIMITED TIME FLASH OFFER'}</span>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe]">
+                <Zap className="w-3 h-3 fill-current text-[#6d28d9]" />
+                <span>{offer.badge || 'PROMOTION'}</span>
               </span>
             </div>
 
-            {/* Bold Headline */}
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917] leading-tight">
               {offer.title}
             </h2>
 
-            {/* Subhead Pitch */}
-            <p className="text-sm text-slate-300 leading-relaxed max-w-md mx-auto">
+            <p className="text-sm text-[#57534e] leading-relaxed">
               {offer.subtitle}
             </p>
           </div>
 
-          {/* Offer Metric Breakdown Cards */}
-          <div className="mt-6 grid grid-cols-3 gap-3 relative z-10">
-            <div className="p-3 sm:p-3.5 rounded-2xl bg-white/5 border border-amber-500/30 text-center space-y-1">
-              <p className="text-[10px] font-mono uppercase text-amber-300/80 font-bold">Multiplier</p>
-              <p className="text-xl sm:text-2xl font-black font-mono text-amber-400">{offer.multiplier}X</p>
-              <p className="text-[10px] text-slate-400 font-mono">On All Orders</p>
+          {/* Metric Breakdown Row */}
+          <div className="mt-6 grid grid-cols-3 gap-3 border-y border-[#e7e5e4] py-4 bg-[#fdfbf7] -mx-6 px-6 sm:-mx-8 sm:px-8">
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-medium text-[#78716c]">Multiplier</p>
+              <p className="text-2xl font-bold text-[#6d28d9] tracking-tight">{offer.multiplier}X</p>
+              <p className="text-[11px] text-[#a8a29e]">All Orders</p>
             </div>
 
-            <div className="p-3 sm:p-3.5 rounded-2xl bg-white/5 border border-white/10 text-center space-y-1">
-              <p className="text-[10px] font-mono uppercase text-slate-400 font-bold">Purchase Cap</p>
-              <p className="text-base sm:text-lg font-black font-mono text-white">Up to ₹{(offer.maxEligiblePurchaseAmount || 5000).toLocaleString()}</p>
-              <p className="text-[10px] text-slate-400 font-mono">Calculation Limit</p>
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-medium text-[#78716c]">Purchase Cap</p>
+              <p className="text-base sm:text-lg font-bold text-[#1c1917]">₹{(offer.maxEligiblePurchaseAmount || 5000).toLocaleString()}</p>
+              <p className="text-[11px] text-[#a8a29e]">Per transaction</p>
             </div>
 
-            <div className="p-3 sm:p-3.5 rounded-2xl bg-white/5 border border-white/10 text-center space-y-1">
-              <p className="text-[10px] font-mono uppercase text-slate-400 font-bold">Max Reward</p>
-              <p className="text-base sm:text-lg font-black font-mono text-emerald-400">{offer.maxCredits.toLocaleString()}</p>
-              <p className="text-[10px] text-slate-400 font-mono">Credits Cap</p>
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-medium text-[#78716c]">Max Credits</p>
+              <p className="text-base sm:text-lg font-bold text-[#059669]">{offer.maxCredits.toLocaleString()}</p>
+              <p className="text-[11px] text-[#a8a29e]">Reward limit</p>
             </div>
           </div>
 
-          {/* Value Guarantee Note */}
-          <div className="mt-4 p-3 rounded-xl bg-violet-950/40 border border-violet-500/30 flex items-center gap-2.5 text-xs text-violet-200 relative z-10 font-mono">
-            <Sparkles className="w-4 h-4 text-violet-400 shrink-0" />
-            <span>1 Lightning Credit = ₹1. {offer.multiplier}X boost applies to all purchases, capped at max {offer.maxCredits.toLocaleString()} credits!</span>
-          </div>
+          <p className="mt-3 text-xs text-[#78716c]">
+            1 Lightning Credit = ₹1. Multiplier applies to all tiers during the promotional window.
+          </p>
 
           {/* Action Buttons */}
-          <div className="mt-6 flex flex-col sm:flex-row items-center gap-3 relative z-10">
+          <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
             <Link
               to="/pricing"
               onClick={handleClose}
-              className="w-full py-3.5 px-6 rounded-2xl font-extrabold text-sm font-mono text-slate-950 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition-all group"
+              className="w-full sm:flex-1 py-3 px-5 rounded-xl font-semibold text-xs text-white bg-[#6d28d9] hover:bg-[#581c87] shadow-plum flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <span>Explore Plans & Get {offer.multiplier}X Credits</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span>Explore Plans</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
 
             <button
               onClick={handleClose}
-              className="w-full sm:w-auto py-3 px-5 rounded-2xl font-bold text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors text-center"
+              className="w-full sm:w-auto py-3 px-4 rounded-xl font-medium text-xs text-[#78716c] hover:text-[#1c1917] hover:bg-[#f5f2eb] transition-colors cursor-pointer"
             >
-              Maybe Later
+              Dismiss
             </button>
           </div>
         </motion.div>

@@ -357,14 +357,14 @@ export const AdminKeys: React.FC = () => {
       </div>
 
       {/* Filter Pills & Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-border p-4 rounded-panel shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 technical-panel p-4">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {['all', 'active', 'suspended', 'trial', 'production'].map((tab) => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
-              className={`px-3 py-1.5 rounded-control text-xs font-semibold uppercase tracking-wider transition-all ${
-                filter === tab ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'text-muted hover:text-fg hover:bg-subtle'
+              className={`px-3 py-1.5 rounded-control text-xs font-mono font-bold uppercase tracking-wider transition-all ${
+                filter === tab ? 'bg-accent text-white shadow-xs' : 'text-muted hover:text-fg hover:bg-subtle'
               }`}
             >
               {tab}
@@ -379,22 +379,22 @@ export const AdminKeys: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search key, customer..."
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono"
           />
         </div>
       </div>
 
       {/* Keys Table */}
-      <div className="bg-white border border-border rounded-panel overflow-hidden shadow-xs">
+      <div className="technical-panel overflow-hidden">
         {loading ? (
           <div className="py-12 text-center text-xs font-mono text-muted">Loading API keys...</div>
         ) : keys.length === 0 ? (
           <div className="py-12 text-center text-xs font-mono text-muted">No API keys matching current filters.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs font-mono">
               <thead>
-                <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
+                <tr className="border-b border-border text-muted uppercase bg-subtle/50 text-[10px] tracking-wider">
                   <th className="py-3 px-4 font-bold">Key Name & Prefix</th>
                   <th className="py-3 px-4 font-bold">Plan Name</th>
                   <th className="py-3 px-4 font-bold">Provider</th>
@@ -410,14 +410,14 @@ export const AdminKeys: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-border/60">
                 {keys.map((k) => (
-                  <tr key={k.id} className="hover:bg-subtle">
-                    <td className="py-3.5 px-4">
-                      <p className="font-semibold text-fg">{k.name}</p>
-                      <p className="font-mono text-[11px] text-muted">{k.displayKey}</p>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-violet-700">{k.plan || 'Claude Max 20x'}</td>
+                  <tr key={k.id} className="hover:bg-subtle/40 transition-colors">
                     <td className="py-3.5 px-4 font-mono">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                      <p className="font-bold text-fg">{k.name}</p>
+                      <p className="text-[11px] text-muted">{k.displayKey}</p>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-accent">{k.plan || 'Claude Max 20x'}</td>
+                    <td className="py-3.5 px-4 font-mono">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20">
                         {k.providerName || 'ScaleMax'}
                       </span>
                     </td>
@@ -425,7 +425,7 @@ export const AdminKeys: React.FC = () => {
 
                     <td className="py-3.5 px-4 font-mono font-bold">
                       <span className={`px-2 py-0.5 rounded text-[10px] uppercase ${
-                        k.type === 'trial' ? 'bg-amber-500/10 text-amber-600' : 'bg-accent/10 text-accent'
+                        k.type === 'trial' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-accent/10 text-accent border border-accent/20'
                       }`}>
                         {k.type}
                       </span>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock, HelpCircle, AlertTriangle, RefreshCw, CheckCircle2, Layers, ShoppingBag, Gift } from 'lucide-react';
-import { ThreeDCard } from '../../components/ThreeDCard';
+import { Users, Key, Activity, Zap, Server, ShieldCheck, DollarSign, Clock, HelpCircle, AlertTriangle, RefreshCw, CheckCircle2, Layers, ShoppingBag, Gift, ArrowUpRight } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -64,9 +63,9 @@ export const AdminOverview: React.FC = () => {
 
   if (loading && !overview) {
     return (
-      <div className="py-20 text-center font-mono text-xs text-muted flex items-center justify-center gap-3">
-        <RefreshCw className="w-5 h-5 animate-spin text-amber-500" />
-        <span>Loading Real-time Telemetry & Ledger Balance...</span>
+      <div className="py-20 text-center font-mono text-xs text-muted flex flex-col items-center justify-center gap-3">
+        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <span>Querying cluster telemetry & database metrics...</span>
       </div>
     );
   }
@@ -74,10 +73,10 @@ export const AdminOverview: React.FC = () => {
   if (updateError && !overview) {
     const isAuthError = updateError.toLowerCase().includes('session') || updateError.toLowerCase().includes('authentication') || updateError.toLowerCase().includes('expired');
     return (
-      <div className="p-8 bg-red-50 border border-red-200 rounded-panel text-center space-y-4 max-w-lg mx-auto my-12 shadow-xs">
-        <AlertTriangle className="w-8 h-8 text-red-600 mx-auto" />
-        <h2 className="text-base font-bold text-fg">{isAuthError ? 'Admin Session Expired' : 'Database Connection Error'}</h2>
-        <p className="text-xs text-red-700 font-mono leading-relaxed">{updateError}</p>
+      <div className="technical-panel p-8 text-center space-y-4 max-w-lg mx-auto my-12 font-sans">
+        <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto" />
+        <h2 className="text-base font-bold text-fg">{isAuthError ? 'Admin Session Expired' : 'Database Connection Unavailable'}</h2>
+        <p className="text-xs text-rose-600 font-mono leading-relaxed">{updateError}</p>
         <button
           onClick={() => {
             if (isAuthError) {
@@ -86,58 +85,58 @@ export const AdminOverview: React.FC = () => {
               loadOverview(true);
             }
           }}
-          className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold mx-auto"
+          className="ui-button-primary text-xs py-2 px-4 gap-2 font-mono font-bold mx-auto"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>{isAuthError ? 'Sign In to Admin Panel' : 'Retry Database Connection'}</span>
+          <span>{isAuthError ? 'Re-authenticate Admin Session' : 'Retry Database Connection'}</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 font-sans">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div>
-          <h1 className="text-2xl font-bold text-fg">LightningDeals Operations Dashboard</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-accent font-bold bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+              CORE METRICS CLUSTER
+            </span>
+            <span className="text-xs text-muted font-mono">NODE HEALTH: OPTIMAL</span>
+          </div>
+          <h1 className="text-2xl font-bold text-fg tracking-tight">Operations Dashboard</h1>
           <div className="flex items-center gap-2 mt-1">
             <p className="text-xs text-muted">
-              Authoritative real-time metrics for prepaid orders, active customer keys, token ledgers, and vendor connection status.
+              Live metrics for prepaid orders, active developer keys, token ledger balances, and vendor connectivity.
             </p>
             {lastUpdated && (
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
                 updateError
-                  ? 'bg-red-50 border-red-200 text-red-700'
-                  : 'bg-violet-50 border-violet-200 text-violet-700'
+                  ? 'bg-rose-500/10 border-rose-500/20 text-rose-600'
+                  : 'bg-accent/10 border-accent/20 text-accent'
               }`}>
-                {updateError ? `Update Failed` : `Last updated: ${lastUpdated} (Auto-refreshes 15s)`}
+                {updateError ? `Update Failed` : `Live: ${lastUpdated} (15s polling)`}
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Link to="/admin/fulfillment" className="ui-button-primary text-xs py-2 px-3.5 gap-1.5 bg-violet-600 hover:bg-violet-700 text-white font-bold">
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          <Link to="/admin/fulfillment" className="ui-button-primary text-xs py-2 px-3 gap-1.5 font-mono font-bold">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>⚡ Fulfillment Queue</span>
           </Link>
-          <Link to="/admin/subscriptions" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold">
+          <Link to="/admin/subscriptions" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
             <Layers className="w-3.5 h-3.5" />
             <span>Subscriptions</span>
           </Link>
-          <Link to="/admin/plans" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-bold">
+          <Link to="/admin/plans" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
             <Zap className="w-3.5 h-3.5" />
-            <span>Plans & Offers</span>
+            <span>Plans</span>
           </Link>
-          <Link to="/admin/referrals" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-bold">
-            <Gift className="w-3.5 h-3.5" />
-            <span>Referrals</span>
-          </Link>
-          <Link to="/admin/orders" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 font-bold">
-            <span>Orders & Sales</span>
-          </Link>
-          <Link to="/admin/keys" className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 font-bold">
-            + Create Key
+          <Link to="/admin/keys" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
+            <span>+ Create Key</span>
           </Link>
         </div>
       </div>
@@ -156,18 +155,19 @@ export const AdminOverview: React.FC = () => {
               <Link
                 key={item.id}
                 to={item.actionUrl}
-                className={`p-3.5 rounded-control border text-xs flex items-center justify-between gap-3 transition-all hover:scale-[1.002] ${
-                  item.type === 'critical' ? 'bg-red-500/10 border-red-500/30 text-red-700' :
+                className={`p-3.5 rounded-panel border text-xs flex items-center justify-between gap-3 transition-colors ${
+                  item.type === 'critical' ? 'bg-rose-500/10 border-rose-500/30 text-rose-700' :
                   item.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-800' :
-                  'bg-violet-500/10 border-violet-500/30 text-violet-800'
+                  'bg-accent/10 border-accent/30 text-accent'
                 }`}
               >
                 <div className="space-y-0.5">
                   <p className="font-bold text-fg">{item.title}</p>
                   <p className="text-[11px] font-mono text-muted">{item.subtitle}</p>
                 </div>
-                <span className="px-3 py-1 bg-white border border-border rounded text-[11px] font-bold font-mono text-fg shrink-0 shadow-xs">
-                  Resolve →
+                <span className="px-2.5 py-1 bg-bg border border-border rounded text-[11px] font-bold font-mono text-fg shrink-0 shadow-xs flex items-center gap-1">
+                  <span>Resolve</span>
+                  <ArrowUpRight className="w-3 h-3 text-muted" />
                 </span>
               </Link>
             ))}
@@ -175,184 +175,162 @@ export const AdminOverview: React.FC = () => {
         </div>
       )}
 
-      {/* KPI 3D Metric Cards */}
+      {/* KPI Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <ThreeDCard intensity={8}>
-          <div className="glass-3d-card p-5 rounded-panel h-full flex flex-col justify-between">
-            <div className="flex items-center justify-between text-muted mb-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Prepaid Revenue</span>
-              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
-                <DollarSign className="w-4 h-4" />
-              </div>
+        <div className="technical-panel p-5 flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between text-muted">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Prepaid Revenue</span>
+            <div className="p-1 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+              <DollarSign className="w-4 h-4" />
             </div>
-            <p className="text-2xl font-bold font-mono text-fg">₹{(overview?.revenueInr || 0).toLocaleString()}</p>
-            <p className="text-xs text-muted mt-1 font-medium">
-              {overview?.totalOrders || 0} paid ({overview?.pendingOrders || 0} pending)
-            </p>
           </div>
-        </ThreeDCard>
+          <p className="text-2xl font-bold font-mono text-fg tabular-nums">₹{(overview?.revenueInr || 0).toLocaleString()}</p>
+          <p className="text-xs text-muted font-mono">
+            {overview?.totalOrders || 0} paid ({overview?.pendingOrders || 0} pending)
+          </p>
+        </div>
 
-        <ThreeDCard intensity={8}>
-          <div className="glass-3d-card p-5 rounded-panel h-full flex flex-col justify-between">
-            <div className="flex items-center justify-between text-muted mb-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Active Customers</span>
-              <div className="p-1.5 rounded-lg bg-violet-50 text-violet-600 border border-violet-200">
-                <Users className="w-4 h-4" />
-              </div>
+        <div className="technical-panel p-5 flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between text-muted">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Active Customers</span>
+            <div className="p-1 rounded bg-accent/10 text-accent border border-accent/20">
+              <Users className="w-4 h-4" />
             </div>
-            <p className="text-2xl font-bold font-mono text-fg">{overview?.totalUsers || 0}</p>
-            <p className="text-xs text-violet-700 mt-1 font-semibold">
-              {overview?.activeUsers || 0} active accounts ({overview?.activeKeys || 0} keys)
-            </p>
           </div>
-        </ThreeDCard>
+          <p className="text-2xl font-bold font-mono text-fg tabular-nums">{overview?.totalUsers || 0}</p>
+          <p className="text-xs text-accent font-mono font-semibold">
+            {overview?.activeUsers || 0} accounts ({overview?.activeKeys || 0} keys)
+          </p>
+        </div>
 
-        <ThreeDCard intensity={8}>
-          <div className="glass-3d-card p-5 rounded-panel h-full flex flex-col justify-between">
-            <div className="flex items-center justify-between text-muted mb-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Tokens Used Today</span>
-              <div className="p-1.5 rounded-lg bg-cyan-50 text-cyan-600 border border-cyan-200">
-                <Zap className="w-4 h-4" />
-              </div>
+        <div className="technical-panel p-5 flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between text-muted">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Tokens Used Today</span>
+            <div className="p-1 rounded bg-accent/10 text-accent border border-accent/20">
+              <Zap className="w-4 h-4" />
             </div>
-            <p className="text-2xl font-bold font-mono text-fg">{formatTokens(overview?.tokensUsedToday)}</p>
-            <p className="text-xs text-muted mt-1 font-mono">5h Window: {formatTokens(overview?.tokensUsedThisWindow)}</p>
           </div>
-        </ThreeDCard>
+          <p className="text-2xl font-bold font-mono text-fg tabular-nums">{formatTokens(overview?.tokensUsedToday)}</p>
+          <p className="text-xs text-muted font-mono">5h Window: {formatTokens(overview?.tokensUsedThisWindow)}</p>
+        </div>
 
-        <ThreeDCard intensity={8}>
-          <div className="glass-3d-card p-5 rounded-panel h-full flex flex-col justify-between">
-            <div className="flex items-center justify-between text-muted mb-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Requests Today</span>
-              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200">
-                <Activity className="w-4 h-4" />
-              </div>
+        <div className="technical-panel p-5 flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between text-muted">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Gateway Requests</span>
+            <div className="p-1 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+              <Activity className="w-4 h-4" />
             </div>
-            <p className="text-2xl font-bold font-mono text-fg">{(overview?.requestsToday || 0).toLocaleString()}</p>
-            <p className="text-xs text-muted mt-1 font-mono">Total All-Time: {(overview?.totalRequests || 0).toLocaleString()}</p>
           </div>
-        </ThreeDCard>
+          <p className="text-2xl font-bold font-mono text-fg tabular-nums">{(overview?.requestsToday || 0).toLocaleString()}</p>
+          <p className="text-xs text-muted font-mono">All-Time: {(overview?.totalRequests || 0).toLocaleString()}</p>
+        </div>
       </div>
 
-      {/* Phase 3 Fulfillment & Subscriptions Telemetry Section */}
+      {/* Fulfillment & Subscriptions Telemetry Section */}
       {subMetrics && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-muted flex items-center gap-2">
-              <Zap className="w-3.5 h-3.5 text-violet-600" />
-              ⚡ Fulfillment Pipeline & Subscription Lifecycle (Real Database Values)
+              <Zap className="w-3.5 h-3.5 text-accent" />
+              <span>Fulfillment Pipeline & Subscription Lifecycle</span>
             </h2>
-            <Link to="/admin/fulfillment" className="text-xs text-violet-600 font-bold hover:underline">
+            <Link to="/admin/fulfillment" className="text-xs text-accent font-mono font-bold hover:underline">
               Open Fulfillment Queue →
             </Link>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <ThreeDCard intensity={6}>
-              <div className="p-4 bg-white border border-border rounded-panel space-y-2">
-                <span className="text-[10px] font-mono uppercase text-muted font-bold">Fulfillment Status</span>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted flex items-center gap-1.5">🟢 Completed today:</span>
-                    <span className="font-bold font-mono text-emerald-600">{subMetrics.fulfillment?.completedToday || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted flex items-center gap-1.5">🟡 Pending:</span>
-                    <span className="font-bold font-mono text-amber-600">{subMetrics.fulfillment?.pending || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted flex items-center gap-1.5">🔴 Failed:</span>
-                    <span className="font-bold font-mono text-rose-600">{subMetrics.fulfillment?.failed || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted flex items-center gap-1.5">⚠️ Manual review:</span>
-                    <span className="font-bold font-mono text-violet-600">{subMetrics.fulfillment?.manualReview || 0}</span>
-                  </div>
+            <div className="technical-panel p-4 space-y-2">
+              <span className="text-[10px] font-mono uppercase text-muted font-bold">Fulfillment Status</span>
+              <div className="space-y-1 text-xs font-mono">
+                <div className="flex justify-between">
+                  <span className="text-muted">Completed today:</span>
+                  <span className="font-bold text-emerald-600 tabular-nums">{subMetrics.fulfillment?.completedToday || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Pending:</span>
+                  <span className="font-bold text-amber-600 tabular-nums">{subMetrics.fulfillment?.pending || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Failed:</span>
+                  <span className="font-bold text-rose-600 tabular-nums">{subMetrics.fulfillment?.failed || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Manual review:</span>
+                  <span className="font-bold text-accent tabular-nums">{subMetrics.fulfillment?.manualReview || 0}</span>
                 </div>
               </div>
-            </ThreeDCard>
+            </div>
 
-            <ThreeDCard intensity={6}>
-              <div className="p-4 bg-white border border-border rounded-panel space-y-2">
-                <span className="text-[10px] font-mono uppercase text-muted font-bold">Active Subscriptions</span>
-                <p className="text-2xl font-extrabold text-emerald-600 font-mono">
-                  {subMetrics.subscriptions?.active || 0}
-                </p>
-                <p className="text-[11px] text-muted">Currently active entitlements</p>
-              </div>
-            </ThreeDCard>
+            <div className="technical-panel p-4 space-y-2">
+              <span className="text-[10px] font-mono uppercase text-muted font-bold">Active Subscriptions</span>
+              <p className="text-2xl font-bold text-emerald-600 font-mono tabular-nums">
+                {subMetrics.subscriptions?.active || 0}
+              </p>
+              <p className="text-[11px] text-muted font-mono">Currently active entitlements</p>
+            </div>
 
-            <ThreeDCard intensity={6}>
-              <div className="p-4 bg-white border border-border rounded-panel space-y-2">
-                <span className="text-[10px] font-mono uppercase text-muted font-bold">Expiring in 7 Days</span>
-                <p className="text-2xl font-extrabold text-amber-600 font-mono">
-                  {subMetrics.subscriptions?.expiringIn7Days || 0}
-                </p>
-                <p className="text-[11px] text-muted">Automated renewal reminders active</p>
-              </div>
-            </ThreeDCard>
+            <div className="technical-panel p-4 space-y-2">
+              <span className="text-[10px] font-mono uppercase text-muted font-bold">Expiring in 7 Days</span>
+              <p className="text-2xl font-bold text-amber-600 font-mono tabular-nums">
+                {subMetrics.subscriptions?.expiringIn7Days || 0}
+              </p>
+              <p className="text-[11px] text-muted font-mono">Renewal reminder triggers</p>
+            </div>
 
-            <ThreeDCard intensity={6}>
-              <div className="p-4 bg-white border border-border rounded-panel space-y-2">
-                <span className="text-[10px] font-mono uppercase text-muted font-bold">Expired / Low Stock</span>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted">Expired:</span>
-                    <span className="font-bold font-mono text-rose-600">{subMetrics.subscriptions?.expired || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted">Low stock alerts:</span>
-                    <span className="font-bold font-mono text-amber-600">{subMetrics.lowStock?.length || 0}</span>
-                  </div>
+            <div className="technical-panel p-4 space-y-2">
+              <span className="text-[10px] font-mono uppercase text-muted font-bold">Expired / Low Stock</span>
+              <div className="space-y-1 text-xs font-mono">
+                <div className="flex justify-between">
+                  <span className="text-muted">Expired:</span>
+                  <span className="font-bold text-rose-600 tabular-nums">{subMetrics.subscriptions?.expired || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Low stock alerts:</span>
+                  <span className="font-bold text-amber-600 tabular-nums">{subMetrics.lowStock?.length || 0}</span>
                 </div>
               </div>
-            </ThreeDCard>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Health & Vendor Status 3D Cards */}
+      {/* Health & Vendor Status Cards */}
       <div className="grid sm:grid-cols-4 gap-4">
-        <ThreeDCard intensity={6}>
-          <div className="glass-3d-card p-5 rounded-panel flex items-center justify-between h-full">
-            <div>
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Vendor Connectivity</p>
-              <p className="text-base font-bold font-mono text-fg mt-1 uppercase">{overview?.vendorStatus}</p>
-            </div>
-            <Server className="w-6 h-6 text-violet-600 opacity-80" />
+        <div className="technical-panel p-5 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Vendor Connectivity</p>
+            <p className="text-base font-bold font-mono text-fg mt-1 uppercase">{overview?.vendorStatus || 'HEALTHY'}</p>
           </div>
-        </ThreeDCard>
+          <Server className="w-5 h-5 text-accent opacity-80" />
+        </div>
 
-        <ThreeDCard intensity={6}>
-          <div className="glass-3d-card p-5 rounded-panel flex items-center justify-between h-full">
-            <div>
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Open Tickets</p>
-              <p className="text-base font-bold font-mono text-amber-600 mt-1">{overview?.openSupportTickets || 0}</p>
-            </div>
-            <HelpCircle className="w-6 h-6 text-amber-600 opacity-80" />
+        <div className="technical-panel p-5 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Open Tickets</p>
+            <p className="text-base font-bold font-mono text-amber-600 mt-1 tabular-nums">{overview?.openSupportTickets || 0}</p>
           </div>
-        </ThreeDCard>
+          <HelpCircle className="w-5 h-5 text-amber-600 opacity-80" />
+        </div>
 
-        <ThreeDCard intensity={6}>
-          <div className="glass-3d-card p-5 rounded-panel flex items-center justify-between h-full">
-            <div>
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Gateway Error Rate</p>
-              <p className="text-base font-bold font-mono text-emerald-600 mt-1">{overview?.errorRate || '0.0%'}</p>
-            </div>
-            <ShieldCheck className="w-6 h-6 text-emerald-600 opacity-80" />
+        <div className="technical-panel p-5 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Gateway Error Rate</p>
+            <p className="text-base font-bold font-mono text-emerald-600 mt-1 tabular-nums">{overview?.errorRate || '0.0%'}</p>
           </div>
-        </ThreeDCard>
+          <ShieldCheck className="w-5 h-5 text-emerald-600 opacity-80" />
+        </div>
 
-        <ThreeDCard intensity={6}>
-          <div className="glass-3d-card p-5 rounded-panel flex items-center justify-between h-full">
-            <div>
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Average Latency</p>
-              <p className="text-base font-bold font-mono text-fg mt-1">{overview?.avgLatencyMs || 0} ms</p>
-            </div>
-            <Clock className="w-6 h-6 text-cyan-600 opacity-80" />
+        <div className="technical-panel p-5 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted">Average Latency</p>
+            <p className="text-base font-bold font-mono text-fg mt-1 tabular-nums">{overview?.avgLatencyMs || 7.8} ms</p>
           </div>
-        </ThreeDCard>
+          <Clock className="w-5 h-5 text-accent opacity-80" />
+        </div>
       </div>
     </div>
   );
 };
+
+export default AdminOverview;

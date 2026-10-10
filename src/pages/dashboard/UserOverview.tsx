@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles, Gift } from 'lucide-react';
+import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles, Gift, Play } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
@@ -24,7 +24,7 @@ export const UserOverview: React.FC = () => {
           const data = await usageRes.json();
           setStats(data);
         } else {
-          setError('Unable to load your account data.');
+          setError('Unable to load account usage.');
         }
 
         if (offerRes.ok) {
@@ -34,7 +34,7 @@ export const UserOverview: React.FC = () => {
           }
         }
       } catch (e) {
-        setError('Unable to load your account data.');
+        setError('Unable to load account usage.');
       } finally {
         setLoading(false);
       }
@@ -74,15 +74,25 @@ export const UserOverview: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="py-12 text-center text-xs text-muted font-mono">Loading account overview...</div>;
+    return (
+      <div className="py-16 text-center space-y-3">
+        <div className="w-7 h-7 border-3 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs text-[#64607d] font-medium">Loading your studio overview...</p>
+      </div>
+    );
   }
 
   if (error || !stats) {
     return (
-      <div className="p-8 bg-card border border-border rounded-panel text-center space-y-4">
+      <div className="p-8 bg-white rounded-3xl border border-[#ede8e1] shadow-2xs text-center space-y-3">
         <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
-        <p className="text-sm font-semibold text-fg">{error || 'Unable to load your account data.'}</p>
-        <button onClick={() => window.location.reload()} className="ui-button-secondary text-xs px-4 py-2">
+        <h3 className="text-sm font-bold text-[#1e1b2e]">Unable to load studio stats</h3>
+        <p className="text-xs text-[#64607d] max-w-sm mx-auto">{error || 'Please verify your internet connection.'}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="ui-button-secondary text-xs px-4 py-2 cursor-pointer font-bold"
+        >
           Retry Connection
         </button>
       </div>
@@ -95,189 +105,142 @@ export const UserOverview: React.FC = () => {
   const percentUsed = purchased > 0 ? ((used / purchased) * 100).toFixed(1) : '0';
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header & Status Badges */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ede8e1] pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-fg">Welcome back, {user?.name}</h1>
-          <p className="text-xs text-muted mt-1">
-            Overview of your active API keys, token consumption, and rolling allowance.
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#1e1b2e] tracking-tight">
+              Welcome back, {user?.name || 'Creator'}!
+            </h1>
+            <span className="text-lg">✨</span>
+          </div>
+          <p className="text-xs text-[#64607d] mt-1">
+            Here is your live quota, token balance, and active routing keys.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono">
-            <CheckCircle2 className="w-3.5 h-3.5" /> API Status: ACTIVE
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Gateway Online</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20 font-mono">
-            <ShieldCheck className="w-3.5 h-3.5" /> Verified Account
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Authenticated</span>
           </span>
         </div>
       </div>
 
-      {/* Referral Program Launch Announcement Card */}
-      <div className="relative overflow-hidden rounded-panel border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-indigo-500/10 p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-amber-500 to-violet-600 text-white shadow-md shadow-amber-500/20 shrink-0">
-              <Gift className="w-5 h-5 fill-current" />
+      {/* Promotional Flash Offer Card */}
+      {activeOffer && (
+        <div className="bg-gradient-to-r from-amber-50 via-rose-50 to-violet-50 border border-amber-300/80 p-5 rounded-3xl shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300">
+              <Flame className="w-3.5 h-3.5 fill-current text-amber-600" />
+              <span>{activeOffer.badge || 'PROMO BOOST'}</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
-                  NEW FEATURE LIVE
-                </span>
-                <h3 className="text-base font-extrabold text-fg tracking-tight">
-                  ⚡ Referral Program is Now Live!
-                </h3>
-              </div>
-              <p className="text-xs text-muted font-mono mt-0.5">
-                Invite friends and colleagues to earn 10% matching Lightning Credits on their purchases (up to ₹500/order).
-              </p>
+            <h2 className="text-sm font-bold text-[#1e1b2e]">
+              {activeOffer.title}: {activeOffer.subtitle}
+            </h2>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[#64607d]">
+              <span className="font-bold text-amber-900">
+                ⚡ {activeOffer.multiplier}X Bonus Credits
+              </span>
+              <span>•</span>
+              <span>Max Reward: ₹{activeOffer.maxCredits.toLocaleString()} Credits</span>
             </div>
           </div>
-          <Link
-            to="/dashboard/referrals"
-            className="ui-button-primary bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs py-2.5 px-4 flex items-center justify-center gap-1.5 font-bold shrink-0 shadow-md shadow-amber-500/20 active:scale-95 transition-all font-mono"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Get Your Referral Link</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      </div>
 
-      {/* Active Promotional Flash Offer Card */}
-      {activeOffer && (
-        <div className="relative overflow-hidden rounded-panel bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-indigo-500/10 border-2 border-amber-500/40 p-6 sm:p-7 shadow-lg">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-400/10 blur-3xl rounded-full pointer-events-none" />
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-            <div className="space-y-3 max-w-2xl">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-extrabold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-sm animate-pulse">
-                <Flame className="w-3.5 h-3.5 fill-current" />
-                <span>{activeOffer.badge || 'FLASH OFFER ACTIVE'}</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-fg tracking-tight">
-                {activeOffer.title}
-              </h2>
-              <p className="text-xs sm:text-sm text-muted leading-relaxed">
-                {activeOffer.subtitle}
-              </p>
-              <div className="flex flex-wrap items-center gap-3 pt-1 font-mono text-xs">
-                <span className="font-extrabold text-amber-700 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-lg">
-                  ⚡ {activeOffer.multiplier}X Bonus Multiplier
-                </span>
-                <span className="text-muted bg-white/80 border border-border px-2.5 py-1 rounded-lg">
-                  {activeOffer.minPurchaseAmount > 0 ? `Min Purchase: ₹${activeOffer.minPurchaseAmount.toLocaleString()}+` : 'Applies to ALL Orders'}
-                </span>
-                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold">
-                  Max Reward: ₹{activeOffer.maxCredits.toLocaleString()} Credits (₹5,000 Purchase Cap)
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
-              <Link
-                to="/dashboard/plan"
-                className="px-5 py-3 rounded-control font-bold text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20 inline-flex items-center justify-center gap-2 font-mono transition-all"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Activate Plan & Get {activeOffer.multiplier}X Credits</span>
-              </Link>
-              <Link
-                to="/dashboard/rewards"
-                className="px-4 py-2.5 rounded-control font-bold text-xs bg-white text-fg border border-border hover:bg-subtle inline-flex items-center justify-center gap-2 shadow-xs font-mono"
-              >
-                <Zap className="w-4 h-4 text-violet-600" />
-                <span>View Rewards Wallet</span>
-              </Link>
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              to="/dashboard/plan"
+              className="ui-button-primary text-xs px-4 py-2 font-bold shadow-xs"
+            >
+              <span>Explore Plans</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Link>
           </div>
         </div>
       )}
 
       {/* Main 5-Hour Window Token Allowance Card OR Keyless Empty State */}
       {purchased === 0 ? (
-        <div className="bg-gradient-to-br from-violet-500/5 via-indigo-500/5 to-cyan-500/5 border border-violet-500/20 rounded-panel p-8 text-center space-y-5 shadow-lg">
-          <div className="inline-flex p-3 rounded-2xl bg-violet-50 text-violet-600 border border-violet-200">
-            <Zap className="w-8 h-8" />
+        <div className="bg-white p-8 rounded-3xl border border-[#ede8e1] text-center space-y-4 shadow-2xs">
+          <div className="w-14 h-14 rounded-2xl bg-violet-100 text-violet-700 mx-auto flex items-center justify-center shadow-2xs">
+            <Zap className="w-7 h-7 fill-current" />
           </div>
-          <div className="max-w-xl mx-auto space-y-2">
-            <h2 className="text-xl font-extrabold text-fg tracking-tight">No Active Plan / API Key Allocated</h2>
-            <p className="text-xs text-muted leading-relaxed">
-              Your account currently has no active API key allocations. Select a prepaid token capacity plan or contact our engineering team on WhatsApp to activate your key.
+          <div className="max-w-md mx-auto space-y-1">
+            <h2 className="text-lg font-extrabold text-[#1e1b2e]">No Active API Key Allocated Yet</h2>
+            <p className="text-xs text-[#64607d] leading-relaxed">
+              Activate your free 1,000,000 token trial or choose a capacity tier to start prompting in Cursor, Claude Code, and Windsurf.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Link
-              to="/dashboard/plan"
-              className="px-5 py-2.5 rounded-control font-bold text-xs bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white inline-flex items-center gap-2 shadow-md shadow-violet-500/20"
+              to="/trial"
+              className="ui-button-primary text-xs px-5 py-2.5 font-bold shadow-xs"
             >
-              <Key className="w-4 h-4" />
-              <span>Claim Free Trial / Activate Plan</span>
+              <Key className="w-3.5 h-3.5 mr-1.5" />
+              <span>Claim Free 1M Trial Key</span>
             </Link>
             <Link
               to="/pricing"
-              className="px-5 py-2.5 rounded-control font-bold text-xs bg-white text-fg border border-border hover:bg-subtle inline-flex items-center gap-2 shadow-xs"
+              className="ui-button-secondary text-xs px-5 py-2.5 font-semibold"
             >
-              <Zap className="w-4 h-4 text-violet-600" />
-              <span>Browse Claude Plans</span>
-            </Link>
-            <Link
-              to="/docs"
-              className="px-5 py-2.5 rounded-control font-bold text-xs bg-white text-fg border border-border hover:bg-subtle inline-flex items-center gap-2 shadow-xs"
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>View Documentation</span>
+              <span>Browse Capacity Plans</span>
             </Link>
           </div>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-panel p-6 sm:p-8 space-y-6 shadow-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#ede8e1] space-y-6 shadow-playful">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#ede8e1] pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-violet-50 text-violet-600 border border-violet-200">
-                <Zap className="w-5 h-5 fill-current" />
+              <div className="p-2 rounded-2xl bg-violet-100 text-violet-700">
+                <Zap className="w-4 h-4 fill-current" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-fg">CURRENT 5-HOUR WINDOW</h2>
-                <p className="text-xs text-muted font-mono">Resets automatically every 5 rolling hours</p>
+                <h2 className="text-sm font-bold text-[#1e1b2e]">Rolling 5-Hour Token Allowance</h2>
+                <p className="text-xs text-[#64607d]">Automatic reset cycle guarantees continuous compute</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-control bg-bg border border-border text-xs font-mono">
-              <Clock className="w-4 h-4 text-violet-600 animate-pulse" />
-              <span className="text-muted">Next Window Refresh:</span>
-              <span className="font-extrabold text-fg">{timeLeft}</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#faf8f5] border border-[#ede8e1] text-xs font-semibold">
+              <Clock className="w-3.5 h-3.5 text-violet-600" />
+              <span className="text-[#64607d]">Next Reload:</span>
+              <span className="font-bold font-mono text-[#1e1b2e]">{timeLeft}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
-              <p className="text-[11px] font-mono text-muted uppercase">5-Hour Allowance</p>
-              <p className="text-3xl font-extrabold font-mono text-fg">{formatTokens(purchased)}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">5-Hour Quota</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">{formatTokens(purchased)}</p>
+              <p className="text-[11px] text-[#64607d]">Tokens per cycle</p>
             </div>
 
-            <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
-              <p className="text-[11px] font-mono text-muted uppercase">Tokens Consumed</p>
-              <p className="text-3xl font-extrabold font-mono text-amber-600">{formatTokens(used)}</p>
+            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Used in Cycle</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">{formatTokens(used)}</p>
+              <p className="text-[11px] text-[#64607d]">Active queries & prompts</p>
             </div>
 
-            <div className="p-5 bg-bg border border-border/80 rounded-control space-y-1">
-              <p className="text-[11px] font-mono text-muted uppercase">Tokens Remaining</p>
-              <p className="text-3xl font-extrabold font-mono text-emerald-600">{formatTokens(remaining)}</p>
+            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Tokens Remaining</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{formatTokens(remaining)}</p>
+              <p className="text-[11px] text-emerald-700 font-medium">Ready to spend</p>
             </div>
           </div>
 
           {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs text-muted font-mono">
-              <span>Consumed: {percentUsed}%</span>
-              <span>Available: {(100 - Number(percentUsed)).toFixed(1)}%</span>
+          <div className="space-y-2 pt-1">
+            <div className="flex justify-between text-xs font-medium text-[#64607d]">
+              <span>Spent: <strong className="text-[#1e1b2e]">{percentUsed}%</strong></span>
+              <span>Available: <strong className="text-emerald-700">{(100 - Number(percentUsed)).toFixed(1)}%</strong></span>
             </div>
-            <div className="h-3 w-full bg-bg border border-border rounded-full overflow-hidden p-0.5">
+            <div className="h-3 w-full bg-[#faf8f5] rounded-full overflow-hidden border border-[#ede8e1] p-0.5">
               <div
-                className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-emerald-500 rounded-full transition-all duration-500"
+                className="h-full bg-gradient-to-r from-violet-600 via-indigo-600 to-emerald-500 rounded-full transition-all duration-300"
                 style={{ width: `${Math.min(100, Math.max(0, Number(percentUsed)))}%` }}
               />
             </div>
@@ -285,75 +248,59 @@ export const UserOverview: React.FC = () => {
         </div>
       )}
 
-      {/* Quick Action Navigation Grid */}
-      <div>
-        <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-muted mb-4">Quick Dashboard Actions</h3>
+      {/* Quick Console Shortcuts */}
+      <div className="space-y-3.5 pt-2">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#64607d]">Quick Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
-            to="/dashboard/api-keys"
-            className="p-5 bg-card border border-border rounded-panel hover:border-violet-300 hover:shadow-md transition-all group space-y-3"
+            to="/dashboard/keys"
+            className="bg-white p-5 rounded-3xl border border-[#ede8e1] shadow-2xs hover:border-violet-300 hover:shadow-xs transition-all group space-y-3 block"
           >
-            <div className="p-2.5 rounded-xl bg-violet-50 text-violet-600 w-fit border border-violet-200">
+            <div className="p-2.5 rounded-2xl bg-violet-100 text-violet-700 w-fit group-hover:scale-105 transition-transform">
               <Key className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-fg group-hover:text-violet-600 transition-colors">Manage API Keys</h4>
-              <p className="text-xs text-muted mt-1">View, generate, and revoke your API keys.</p>
+              <h4 className="text-sm font-bold text-[#1e1b2e] group-hover:text-violet-700 transition-colors">Your API Keys</h4>
+              <p className="text-xs text-[#64607d] mt-1 leading-snug">Copy key, reveal secrets, or generate env snippets.</p>
             </div>
-            <div className="text-xs font-bold text-violet-600 flex items-center gap-1 font-mono pt-1">
-              <span>Go to API Keys</span>
-              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+          </Link>
+
+          <Link
+            to="/dashboard/api-test"
+            className="bg-white p-5 rounded-3xl border border-[#ede8e1] shadow-2xs hover:border-violet-300 hover:shadow-xs transition-all group space-y-3 block"
+          >
+            <div className="p-2.5 rounded-2xl bg-amber-100 text-amber-700 w-fit group-hover:scale-105 transition-transform">
+              <Play className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-[#1e1b2e] group-hover:text-violet-700 transition-colors">Test in Playground</h4>
+              <p className="text-xs text-[#64607d] mt-1 leading-snug">Prompt Claude models and inspect real output live.</p>
             </div>
           </Link>
 
           <Link
             to="/dashboard/usage"
-            className="p-5 bg-card border border-border rounded-panel hover:border-violet-300 hover:shadow-md transition-all group space-y-3"
+            className="bg-white p-5 rounded-3xl border border-[#ede8e1] shadow-2xs hover:border-violet-300 hover:shadow-xs transition-all group space-y-3 block"
           >
-            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 w-fit border border-emerald-200">
+            <div className="p-2.5 rounded-2xl bg-blue-100 text-blue-700 w-fit group-hover:scale-105 transition-transform">
               <Activity className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-fg group-hover:text-violet-600 transition-colors">View Usage</h4>
-              <p className="text-xs text-muted mt-1">Inspect consumption logs and ledger details.</p>
-            </div>
-            <div className="text-xs font-bold text-violet-600 flex items-center gap-1 font-mono pt-1">
-              <span>Go to Usage</span>
-              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
-            </div>
-          </Link>
-
-          <Link
-            to="/docs"
-            className="p-5 bg-card border border-border rounded-panel hover:border-violet-300 hover:shadow-md transition-all group space-y-3"
-          >
-            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 w-fit border border-indigo-200">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-fg group-hover:text-violet-600 transition-colors">Documentation</h4>
-              <p className="text-xs text-muted mt-1">Setup guides for Claude Code, Cursor, & VS Code.</p>
-            </div>
-            <div className="text-xs font-bold text-violet-600 flex items-center gap-1 font-mono pt-1">
-              <span>Read Docs</span>
-              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+              <h4 className="text-sm font-bold text-[#1e1b2e] group-hover:text-violet-700 transition-colors">Usage & Ledger</h4>
+              <p className="text-xs text-[#64607d] mt-1 leading-snug">Inspect token deductions and cache hits.</p>
             </div>
           </Link>
 
           <Link
             to="/dashboard/support"
-            className="p-5 bg-card border border-border rounded-panel hover:border-violet-300 hover:shadow-md transition-all group space-y-3"
+            className="bg-white p-5 rounded-3xl border border-[#ede8e1] shadow-2xs hover:border-violet-300 hover:shadow-xs transition-all group space-y-3 block"
           >
-            <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 w-fit border border-amber-200">
+            <div className="p-2.5 rounded-2xl bg-emerald-100 text-emerald-700 w-fit group-hover:scale-105 transition-transform">
               <LifeBuoy className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-fg group-hover:text-violet-600 transition-colors">Contact Support</h4>
-              <p className="text-xs text-muted mt-1">Create and track support tickets with our team.</p>
-            </div>
-            <div className="text-xs font-bold text-violet-600 flex items-center gap-1 font-mono pt-1">
-              <span>Open Help Desk</span>
-              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+              <h4 className="text-sm font-bold text-[#1e1b2e] group-hover:text-violet-700 transition-colors">Customer Support</h4>
+              <p className="text-xs text-[#64607d] mt-1 leading-snug">Direct help desk with instant WhatsApp chat.</p>
             </div>
           </Link>
         </div>

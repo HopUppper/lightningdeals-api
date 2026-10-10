@@ -1,6 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowRight, Zap, Sparkles, LogIn, UserPlus, LayoutDashboard, LogOut, User as UserIcon, ShoppingBag, Gift } from 'lucide-react';
+import {
+  Zap,
+  Menu,
+  X,
+  ShoppingBag,
+  LayoutDashboard,
+  LogOut,
+  Key,
+  ShieldCheck,
+  Gift,
+  Users,
+  Activity,
+  FileCode2,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { ReferralAnnouncementBanner } from './ReferralAnnouncementBanner';
@@ -11,263 +24,230 @@ export const Navbar: React.FC = () => {
   const { cartItems, openCart } = useCart();
   const location = useLocation();
   const navigate = useNavigate();
-  const isHomePage = location.pathname === '/';
 
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [mobileMenuOpen]);
-
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
+    logout();
     navigate('/');
   };
 
   const navLinks = [
-    { name: 'Why Us', href: isHomePage ? '#why-us' : '/#why-us' },
-    { name: 'API Gateway', href: isHomePage ? '#api' : '/#api' },
-    { name: 'Models', href: '/models', isPage: true },
-    { name: 'Plans', href: '/pricing', isPage: true },
-    { name: '⚡ Rewards', href: '/rewards', isPage: true },
-    { name: '🤝 Refer & Earn', href: '/dashboard/referrals', isPage: true },
-    { name: 'Docs', href: '/docs', isPage: true },
-    { name: 'Status', href: '/status', isPage: true },
+    { name: 'Models', href: '/#models' },
+    { name: 'Capacity & Plans', href: '/#pricing' },
+    { name: 'Integration', href: '/#integration' },
+    { name: 'Documentation', href: '/docs' },
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/80 bg-white/85 backdrop-blur-xl shadow-xs">
+    <header className="sticky top-0 z-50 border-b border-[#e7e5e4] bg-[#fbf9f5]/95 backdrop-blur-sm font-sans">
       <ReferralAnnouncementBanner />
-      <nav className="mx-auto flex h-16 max-w-page items-center justify-between px-4 sm:px-6" aria-label="Primary">
+      
+      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8" aria-label="Primary">
         
-        {/* Brand Logo with 3D Glowing Icon */}
-        <Link to="/" className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-fg group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 text-white transition-transform group-hover:scale-105 font-extrabold shadow-md shadow-violet-500/25">
-            <Zap className="w-4 h-4 fill-current" />
-          </div>
-          <span className="text-base font-extrabold text-fg tracking-tight">
-            Lightning<span className="animated-gradient-text">Deals</span>
-          </span>
-        </Link>
+        {/* Brand Wordmark & Operational Status */}
+        <div className="flex items-center gap-3 lg:gap-4 shrink-0">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#6d28d9] text-white shadow-xs transition-opacity group-hover:opacity-90">
+              <Zap className="w-4 h-4 fill-current text-white" />
+            </div>
+            <div className="flex items-baseline">
+              <span className="text-base font-bold tracking-tight text-[#1c1917]">
+                LightningAPI
+              </span>
+              <span className="text-xs font-semibold text-[#78716c] ml-0.5">
+                .pro
+              </span>
+            </div>
+          </Link>
 
-        {/* Navigation Links */}
-        <div className="hidden items-center gap-1 md:flex">
+          {/* Calm Operational Status Dot */}
+          <Link
+            to="/status"
+            className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#ecfdf5] border border-[#a7f3d0] text-xs font-medium text-[#047857] hover:bg-[#d1fae5] transition-colors"
+            title="Gateway Operational"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-[#059669] shrink-0" />
+            <span>Operational</span>
+          </Link>
+        </div>
+
+        {/* 4 Focused Primary Nav Links */}
+        <div className="hidden md:flex items-center gap-0.5 lg:gap-1">
           {navLinks.map((link) => (
-            link.isPage ? (
-              <Link
-                key={link.name}
-                to={link.href}
-                className={`inline-flex min-h-[36px] items-center rounded-control px-3 text-xs font-semibold transition-all ${
-                  location.pathname === link.href
-                    ? 'bg-violet-50 text-violet-700 font-bold border border-violet-200/60'
-                    : 'text-muted hover:text-fg hover:bg-subtle'
-                }`}
-              >
-                {link.name}
-              </Link>
-            ) : (
-              <a
-                key={link.name}
-                href={link.href}
-                className="inline-flex min-h-[36px] items-center rounded-control px-3 text-xs font-semibold text-muted transition-colors hover:text-fg hover:bg-subtle"
-              >
-                {link.name}
-              </a>
-            )
+            <a
+              key={link.name}
+              href={link.href}
+              className="px-2.5 py-1.5 text-xs font-medium text-[#57534e] hover:text-[#1c1917] hover:bg-[#f5f2eb] transition-colors rounded-md whitespace-nowrap"
+            >
+              {link.name}
+            </a>
           ))}
         </div>
 
-        {/* Action Buttons */}
-        <div className="hidden items-center gap-2 md:flex">
+        {/* Action Controls */}
+        <div className="hidden md:flex items-center gap-2 lg:gap-2.5 shrink-0">
           {/* Cart Trigger */}
           <button
             onClick={openCart}
-            className="relative p-2 rounded-control text-muted hover:text-fg hover:bg-subtle transition-colors flex items-center gap-1.5"
+            className="relative p-2 rounded-md text-[#57534e] hover:text-[#1c1917] hover:bg-[#f5f2eb] border border-[#e7e5e4] transition-colors cursor-pointer"
             title="Shopping Cart"
+            aria-label="View shopping cart"
           >
             <ShoppingBag className="w-4 h-4" />
             {cartItems.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-violet-600 text-white font-mono font-extrabold text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+              <span className="absolute -top-1 -right-1 bg-[#6d28d9] text-white font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
                 {cartItems.length}
               </span>
             )}
           </button>
 
           {user ? (
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-2xl p-1 pl-3 text-xs">
-              <span className="font-bold text-slate-700 font-mono truncate max-w-[130px]" title={user.email}>
-                {user.email.split('@')[0]}
+            <div className="flex items-center gap-2 bg-[#f5f2eb] border border-[#e7e5e4] rounded-lg p-1 pl-3 text-xs">
+              <span className="font-medium text-[#1c1917] truncate max-w-[130px]" title={user.email}>
+                {user.name || user.email.split('@')[0]}
               </span>
               <Link
                 to="/dashboard"
-                className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1"
+                className="px-3 py-1.5 rounded-md bg-[#1c1917] hover:bg-black text-white font-medium text-xs transition-colors flex items-center gap-1.5 whitespace-nowrap"
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
                 <span>Dashboard</span>
               </Link>
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                className="p-1.5 rounded text-[#78716c] hover:text-[#1c1917] transition-colors cursor-pointer"
                 title="Sign Out"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <Link
                 to="/check-key"
-                className="text-xs font-semibold text-muted hover:text-fg px-2.5 py-1.5 rounded-control transition-colors"
+                className="text-xs font-medium text-[#57534e] hover:text-[#1c1917] px-2.5 py-1.5 transition-colors whitespace-nowrap"
               >
-                Check Key
+                Verify Key
               </Link>
 
               <Link
                 to="/login"
-                className="text-xs font-bold text-fg hover:text-violet-600 px-3 py-1.5 rounded-control border border-border hover:border-violet-300 transition-colors"
+                className="text-xs font-medium text-[#1c1917] hover:text-[#6d28d9] px-2.5 py-1.5 transition-colors whitespace-nowrap"
               >
                 Sign In
               </Link>
 
               <Link
                 to="/trial"
-                className="ui-button-primary text-xs px-3.5 py-1.5 font-bold gap-1.5 shadow-xs"
+                className="px-3.5 py-2 rounded-md bg-[#6d28d9] hover:bg-[#581c87] text-white font-medium text-xs transition-colors shadow-xs whitespace-nowrap"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Get Free Trial</span>
+                <span>Start Free Trial</span>
               </Link>
             </div>
           )}
         </div>
 
-        {/* Mobile Menu Toggle */}
+        {/* Mobile Screen Controls (Hidden on md and up) */}
         <div className="flex items-center gap-2 md:hidden">
           <button
             onClick={openCart}
-            className="relative p-2 rounded-control text-muted hover:text-fg hover:bg-subtle"
+            className="relative p-2 rounded-md text-[#57534e] hover:text-[#1c1917] border border-[#e7e5e4] bg-white"
             title="Shopping Cart"
           >
             <ShoppingBag className="w-4 h-4" />
             {cartItems.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-violet-600 text-white font-mono font-extrabold text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 bg-[#6d28d9] text-white font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
                 {cartItems.length}
               </span>
             )}
           </button>
-
-          {!user ? (
-            <Link
-              to="/login"
-              className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1.5 rounded-control border border-violet-200"
-            >
-              Sign In
-            </Link>
-          ) : (
-            <Link
-              to="/dashboard"
-              className="text-xs font-bold text-white bg-violet-600 px-3 py-1.5 rounded-control"
-            >
-              Dashboard
-            </Link>
-          )}
 
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-expanded={mobileMenuOpen}
             aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-control border border-border bg-white text-fg transition-colors hover:bg-subtle"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#e7e5e4] bg-white text-[#1c1917] transition-colors hover:bg-[#f5f2eb] cursor-pointer"
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
         </div>
+
       </nav>
 
-      {/* Mobile Drawer Overlay */}
+      {/* Responsive Mobile Drawer (Only on small screens < md) */}
       {mobileMenuOpen && (
-        <div className="fixed inset-x-0 top-16 h-[calc(100vh-4rem)] z-[100] flex flex-col bg-white/95 backdrop-blur-2xl border-b border-border p-6 overflow-y-auto md:hidden shadow-2xl font-sans">
-          <div className="flex flex-col gap-1 border-b border-border/80 pb-6">
+        <div className="md:hidden border-b border-[#e7e5e4] bg-[#fbf9f5] px-5 py-6 space-y-5 animate-in fade-in duration-150">
+          <div className="space-y-1">
             {navLinks.map((link) => (
-              link.isPage ? (
-                <Link
-                  key={link.name}
-                  to={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between py-3.5 px-3 text-base font-semibold text-fg hover:text-violet-600 hover:bg-violet-50/60 rounded-control transition-colors border-b border-border/30 last:border-0"
-                >
-                  <span>{link.name}</span>
-                  <ArrowRight className="h-4 w-4 text-muted" />
-                </Link>
-              ) : (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between py-3.5 px-3 text-base font-semibold text-fg hover:text-violet-600 hover:bg-violet-50/60 rounded-control transition-colors border-b border-border/30 last:border-0"
-                >
-                  <span>{link.name}</span>
-                  <ArrowRight className="h-4 w-4 text-muted" />
-                </a>
-              )
+              <a
+                key={link.name}
+                href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 text-sm font-medium text-[#1c1917] hover:bg-[#f5f2eb] rounded-md transition-colors"
+              >
+                {link.name}
+              </a>
             ))}
           </div>
 
-          <div className="mt-6 flex flex-col gap-3">
+          <div className="pt-3 border-t border-[#e7e5e4] space-y-2">
+            <Link
+              to="/check-key"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-[#57534e]"
+            >
+              <Key className="w-4 h-4" />
+              <span>Verify API Key Balance</span>
+            </Link>
+
+            <Link
+              to="/status"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-[#047857]"
+            >
+              <Activity className="w-4 h-4 text-[#059669]" />
+              <span>System Health & Node Status</span>
+            </Link>
+          </div>
+
+          <div className="pt-3 border-t border-[#e7e5e4] space-y-2">
             {user ? (
               <>
                 <Link
                   to="/dashboard"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="ui-button-primary w-full justify-center text-center text-sm font-bold py-3.5 shadow-md"
+                  className="w-full py-2.5 rounded-md bg-[#1c1917] text-white font-medium text-xs text-center block"
                 >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>Go to Customer Dashboard</span>
+                  Dashboard
                 </Link>
                 <button
                   onClick={() => {
                     handleLogout();
                     setMobileMenuOpen(false);
                   }}
-                  className="w-full py-3 rounded-control border border-rose-200 text-rose-600 font-bold text-sm bg-rose-50 hover:bg-rose-100 transition-colors"
+                  className="w-full py-2 rounded-md border border-[#e7e5e4] text-xs text-[#57534e] text-center"
                 >
-                  Sign Out ({user.email})
+                  Sign Out
                 </button>
               </>
             ) : (
               <>
                 <Link
+                  to="/trial"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full py-2.5 rounded-md bg-[#6d28d9] text-white font-medium text-xs text-center block"
+                >
+                  Start Free Trial (1M Tokens)
+                </Link>
+                <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-3.5 rounded-control bg-violet-600 text-white font-bold text-sm text-center shadow-md flex items-center justify-center gap-2"
+                  className="w-full py-2 rounded-md border border-[#e7e5e4] text-xs font-medium text-[#1c1917] text-center block"
                 >
-                  <LogIn className="w-4 h-4" />
-                  <span>Sign In to Account</span>
-                </Link>
-
-                <Link
-                  to="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-3.5 rounded-control bg-violet-50 border border-violet-200 text-violet-700 font-bold text-sm text-center flex items-center justify-center gap-2"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Create Free Account</span>
+                  Sign In
                 </Link>
               </>
             )}
-
-            <Link
-              to="/trial"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full justify-center text-center text-xs font-bold py-3 rounded-control border border-border text-muted hover:text-fg"
-            >
-              <Sparkles className="w-3.5 h-3.5 inline mr-1" />
-              <span>Claim Free 1M Token Trial</span>
-            </Link>
           </div>
         </div>
       )}

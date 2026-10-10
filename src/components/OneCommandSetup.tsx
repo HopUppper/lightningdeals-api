@@ -1,108 +1,127 @@
 import React, { useState } from 'react';
-import { Terminal, Copy, Check, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { ThreeDCard } from './ThreeDCard';
+import { Terminal, Copy, Check, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export const OneCommandSetup: React.FC = () => {
   const [copied, setCopied] = useState(false);
+  const [platform, setPlatform] = useState<'all' | 'windows'>('all');
+
+  const command = platform === 'windows' ? 'iwr https://lightningapi.pro/setup.ps1 | iex' : 'npx lightningdeals';
 
   const handleCopyCmd = () => {
-    navigator.clipboard.writeText('npx lightningdeals');
+    navigator.clipboard.writeText(command);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const steps = [
     {
-      step: '01',
-      title: 'Install / Run CLI',
-      desc: 'Execute single-command setup in terminal to automatically detect Claude Code, Cursor, and Windsurf.',
-      code: 'npx lightningdeals',
+      num: '01',
+      title: 'Run Setup Helper',
+      desc: 'Execute our CLI utility in your local terminal. It automatically detects your installed developer tools.',
     },
     {
-      step: '02',
-      title: 'Configure API Key',
-      desc: 'Paste your active API key into the secure prompt. Config files are merged safely with automatic backups.',
-      code: 'ld_live_••••••••••••••••',
+      num: '02',
+      title: 'Authorize With Key',
+      desc: 'Enter your personal key to safely configure your local environment variables without manual file editing.',
     },
     {
-      step: '03',
-      title: 'Build & Code Immediately',
-      desc: 'Start coding with Claude Code CLI, Cursor, or VS Code using sub-50ms latency routing.',
-      code: 'claude --model claude-sonnet-5',
+      num: '03',
+      title: 'Begin Working',
+      desc: 'Launch Claude Code or open Cursor. Requests route directly through your rolling token quota.',
     },
   ];
 
   return (
-    <section className="py-20 sm:py-24 border-b border-border bg-white relative overflow-hidden">
-      
-      {/* Dynamic Background Light Beam */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-600/5 via-transparent to-transparent pointer-events-none" />
-
-      <div className="max-w-page mx-auto px-5 sm:px-6 space-y-12 relative z-10">
+    <section className="py-16 lg:py-24 border-b border-[#e5e7eb] bg-white font-sans">
+      <div className="max-w-page mx-auto px-4 sm:px-6 space-y-12">
         
         {/* Section Header */}
-        <div className="text-center space-y-3 max-w-2xl mx-auto">
-          <span className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-3 py-1 rounded-full border border-violet-200">
-            <Sparkles className="w-3.5 h-3.5 text-violet-600" />
-            <span>Automated Developer Setup</span>
-          </span>
+        <div className="max-w-2xl space-y-3">
+          <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#f4f4f0] border border-[#e5e7eb] text-xs font-medium text-[#4b5563] tracking-wider uppercase">
+            Quick Onboarding
+          </div>
 
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-fg tracking-tight">
-            From API key to coding in seconds.
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#111827] tracking-tight">
+            Automated configuration in 60 seconds.
           </h2>
 
-          <p className="text-sm text-muted leading-relaxed">
-            Eliminate manual config edits. One terminal command configures all your favorite AI developer tools.
+          <p className="text-sm sm:text-base text-[#4b5563] leading-relaxed">
+            No searching for hidden config folders or editing system path variables. Run our verified helper script and start building.
           </p>
+        </div>
 
-          <div className="pt-2">
-            <div className="inline-flex items-center gap-3 bg-white border border-violet-200 px-5 py-2.5 rounded-control font-mono text-xs text-fg shadow-md hover:border-violet-500 transition-all group">
-              <span className="text-violet-600 font-bold">$</span>
-              <span className="font-bold text-fg animated-gradient-text">npx lightningdeals</span>
+        {/* Terminal Block & OS Selector */}
+        <div className="max-w-3xl space-y-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPlatform('all')}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+                platform === 'all'
+                  ? 'bg-[#0f172a] text-white'
+                  : 'bg-[#f4f4f0] text-[#4b5563] hover:text-[#111827]'
+              }`}
+            >
+              macOS / Linux / Universal (npx)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlatform('windows')}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+                platform === 'windows'
+                  ? 'bg-[#0f172a] text-white'
+                  : 'bg-[#f4f4f0] text-[#4b5563] hover:text-[#111827]'
+              }`}
+            >
+              Windows (PowerShell)
+            </button>
+          </div>
+
+          <div className="bg-[#0f172a] border border-[#1e293b] rounded-xl p-4 text-white shadow-sm">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1e293b] text-xs text-gray-400">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-gray-600 inline-block" />
+                <span className="font-mono text-[11px]">terminal</span>
+              </div>
               <button
+                type="button"
                 onClick={handleCopyCmd}
-                className="p-1.5 text-muted hover:text-violet-700 rounded bg-violet-50 border border-violet-200 hover:border-violet-400 transition-all"
-                title="Copy setup command"
+                className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-gray-200 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-300">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Command</span>
+                  </>
+                )}
               </button>
+            </div>
+            <div className="pt-3 font-mono text-xs sm:text-sm text-gray-100 flex items-center gap-2 overflow-x-auto">
+              <span className="text-gray-500 select-none">$</span>
+              <code>{command}</code>
             </div>
           </div>
         </div>
 
-        {/* 3 Step Illustrated 3D Visual Cards */}
-        <div className="grid md:grid-cols-3 gap-6">
-          {steps.map((s, idx) => (
-            <motion.div
-              key={s.step}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: idx * 0.1 }}
-            >
-              <ThreeDCard intensity={12} className="h-full">
-                <div className="glass-3d-card p-6 rounded-panel space-y-4 relative h-full flex flex-col justify-between group">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl font-extrabold font-mono animated-gradient-text">
-                        {s.step}
-                      </span>
-                      <span className="text-[10px] font-mono font-bold uppercase text-violet-700 bg-violet-50 px-2 py-0.5 rounded border border-violet-200">
-                        Step {idx + 1}
-                      </span>
-                    </div>
-                    <h3 className="text-base font-bold text-fg group-hover:text-violet-600 transition-colors">{s.title}</h3>
-                    <p className="text-xs text-muted leading-relaxed">{s.desc}</p>
-                  </div>
-
-                  <div className="bg-slate-900 border border-slate-800 p-3 rounded-control font-mono text-[11px] text-cyan-400 font-semibold flex items-center justify-between shadow-inner">
-                    <span className="truncate">{s.code}</span>
-                    <Terminal className="w-3.5 h-3.5 text-slate-500 shrink-0 ml-2" />
-                  </div>
-                </div>
-              </ThreeDCard>
-            </motion.div>
+        {/* 3 Clear Steps */}
+        <div className="grid sm:grid-cols-3 gap-6 pt-4 border-t border-[#e5e7eb]">
+          {steps.map((s) => (
+            <div key={s.num} className="space-y-2">
+              <div className="text-xs font-mono font-semibold text-[#1e40af]">
+                Step {s.num}
+              </div>
+              <h3 className="text-base font-bold text-[#111827]">
+                {s.title}
+              </h3>
+              <p className="text-xs text-[#4b5563] leading-relaxed">
+                {s.desc}
+              </p>
+            </div>
           ))}
         </div>
 

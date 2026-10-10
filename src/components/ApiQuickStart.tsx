@@ -7,16 +7,17 @@ export const ApiQuickStart: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   const codeSnippets = {
-    curl: `export LIGHTNINGDEALS_API_KEY="ld_live_your_key_here"
+    curl: `export LIGHTNING_API_KEY="ld_live_your_key_here"
 
 curl https://lightningapi.pro/v1/messages \\
-  -H "x-api-key: $LIGHTNINGDEALS_API_KEY" \\
+  -H "x-api-key: $LIGHTNING_API_KEY" \\
+  -H "anthropic-version: 2023-06-01" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
-    "max_tokens": 100,
+    "model": "claude-sonnet-5",
+    "max_tokens": 1024,
     "messages": [
-      { "role": "user", "content": "Hello LightningDeals!" }
+      { "role": "user", "content": "Analyze this dataset for anomalous transaction patterns." }
     ]
   }'`,
     python: `import os
@@ -28,23 +29,27 @@ client = Anthropic(
 )
 
 response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
-    max_tokens=100,
-    messages=[{"role": "user", "content": "Hello LightningDeals!"}]
+    model="claude-sonnet-5",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": "Analyze this dataset for anomalous transaction patterns."}
+    ]
 )
 
 print(response.content[0].text)`,
     node: `import Anthropic from '@anthropic-ai/sdk';
 
-const anthropic = new Anthropic({
+const client = new Anthropic({
   baseURL: 'https://lightningapi.pro',
   apiKey: 'ld_live_your_key_here',
 });
 
-const message = await anthropic.messages.create({
-  model: 'claude-3-5-sonnet-20241022',
-  max_tokens: 100,
-  messages: [{ role: 'user', content: 'Hello LightningDeals!' }],
+const message = await client.messages.create({
+  model: 'claude-sonnet-5',
+  max_tokens: 1024,
+  messages: [
+    { role: 'user', content: 'Analyze this dataset for anomalous transaction patterns.' }
+  ],
 });
 
 console.log(message.content[0].text);`,
@@ -57,120 +62,120 @@ console.log(message.content[0].text);`,
   };
 
   return (
-    <section id="api" className="border-b border-border bg-card/30 py-16 sm:py-24">
-      <div className="mx-auto grid max-w-page grid-cols-1 gap-8 px-5 sm:px-6 lg:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
-        
-        {/* Left Column: API Info */}
-        <div className="min-w-0 max-w-xl">
-          <p className="ui-kicker flex items-center gap-1.5 font-mono text-xs font-bold text-amber-500 uppercase tracking-wider">
-            <Terminal className="h-4 w-4 text-amber-500" />
-            <span>API Quick Start</span>
-          </p>
-          <h2 className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight text-fg">
-            Make your first API call in a minute.
-          </h2>
-          <p className="mt-4 text-sm leading-relaxed text-muted">
-            Use your LightningDeals key with standard Anthropic SDKs or HTTP requests. The API gateway automatically routes requests to supported LLMs using permanent token balances.
-          </p>
-
-          <dl className="mt-7 space-y-4 text-xs border-t border-border/60 pt-6 font-mono">
-            <div>
-              <dt className="font-semibold text-fg">API Gateway Base URL</dt>
-              <dd className="mt-1 break-all text-xs text-amber-500 bg-bg px-3 py-1.5 rounded border border-border w-fit font-bold">
-                https://lightningapi.pro
-              </dd>
-            </div>
-
-            <div>
-              <dt className="font-semibold text-fg">Authentication Header</dt>
-              <dd className="mt-1 break-all text-xs text-muted bg-bg px-3 py-1.5 rounded border border-border w-fit">
-                x-api-key: ld_live_…
-              </dd>
-            </div>
-          </dl>
-
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <Link to="/docs" className="ui-button-primary justify-center">
-              Explore API Docs
-            </Link>
-            <Link to="/trial" className="ui-button-secondary justify-center">
-              Get Free Trial Key
-            </Link>
-          </div>
-        </div>
-
-        {/* Right Column: Code Playground Interface */}
-        <div className="min-w-0 rounded-panel border border-border bg-[#090d16] p-1 shadow-2xl flex flex-col">
+    <section id="api" className="border-b border-[#e5e7eb] bg-[#fbfbfa] py-16 lg:py-24 font-sans">
+      <div className="mx-auto max-w-page px-4 sm:px-6">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 items-start min-w-0">
           
-          {/* Code Bar Header */}
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-xs text-slate-300">
-            <div className="flex items-center gap-2">
-              {(['curl', 'python', 'node'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
-                    activeTab === tab
-                      ? 'bg-amber-500 text-black font-bold shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {tab === 'curl' ? 'cURL' : tab === 'python' ? 'Python' : 'Node.js'}
-                </button>
-              ))}
+          {/* Left Column: Explanation */}
+          <div className="lg:col-span-5 space-y-6 min-w-0 w-full">
+            <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#f4f4f0] border border-[#e5e7eb] text-xs font-medium text-[#4b5563] uppercase tracking-wider">
+              Developer Quickstart
             </div>
 
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="inline-flex min-h-[34px] shrink-0 items-center justify-center gap-1.5 rounded border px-3 text-xs font-semibold font-mono transition-colors border-white/20 bg-white/10 text-white hover:bg-white/15"
-              aria-label="Copy request"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="text-emerald-300">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" />
-                  <span>Copy code</span>
-                </>
-              )}
-            </button>
-          </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#111827]">
+              Drop into your existing codebase.
+            </h2>
 
-          {/* Code Body */}
-          <pre className="landing-code min-w-0 p-5 text-left font-mono text-[12px] leading-6 text-slate-100 overflow-x-auto">
-            <code>{codeSnippets[activeTab]}</code>
-          </pre>
-
-          {/* Code Footnote */}
-          <div className="mt-auto border-t border-white/10 px-4 py-3 text-xs font-mono text-slate-400 bg-black/30 flex justify-between items-center">
-            <span>Anthropic Messages drop-in compatibility.</span>
-            <span className="text-amber-400 font-bold">200 OK</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Claude Code Callout Footer */}
-      <div className="mx-auto max-w-page px-5 pt-10 sm:px-6">
-        <aside className="rounded-panel border border-amber-500/20 bg-card p-5 sm:flex sm:items-center sm:justify-between sm:gap-6 shadow-lg">
-          <div>
-            <p className="text-sm font-bold text-fg">Prefer one-command automatic CLI setup?</p>
-            <p className="mt-1 text-xs text-muted">
-              Run <code className="font-mono text-amber-500 font-bold bg-bg px-2 py-0.5 rounded border border-border">npx lightningdeals</code> in your terminal to automatically configure Claude Code, Cursor, Windsurf, and VS Code.
+            <p className="text-sm sm:text-base text-[#4b5563] leading-relaxed">
+              Because LightningAPI mirrors standard Anthropic protocol specifications, you don’t have to rewrite your prompting pipelines or change data structures. Just point your base URL to our gateway.
             </p>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex items-start gap-3 text-xs text-[#4b5563]">
+                <span className="font-semibold text-[#111827] shrink-0">1.</span>
+                <span className="break-all sm:break-normal">Initialize client with <code className="text-[#111827] bg-[#f4f4f0] px-1.5 py-0.5 rounded font-mono text-[11px]">base_url="https://lightningapi.pro"</code></span>
+              </div>
+              <div className="flex items-start gap-3 text-xs text-[#4b5563]">
+                <span className="font-semibold text-[#111827] shrink-0">2.</span>
+                <span>Pass your API key via standard <code className="text-[#111827] bg-[#f4f4f0] px-1.5 py-0.5 rounded font-mono text-[11px]">x-api-key</code> headers</span>
+              </div>
+              <div className="flex items-start gap-3 text-xs text-[#4b5563]">
+                <span className="font-semibold text-[#111827] shrink-0">3.</span>
+                <span>Stream messages token-by-token using standard SSE listeners</span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Link
+                to="/docs"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1e40af] hover:text-[#1d4ed8] transition-colors"
+              >
+                <span>Browse comprehensive API documentation</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
-          <Link
-            to="/docs/setup/claude-code"
-            className="arrow-cta mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-amber-500 transition-colors hover:text-amber-400 sm:mt-0"
-          >
-            <span>Read CLI Setup Guide</span>
-            <span className="arrow-cta__icon" aria-hidden="true">→</span>
-          </Link>
-        </aside>
+
+          {/* Right Column: Code Snippet Card */}
+          <div className="lg:col-span-7 min-w-0 w-full">
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-xl overflow-hidden shadow-sm min-w-0">
+              
+              {/* Tab Bar */}
+              <div className="flex items-center justify-between border-b border-[#1e293b] px-4 py-3 bg-[#1e293b]/40">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('curl')}
+                    className={`px-3 py-1 rounded text-xs font-mono font-medium transition-colors cursor-pointer ${
+                      activeTab === 'curl'
+                        ? 'bg-white/10 text-white font-semibold'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    cURL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('python')}
+                    className={`px-3 py-1 rounded text-xs font-mono font-medium transition-colors cursor-pointer ${
+                      activeTab === 'python'
+                        ? 'bg-white/10 text-white font-semibold'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    Python
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('node')}
+                    className={`px-3 py-1 rounded text-xs font-mono font-medium transition-colors cursor-pointer ${
+                      activeTab === 'node'
+                        ? 'bg-white/10 text-white font-semibold'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    Node.js
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-gray-200 text-xs font-sans font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-300">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Code Pre Box */}
+              <div className="p-4 sm:p-5 overflow-x-auto font-mono text-xs text-gray-100 leading-relaxed">
+                <pre>{codeSnippets[activeTab]}</pre>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
       </div>
     </section>
   );

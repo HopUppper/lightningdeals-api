@@ -7,72 +7,72 @@ export const SupportWidget: React.FC = () => {
   const WHATSAPP_URL = "https://wa.me/917695956938?text=Hi%20LightningDeals%20Support!%20I%20need%20help%20with%20my%20API%20key.";
 
   return (
-    <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end sm:right-6 sm:bottom-6">
+    <div className="fixed right-3 bottom-3 z-30 flex flex-col items-end sm:right-6 sm:bottom-6">
       
       {/* Floating Modal Panel */}
       {isOpen && (
-        <div className="mb-3 w-[min(340px,calc(100vw-32px))] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl text-fg animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="mb-3 w-[min(340px,calc(100vw-24px))] overflow-hidden rounded-2xl border border-[#e7e5e4] bg-[#fbf9f5] shadow-warm text-[#1c1917] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
           
           {/* Header */}
-          <div className="flex items-start justify-between p-5 border-b border-border bg-subtle/50 font-sans">
+          <div className="flex items-start justify-between p-4 sm:p-5 border-b border-[#e7e5e4] bg-[#f5f2eb]">
             <div>
-              <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-600">
-                Help & Support
+              <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#059669]">
+                Support & Inquiries
               </p>
-              <h3 className="mt-1 text-lg font-bold tracking-tight text-fg">
+              <h3 className="mt-1 text-base sm:text-lg font-bold tracking-tight text-[#1c1917]">
                 How can we help?
               </h3>
-              <p className="mt-1 text-xs text-muted leading-4">
-                Chat directly with our technical support desk on WhatsApp for instant assistance.
+              <p className="mt-1 text-xs text-[#57534e] leading-relaxed">
+                Connect directly with our engineering support desk on WhatsApp for instant assistance.
               </p>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="rounded-lg p-1.5 text-muted hover:bg-subtle hover:text-fg transition-colors"
-              aria-label="Close support modal"
+              className="rounded-lg p-1.5 text-[#78716c] hover:bg-[#e7e5e4] hover:text-[#1c1917] transition-colors cursor-pointer shrink-0 ml-2"
+              aria-label="Close support dialog"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Single Option: WhatsApp Support Only */}
-          <div className="p-3">
+          {/* Action Link: WhatsApp */}
+          <div className="p-3.5 bg-white">
             <a
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all group font-sans"
+              className="flex items-center gap-3 p-3 rounded-xl bg-[#ecfdf5] hover:bg-[#d1fae5] border border-[#a7f3d0] transition-all group"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                <MessageSquare className="h-5 w-5" />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#059669] text-white shadow-xs">
+                <MessageSquare className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <strong className="block text-xs font-bold text-emerald-700 group-hover:text-emerald-800 transition-colors">
-                  WhatsApp Support
+                <strong className="block text-xs font-bold text-[#065f46]">
+                  WhatsApp Engineering Desk
                 </strong>
-                <small className="block text-[11px] text-muted truncate mt-0.5">
+                <small className="block text-[11px] text-[#047857] truncate mt-0.5">
                   Direct instant messaging assistance
                 </small>
               </div>
-              <ArrowUpRight className="h-4 w-4 text-emerald-600 group-hover:text-emerald-700 transition-colors shrink-0" />
+              <ArrowUpRight className="h-4 w-4 text-[#059669] group-hover:translate-x-0.5 transition-transform shrink-0" />
             </a>
           </div>
 
-          <div className="p-3 bg-subtle/40 border-t border-border text-[11px] text-center text-muted font-mono">
-            Typical response time: &lt; 15 minutes
+          <div className="px-4 py-2.5 bg-[#fdfbf7] border-t border-[#e7e5e4] text-[11px] text-center text-[#78716c] font-mono">
+            Typical response: &lt; 15 minutes
           </div>
         </div>
       )}
 
-      {/* Trigger Button */}
+      {/* Trigger Button: Sleek icon button on mobile, subtle pill on desktop */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-lg transition-all hover:bg-emerald-700 hover:scale-105 active:scale-95"
-        aria-label="Toggle support help desk"
+        className="flex items-center gap-2 rounded-full bg-[#1c1917] hover:bg-[#059669] text-white p-2.5 sm:px-3.5 sm:py-2 text-xs font-semibold shadow-warm transition-all cursor-pointer border border-[#e7e5e4]/20"
+        aria-label="Toggle support desk"
       >
-        <LifeBuoy className="h-4 w-4" />
-        <span>Contact Support</span>
+        <LifeBuoy className="h-4 w-4 text-[#a7f3d0]" />
+        <span className="hidden sm:inline">Engineering Support</span>
       </button>
 
     </div>

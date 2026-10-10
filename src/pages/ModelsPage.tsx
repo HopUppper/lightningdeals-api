@@ -1,38 +1,39 @@
 import React from 'react';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { ElectricNavbar } from '../components/ElectricNavbar';
+import { ElectricFooter } from '../components/ElectricFooter';
 import { ModelCatalog } from '../components/ModelCatalog';
 import { DeveloperEcosystem } from '../components/DeveloperEcosystem';
 import { Link } from 'react-router-dom';
-import { Zap } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 export const ModelsPage: React.FC = () => {
-  const whatsappUrl = `https://wa.me/917695956938?text=${encodeURIComponent('Hi LightningDeals Team! I would like to get a free trial API key for testing.')}`;
-
   return (
-    <div className="min-h-screen bg-bg text-fg flex flex-col font-sans">
-      <Navbar />
+    <div className="min-h-screen bg-[#fbf9f5] text-[#1c1917] flex flex-col font-sans antialiased selection:bg-[#6d28d9]/10 selection:text-[#6d28d9]">
+      <ElectricNavbar />
 
-      <main className="flex-1 space-y-8">
-        {/* Models Header */}
-        <section className="py-16 sm:py-20 border-b border-border bg-card/40">
-          <div className="max-w-page mx-auto px-5 sm:px-6 text-center space-y-4 max-w-3xl">
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-3.5 py-1 rounded-full border border-amber-500/20">
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>Dedicated Claude LLM Catalog</span>
-            </span>
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-fg">
-              The Entire Claude Model Lineup
-            </h1>
-            <p className="text-sm sm:text-base text-muted leading-relaxed">
-              Access Claude Opus 5, Claude Fable 5, Claude Sonnet 5, Claude Haiku 4.5... and many more through one base URL with 5-hour rolling token windows.
-            </p>
-            <div className="pt-2 flex justify-center gap-4">
-              <Link to="/trial" className="ui-button-primary text-xs py-2.5 px-5 font-bold">
-                Claim Free 1M Trial Key
+      <main className="flex-1">
+        {/* Editorial Header */}
+        <section className="py-14 sm:py-18 border-b border-[#e7e5e4] bg-white">
+          <div className="max-w-5xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-2xl">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono font-medium uppercase tracking-wider bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe]">
+                <Sparkles className="w-3 h-3 text-[#6d28d9]" />
+                <span>Model Intelligence</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#1c1917]">
+                Supported Claude Models
+              </h1>
+              <p className="text-sm text-[#57534e] leading-relaxed max-w-xl">
+                From high-throughput Haiku 4.5 to deep-thinking Opus 5, select the ideal model for your programming, research, and production workflows.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Link to="/trial" className="px-5 py-2.5 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white text-xs font-semibold shadow-plum transition-all">
+                Claim Free 1M Trial
               </Link>
-              <Link to="/docs" className="ui-button-secondary text-xs py-2.5 px-5 font-semibold">
-                Explore Setup Guides
+              <Link to="/pricing" className="px-4 py-2.5 rounded-xl bg-white border border-[#e7e5e4] hover:bg-[#f5f2eb] text-[#1c1917] text-xs font-medium transition-colors shadow-xs">
+                View Plans
               </Link>
             </div>
           </div>
@@ -45,7 +46,9 @@ export const ModelsPage: React.FC = () => {
         <DeveloperEcosystem />
       </main>
 
-      <Footer />
+      <ElectricFooter />
     </div>
   );
 };
+
+export default ModelsPage;

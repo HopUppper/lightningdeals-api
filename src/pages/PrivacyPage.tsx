@@ -1,180 +1,203 @@
 import React from 'react';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
-import { ShieldCheck, Lock, Database, EyeOff, Server, UserCheck, HardDrive, BarChart3, Cookie, HelpCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  ShieldCheck,
+  Lock,
+  Database,
+  EyeOff,
+  Server,
+  UserCheck,
+  HardDrive,
+  BarChart3,
+  Cookie,
+  HelpCircle,
+  FileCheck,
+  RefreshCw,
+} from 'lucide-react';
+import { ElectricNavbar } from '../components/ElectricNavbar';
+import { ElectricFooter } from '../components/ElectricFooter';
 
 export const PrivacyPage: React.FC = () => {
-  const lastUpdatedDate = "August 16, 2026";
+  const lastUpdatedDate = 'October 10, 2026';
 
   return (
-    <div className="min-h-screen bg-bg text-fg flex flex-col font-sans antialiased">
-      <Navbar />
-      <main className="flex-1 py-12 px-5 sm:px-6">
-        <div className="max-w-reading mx-auto space-y-10 bg-card border border-border p-8 sm:p-12 rounded-panel shadow-sm">
+    <div className="min-h-screen bg-[#faf8f5] text-[#1c1917] flex flex-col font-sans selection:bg-[#6d28d9]/10 selection:text-[#6d28d9]">
+      <ElectricNavbar />
+
+      <main className="flex-1 py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto space-y-10 bg-white border border-[#e7e5e4] p-6 sm:p-10 lg:p-12 rounded-2xl sm:rounded-3xl shadow-warm">
           
           {/* Header */}
-          <div className="border-b border-border pb-6 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 inline-flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5" /> PRIVACY & DATA GOVERNANCE
+          <div className="border-b border-[#e7e5e4] pb-6 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 inline-flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                PRIVACY &amp; DATA GOVERNANCE
               </span>
-              <span className="text-xs font-mono text-muted">Effective Date: {lastUpdatedDate}</span>
+              <span className="text-xs font-mono text-[#78716c]">Effective Date: {lastUpdatedDate}</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-fg tracking-tight">Privacy Policy</h1>
-            <p className="text-xs text-muted leading-relaxed font-mono">
-              Official Privacy Disclosure for Lightning Deals (<a href="https://lightningapi.pro" className="text-violet-600 underline font-bold">lightningapi.pro</a>).
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1c1917] tracking-tight">
+              Privacy Policy &amp; Data Disclosure
+            </h1>
+            <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
+              Transparent, Comprehensive Architecture Disclosure on What LightningAPI.pro Processes, Stores, and Protects.
+            </p>
+          </div>
+
+          {/* Quick Summary Pill Box */}
+          <div className="p-4 rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] text-xs text-[#065f46] space-y-2">
+            <div className="flex items-center gap-2 font-bold text-sm">
+              <EyeOff className="w-4 h-4 text-emerald-700" />
+              <span>Core Privacy Guarantee: Zero Prompt Retention</span>
+            </div>
+            <p className="leading-relaxed">
+              Your source code, prompts, thinking tokens, and completions stream transiently in volatile RAM over TLS 1.3. We do NOT store prompt text on disk, log conversational payloads to databases, or train artificial intelligence models on your data.
             </p>
           </div>
 
           {/* Policy Sections */}
-          <div className="space-y-8 text-sm text-muted leading-relaxed font-sans">
+          <div className="space-y-8 text-xs sm:text-sm text-[#57534e] leading-relaxed">
             
-            {/* Zero Prompt Retention Banner */}
-            <section className="space-y-3 bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-panel">
-              <h2 className="text-base font-bold text-emerald-600 flex items-center gap-2">
-                <EyeOff className="w-5 h-5 text-emerald-600" />
-                <span>1. Zero Prompt Payload Retention Policy</span>
+            {/* 1. Introduction */}
+            <section className="space-y-3">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-[#6d28d9]" />
+                <span>1. Introduction &amp; Privacy Commitment</span>
               </h2>
-              <p className="text-fg font-medium text-xs leading-relaxed">
-                Lightning Deals operates under a strict <strong>Zero Prompt Retention Policy</strong>. We do NOT log, record, inspect, store, or train machine learning models on your API prompt contents, system messages, code files, or model response text.
-              </p>
-              <p className="text-xs text-muted">
-                All prompt text passes through transient server memory in-stream and is immediately forwarded over encrypted TLS 1.3 connections to authoritative providers. Prompt data is never stored on disk or written to databases.
+              <p>
+                LightningAPI.pro ("we", "our", or "us") provides a high-performance developer gateway for AI model inference. This Privacy Policy outlines our data handling practices with complete technical transparency. As developers ourselves, we prioritize privacy-by-design: we collect only what is strictly necessary to authenticate API requests, calculate rolling quota headroom, and prevent infrastructure abuse.
               </p>
             </section>
 
-            {/* Information We Collect */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Database className="w-4 h-4 text-violet-600" />
-                <span>2. Information We Collect</span>
+            {/* 2. What We Explicitly Do NOT Collect */}
+            <section className="space-y-3 bg-[#faf8f5] p-5 rounded-2xl border border-[#e7e5e4]">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <EyeOff className="w-4 h-4 text-emerald-600" />
+                <span>2. What We Explicitly Do NOT Store or Collect</span>
               </h2>
-              <p>
-                To manage customer accounts, deliver digital subscriptions, and enforce quota security, we collect:
-              </p>
-              <ul className="list-disc pl-5 space-y-2 text-xs font-mono">
-                <li><strong>Account Credentials:</strong> Full name, account email address, phone number (where provided), and scrypt-hashed passwords.</li>
-                <li><strong>Telemetry & Usage Data:</strong> Token consumption totals (input, output, and aggregate tokens), request latency (ms), model identifiers, and API status codes.</li>
-                <li><strong>Order & Payment Identifiers:</strong> Internal Order IDs, payment transaction references, payment status, purchase amounts, and subscription validity timestamps.</li>
-                <li><strong>Security & Technical Identifiers:</strong> IP addresses and browser User-Agent strings recorded strictly for rate limiting, audit logging, and anti-abuse protection.</li>
-                <li><strong>Google Analytics Data:</strong> Aggregated interaction events and traffic analytics (via property ID `G-GBRR7YHWVM`).</li>
+              <ul className="list-disc pl-5 space-y-1.5 text-xs text-[#57534e]">
+                <li><strong className="text-[#1c1917]">Prompt Payloads:</strong> System instructions, user prompts, and conversation histories are never written to disk or logged in databases.</li>
+                <li><strong className="text-[#1c1917]">Source Code &amp; Project Files:</strong> Code transmitted through IDE tools (Claude Code, Cursor, Windsurf) is never indexed or retained.</li>
+                <li><strong className="text-[#1c1917]">Model Output Completions:</strong> Generated code, text completions, and thinking tokens stream directly to your client and vanish from gateway memory.</li>
+                <li><strong className="text-[#1c1917]">Model Training:</strong> Neither LightningAPI.pro nor our gateway infrastructure uses customer data to train or fine-tune AI models.</li>
               </ul>
             </section>
 
-            {/* Information We Do NOT Collect */}
+            {/* 3. Transient RAM Streaming */}
             <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Lock className="w-4 h-4 text-violet-600" />
-                <span>3. Sensitive Data We Do NOT Store</span>
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Server className="w-4 h-4 text-[#6d28d9]" />
+                <span>3. Transient Volatile RAM Streaming Architecture</span>
               </h2>
               <p>
-                Lightning Deals does NOT collect or store sensitive financial credentials. Specifically:
+                When an inference request arrives at <code className="font-mono text-[#1c1917]">/v1/messages</code>, the gateway parses only the necessary routing metadata (model name, stream boolean, and token counts). The HTTP payload streams over an encrypted TLS 1.3 socket directly to the upstream model provider. Responses are relayed chunk-by-chunk via Server-Sent Events (SSE) back to your development environment. The byte buffers reside solely in volatile process memory and are discarded upon request completion.
               </p>
-              <ul className="list-disc pl-5 space-y-1 text-xs">
-                <li>We do NOT store full credit card or debit card numbers.</li>
-                <li>We do NOT store CVV codes or card expiration dates.</li>
-                <li>We do NOT store net banking passwords or UPI PINs.</li>
-                <li>All payment processing is handled externally by encrypted, certified payment gateways.</li>
+            </section>
+
+            {/* 4. Information We Do Collect */}
+            <section className="space-y-3">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Database className="w-4 h-4 text-[#6d28d9]" />
+                <span>4. Information We Do Collect &amp; Store</span>
+              </h2>
+              <p>To operate customer accounts and enforce capacity allowances, we maintain:</p>
+              <ul className="list-disc pl-5 space-y-1.5 text-xs text-[#57534e]">
+                <li><strong className="text-[#1c1917]">Account Identification:</strong> Registered email address, full name (optional), and securely hashed passwords (scrypt/bcrypt).</li>
+                <li><strong className="text-[#1c1917]">API Key Signatures:</strong> Cryptographic SHA-256 hashes of generated API keys (raw keys are never stored in plaintext).</li>
+                <li><strong className="text-[#1c1917]">Timestamped Token Counters:</strong> Aggregate integer metrics (input tokens, output tokens, request timestamp) necessary to calculate your active 5-hour rolling window sum.</li>
+                <li><strong className="text-[#1c1917]">Order Metadata:</strong> Order reference IDs, plan name purchased, payment status, and duration timestamps.</li>
               </ul>
             </section>
 
-            {/* How Data Is Used */}
+            {/* 5. Upstream Data Handoff */}
             <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Server className="w-4 h-4 text-violet-600" />
-                <span>4. How We Use Your Information</span>
-              </h2>
-              <p>Collected information is used exclusively for:</p>
-              <ul className="list-disc pl-5 space-y-1.5 text-xs font-mono">
-                <li>Provisioning API key credentials and calculating 5-hour rolling token quotas.</li>
-                <li>Authenticating customer logins and processing paid subscription activations.</li>
-                <li>Providing customer support and ticket assistance.</li>
-                <li>Detecting payment fraud, automated bot abuse, or rate-limit manipulation.</li>
-                <li>Analyzing aggregate website performance and optimizing gateway responsiveness.</li>
-              </ul>
-            </section>
-
-            {/* Google Analytics */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-violet-600" />
-                <span>5. Google Analytics Disclosure</span>
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-[#6d28d9]" />
+                <span>5. Upstream Provider Data Handoff</span>
               </h2>
               <p>
-                Our website utilizes <strong>Google Analytics</strong> (`G-GBRR7YHWVM`) to analyze general visitor traffic, browser types, interaction events, and page views. Google Analytics processes anonymized data to help us understand website performance. You can learn more about how Google uses data by visiting <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer" className="text-violet-600 underline font-bold">Google's Privacy & Terms</a>.
+                As an API gateway, LightningAPI.pro routes inference payloads to upstream model providers. Upstream model processing is conducted under enterprise commercial API contracts that explicitly prohibit using API customer inputs for foundation model training. We recommend reviewing the upstream provider's commercial terms for complete details regarding their edge routing.
               </p>
             </section>
 
-            {/* Cookies & Storage */}
+            {/* 6. Payment Processing & Financial Isolation */}
             <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Cookie className="w-4 h-4 text-violet-600" />
-                <span>6. Cookies & Local Storage</span>
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Lock className="w-4 h-4 text-[#6d28d9]" />
+                <span>6. Payment Processing &amp; Financial Isolation</span>
               </h2>
               <p>
-                We use essential HTTP-only cookies and browser session storage (`sessionStorage`) to maintain secure login sessions (`ld_token`, `ld_admin_token`) and manage checkout states. Users can manage or block cookies through browser settings, though blocking essential cookies may affect portal login functionality.
+                All billing transactions on LightningAPI.pro are processed through certified, PCI-DSS compliant banking gateways and UPI aggregators. <strong>LightningAPI.pro NEVER handles, collects, or stores raw payment card numbers, CVVs, expiration dates, or bank credentials.</strong> We receive only confirmation of successful settlement, masked transaction identifiers, and receipt numbers.
               </p>
             </section>
 
-            {/* Data Sharing */}
+            {/* 7. Security Logs & Anti-Abuse */}
             <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-violet-600" />
-                <span>7. Data Sharing & Infrastructure Service Providers</span>
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#6d28d9]" />
+                <span>7. Security Logs, Rate Limiting &amp; Anti-Abuse</span>
               </h2>
               <p>
-                We do <strong>NOT sell or rent personal information</strong> to third parties or data brokers. Information is shared only with trusted infrastructure providers required to operate our service:
-              </p>
-              <ul className="list-disc pl-5 space-y-1.5 text-xs">
-                <li><strong>Payment Processors:</strong> Certified Banking & Payment Gateway Processors (for processing checkout orders).</li>
-                <li><strong>Cloud Hosting & Database:</strong> Encrypted Supabase PostgreSQL database infrastructure and Render cloud hosting.</li>
-                <li><strong>Transactional Email:</strong> Resend API (for verification and password resets).</li>
-                <li><strong>Analytics Providers:</strong> Google Analytics.</li>
-              </ul>
-            </section>
-
-            {/* Data Security & Retention */}
-            <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <Lock className="w-4 h-4 text-violet-600" />
-                <span>8. Data Security & Retention</span>
-              </h2>
-              <p>
-                We implement industry-standard security measures including TLS 1.3 encryption for data in transit, AES-256-GCM AEAD encryption for master secrets, and timing-safe password verification. Data is retained for as long as necessary to maintain active accounts, fulfill subscription commitments, maintain financial transaction records, and comply with legal requirements under Indian law.
+                To protect against distributed denial-of-service (DDoS) attacks, brute-force key attacks, and token accounting circumvention, our reverse proxy logs incoming client IP addresses, User-Agent strings, and HTTP response codes. These operational server logs are kept for a maximum of 14 days and are then automatically purged.
               </p>
             </section>
 
-            {/* Customer Rights */}
+            {/* 8. Cookies & Local Storage */}
             <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-violet-600" />
-                <span>9. Customer Rights & Data Requests</span>
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <Cookie className="w-4 h-4 text-[#6d28d9]" />
+                <span>8. Cookies &amp; Local Storage</span>
               </h2>
               <p>
-                Under applicable Indian data protection laws, customers have the right to request access to their personal information, correction of inaccurate records, or account deletion. Account deletion requests can be submitted via the Customer Support Portal or by emailing our privacy team.
+                We use strictly necessary cookies and local storage tokens (<code className="font-mono text-[#1c1917]">ld_token</code>, <code className="font-mono text-[#1c1917]">ld_ref</code>) to maintain authenticated sessions and attribute referral signups. We do not use third-party behavioral advertising cookies or cross-site tracking scripts.
               </p>
             </section>
 
-            {/* Children's Privacy */}
+            {/* 9. Analytics Disclosure */}
             <section className="space-y-3">
-              <h2 className="text-base font-bold text-fg">10. Children's Privacy</h2>
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-[#6d28d9]" />
+                <span>9. Google Analytics Disclosure</span>
+              </h2>
               <p>
-                Our services are directed to developers and businesses. Lightning Deals does not knowingly collect or solicit personal information from individuals under 18 years of age.
+                Our marketing pages use Google Analytics (<code className="font-mono text-[#1c1917]">G-GBRR7YHWVM</code>) with IP anonymization enabled to monitor aggregate website visitor volumes, page navigation patterns, and device categories. No API keys, prompts, or personal identifying tokens are transmitted to Google Analytics.
               </p>
             </section>
 
-            {/* Privacy Contact */}
-            <section className="space-y-3 border-t border-border pt-6">
-              <h2 className="text-base font-bold text-fg flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-violet-600" />
-                <span>11. Contact Privacy Desk</span>
+            {/* 10. Data Retention & Deletion */}
+            <section className="space-y-3">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-[#6d28d9]" />
+                <span>10. Data Retention &amp; Deletion Lifecycle</span>
               </h2>
               <p>
-                If you have questions regarding this Privacy Policy or wish to exercise data rights, contact us at:
+                Account profiles and payment transaction records are retained for the duration of your active account to fulfill digital product commitments and satisfy statutory financial auditing obligations under Indian law. Upon account deletion request, user profiles and API keys are permanently deleted from active production databases within 7 days.
               </p>
-              <div className="p-4 bg-bg border border-border rounded-control font-mono text-xs space-y-1">
-                <p className="font-bold text-fg">Privacy Support Email: <a href="mailto:support@lightningdeals.in" className="text-violet-600 underline">support@lightningdeals.in</a></p>
-                <p className="text-muted">Lightning Deals API Gateway (`[BUSINESS LEGAL NAME]`) / Operating from India</p>
+            </section>
+
+            {/* 11. Customer Data Rights */}
+            <section className="space-y-3">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-[#6d28d9]" />
+                <span>11. Customer Rights &amp; Data Subject Inquiries</span>
+              </h2>
+              <p>
+                Under applicable data protection laws, customers have the right to request access to personal data held by us, request correction of inaccurate profile data, or demand complete account deletion. Data requests can be submitted via the Customer Support Portal or by emailing our privacy team.
+              </p>
+            </section>
+
+            {/* 12. Privacy Desk Contact */}
+            <section className="space-y-3 border-t border-[#e7e5e4] pt-6">
+              <h2 className="text-sm sm:text-base font-bold text-[#1c1917] flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-[#6d28d9]" />
+                <span>12. Contact Privacy Desk</span>
+              </h2>
+              <p>
+                For questions regarding this policy or to request account data deletion, please contact our Data Governance desk:
+              </p>
+              <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] text-xs font-mono space-y-1 text-[#57534e]">
+                <p><strong>Privacy Inquiries:</strong> <a href="mailto:support@lightningapi.pro" className="text-[#6d28d9] underline">support@lightningapi.pro</a></p>
+                <p><strong>Operator:</strong> LightningDeals AI Infrastructure · India</p>
               </div>
             </section>
 
@@ -182,7 +205,8 @@ export const PrivacyPage: React.FC = () => {
 
         </div>
       </main>
-      <Footer />
+
+      <ElectricFooter />
     </div>
   );
 };

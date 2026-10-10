@@ -64,6 +64,8 @@ model User {
   assignedWhatsAppConversations WhatsAppConversation[] @relation("AssignedAdminWhatsApp")
   whatsappIdentities      WhatsAppCustomerIdentity[]
   negotiatedPrices        NegotiatedPrice[]
+  customerFeedbacks       CustomerFeedback[]
+  publicReviews           PublicReview[]
 }
 
 
@@ -1036,5 +1038,55 @@ model AIConfiguration {
   autoNegotiationEnabled Boolean  @default(false)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+}
+
+// ============================================================================
+// CUSTOMER REVIEWS & PRIVATE FEEDBACK SYSTEM
+// ============================================================================
+
+model CustomerFeedback {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating      Int       // 1 to 5 integer rating
+  category    String?   // "api_reliability" | "model_quality" | "response_speed" | "pricing_value" | "documentation" | "customer_support" | "other"
+  message     String    @db.Text
+  status      String    @default("PENDING") // "PENDING" | "REVIEWED" | "RESOLVED" | "ARCHIVED"
+  adminNotes  String?   @db.Text
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  userIp      String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([rating])
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PublicReview {
+  id               String    @id @default(uuid())
+  userId           String?
+  user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  displayName      String    // Customer-approved display name or anonymous label
+  roleOrCompany    String?   // e.g. "Full-Stack Engineer", "AI Researcher"
+  rating           Int       // 1 to 5
+  content          String    @db.Text
+  isApproved       Boolean   @default(false)
+  isFeatured       Boolean   @default(false)
+  verifiedCustomer Boolean   @default(true) // Whether verified from purchase/usage records
+  consentGiven     Boolean   @default(true) // Explicit consent for public display
+  approvedBy       String?
+  approvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([isApproved])
+  @@index([isFeatured])
+  @@index([rating])
+  @@index([createdAt])
 }
 

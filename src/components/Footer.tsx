@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, ShieldCheck, LifeBuoy, FileText, Lock, RefreshCw } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const [systemStatus, setSystemStatus] = useState<'OPERATIONAL' | 'DEGRADED' | 'DOWN' | 'LOADING'>('LOADING');
@@ -21,99 +21,86 @@ export const Footer: React.FC = () => {
   }, []);
 
   return (
-    <footer className="border-t border-border bg-white pt-12 pb-8 text-xs text-muted font-sans">
-      <div className="max-w-page mx-auto px-5 sm:px-6 space-y-10">
+    <footer className="border-t border-[#e7e5e4] bg-[#f5f2eb] pt-16 pb-12 text-xs text-[#78716c] font-sans">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
           
           {/* Brand & Mission Column */}
           <div className="col-span-2 space-y-4">
-            <Link to="/" className="flex items-center gap-2.5 text-sm font-bold text-fg group">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-cyan-500 text-white font-extrabold shadow-sm transition-transform group-hover:scale-105">
-                <Zap className="w-4 h-4 fill-current" />
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#6d28d9] text-white shadow-xs">
+                <Zap className="w-3.5 h-3.5 fill-current text-white" />
               </div>
-              <span className="text-base font-extrabold text-fg tracking-tight">
-                Lightning<span className="animated-gradient-text">Deals</span>
+              <span className="text-base font-bold text-[#1c1917] tracking-tight">
+                LightningAPI<span className="font-semibold text-xs text-[#78716c] ml-0.5">.pro</span>
               </span>
             </Link>
-            <p className="text-muted leading-relaxed max-w-sm text-xs">
-              Premium digital products, AI subscriptions, and high-performance API gateway solutions. Access Claude Max plans with 5-hour rolling token capacity.
+            
+            <p className="text-[#57534e] leading-relaxed max-w-sm text-xs">
+              Claude-compatible AI API gateway. Drop-in Anthropic compatibility with 5-hour rolling token renewal windows for Claude Code CLI, Cursor, Windsurf, and custom software.
             </p>
 
-            <Link
-              to="/status"
-              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
-                systemStatus === 'OPERATIONAL'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                  : systemStatus === 'DEGRADED'
-                  ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-                  : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  systemStatus === 'OPERATIONAL'
-                    ? 'bg-emerald-500 animate-pulse'
-                    : systemStatus === 'DEGRADED'
-                    ? 'bg-amber-500 animate-ping'
-                    : 'bg-red-500'
-                }`}
-              />
-              <span>
-                {systemStatus === 'OPERATIONAL'
-                  ? 'All Gateway Systems Operational'
-                  : systemStatus === 'DEGRADED'
-                  ? 'Degraded System Performance'
-                  : 'System Status Offline'}
-              </span>
-            </Link>
+            <div className="pt-1">
+              <Link
+                to="/status"
+                className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white border border-[#e7e5e4] text-xs font-medium text-[#047857] hover:bg-[#ecfdf5] transition-colors shadow-xs"
+              >
+                <span className="w-2 h-2 rounded-full bg-[#059669]" />
+                <span>
+                  {systemStatus === 'DEGRADED' ? 'Partial Outage' : 'All Systems Operational'}
+                </span>
+              </Link>
+            </div>
           </div>
 
-          {/* Product & API Column */}
-          <div>
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg mb-3">Product & Plans</h4>
-            <ul className="space-y-2 font-medium">
-              <li><Link to="/pricing" className="hover:text-violet-600 font-semibold">Claude Max Plans</Link></li>
-              <li><Link to="/models" className="hover:text-violet-600">Claude Model Catalog</Link></li>
-              <li><Link to="/check-key" className="hover:text-violet-600">Check API Key</Link></li>
-              <li><Link to="/trial" className="hover:text-violet-600 font-semibold text-violet-700">Free 1-Day Trial</Link></li>
-              <li><Link to="/docs" className="hover:text-violet-600">Developer Documentation</Link></li>
+          {/* Product & Gateway Links */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-[#1c1917] uppercase tracking-wider">Gateway</h4>
+            <ul className="space-y-2 text-xs text-[#57534e]">
+              <li><Link to="/models" className="hover:text-[#6d28d9] transition-colors">Supported Models</Link></li>
+              <li><Link to="/pricing" className="hover:text-[#6d28d9] transition-colors">Capacity Plans</Link></li>
+              <li><Link to="/trial" className="hover:text-[#6d28d9] transition-colors">Free 1M Trial</Link></li>
+              <li><Link to="/check-key" className="hover:text-[#6d28d9] transition-colors">Verify API Key</Link></li>
+              <li><Link to="/status" className="hover:text-[#6d28d9] transition-colors">System Telemetry</Link></li>
             </ul>
           </div>
 
-          {/* Legal Column (OpusMax Inspired Structure) */}
-          <div>
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg mb-3">Legal</h4>
-            <ul className="space-y-2 font-medium">
-              <li><Link to="/terms-and-conditions" className="hover:text-violet-600">Terms & Conditions</Link></li>
-              <li><Link to="/privacy-policy" className="hover:text-violet-600">Privacy Policy</Link></li>
-              <li><Link to="/refund-policy" className="hover:text-violet-600">Refund & Cancellation</Link></li>
-              <li><Link to="/status" className="hover:text-violet-600">System Availability</Link></li>
+          {/* Developers & Docs */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-[#1c1917] uppercase tracking-wider">Developers</h4>
+            <ul className="space-y-2 text-xs text-[#57534e]">
+              <li><Link to="/docs" className="hover:text-[#6d28d9] transition-colors">Documentation</Link></li>
+              <li><Link to="/docs#claude-code" className="hover:text-[#6d28d9] transition-colors">Claude Code Guide</Link></li>
+              <li><Link to="/docs#cursor" className="hover:text-[#6d28d9] transition-colors">Cursor Integration</Link></li>
+              <li><Link to="/dashboard/referrals" className="hover:text-[#6d28d9] transition-colors">Referral Program</Link></li>
+              <li><Link to="/rewards" className="hover:text-[#6d28d9] transition-colors">Credits Wallet</Link></li>
             </ul>
           </div>
 
-          {/* Support & Contact Column */}
-          <div>
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg mb-3">Support</h4>
-            <ul className="space-y-2 font-medium">
-              <li><Link to="/dashboard/support" className="hover:text-violet-600">Customer Support Ticket</Link></li>
-              <li><Link to="/dashboard" className="hover:text-violet-600 font-semibold text-violet-700">My Customer Portal</Link></li>
-              <li><a href="https://wa.me/917695956938?text=Hi%20LightningDeals%20Support!%20I%20need%20assistance." target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 font-semibold text-emerald-700">WhatsApp Help Desk</a></li>
-              <li><a href="mailto:support@lightningdeals.in" className="hover:text-violet-600">Email Support</a></li>
+          {/* Legal & Governance */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-[#1c1917] uppercase tracking-wider">Legal</h4>
+            <ul className="space-y-2 text-xs text-[#57534e]">
+              <li><Link to="/terms" className="hover:text-[#6d28d9] transition-colors">Terms of Service</Link></li>
+              <li><Link to="/privacy" className="hover:text-[#6d28d9] transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/refund" className="hover:text-[#6d28d9] transition-colors">Refund Policy</Link></li>
+              <li><Link to="/request-quote" className="hover:text-[#6d28d9] transition-colors">Enterprise Inquiries</Link></li>
+              <li><Link to="/admin/login" className="hover:text-[#6d28d9] transition-colors">Admin Console</Link></li>
             </ul>
           </div>
 
         </div>
 
-        <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px]">
-          <p>© 2026 Lightning Deals. All rights reserved.</p>
-          <div className="flex items-center gap-4 text-muted">
-            <span>TLS 1.3 Encrypted</span>
-            <span>·</span>
-            <span>Zero Prompt Retention</span>
-            <span>·</span>
-            <span>Instant Key Delivery</span>
+        {/* Bottom Bar with Compliance Notice */}
+        <div className="border-t border-[#e7e5e4] pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#78716c]">
+          <div>
+            &copy; {new Date().getFullYear()} LightningAPI.pro. All rights reserved.
           </div>
+          <p className="text-[11px] text-[#a8a29e] max-w-xl text-center md:text-right">
+            LightningAPI is an independent proxy gateway providing API protocol routing. Anthropic, Claude, and Claude Code are trademarks of their respective owners.
+          </p>
         </div>
+
       </div>
     </footer>
   );

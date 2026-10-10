@@ -81,7 +81,7 @@ app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self';");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: https://www.google-analytics.com; frame-ancestors 'self';");
   next();
 });
 
@@ -146,7 +146,7 @@ app.get('/api/key-status', keyCheckLimiter, handleCheckKeyStatus);
 app.get('/api/system/status', handleSystemStatus);
 
 // Public Pricing Packages for Frontend (Cached for 60s)
-app.get('/api/pricing/packages', async (req, res, next) => {
+const getPublicPackagesHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const cacheKey = 'pricing_packages_enabled';
     const cached = getMemoryCached<any[]>(cacheKey);
@@ -158,13 +158,20 @@ app.get('/api/pricing/packages', async (req, res, next) => {
       where: { enabled: true },
       orderBy: { sortOrder: 'asc' },
     });
-    const serialized = packages.map((p) => ({ ...p, tokenAmount: p.tokenAmount.toString() }));
+    const serialized = packages.map((p) => ({
+      ...p,
+      tokenAmount: p.tokenAmount.toString(),
+      tokenAllowance: p.tokenAmount.toString(),
+      name: p.displayName,
+    }));
     setMemoryCached(cacheKey, serialized, 60);
     res.json(serialized);
   } catch (err: any) {
     next(err);
   }
-});
+};
+app.get('/api/pricing/packages', getPublicPackagesHandler);
+app.get('/api/plans', getPublicPackagesHandler);
 
 import { checkoutRouter, handlePaymentWebhook, handlePayUOrderRedirect } from './payments/paymentRoutes';
 
@@ -181,8 +188,10 @@ import { adminReferralRouter } from './referrals/adminReferralRoutes';
 import { whatsappWebhookRouter } from './whatsapp/whatsappWebhookRoutes';
 import { adminWhatsAppRouter } from './whatsapp/adminWhatsAppRoutes';
 import { adminAIRouter } from './whatsapp/adminAIRoutes';
+import { feedbackRouter } from './feedback/feedbackRoutes';
 
 app.use('/api', healthRouter);
+app.use('/api', feedbackRouter);
 app.use('/api/whatsapp', whatsappWebhookRouter);
 app.use('/api/admin/auth', adminAuthRouter);
 app.use('/api/admin/whatsapp', adminWhatsAppRouter);

@@ -15,8 +15,10 @@ import {
 } from 'lucide-react';
 import { ElectricNavbar } from '../components/ElectricNavbar';
 import { ElectricFooter } from '../components/ElectricFooter';
+import { usePlans } from '../context/PlansContext';
 
 export const TermsPage: React.FC = () => {
+  const { plans } = usePlans();
   const lastUpdatedDate = 'October 10, 2026';
 
   return (
@@ -115,21 +117,13 @@ export const TermsPage: React.FC = () => {
                 LightningAPI.pro offers digital capacity packages calculated using a continuous 5-hour rolling mathematical allowance:
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-[#faf8f5] rounded-xl border border-[#e7e5e4] text-xs font-mono">
-                <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-[#6d28d9]">PRO (₹2,499)</p>
-                  <p className="text-[#78716c]">Capacity: 50M Tokens / 5-hour window</p>
-                  <p className="text-[#78716c]">Validity: 30 Days</p>
-                </div>
-                <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-[#6d28d9]">MAX (₹5,999)</p>
-                  <p className="text-[#78716c]">Capacity: 120M Tokens / 5-hour window</p>
-                  <p className="text-[#78716c]">Validity: 30 Days</p>
-                </div>
-                <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-[#6d28d9]">ULTRA (₹8,999)</p>
-                  <p className="text-[#78716c]">Capacity: 250M Tokens / 5-hour window</p>
-                  <p className="text-[#78716c]">Validity: 30 Days</p>
-                </div>
+                {plans.map((p) => (
+                  <div key={p.id} className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
+                    <p className="font-bold text-[#6d28d9]">{p.name} (₹{p.priceInr.toLocaleString()})</p>
+                    <p className="text-[#78716c]">Capacity: {p.tokenDisplay}</p>
+                    <p className="text-[#78716c]">Validity: {p.validityDays} Days</p>
+                  </div>
+                ))}
               </div>
               <p className="text-xs text-[#78716c]">
                 <strong>No "Unlimited" Representation:</strong> We do not market or sell "unlimited" or "lifetime" token passes. All packages enforce high-precision mathematical rolling quotas. Tokens roll back into available headroom exactly 5 hours (300 minutes) after generation. Unused capacity does not accumulate beyond the plan's ceiling.

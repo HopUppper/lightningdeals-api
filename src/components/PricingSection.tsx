@@ -5,135 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useNavigate, Link } from 'react-router-dom';
 
-export interface PlanItem {
-  id: string;
-  name: string;
-  displayName: string;
-  tokenAllowance: string;
-  tokenDisplay: string;
-  windowHours: number;
-  validityDays: number;
-  priceInr: number;
-  originalPriceInr?: number;
-  currency: string;
-  tagline: string;
-  badge?: string;
-  features?: string[];
-  featured: boolean;
-}
+import { usePlans, PlanItem } from '../context/PlansContext';
 
 export const PricingSection: React.FC = () => {
   const { user } = useAuth();
   const { addToCart } = useCart();
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  const [plans, setPlans] = useState<PlanItem[]>([]);
+  const { plans, loading } = usePlans();
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<PlanItem | null>(null);
 
-  const fallbackPlans: PlanItem[] = [
-    {
-      id: 'pro',
-      name: 'PRO CREATOR',
-      displayName: 'PRO (5M / 5h Window)',
-      tokenAllowance: '5000000',
-      tokenDisplay: '5M Tokens / 5h',
-      windowHours: 5,
-      validityDays: 30,
-      priceInr: 2499,
-      originalPriceInr: 3499,
-      currency: 'INR',
-      tagline: 'Ideal for creators, writers, and daily coding assistance with Sonnet 5.5',
-      badge: 'Starter Choice',
-      featured: false,
-      features: [
-        '5,000,000 Tokens / 5h Rolling Window',
-        '30-Day Fixed Active Validity',
-        'Claude Sonnet 5.5 & Haiku 5.5 Access',
-        'Sub-50ms Gateway Routing',
-        'Instant Automated Key Delivery',
-      ],
-    },
-    {
-      id: 'max',
-      name: 'STUDIO MAX',
-      displayName: 'MAX (20M / 5h Window)',
-      tokenAllowance: '20000000',
-      tokenDisplay: '20M Tokens / 5h',
-      windowHours: 5,
-      validityDays: 30,
-      priceInr: 6999,
-      originalPriceInr: 9999,
-      currency: 'INR',
-      tagline: 'High-power access for professional engineering, agentic loops, and heavy workflows',
-      badge: 'Most Popular',
-      featured: true,
-      features: [
-        '20,000,000 Tokens / 5h Rolling Window',
-        '30-Day Fixed Active Validity',
-        'Full Access: Opus 5, Sonnet 5 & Haiku',
-        'Priority Gateway Routing',
-        'Dedicated Technical Support Desk',
-      ],
-    },
-    {
-      id: 'ultra',
-      name: 'ENTERPRISE SCALE',
-      displayName: 'ULTRA (50M / 5h Window)',
-      tokenAllowance: '50000000',
-      tokenDisplay: '50M Tokens / 5h',
-      windowHours: 5,
-      validityDays: 30,
-      priceInr: 14999,
-      originalPriceInr: 19999,
-      currency: 'INR',
-      tagline: 'Engineered for production workloads, agencies, and high-concurrency dev teams',
-      badge: 'Team Power',
-      featured: false,
-      features: [
-        '50,000,000 Tokens / 5h Rolling Window',
-        '30-Day Fixed Active Validity',
-        'All Claude Generation Models',
-        'Multi-Key Management & Isolation',
-        'Direct Engineering Priority SLAs',
-      ],
-    },
-  ];
-
-  useEffect(() => {
-    fetch('/api/plans')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to load plans');
-        return res.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped: PlanItem[] = data.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            displayName: p.displayName || p.name,
-            tokenAllowance: String(p.tokenAllowance || 5000000),
-            tokenDisplay: `${(Number(p.tokenAllowance || 5000000) / 1000000).toFixed(0)}M Tokens / 5h`,
-            windowHours: p.windowHours || 5,
-            validityDays: p.validityDays || 30,
-            priceInr: p.priceInr || 2499,
-            originalPriceInr: p.originalPriceInr,
-            currency: 'INR',
-            tagline: p.description || 'Prepaid token access with 5-hour rolling renewal',
-            badge: p.badge || undefined,
-            features: p.features || undefined,
-            featured: p.isPopular || false,
-          }));
-          setPlans(mapped);
-        } else {
-          setPlans(fallbackPlans);
-        }
-      })
-      .catch(() => {
-        setPlans(fallbackPlans);
-      });
-  }, []);
-
-  const displayPlans = plans.length > 0 ? plans : fallbackPlans;
+  const displayPlans = plans;
 
   const handleSelectPlan = (pkg: PlanItem) => {
     if (user) {

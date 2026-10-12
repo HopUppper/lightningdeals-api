@@ -48,6 +48,7 @@ export const AdminKeys: React.FC = () => {
 
   // Providers list state
   const [providers, setProviders] = useState<any[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<any[]>([]);
 
   // Create Trial Key Dedicated Workflow State
   const [showTrialModal, setShowTrialModal] = useState(false);
@@ -184,10 +185,25 @@ export const AdminKeys: React.FC = () => {
     }
   };
 
+  const fetchPlans = async () => {
+    try {
+      const res = await adminFetch('/api/admin/plans-catalog');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.plans && Array.isArray(data.plans)) {
+          setAvailablePlans(data.plans);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchKeys();
     fetchUsers();
     fetchProviders();
+    fetchPlans();
   }, [filter, search]);
 
 
@@ -758,18 +774,32 @@ export const AdminKeys: React.FC = () => {
                         onChange={(e) => {
                           const sel = e.target.value;
                           setPlan(sel);
-                          if (sel === 'PRO') setTokenAllowance('50000000');
-                          else if (sel === 'MAX') setTokenAllowance('120000000');
-                          else if (sel === 'ULTRA') setTokenAllowance('250000000');
-                          else if (sel === 'Test plan') setTokenAllowance('10000');
-                          else if (sel === 'Trial Key') setTokenAllowance('200000');
+                          const found = availablePlans.find((p) => p.name === sel || p.id === sel);
+                          if (found) {
+                            setTokenAllowance(String(found.tokenAllowance));
+                            setRateLimitRpm(String(found.rateLimitRpm || 100));
+                            setExpiryDays(String(found.validityDays || 30));
+                          } else if (sel === 'Trial Key') {
+                            setTokenAllowance('200000');
+                            setRateLimitRpm('30');
+                            setExpiryDays('1');
+                          }
                         }}
                         className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono font-bold"
                       >
-                        <option value="PRO">PRO (50M / 5h Window — ₹2,499)</option>
-                        <option value="MAX">MAX (120M / 5h Window — ₹5,999)</option>
-                        <option value="ULTRA">ULTRA (250M / 5h Window — ₹8,999)</option>
-                        <option value="Test plan">Test plan (10k / 5h Window — ₹10)</option>
+                        {availablePlans.length > 0 ? (
+                          availablePlans.map((p) => (
+                            <option key={p.id} value={p.name}>
+                              {p.name} ({p.tokenDisplay || `${Number(p.tokenAllowance) / 1000000}M`} — ₹{p.priceInr})
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="Max 5x">Max 5x (5M / 5h Window — ₹2,499)</option>
+                            <option value="MAX 20X">MAX 20X (20M / 5h Window — ₹5,999)</option>
+                            <option value="MAX 40X">MAX 40X (40M / 5h Window — ₹8,999)</option>
+                          </>
+                        )}
                         <option value="Trial Key">Trial Key (200k / 24h)</option>
                         <option value="Custom Enterprise">Custom Enterprise Allocation</option>
                       </select>
@@ -1022,10 +1052,19 @@ export const AdminKeys: React.FC = () => {
                       onChange={(e) => setEditPlan(e.target.value)}
                       className="w-full px-3 py-2 text-xs bg-card border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono"
                     >
-                      <option value="PRO">PRO (50M / 5h Window)</option>
-                      <option value="MAX">MAX (120M / 5h Window)</option>
-                      <option value="ULTRA">ULTRA (250M / 5h Window)</option>
-                      <option value="Test plan">Test plan (10k / 5h Window)</option>
+                      {availablePlans.length > 0 ? (
+                        availablePlans.map((p) => (
+                          <option key={p.id} value={p.name}>
+                            {p.name} ({p.tokenDisplay || `${Number(p.tokenAllowance) / 1000000}M`})
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="Max 5x">Max 5x (5M / 5h Window)</option>
+                          <option value="MAX 20X">MAX 20X (20M / 5h Window)</option>
+                          <option value="MAX 40X">MAX 40X (40M / 5h Window)</option>
+                        </>
+                      )}
                       <option value="Trial Key">Trial Key</option>
                       <option value="Custom Enterprise">Custom Enterprise</option>
                     </select>

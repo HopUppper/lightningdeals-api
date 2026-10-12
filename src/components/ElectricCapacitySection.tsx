@@ -15,167 +15,22 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { usePlans, PlanItem } from '../context/PlansContext';
 import { CheckoutModal } from './CheckoutModal';
-
-export interface PlanItem {
-  id: string;
-  name: string;
-  displayName?: string;
-  tokenAllowance: string;
-  tokenDisplay: string;
-  windowHours: number;
-  validityDays: number;
-  priceInr: number;
-  originalPriceInr?: number;
-  currency: string;
-  tagline: string;
-  badge?: string;
-  features?: string[];
-  featured?: boolean;
-}
 
 export const ElectricCapacitySection: React.FC = () => {
   const { user } = useAuth();
   const { addToCart, openCart } = useCart();
   const navigate = useNavigate();
 
-  const [plans, setPlans] = useState<PlanItem[]>([]);
+  const { plans, loading } = usePlans();
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<PlanItem | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'compare'>('grid');
   
   // Interactive Token Velocity Calculator State
   const [dailyHours, setDailyHours] = useState<number>(4);
 
-  const fallbackPlans: PlanItem[] = [
-    {
-      id: 'pro',
-      name: 'PRO',
-      displayName: 'PRO (5M / 5h Window)',
-      tokenAllowance: '5000000',
-      tokenDisplay: '5M TOKENS / 5 HOURS',
-      windowHours: 5,
-      validityDays: 30,
-      priceInr: 2499,
-      originalPriceInr: 3499,
-      currency: 'INR',
-      tagline: 'High-performance access for active daily coding assistance with Sonnet 5.5 & Sonnet 5',
-      badge: 'STARTER CHOICE',
-      featured: false,
-      features: [
-        '5,000,000 Tokens / 5h Window',
-        '30-Day Fixed Validity',
-        'Claude Sonnet 5.5, Sonnet 5 & Haiku 5.5 Access',
-        'Sub-35ms Gateway Routing',
-        'Instant Automated Delivery',
-      ],
-    },
-    {
-      id: 'max',
-      name: 'MAX',
-      displayName: 'MAX (20M / 5h Window)',
-      tokenAllowance: '20000000',
-      tokenDisplay: '20M TOKENS / 5 HOURS',
-      windowHours: 5,
-      validityDays: 30,
-      priceInr: 5999,
-      originalPriceInr: 22999,
-      currency: 'INR',
-      tagline: 'Best value for heavy IDE power users & builders with Opus 5.5, Fable 5 & Sonnet 5.5',
-      badge: 'MOST POPULAR',
-      featured: true,
-      features: [
-        '20,000,000 Tokens / 5h Window',
-        '30-Day Fixed Validity',
-        'Claude Opus 5.5, Fable 5, Sonnet 5.5 & Thinking Models',
-        'Cursor, Windsurf & CLI Ready',
-        'Instant Automated Delivery',
-      ],
-    },
-    {
-      id: 'ultra',
-      name: 'ULTRA',
-      displayName: 'ULTRA (40M / 5h Window)',
-      tokenAllowance: '40000000',
-      tokenDisplay: '40M TOKENS / 5 HOURS',
-      windowHours: 5,
-      validityDays: 30,
-      priceInr: 8999,
-      originalPriceInr: 12999,
-      currency: 'INR',
-      tagline: 'Maximum high-volume capacity for engineering teams with all Top 10 Claude Models',
-      badge: 'BEST VALUE',
-      featured: false,
-      features: [
-        '40,000,000 Tokens / 5h Window',
-        '30-Day Fixed Validity',
-        'Max Concurrency & Priority Throughput',
-        'All Top 10 Claude Models with 1M Context Window',
-        'VIP Direct Engineering Support',
-      ],
-    },
-    {
-      id: '41b639d6-6370-49f7-9b6c-88447578ef43',
-      name: 'Test plan',
-      displayName: 'Test plan',
-      tokenAllowance: '1000',
-      tokenDisplay: '0.001M TOKENS / 5 HOURS',
-      windowHours: 5,
-      validityDays: 30,
-      priceInr: 10,
-      originalPriceInr: 3499,
-      currency: 'INR',
-      tagline: 'Test evaluation capacity tier',
-      badge: undefined,
-      featured: false,
-      features: [
-        '1,000 Tokens / 5h Window',
-        '30-Day Fixed Validity',
-        'Claude Sonnet 5.5 & Haiku 5.5 Access',
-      ],
-    },
-  ];
-
-  useEffect(() => {
-    fetch('/api/plans')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to load plans');
-        return res.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped: PlanItem[] = data.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            displayName: p.displayName || p.name,
-            tokenAllowance: String(p.tokenAllowance || 5000000),
-            tokenDisplay: p.tokenDisplay || `${(Number(p.tokenAllowance || 5000000) / 1000000).toFixed(0)}M Tokens / 5h`,
-            windowHours: p.windowHours || 5,
-            validityDays: p.validityDays || 30,
-            priceInr: p.priceInr || 2499,
-            originalPriceInr: p.originalPriceInr,
-            currency: 'INR',
-            tagline: p.tagline || p.description || 'Prepaid token capacity with 5-hour rolling renewal',
-            badge: p.badge || undefined,
-            features: Array.isArray(p.features) && p.features.length > 0 ? p.features : [
-              `${(Number(p.tokenAllowance || 5000000) / 1000000).toFixed(0)}M Tokens / 5h Window`,
-              '30-Day Fixed Active Validity',
-              'Top Claude Models Access',
-              'Sub-35ms Gateway Ingress',
-              'Instant Key Delivery via Dashboard',
-            ],
-            featured: Boolean(p.featured || p.isPopular),
-          }));
-          setPlans(mapped);
-        } else {
-          setPlans(fallbackPlans);
-        }
-      })
-      .catch(() => {
-        setPlans(fallbackPlans);
-      });
-  }, []);
-
-  const displayPlans = plans.length > 0 ? plans : fallbackPlans;
+  const displayPlans = plans;
 
   const handleSelectPlan = (pkg: PlanItem) => {
     if (user) {
@@ -192,7 +47,7 @@ export const ElectricCapacitySection: React.FC = () => {
       name: pkg.name,
       priceInr: pkg.priceInr,
       originalPriceInr: pkg.originalPriceInr,
-      tokenDisplay: `${(Number(pkg.tokenAllowance || 0) / 1_000_000).toFixed(0)}M Tokens`,
+      tokenDisplay: pkg.tokenDisplay || `${(Number(pkg.tokenAllowance || 0) / 1_000_000).toFixed(0)}M Tokens`,
       windowHours: pkg.windowHours,
       validityDays: pkg.validityDays,
       tagline: pkg.tagline,
@@ -201,10 +56,24 @@ export const ElectricCapacitySection: React.FC = () => {
     openCart();
   };
 
-  // Calculator recommendation
-  const recommendedTier = dailyHours <= 3 ? 'PRO CREATOR' : dailyHours <= 7 ? 'STUDIO MAX' : 'ENTERPRISE SCALE';
+  // Dynamic Calculator recommendation based on active plans
+  const sortedPlans = [...displayPlans].sort((a, b) => a.priceInr - b.priceInr);
+  const recommendedPlan =
+    sortedPlans.length >= 3
+      ? dailyHours <= 3
+        ? sortedPlans[0]
+        : dailyHours <= 7
+        ? sortedPlans[1]
+        : sortedPlans[sortedPlans.length - 1]
+      : sortedPlans[0] || null;
+
+  const recommendedTier = recommendedPlan?.name || 'Max 5x';
+  const recommendedPrice = recommendedPlan?.priceInr || 2499;
   const estimatedCloudBill = Math.round(dailyHours * 30 * 240); // Approx INR cost on metered cloud
-  const savingsPercent = Math.round(((estimatedCloudBill - (dailyHours <= 3 ? 2499 : dailyHours <= 7 ? 6999 : 14999)) / estimatedCloudBill) * 100);
+  const savingsPercent = Math.max(
+    10,
+    Math.round(((estimatedCloudBill - recommendedPrice) / estimatedCloudBill) * 100)
+  );
 
   return (
     <section id="pricing" className="py-20 sm:py-24 lg:py-28 bg-[#f7f4ec] border-b border-[#e7e5e4] font-sans">
@@ -249,7 +118,7 @@ export const ElectricCapacitySection: React.FC = () => {
           </div>
         </div>
 
-        {/* Free 1,000,000 Token Trial Pass Banner */}
+        {/* Free 200,000 Token Trial Pass Banner */}
         <div className="rounded-2xl border border-emerald-300 bg-gradient-to-r from-[#ecfdf5] via-[#f0fdf4] to-white p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-md">
@@ -257,7 +126,7 @@ export const ElectricCapacitySection: React.FC = () => {
               <span>Evaluate Free for 24 Hours</span>
             </div>
             <h3 className="text-lg sm:text-xl font-bold text-[#1c1917]">
-              Start with 1,000,000 Complimentary Tokens
+              Start with 200,000 Complimentary Tokens
             </h3>
             <p className="text-xs sm:text-sm text-[#57534e]">
               Full access to Claude Sonnet 5.5 and Haiku 5.5. Valid for 24 hours. No credit card required.
@@ -379,7 +248,14 @@ export const ElectricCapacitySection: React.FC = () => {
 
                 {/* Feature Checklist */}
                 <ul className="space-y-2.5 text-xs text-[#57534e] flex-1 pb-6">
-                  {(pkg.features || fallbackPlans[0].features!).map((feat, idx) => (
+                  {(pkg.features && pkg.features.length > 0
+                    ? pkg.features
+                    : [
+                        `${pkg.tokenDisplay || '5M TOKENS / 5 HOURS'} Window`,
+                        '30-Day Fixed Validity',
+                        'Claude Models Access',
+                      ]
+                  ).map((feat: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                       <span>{feat}</span>
@@ -425,41 +301,95 @@ export const ElectricCapacitySection: React.FC = () => {
                 <thead>
                   <tr className="bg-[#fbf9f5] border-b border-[#e7e5e4]">
                     <th className="p-4 sm:p-5 font-bold text-[#1c1917]">Feature Specification</th>
-                    <th className="p-4 sm:p-5 font-bold text-[#1c1917]">PRO</th>
-                    <th className="p-4 sm:p-5 font-bold text-[#6d28d9]">MAX (MOST POPULAR)</th>
-                    <th className="p-4 sm:p-5 font-bold text-[#1c1917]">ULTRA</th>
+                    {displayPlans.map((pkg) => (
+                      <th
+                        key={pkg.id}
+                        className={`p-4 sm:p-5 font-bold border-l border-[#e7e5e4] ${
+                          pkg.featured ? 'text-[#6d28d9]' : 'text-[#1c1917]'
+                        }`}
+                      >
+                        {pkg.name} {pkg.badge ? `(${pkg.badge.toUpperCase()})` : ''}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#e7e5e4]">
                   <tr>
-                    <td className="p-4 font-semibold text-[#1c1917]">Price (30 Days)</td>
-                    <td className="p-4 font-mono">₹2,499</td>
-                    <td className="p-4 font-mono font-bold text-[#6d28d9]">₹5,999</td>
-                    <td className="p-4 font-mono">₹8,999</td>
+                    <td className="p-4 font-semibold text-[#1c1917]">Price ({displayPlans[0]?.validityDays || 30} Days)</td>
+                    {displayPlans.map((pkg) => (
+                      <td
+                        key={pkg.id}
+                        className={`p-4 font-mono border-l border-[#e7e5e4] ${
+                          pkg.featured ? 'font-bold text-[#6d28d9]' : ''
+                        }`}
+                      >
+                        ₹{pkg.priceInr.toLocaleString()}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
-                    <td className="p-4 font-semibold text-[#1c1917]">Rolling Quota (Every 5 Hours)</td>
-                    <td className="p-4 font-mono">5,000,000 Tokens</td>
-                    <td className="p-4 font-mono font-bold text-[#6d28d9]">20,000,000 Tokens</td>
-                    <td className="p-4 font-mono">40,000,000 Tokens</td>
+                    <td className="p-4 font-semibold text-[#1c1917]">
+                      Rolling Quota (Every {displayPlans[0]?.windowHours || 5} Hours)
+                    </td>
+                    {displayPlans.map((pkg) => (
+                      <td
+                        key={pkg.id}
+                        className={`p-4 font-mono border-l border-[#e7e5e4] ${
+                          pkg.featured ? 'font-bold text-[#6d28d9]' : ''
+                        }`}
+                      >
+                        {pkg.tokenDisplay}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
-                    <td className="p-4 font-semibold text-[#1c1917]">Supported Models</td>
-                    <td className="p-4">Claude Sonnet 5.5, Sonnet 5 & Haiku 5.5</td>
-                    <td className="p-4 font-medium text-[#6d28d9]">Claude Opus 5.5, Fable 5, Sonnet 5.5 & Thinking Models</td>
-                    <td className="p-4">All Top 10 Claude Models (Opus 5.5, Sonnet 5.5, Fable 5, Thinking)</td>
+                    <td className="p-4 font-semibold text-[#1c1917]">Supported Models & Features</td>
+                    {displayPlans.map((pkg) => (
+                      <td
+                        key={pkg.id}
+                        className={`p-4 border-l border-[#e7e5e4] ${
+                          pkg.featured ? 'font-medium text-[#6d28d9]' : ''
+                        }`}
+                      >
+                        {pkg.features && pkg.features.length > 2
+                          ? pkg.features[2]
+                          : 'Top Claude Models Access'}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Protocol Compatibility</td>
-                    <td className="p-4">Anthropic /v1/messages</td>
-                    <td className="p-4">Anthropic /v1/messages</td>
-                    <td className="p-4">Anthropic /v1/messages</td>
+                    {displayPlans.map((pkg) => (
+                      <td key={pkg.id} className="p-4 border-l border-[#e7e5e4] font-mono">
+                        Anthropic /v1/messages
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Data Privacy SLA</td>
-                    <td className="p-4 text-emerald-600 font-semibold">Zero Prompt Logging</td>
-                    <td className="p-4 text-emerald-600 font-semibold">Zero Prompt Logging</td>
-                    <td className="p-4 text-emerald-600 font-semibold">Zero Prompt Logging</td>
+                    {displayPlans.map((pkg) => (
+                      <td key={pkg.id} className="p-4 border-l border-[#e7e5e4] text-emerald-600 font-semibold">
+                        Zero Prompt Logging
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-semibold text-[#1c1917]">Direct Activation</td>
+                    {displayPlans.map((pkg) => (
+                      <td key={pkg.id} className="p-4 border-l border-[#e7e5e4]">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectPlan(pkg)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            pkg.featured
+                              ? 'bg-[#6d28d9] text-white hover:bg-[#581c87]'
+                              : 'bg-[#1c1917] text-white hover:bg-black'
+                          }`}
+                        >
+                          Select {pkg.name}
+                        </button>
+                      </td>
+                    ))}
                   </tr>
                 </tbody>
               </table>

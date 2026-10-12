@@ -193,6 +193,9 @@ export const AdminPlans: React.FC = () => {
       if (res.ok) {
         setIsPlanModalOpen(false);
         await loadData();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lightning_plans_updated'));
+        }
       } else {
         const err = await res.json();
         alert(err.error?.message || 'Failed to save plan');
@@ -209,6 +212,9 @@ export const AdminPlans: React.FC = () => {
       const res = await adminFetch(`/api/admin/plans-catalog/${id}/toggle`, { method: 'PATCH' });
       if (res.ok) {
         await loadData();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lightning_plans_updated'));
+        }
       }
     } catch (err) {
       console.error(err);
@@ -221,6 +227,9 @@ export const AdminPlans: React.FC = () => {
       const res = await adminFetch(`/api/admin/plans-catalog/${id}`, { method: 'DELETE' });
       if (res.ok) {
         await loadData();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lightning_plans_updated'));
+        }
       } else {
         const err = await res.json();
         alert(err.error?.message || 'Failed to delete plan');

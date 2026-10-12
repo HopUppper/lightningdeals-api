@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, HelpCircle, ArrowUpRight, Search, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { usePlans, PlanItem } from '../context/PlansContext';
 
 interface FaqItem {
   id: string;
@@ -10,7 +11,7 @@ interface FaqItem {
   answer: string | React.ReactNode;
 }
 
-const FAQS: FaqItem[] = [
+const getFaqs = (plans: PlanItem[]): FaqItem[] => [
   {
     id: 'what-is',
     category: 'general',
@@ -81,7 +82,7 @@ const FAQS: FaqItem[] = [
         </p>
         <ul className="list-disc list-inside space-y-1 pl-1 text-[#57534e]">
           <li><strong className="text-[#1c1917]">Free 200k Trial:</strong> Visit our <Link to="/trial" className="text-[#6d28d9] underline font-medium">Trial Page</Link> to receive an instant 200,000 token key (<code className="font-mono text-xs text-[#1c1917]">ld_trial_...</code>) in under 15 seconds without a credit card.</li>
-          <li><strong className="text-[#1c1917]">Capacity Plans:</strong> Choose a capacity plan on our <a href="#pricing" className="text-[#6d28d9] underline font-medium">Pricing Section</a> (PRO, MAX, or ULTRA). Keys (<code className="font-mono text-xs text-[#1c1917]">ld_live_...</code>) are provisioned immediately upon successful UPI or card checkout.</li>
+          <li><strong className="text-[#1c1917]">Capacity Plans:</strong> Choose a capacity plan on our <a href="#pricing" className="text-[#6d28d9] underline font-medium">Pricing Section</a> ({plans.map((p) => p.name).join(', ')}). Keys (<code className="font-mono text-xs text-[#1c1917]">ld_live_...</code>) are provisioned immediately upon successful UPI or card checkout.</li>
         </ul>
         <p className="pt-1 text-xs">
           You can inspect your key’s status, active token reservoir, and rolling expiration countdown at any time using our <Link to="/check-key" className="text-[#6d28d9] underline font-medium">Check Key Tool</Link>.
@@ -160,9 +161,11 @@ const FAQS: FaqItem[] = [
           Pricing is strictly prepaid with straightforward flat rates in Indian Rupees (INR):
         </p>
         <ul className="list-disc list-inside space-y-1 pl-1 text-[#57534e]">
-          <li><strong className="text-[#1c1917]">PRO:</strong> ₹2,499 / 30 days · 5,000,000 tokens per 5-hour rolling window.</li>
-          <li><strong className="text-[#1c1917]">MAX (Most Popular):</strong> ₹5,999 / 30 days · 20,000,000 tokens per 5-hour rolling window.</li>
-          <li><strong className="text-[#1c1917]">ULTRA:</strong> ₹8,999 / 30 days · 40,000,000 tokens per 5-hour rolling window.</li>
+          {plans.map((p) => (
+            <li key={p.id}>
+              <strong className="text-[#1c1917]">{p.name}{p.featured ? ' (Most Popular)' : ''}:</strong> ₹{p.priceInr.toLocaleString()} / {p.validityDays} days · {p.tokenDisplay}.
+            </li>
+          ))}
         </ul>
         <p className="pt-1">
           There are zero surprise overage fees, zero hidden seat licensing charges, and no automated recurring card deductions without your explicit instruction.
@@ -242,11 +245,14 @@ const FAQS: FaqItem[] = [
 ];
 
 export const ElectricFaqSection: React.FC = () => {
+  const { plans } = usePlans();
+  const faqs = useMemo(() => getFaqs(plans), [plans]);
+
   const [openId, setOpenId] = useState<string | null>('what-is');
   const [activeCategory, setActiveCategory] = useState<'all' | 'general' | 'technical' | 'billing' | 'privacy'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const filteredFaqs = FAQS.filter((faq) => {
+  const filteredFaqs = faqs.filter((faq) => {
     const matchesCategory = activeCategory === 'all' || faq.category === activeCategory;
     const matchesQuery =
       searchQuery === '' ||

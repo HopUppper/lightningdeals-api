@@ -732,7 +732,7 @@ export const AdminWhatsApp: React.FC = () => {
                   }
                   className="w-full px-3 py-2 bg-white border border-border rounded-xl text-fg text-xs focus:ring-1 focus:ring-violet-500"
                 >
-                  <option value="PRO Plan">PRO Plan (50M Tokens / 5h)</option>
+                  <option value="API Capacity Plan">API Capacity Plan</option>
                   <option value="Claude Pro Account">Claude Pro Account</option>
                   <option value="Cursor Pro AI IDE">Cursor Pro AI IDE</option>
                   <option value="ChatGPT Team Workspace">ChatGPT Team Workspace</option>

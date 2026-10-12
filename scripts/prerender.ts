@@ -5,6 +5,8 @@ import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router';
 import { AuthProvider } from '../src/context/AuthContext';
 import { CartProvider } from '../src/context/CartContext';
+import { PlansProvider, DEFAULT_PLANS, PlanItem } from '../src/context/PlansContext';
+import { prisma } from '../server/db';
 
 // Component imports
 import { LandingPage, PublicPricingPage } from '../src/App';
@@ -258,6 +260,55 @@ const routes: RouteConfig[] = [
 
 console.log('⚡ Starting SSG Pre-rendering for LightningDeals marketing pages...');
 
+// Query database plans so static HTML is 100% synchronized with DB on build
+let activeDbPlans: PlanItem[] = DEFAULT_PLANS;
+try {
+  const dbPlans = await prisma.plan.findMany({
+    where: { enabled: true, status: 'active', priceInr: { gt: 0 } },
+    orderBy: { sortOrder: 'asc' },
+  });
+  if (dbPlans && dbPlans.length > 0) {
+    activeDbPlans = dbPlans.map((p) => {
+      let features: string[] = [];
+      if (p.featuresJson) {
+        try {
+          features = JSON.parse(p.featuresJson);
+        } catch (e) {}
+      }
+      return {
+        id: p.id,
+        slug: p.slug || p.id,
+        name: p.name,
+        displayName: p.displayName || p.name,
+        tokenAllowance: p.tokenAllowance.toString(),
+        tokenDisplay:
+          p.tokenDisplay ||
+          `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Tokens / ${p.windowHours || 5}h`,
+        windowHours: p.windowHours || 5,
+        validityDays: p.validityDays || 30,
+        rateLimitRpm: p.rateLimitRpm || 100,
+        priceInr: p.priceInr,
+        originalPriceInr: p.originalPriceInr || undefined,
+        currency: p.currency || 'INR',
+        tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
+        badge: p.badge || undefined,
+        features: features.length > 0 ? features : [
+          `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Tokens / 5h Window`,
+          '30-Day Fixed Active Validity',
+          'Claude Models Access',
+          'Sub-35ms Gateway Ingress',
+          'Instant Key Delivery via Dashboard',
+        ],
+        featured: p.featured || false,
+        sortOrder: p.sortOrder,
+      };
+    });
+    console.log(`📦 Loaded ${activeDbPlans.length} active plans from PostgreSQL for static generation.`);
+  }
+} catch (e: any) {
+  console.warn('⚠️ Could not query DB during prerender, using default plans fallback:', e.message);
+}
+
 for (const route of routes) {
   try {
     const appHtml = renderToString(
@@ -267,7 +318,11 @@ for (const route of routes) {
         React.createElement(
           CartProvider,
           null,
-          React.createElement(StaticRouter, { location: route.path }, React.createElement(route.component))
+          React.createElement(
+            PlansProvider,
+            { initialPlans: activeDbPlans },
+            React.createElement(StaticRouter, { location: route.path }, React.createElement(route.component))
+          )
         )
       )
     );
@@ -293,7 +348,7 @@ for (const route of routes) {
       }
     }
 
-    // 3. SEO Head Injection: Canonical, Open Graph, Twitter Cards, and JSON-LD
+    // 3. SEO Head Injection: Canonical, Open Graph, Twitter Cards, Initial Plans, and JSON-LD
     const headExtra = `
     <!-- Canonical URL -->
     <link rel="canonical" href="${canonicalUrl}" />
@@ -312,6 +367,9 @@ for (const route of routes) {
     <meta name="twitter:description" content="${route.description}" />
     <meta name="twitter:image" content="${BASE_URL}/og-banner.png" />
 
+    <!-- Initial Dynamic Plans Bootstrap Data -->
+    <script>window.__INITIAL_PLANS__ = ${JSON.stringify(activeDbPlans)};</script>
+
     ${route.schemaJson ? `<!-- Structured Data JSON-LD -->\n    <script type="application/ld+json">\n    ${JSON.stringify(route.schemaJson, null, 2)}\n    </script>` : ''}
     `;
 
@@ -324,5 +382,7 @@ for (const route of routes) {
     console.error(`❌ Failed to pre-render ${route.path}:`, err);
   }
 }
+
+await prisma.$disconnect().catch(() => {});
 
 console.log('🎉 SSG Pre-rendering complete!');

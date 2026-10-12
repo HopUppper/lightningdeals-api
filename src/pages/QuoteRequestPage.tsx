@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Send, CheckCircle2, AlertCircle, Zap, ShieldCheck, MessageSquare, Sparkles } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { usePlans } from '../context/PlansContext';
 
 export const QuoteRequestPage: React.FC = () => {
+  const { plans } = usePlans();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [tokenAmount, setTokenAmount] = useState('20M / 5h Window');
@@ -136,10 +138,12 @@ export const QuoteRequestPage: React.FC = () => {
                   onChange={(e) => setTokenAmount(e.target.value)}
                   className="w-full px-4 py-2.5 text-xs bg-white border border-border/80 rounded-2xl focus:outline-none focus:border-violet-500 text-fg shadow-2xs cursor-pointer"
                 >
-                  <option value="50M / 5h Window">50M / 5h Window (PRO Plan — ₹2,499)</option>
-                  <option value="120M / 5h Window">120M / 5h Window (MAX Plan — ₹5,999)</option>
-                  <option value="250M / 5h Window">250M / 5h Window (ULTRA Plan — ₹8,999)</option>
-                  <option value="500M+ / 5h Window">500M+ / 5h Window (Custom Enterprise)</option>
+                  {plans.map((p) => (
+                    <option key={p.id} value={`${p.name} (${p.tokenDisplay} — ₹${p.priceInr.toLocaleString()})`}>
+                      {p.tokenDisplay} ({p.name} Plan — ₹{p.priceInr.toLocaleString()})
+                    </option>
+                  ))}
+                  <option value="500M+ / 5h Window (Custom Enterprise)">500M+ / 5h Window (Custom Enterprise)</option>
                 </select>
               </div>
 

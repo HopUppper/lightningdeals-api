@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { ArrowRight, Copy, Check, CheckCircle2, Terminal, PenTool, BookOpen, Activity, Lock, Cpu, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { usePlans } from '../context/PlansContext';
 
 export const HeroSection: React.FC = () => {
+  const { starterPlan } = usePlans();
   const [activePersona, setActivePersona] = useState<'creators' | 'engineers' | 'founders'>('creators');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const baseUrl = 'https://lightningapi.pro/v1';
@@ -44,7 +46,7 @@ export const HeroSection: React.FC = () => {
       latency: '42ms',
       tokens: '1,890 tokens',
       prompt: 'Audit current monthly cloud API expenditures vs LightningAPI prepaid 5-hour rolling quotas.',
-      response: 'Analysis: Replacing pay-as-you-go metering with 5-hour rolling renewal caps monthly expenditure at ₹2,499 with 0 risk of runaway invoice spikes during automated evaluation runs.',
+      response: `Analysis: Replacing pay-as-you-go metering with 5-hour rolling renewal caps monthly expenditure at ₹${starterPlan?.priceInr?.toLocaleString() || '2,499'} with 0 risk of runaway invoice spikes during automated evaluation runs.`,
       focus: 'Prepaid fixed budgets with zero surprise cloud overages',
     },
   };

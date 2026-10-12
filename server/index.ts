@@ -145,45 +145,38 @@ import { keyCheckLimiter } from './rateLimit';
 app.get('/api/key-status', keyCheckLimiter, handleCheckKeyStatus);
 app.get('/api/system/status', handleSystemStatus);
 
+import { getAllActivePlansAsync } from './payments/plans';
+
 // Public Pricing Plans for Frontend (Directly synced with Admin Plans Center)
 const getPublicPackagesHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
-    const plans = await prisma.plan.findMany({
-      where: { enabled: true },
-      orderBy: { sortOrder: 'asc' },
-    });
+    const plansList = await getAllActivePlansAsync();
 
-    const serialized = plans.map((p) => {
-      let features: string[] = [];
-      if (p.featuresJson) {
-        try {
-          features = JSON.parse(p.featuresJson);
-        } catch (e) {}
-      }
-      return {
-        id: p.id,
-        slug: p.slug || p.id,
-        name: p.name,
-        displayName: p.displayName || p.name,
-        tokenAllowance: p.tokenAllowance.toString(),
-        tokenAmount: p.tokenAllowance.toString(),
-        tokenDisplay: p.tokenDisplay || `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Tokens / 5h`,
-        windowHours: p.windowHours || 5,
-        validityDays: p.validityDays || 30,
-        rateLimitRpm: p.rateLimitRpm || 100,
-        priceInr: p.priceInr,
-        originalPriceInr: p.originalPriceInr,
-        currency: p.currency || 'INR',
-        tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
-        badge: p.badge || undefined,
-        features,
-        featured: p.featured || false,
-        enabled: p.enabled,
-        sortOrder: p.sortOrder,
-      };
-    });
+    const serialized = plansList.map((p) => ({
+      id: p.id,
+      slug: p.slug || p.id,
+      name: p.name,
+      displayName: p.displayName || p.name,
+      tokenAllowance: p.tokenAllowance.toString(),
+      tokenAmount: p.tokenAllowance.toString(),
+      tokenDisplay: p.tokenDisplay || `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Tokens / ${p.windowHours || 5}h`,
+      windowHours: p.windowHours || 5,
+      validityDays: p.validityDays || 30,
+      rateLimitRpm: p.rateLimitRpm || 100,
+      priceInr: p.priceInr,
+      originalPriceInr: p.originalPriceInr,
+      currency: p.currency || 'INR',
+      tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
+      badge: p.badge || undefined,
+      features: p.features || [],
+      featured: p.featured || false,
+      enabled: p.enabled,
+      sortOrder: p.displayOrder,
+    }));
 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.json(serialized);
   } catch (err: any) {
     next(err);

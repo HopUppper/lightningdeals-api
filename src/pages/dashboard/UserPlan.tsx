@@ -169,7 +169,7 @@ export const UserPlan: React.FC = () => {
           onClick={() => {
             const planToSelect = (availablePlans.length > 0 ? availablePlans.find((p: any) => p.priceInr > 0) : null) || {
               id: 'pro',
-              name: 'PRO',
+              name: 'Max 5x',
               priceInr: 2499,
               tokenDisplay: '5M TOKENS / 5 HOURS',
               windowHours: 5,
@@ -194,7 +194,7 @@ export const UserPlan: React.FC = () => {
             </div>
             <h2 className="text-lg sm:text-xl font-extrabold text-[#1e1b2e]">Claim Your Free 1-Day Evaluation Pass</h2>
             <p className="text-xs text-[#64607d]">
-              1,000,000 Tokens / 5-Hour Window • 24 Hours Duration • Zero Credit Card Required
+              200,000 Tokens / 5-Hour Window • 24 Hours Duration • Zero Credit Card Required
             </p>
             {trialError && <p className="text-xs font-semibold text-rose-600 bg-rose-50 p-2 rounded-xl border border-rose-200">{trialError}</p>}
           </div>

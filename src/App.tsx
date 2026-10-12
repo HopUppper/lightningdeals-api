@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { PlansProvider } from './context/PlansContext';
 import { CheckoutCartDrawer } from './components/CheckoutCartDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -238,8 +239,9 @@ export function App() {
       <AuthProvider>
         <BrowserRouter>
           <CartProvider>
-            <ScrollToHash />
-            <Suspense fallback={<PageLoader />}>
+            <PlansProvider>
+              <ScrollToHash />
+              <Suspense fallback={<PageLoader />}>
               <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<LandingPage />} />
@@ -347,7 +349,8 @@ export function App() {
               <CheckoutCartDrawer />
               <ReferralAttributionListener />
             </Suspense>
-          </CartProvider>
+          </PlansProvider>
+        </CartProvider>
         </BrowserRouter>
       </AuthProvider>
     </ErrorBoundary>

@@ -12,8 +12,10 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { usePlans } from '../context/PlansContext';
 
 export const ElectricEditorialContrast: React.FC = () => {
+  const { starterPlan } = usePlans();
   const contrasts = [
     {
       label: 'BILLING & COMMITMENT',
@@ -123,7 +125,9 @@ export const ElectricEditorialContrast: React.FC = () => {
 
             {/* Quick CTA inside contrast block */}
             <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-t border-purple-900/40">
-              <span className="text-xs text-neutral-400">Fixed prepaid pricing starts at ₹2,499 for 5,000,000 tokens / 5h.</span>
+              <span className="text-xs text-neutral-400">
+                Fixed prepaid pricing starts at ₹{starterPlan?.priceInr?.toLocaleString() || '2,499'} for {starterPlan?.tokenDisplay || '5M TOKENS / 5 HOURS'}.
+              </span>
               <a
                 href="#pricing"
                 className="px-5 py-2.5 rounded-xl bg-[#6d28d9] hover:bg-[#7c3aed] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-plum cursor-pointer"

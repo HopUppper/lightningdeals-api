@@ -90,7 +90,7 @@ export const HeroSection: React.FC = () => {
                 to="/trial"
                 className="px-6 py-3.5 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-sm transition-all shadow-plum flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Start Free Trial (1M Tokens)</span>
+                <span>Start Free Trial (200k Tokens)</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 

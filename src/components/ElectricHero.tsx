@@ -152,7 +152,7 @@ export const ElectricHero: React.FC = () => {
               to="/trial"
               className="px-7 py-4 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-sm transition-all shadow-plum flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
             >
-              <span>Claim Free 1M Token Pass</span>
+              <span>Claim Free 200k Token Pass</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
 

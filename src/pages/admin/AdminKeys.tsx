@@ -53,7 +53,7 @@ export const AdminKeys: React.FC = () => {
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [trialCustomerName, setTrialCustomerName] = useState('');
   const [trialCustomerEmail, setTrialCustomerEmail] = useState('');
-  const [trialTokens, setTrialTokens] = useState('1000000'); // 1M default
+  const [trialTokens, setTrialTokens] = useState('200000'); // 200k default
   const [trialExpiryDays, setTrialExpiryDays] = useState('7');
   const [trialRpm, setTrialRpm] = useState('100');
   const [trialProvider, setTrialProvider] = useState('');
@@ -762,7 +762,7 @@ export const AdminKeys: React.FC = () => {
                           else if (sel === 'MAX') setTokenAllowance('120000000');
                           else if (sel === 'ULTRA') setTokenAllowance('250000000');
                           else if (sel === 'Test plan') setTokenAllowance('10000');
-                          else if (sel === 'Trial Key') setTokenAllowance('1000000');
+                          else if (sel === 'Trial Key') setTokenAllowance('200000');
                         }}
                         className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono font-bold"
                       >
@@ -770,7 +770,7 @@ export const AdminKeys: React.FC = () => {
                         <option value="MAX">MAX (120M / 5h Window — ₹5,999)</option>
                         <option value="ULTRA">ULTRA (250M / 5h Window — ₹8,999)</option>
                         <option value="Test plan">Test plan (10k / 5h Window — ₹10)</option>
-                        <option value="Trial Key">Trial Key (1M / 24h)</option>
+                        <option value="Trial Key">Trial Key (200k / 24h)</option>
                         <option value="Custom Enterprise">Custom Enterprise Allocation</option>
                       </select>
                     </div>
@@ -886,7 +886,7 @@ export const AdminKeys: React.FC = () => {
                       required
                       value={trialTokens}
                       onChange={(e) => setTrialTokens(e.target.value)}
-                      placeholder="1000000"
+                      placeholder="200000"
                       className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
                     />
                     <p className="text-[10px] text-amber-500 font-mono font-bold mt-1">

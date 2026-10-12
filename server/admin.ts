@@ -136,6 +136,12 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
         status: masterCapacity.status,
         providerName: primaryVendor?.name || 'Default Vendor',
         providerId: primaryVendor?.id || null,
+        capacityModel: primaryVendor?.capacityModel || masterCapacity.capacityModel || 'rolling_window',
+        windowHours: primaryVendor?.windowHours || masterCapacity.windowHours || 5,
+        windowAllowance: (primaryVendor?.windowAllowance || masterCapacity.windowAllowance || '5000000').toString(),
+        windowTokensUsed: masterCapacity.windowTokensUsed || 0,
+        nextResetAt: masterCapacity.nextResetAt || null,
+        windowResetSeconds: masterCapacity.windowResetSeconds || null,
       },
       activeEntitlementExposure: entitlementExposure,
     });
@@ -1439,7 +1445,7 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
       expiresAt.setDate(expiresAt.getDate() + Number(expiryDays));
     }
 
-    const initialTokens = BigInt(tokenLimit || (isTrial ? 1000000 : 20000000));
+    const initialTokens = BigInt(tokenLimit || (isTrial ? 200000 : 20000000));
     const numM = Math.round(Number(initialTokens) / 1000000);
     const defaultPlan = isTrial ? 'Trial Key' : `Claude Max ${numM}x`;
     const finalPlan = plan || defaultPlan;

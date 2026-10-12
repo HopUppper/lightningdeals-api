@@ -26,7 +26,7 @@ export const ElectricFinalCta: React.FC = () => {
             </h2>
 
             <p className="text-base text-[#57534e] leading-relaxed max-w-xl mx-auto">
-              Claim your free 1,000,000 token trial pass today. Zero billing commitment, instant key delivery, and native compatibility with Claude Code, Cursor, and Windsurf.
+              Claim your free 200,000 token trial pass today. Zero billing commitment, instant key delivery, and native compatibility with Claude Code, Cursor, and Windsurf.
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-4">
@@ -34,7 +34,7 @@ export const ElectricFinalCta: React.FC = () => {
                 to="/trial"
                 className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-bold text-sm transition-all shadow-plum flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
               >
-                <span>Claim Free 1M Trial Pass</span>
+                <span>Claim Free 200k Trial Pass</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 

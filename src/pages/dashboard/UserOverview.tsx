@@ -182,7 +182,7 @@ export const UserOverview: React.FC = () => {
               className="ui-button-primary text-xs px-5 py-2.5 font-bold shadow-xs"
             >
               <Key className="w-3.5 h-3.5 mr-1.5" />
-              <span>Claim Free 1M Trial Key</span>
+              <span>Claim Free 200k Trial Key</span>
             </Link>
             <Link
               to="/pricing"

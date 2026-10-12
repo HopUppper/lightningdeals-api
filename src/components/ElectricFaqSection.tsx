@@ -80,7 +80,7 @@ const FAQS: FaqItem[] = [
           You can obtain an active API key in two ways:
         </p>
         <ul className="list-disc list-inside space-y-1 pl-1 text-[#57534e]">
-          <li><strong className="text-[#1c1917]">Free 1M Trial:</strong> Visit our <Link to="/trial" className="text-[#6d28d9] underline font-medium">Trial Page</Link> to receive an instant 1,000,000 token key (<code className="font-mono text-xs text-[#1c1917]">ld_trial_...</code>) in under 15 seconds without a credit card.</li>
+          <li><strong className="text-[#1c1917]">Free 200k Trial:</strong> Visit our <Link to="/trial" className="text-[#6d28d9] underline font-medium">Trial Page</Link> to receive an instant 200,000 token key (<code className="font-mono text-xs text-[#1c1917]">ld_trial_...</code>) in under 15 seconds without a credit card.</li>
           <li><strong className="text-[#1c1917]">Capacity Plans:</strong> Choose a capacity plan on our <a href="#pricing" className="text-[#6d28d9] underline font-medium">Pricing Section</a> (PRO, MAX, or ULTRA). Keys (<code className="font-mono text-xs text-[#1c1917]">ld_live_...</code>) are provisioned immediately upon successful UPI or card checkout.</li>
         </ul>
         <p className="pt-1 text-xs">

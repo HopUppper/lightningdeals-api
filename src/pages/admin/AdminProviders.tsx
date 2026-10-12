@@ -738,6 +738,42 @@ export const AdminProviders: React.FC = () => {
           </div>
         </div>
 
+        {/* Vendor Master Key 5-Hour Refresh Cycle Explainer & Telemetry Banner */}
+        {(primaryProvider?.capacityModel === 'rolling_window' || balanceMetrics?.capacityModel === 'rolling_window') && (
+          <div className="p-4 rounded-control bg-gradient-to-r from-violet-500/10 via-card to-indigo-500/10 border border-violet-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono text-xs shadow-xs">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-bold text-fg uppercase text-[11px]">
+                  Vendor 5-Hour Continuous Rolling Window Active
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-600 text-white">
+                  Refreshes Every 5 Hours
+                </span>
+              </div>
+              <p className="text-[11px] text-muted font-sans leading-relaxed">
+                Your vendor key supplies an allocation of <strong className="text-fg">{formatTokens(balanceMetrics?.windowAllowance || primaryProvider?.windowAllowance || 5000000)} tokens</strong> that continuously rolls every 5 hours (300 minutes). Tokens consumed roll off exactly 5 hours after completion, continually restoring your master headroom.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4 shrink-0 bg-bg p-3 rounded-control border border-border">
+              <div className="text-right">
+                <p className="text-[10px] text-muted uppercase">Window Used / Headroom</p>
+                <p className="font-bold text-fg text-sm">
+                  <span className="text-amber-600">{formatTokens(balanceMetrics?.windowTokensUsed || 0)}</span>
+                  <span className="text-muted mx-1">/</span>
+                  <span className="text-emerald-600">{formatTokens(balanceMetrics?.availableTokens ?? primaryProvider?.availableTokens ?? 0)}</span>
+                </p>
+              </div>
+              <div className="h-8 w-px bg-border" />
+              <div>
+                <p className="text-[10px] text-muted uppercase">Refresh Cadence</p>
+                <p className="font-bold text-violet-600 text-sm">Every {balanceMetrics?.windowHours || primaryProvider?.windowHours || 5} Hours</p>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {reconcileResult && (
           <div className={`p-3.5 rounded-control border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${

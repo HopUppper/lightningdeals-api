@@ -150,7 +150,7 @@ export const ElectricNavbar: React.FC = () => {
                   className="px-3.5 py-2 rounded-lg bg-[#6d28d9] hover:bg-[#581c87] text-white font-medium text-xs transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap hover:shadow-plum cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-purple-200" />
-                  <span>Claim 1M Trial</span>
+                  <span>Claim 200k Trial</span>
                 </Link>
               </div>
             )}
@@ -163,7 +163,7 @@ export const ElectricNavbar: React.FC = () => {
               className="hidden sm:inline-flex px-3 py-1.5 rounded-lg bg-[#6d28d9] hover:bg-[#581c87] text-white font-medium text-xs transition-colors items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-purple-200" />
-              <span>Claim 1M Trial</span>
+              <span>Claim 200k Trial</span>
             </Link>
 
             <button
@@ -258,7 +258,7 @@ export const ElectricNavbar: React.FC = () => {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#6d28d9] text-white text-xs font-semibold shadow-plum"
                   >
-                    Free Trial (1M)
+                    Free Trial (200k)
                   </Link>
                 </div>
               )}

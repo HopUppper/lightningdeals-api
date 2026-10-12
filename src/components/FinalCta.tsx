@@ -22,7 +22,7 @@ export const FinalCta: React.FC = () => {
             </h2>
 
             <p className="text-sm sm:text-base text-[#57534e] leading-relaxed max-w-xl mx-auto">
-              Claim your free 1,000,000 token trial pass today. Zero billing commitment, instant key reveal, and native compatibility with Claude Code, Cursor, and custom tools.
+              Claim your free 200,000 token trial pass today. Zero billing commitment, instant key reveal, and native compatibility with Claude Code, Cursor, and custom tools.
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-3">
@@ -30,7 +30,7 @@ export const FinalCta: React.FC = () => {
                 to="/trial"
                 className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-sm transition-all shadow-plum flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Claim Free 1M Trial Pass</span>
+                <span>Claim Free 200k Trial Pass</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 

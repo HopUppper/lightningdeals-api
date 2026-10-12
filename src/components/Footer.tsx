@@ -59,7 +59,7 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-xs text-[#57534e]">
               <li><Link to="/models" className="hover:text-[#6d28d9] transition-colors">Supported Models</Link></li>
               <li><Link to="/pricing" className="hover:text-[#6d28d9] transition-colors">Capacity Plans</Link></li>
-              <li><Link to="/trial" className="hover:text-[#6d28d9] transition-colors">Free 1M Trial</Link></li>
+              <li><Link to="/trial" className="hover:text-[#6d28d9] transition-colors">Free 200k Trial</Link></li>
               <li><Link to="/check-key" className="hover:text-[#6d28d9] transition-colors">Verify API Key</Link></li>
               <li><Link to="/status" className="hover:text-[#6d28d9] transition-colors">System Telemetry</Link></li>
             </ul>

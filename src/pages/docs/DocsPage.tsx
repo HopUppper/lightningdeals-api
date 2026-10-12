@@ -276,7 +276,7 @@ export const DocsPage: React.FC = () => {
                   to="/trial"
                   className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#e7e5e4] shadow-xs text-xs font-semibold text-[#1c1917] hover:border-[#6d28d9] transition-colors"
                 >
-                  <span>Claim 1M Free Trial</span>
+                  <span>Claim 200k Free Trial</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#6d28d9]" />
                 </Link>
                 <Link

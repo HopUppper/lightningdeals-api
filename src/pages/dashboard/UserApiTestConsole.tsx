@@ -92,14 +92,14 @@ export const UserApiTestConsole: React.FC = () => {
         </div>
         <h2 className="text-base font-bold text-[#1e1b2e]">No Active API Key Assigned Yet</h2>
         <p className="text-xs text-[#64607d] leading-relaxed">
-          The playground needs an active key from your account to run live test requests. Claim your free 1M trial key or activate a capacity plan.
+          The playground needs an active key from your account to run live test requests. Claim your free 200k trial key or activate a capacity plan.
         </p>
         <Link
           to="/trial"
           className="ui-button-primary text-xs py-2.5 px-5 inline-flex items-center gap-2 font-bold shadow-xs"
         >
           <Zap className="w-4 h-4 fill-current text-amber-300" />
-          <span>Claim Free 1M Token Pass</span>
+          <span>Claim Free 200k Token Pass</span>
         </Link>
       </div>
     );

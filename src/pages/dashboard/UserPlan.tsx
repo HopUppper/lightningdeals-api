@@ -81,7 +81,7 @@ export const UserPlan: React.FC = () => {
         setRevealedKeyData({
           key: resData.key,
           planName: '1-Day Free Trial',
-          quotaDisplay: '1M Tokens / 5h Window',
+          quotaDisplay: '200K Tokens / 5h Window',
           windowHours: 5,
         });
       }
@@ -206,7 +206,7 @@ export const UserPlan: React.FC = () => {
             className="ui-button-primary text-xs px-6 py-3 font-bold shrink-0 self-stretch sm:self-auto shadow-md cursor-pointer"
           >
             {claimingTrial ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Gift className="w-3.5 h-3.5" />}
-            <span>{claimingTrial ? 'Provisioning Key...' : 'Claim 1M Free Trial'}</span>
+            <span>{claimingTrial ? 'Provisioning Key...' : 'Claim 200k Free Trial'}</span>
           </button>
         </div>
       )}

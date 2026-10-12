@@ -114,7 +114,7 @@ const response = await anthropic.messages.create({
                 </div>
                 <div className="p-2.5 bg-white rounded-xl border border-[#e7e5e4] flex items-center justify-between text-[#1c1917]">
                   <span className="truncate">ld_live_8f93...4a12</span>
-                  <span className="text-[10px] text-[#6d28d9] font-bold uppercase ml-2 shrink-0">1M Trial Pool</span>
+                  <span className="text-[10px] text-[#6d28d9] font-bold uppercase ml-2 shrink-0">200k Trial Pool</span>
                 </div>
               </div>
             </div>

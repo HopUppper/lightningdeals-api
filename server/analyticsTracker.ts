@@ -355,7 +355,7 @@ function getPathTitle(p: string): string {
     case '/models': return 'Supported Models Catalog';
     case '/status': return 'Live System Status & Health';
     case '/check-key': return 'Check API Key Status & Logs';
-    case '/trial': return 'Claim 1M Token Free Trial';
+    case '/trial': return 'Claim 200k Token Free Trial';
     case '/request-quote': return 'Enterprise Quote Request';
     default: return p;
   }

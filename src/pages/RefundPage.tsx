@@ -108,7 +108,7 @@ export const RefundPage: React.FC = () => {
                   <p className="text-[#57534e]">Full refund for non-delivery or duplicate charge. Non-refundable after active quota utilization.</p>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-[#e7e5e4]">
-                  <p className="font-bold text-emerald-700">Free 1M Trial Pass</p>
+                  <p className="font-bold text-emerald-700">Free 200k Trial Pass</p>
                   <p className="text-[#57534e]">₹0 cost complimentary allocation. Non-financial with no payment required.</p>
                 </div>
               </div>

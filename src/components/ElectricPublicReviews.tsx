@@ -135,7 +135,7 @@ export const ElectricPublicReviews: React.FC = () => {
                 to="/trial"
                 className="px-4 py-2.5 rounded-xl bg-white hover:bg-[#f5f2eb] text-[#1c1917] border border-[#e7e5e4] font-medium text-xs sm:text-sm transition-colors cursor-pointer shadow-xs"
               >
-                Claim 1M Free Token Pass
+                Claim 200k Free Token Pass
               </Link>
             </div>
 

@@ -160,13 +160,13 @@ export const UserKeys: React.FC = () => {
               <Key className="w-6 h-6" />
             </div>
             <p className="font-bold text-sm text-[#1e1b2e]">No active API keys found</p>
-            <p className="text-xs">Claim a free 1M token trial key or purchase a capacity plan to get your first key immediately.</p>
+            <p className="text-xs">Claim a free 200k token trial key or purchase a capacity plan to get your first key immediately.</p>
             <Link
               to="/trial"
               className="ui-button-primary text-xs px-5 py-2.5 font-bold shadow-xs inline-flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5 fill-current text-amber-300" />
-              <span>Claim Free 1M Trial Key</span>
+              <span>Claim Free 200k Trial Key</span>
             </Link>
           </div>
         ) : (

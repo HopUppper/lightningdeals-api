@@ -66,7 +66,7 @@ export const ElectricFooter: React.FC = () => {
               </li>
               <li>
                 <Link to="/trial" className="hover:text-[#1c1917] transition-colors">
-                  Free 1M Trial
+                  Free 200k Trial
                 </Link>
               </li>
               <li>

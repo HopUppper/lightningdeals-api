@@ -58,7 +58,7 @@ export const TrialPage: React.FC = () => {
           setRevealedKeyData({
             key: rawKey,
             planName: 'Free 1-Day Trial',
-            quotaDisplay: '1M TOKENS / 5 HOURS',
+            quotaDisplay: '200K TOKENS / 5 HOURS',
             windowHours: 5,
           });
         }
@@ -87,7 +87,7 @@ export const TrialPage: React.FC = () => {
               <span>Free 1-Day Pass</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1c1917]">
-              Claim Free 1M Token Trial
+              Claim Free 200k Token Trial
             </h1>
             <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed max-w-sm mx-auto">
               Test Claude Opus 5, Sonnet 5, and Haiku directly in your tools with zero upfront payment.
@@ -98,7 +98,7 @@ export const TrialPage: React.FC = () => {
           <div className="p-4 sm:p-5 bg-[#fdfbf7] border border-[#e7e5e4] rounded-xl space-y-3 text-xs">
             <div className="flex items-center justify-between pb-2.5 border-b border-[#e7e5e4]">
               <span className="text-[#78716c]">Token Allocation:</span>
-              <span className="font-semibold text-[#1c1917] font-mono">1,000,000 Tokens / 5-Hour Window</span>
+              <span className="font-semibold text-[#1c1917] font-mono">200,000 Tokens / 5-Hour Window</span>
             </div>
             <div className="flex items-center justify-between pb-2.5 border-b border-[#e7e5e4]">
               <span className="text-[#78716c]">Trial Duration:</span>

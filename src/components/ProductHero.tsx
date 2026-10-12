@@ -133,7 +133,7 @@ export const ProductHero: React.FC = () => {
                 className="px-5 py-3 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-sm transition-all shadow-plum hover:shadow-lg inline-flex items-center gap-2 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-purple-200" />
-                <span>Claim Free 1M Trial</span>
+                <span>Claim Free 200k Trial</span>
                 <ArrowRight className="w-4 h-4 text-purple-200" />
               </Link>
 

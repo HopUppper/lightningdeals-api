@@ -192,9 +192,9 @@ export const PricingSection: React.FC = () => {
               <Sparkles className="w-3 h-3 text-[#059669]" />
               <span>Free 1-Day Trial Pass</span>
             </div>
-            <h3 className="text-lg sm:text-xl font-bold text-[#1c1917]">Evaluate with 1,000,000 Tokens</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-[#1c1917]">Evaluate with 200,000 Tokens</h3>
             <p className="text-xs text-[#78716c]">
-              1,000,000 tokens / 5-hour window • 24 hours duration • No credit card required to start
+              200,000 tokens / 5-hour window • 24 hours duration • No credit card required to start
             </p>
           </div>
 
@@ -202,7 +202,7 @@ export const PricingSection: React.FC = () => {
             to={user ? '/dashboard/plan' : '/register?redirect=trial'}
             className="px-5 py-2.5 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white text-xs font-semibold shadow-plum flex items-center gap-2 transition-all shrink-0 cursor-pointer"
           >
-            <span>Claim Free 1M Trial Pass</span>
+            <span>Claim Free 200k Trial Pass</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

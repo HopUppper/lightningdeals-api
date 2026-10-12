@@ -1602,9 +1602,9 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
           name: `Claude Max Free Trial (24h)`,
           type: 'trial',
           status: 'active',
-          purchasedTokens: 1000000n,
+          purchasedTokens: 200000n,
           tokensUsed: 0n,
-          tokensRemaining: 1000000n,
+          tokensRemaining: 200000n,
           expiresAt: expiryTime,
           plan: 'Free Trial',
           rateLimitRpm: 100,
@@ -1627,7 +1627,7 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
           planName: 'Free Trial',
           activationTime,
           expiryTime,
-          quotaLimit: 1000000n,
+          quotaLimit: 200000n,
           quotaWindowHours: 5,
           currentUsage: 0n,
           nextResetTime,
@@ -1650,7 +1650,7 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
       data: {
         userId: user.id,
         title: 'Free 1-Day Trial Activated! 🎉',
-        message: 'Your 1M Tokens / 5-Hour Free Trial is now active for 24 hours.',
+        message: 'Your 200k Tokens / 5-Hour Free Trial is now active for 24 hours.',
         type: 'success',
       },
     });
@@ -1671,7 +1671,7 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
         rawKeySecret,
         activationTime,
         expiryTime,
-        quotaDisplay: '1M TOKENS / 5 HOURS',
+        quotaDisplay: '200K TOKENS / 5 HOURS',
       },
     });
   } catch (err: any) {

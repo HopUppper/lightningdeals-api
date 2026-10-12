@@ -237,7 +237,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full py-2.5 rounded-md bg-[#6d28d9] text-white font-medium text-xs text-center block"
                 >
-                  Start Free Trial (1M Tokens)
+                  Start Free Trial (200k Tokens)
                 </Link>
                 <Link
                   to="/login"

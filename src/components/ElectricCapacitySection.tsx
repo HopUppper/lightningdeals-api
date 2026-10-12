@@ -268,7 +268,7 @@ export const ElectricCapacitySection: React.FC = () => {
             to={user ? '/dashboard/plan' : '/register?redirect=trial'}
             className="px-6 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
           >
-            <span>Claim Free 1M Pass</span>
+            <span>Claim Free 200k Pass</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

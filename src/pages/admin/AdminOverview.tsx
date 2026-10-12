@@ -295,6 +295,66 @@ export const AdminOverview: React.FC = () => {
         </div>
       )}
 
+      {/* Upstream Vendor Capacity & 5-Hour Rolling Key Telemetry */}
+      {overview?.masterVendorCapacity && (
+        <div className="technical-panel p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-violet-500/10 text-violet-600 flex items-center justify-center font-bold">
+                <RefreshCw className="w-4 h-4 animate-spin-slow" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-fg">
+                    Vendor Master API Key Status ({overview.masterVendorCapacity.providerName})
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                    {overview.masterVendorCapacity.windowHours || 5}H ROLLING REFRESH ACTIVE
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted">
+                  Vendor key automatically refreshes every {overview.masterVendorCapacity.windowHours || 5} hours on a continuous sliding window model.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/admin/providers"
+              className="text-xs font-mono font-bold text-accent hover:underline flex items-center gap-1 self-start sm:self-auto"
+            >
+              <span>Manage Upstream Providers</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
+            <div className="p-3.5 rounded-control bg-bg border border-border space-y-1">
+              <span className="text-[10px] text-muted uppercase font-bold">Rolling Window Allowance</span>
+              <p className="text-xl font-bold text-fg">
+                {formatTokens(overview.masterVendorCapacity.windowAllowance || 5000000)} / {overview.masterVendorCapacity.windowHours || 5}h
+              </p>
+              <p className="text-[10px] text-muted">Supplied by vendor master key</p>
+            </div>
+
+            <div className="p-3.5 rounded-control bg-bg border border-border space-y-1">
+              <span className="text-[10px] text-muted uppercase font-bold">Available in Current 5h Window</span>
+              <p className="text-xl font-bold text-emerald-600">
+                {formatTokens(overview.masterVendorCapacity.availableTokens || 0)}
+              </p>
+              <p className="text-[10px] text-muted">Active headroom for customer completions</p>
+            </div>
+
+            <div className="p-3.5 rounded-control bg-bg border border-border space-y-1">
+              <span className="text-[10px] text-muted uppercase font-bold">Consumed in Window (Rolling)</span>
+              <p className="text-xl font-bold text-amber-600">
+                {formatTokens(overview.masterVendorCapacity.windowTokensUsed || overview.tokensUsedThisWindow || 0)}
+              </p>
+              <p className="text-[10px] text-muted">Tokens replenish 5 hours after generation</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Health & Vendor Status Cards */}
       <div className="grid sm:grid-cols-4 gap-4">
         <div className="technical-panel p-5 flex items-center justify-between">

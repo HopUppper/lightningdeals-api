@@ -30,7 +30,7 @@ export const ModelsPage: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-3">
               <Link to="/trial" className="px-5 py-2.5 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white text-xs font-semibold shadow-plum transition-all">
-                Claim Free 1M Trial
+                Claim Free 200k Trial
               </Link>
               <Link to="/pricing" className="px-4 py-2.5 rounded-xl bg-white border border-[#e7e5e4] hover:bg-[#f5f2eb] text-[#1c1917] text-xs font-medium transition-colors shadow-xs">
                 View Plans

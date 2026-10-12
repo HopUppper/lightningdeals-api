@@ -121,7 +121,7 @@ export const RegisterPage: React.FC = () => {
                   Start with LightningAPI
                 </h1>
                 <p className="text-xs text-[#6b7280]">
-                  Get instant access to API keys and 1,000,000 free evaluation tokens.
+                  Get instant access to API keys and 200,000 free evaluation tokens.
                 </p>
               </div>
 

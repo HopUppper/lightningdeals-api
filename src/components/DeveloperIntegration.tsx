@@ -110,7 +110,7 @@ console.log(response.content[0]);`,
             <span className="text-xs font-mono font-bold text-[#6d28d9]">01 / CLAIM KEY</span>
             <h4 className="text-base font-bold text-[#1c1917]">Generate Your Master Key</h4>
             <p className="text-xs sm:text-sm text-[#78716c] leading-relaxed">
-              Create an account or start with 1,000,000 free trial tokens. Issued instantly with zero verification friction.
+              Create an account or start with 200,000 free trial tokens. Issued instantly with zero verification friction.
             </p>
           </div>
 

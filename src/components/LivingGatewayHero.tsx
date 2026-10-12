@@ -197,7 +197,7 @@ export const LivingGatewayHero: React.FC = () => {
               className="px-4 py-2 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-xs transition-all shadow-plum hover:shadow-lg inline-flex items-center gap-2 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-purple-200" />
-              <span>Claim 1,000,000 Free Token Pass</span>
+              <span>Claim 200,000 Free Token Pass</span>
               <ArrowRight className="w-3.5 h-3.5 text-purple-200" />
             </Link>
 

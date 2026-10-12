@@ -147,32 +147,35 @@ app.get('/api/system/status', handleSystemStatus);
 
 import { getAllActivePlansAsync } from './payments/plans';
 
+export const serializePublicPlans = (plansList: any[]) => {
+  return plansList.map((p) => ({
+    id: p.id,
+    slug: p.slug || p.id,
+    name: p.name,
+    displayName: p.displayName || p.name,
+    tokenAllowance: p.tokenAllowance.toString(),
+    tokenAmount: p.tokenAllowance.toString(),
+    tokenDisplay: p.tokenDisplay || `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Tokens / ${p.windowHours || 5}h`,
+    windowHours: p.windowHours || 5,
+    validityDays: p.validityDays || 30,
+    rateLimitRpm: p.rateLimitRpm || 100,
+    priceInr: p.priceInr,
+    originalPriceInr: p.originalPriceInr,
+    currency: p.currency || 'INR',
+    tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
+    badge: p.badge || undefined,
+    features: p.features || [],
+    featured: p.featured || false,
+    enabled: p.enabled,
+    sortOrder: p.displayOrder,
+  }));
+};
+
 // Public Pricing Plans for Frontend (Directly synced with Admin Plans Center)
 const getPublicPackagesHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const plansList = await getAllActivePlansAsync();
-
-    const serialized = plansList.map((p) => ({
-      id: p.id,
-      slug: p.slug || p.id,
-      name: p.name,
-      displayName: p.displayName || p.name,
-      tokenAllowance: p.tokenAllowance.toString(),
-      tokenAmount: p.tokenAllowance.toString(),
-      tokenDisplay: p.tokenDisplay || `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Tokens / ${p.windowHours || 5}h`,
-      windowHours: p.windowHours || 5,
-      validityDays: p.validityDays || 30,
-      rateLimitRpm: p.rateLimitRpm || 100,
-      priceInr: p.priceInr,
-      originalPriceInr: p.originalPriceInr,
-      currency: p.currency || 'INR',
-      tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
-      badge: p.badge || undefined,
-      features: p.features || [],
-      featured: p.featured || false,
-      enabled: p.enabled,
-      sortOrder: p.displayOrder,
-    }));
+    const serialized = serializePublicPlans(plansList);
 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
@@ -268,15 +271,23 @@ app.use(
   })
 );
 
-// General public assets (1 hour cache)
+// General public assets (images, fonts, favicons - cached 1 hour, HTML strictly uncached)
 app.use(
   express.static(distPath, {
+    index: false, // Prevents express.static from intercepting "/" with 1h cache
     maxAge: '1h',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    },
   })
 );
 
-// 7. Standard 404 & SPA Catch-all Handler
-app.get('*', (req, res, next) => {
+// 7. Standard 404 & SPA Catch-all Handler with Live Database Plans Hydration
+app.get('*', async (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/v1')) {
     return next(new NotFoundError(`API endpoint ${req.path} not found.`));
   }
@@ -285,19 +296,31 @@ app.get('*', (req, res, next) => {
   const sectionName = cleanPath.split('/')[0];
   const htmlFileName = sectionName ? `${sectionName}.html` : 'index.html';
   const targetHtmlPath = path.join(distPath, htmlFileName);
+  const indexPath = path.join(distPath, 'index.html');
 
   // Never cache HTML responses so live database pricing and plan changes reflect immediately
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  if (fs.existsSync(targetHtmlPath)) {
-    return res.sendFile(targetHtmlPath);
-  }
+  const fileToServe = fs.existsSync(targetHtmlPath) ? targetHtmlPath : (fs.existsSync(indexPath) ? indexPath : null);
 
-  const indexPath = path.join(distPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
+  if (fileToServe) {
+    try {
+      let html = fs.readFileSync(fileToServe, 'utf8');
+      const activePlans = await getAllActivePlansAsync();
+      const serialized = serializePublicPlans(activePlans);
+      const plansScript = `<script>window.__INITIAL_PLANS__=${JSON.stringify(serialized).replace(/</g, '\\u003c')};</script>`;
+
+      if (html.includes('window.__INITIAL_PLANS__=')) {
+        html = html.replace(/<script[^>]*>window\.__INITIAL_PLANS__\s*=\s*\[.*?\];?<\/script>/s, plansScript);
+      } else if (html.includes('</head>')) {
+        html = html.replace('</head>', `${plansScript}</head>`);
+      }
+      return res.type('html').send(html);
+    } catch {
+      return res.sendFile(fileToServe);
+    }
   }
 
   res.status(200).send('<!DOCTYPE html><html><body><h1>LightningDeals API Gateway Server Active</h1></body></html>');

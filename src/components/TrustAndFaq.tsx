@@ -27,8 +27,8 @@ export const TrustAndFaq: React.FC = () => {
       answer: 'Your key pauses new requests until older tokens exit the 5-hour window. If your daily workflow expands, you can easily top up, upgrade your allocation tier, or stack allocations with no loss of unused term days.',
     },
     {
-      question: 'How do I claim and evaluate the 1,000,000 token trial pass?',
-      answer: 'Simply create a free account. Your 1,000,000 token trial pass is automatically generated and ready to test with Claude Code, Cursor, or your custom applications. No credit card or billing commitment is required.',
+      question: 'How do I claim and evaluate the 200,000 token trial pass?',
+      answer: 'Simply create a free account. Your 200,000 token trial pass is automatically generated and ready to test with Claude Code, Cursor, or your custom applications. No credit card or billing commitment is required.',
     },
   ];
 

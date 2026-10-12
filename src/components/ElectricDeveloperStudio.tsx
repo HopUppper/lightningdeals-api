@@ -128,7 +128,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
             <span className="text-xs font-mono font-bold text-[#6d28d9]">01 / MASTER KEY</span>
             <h4 className="text-lg font-bold text-[#1c1917]">Generate Your Master Key</h4>
             <p className="text-xs sm:text-sm text-[#78716c] leading-relaxed">
-              Claim your free 1,000,000 trial pass or choose a 5-hour rolling capacity tier. Key issued immediately with zero verification friction.
+              Claim your free 200,000 trial pass or choose a 5-hour rolling capacity tier. Key issued immediately with zero verification friction.
             </p>
           </div>
 

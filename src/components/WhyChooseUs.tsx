@@ -26,7 +26,7 @@ export const WhyChooseUs: React.FC = () => {
     {
       feature: 'Getting Started',
       traditional: 'Credit card verification required before any API access is granted',
-      lightning: 'Immediate 1,000,000 token trial pass available with zero payment required',
+      lightning: 'Immediate 200,000 token trial pass available with zero payment required',
     },
   ];
 

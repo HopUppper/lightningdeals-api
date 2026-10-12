@@ -22,7 +22,7 @@ export const FaqAccordion: React.FC = () => {
     },
     {
       question: 'How can I try the platform before buying?',
-      answer: 'You can claim a free 1-Day Trial pass containing 1,000,000 tokens directly on our trial page. No credit card or upfront billing information is required.',
+      answer: 'You can claim a free 1-Day Trial pass containing 200,000 tokens directly on our trial page. No credit card or upfront billing information is required.',
     },
     {
       question: 'Which models are supported through the gateway?',

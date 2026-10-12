@@ -99,7 +99,7 @@ const response = await anthropic.messages.create({
                   Claim Key & Quota
                 </h3>
                 <p className="text-xs sm:text-sm text-[#57534e] pt-1.5 leading-relaxed">
-                  Sign in or activate your complimentary 1,000,000 token trial. Your production API key is issued instantly with a dedicated rolling quota pool.
+                  Sign in or activate your complimentary 200,000 token trial. Your production API key is issued instantly with a dedicated rolling quota pool.
                 </p>
               </div>
 

@@ -17,8 +17,8 @@ import {
 } from './authSecurity';
 import { extractClientIp, resolveIpLocation } from './geoService';
 import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
-import { ReferralEngine } from './referrals/referralEngine';
 import { generateProviderApiKey } from './keyService';
+import { buildProviderRequest } from './providerAdapter';
 
 const router = Router();
 
@@ -1229,24 +1229,27 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
   }
 });
 
-// POST /api/user/keys/test — Controlled Minimal Real API Key Probe
+// POST /api/user/keys/test — Live Interactive API Key Playground Execution
 router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Response) => {
-  const { apiKeyId, keyString } = req.body;
+  const { apiKeyId, keyString, model, prompt } = req.body;
 
   try {
     let keyRecord: any = null;
     if (apiKeyId) {
       keyRecord = await prisma.apiKey.findFirst({
         where: { id: apiKeyId, userId: req.user!.id, status: 'active' },
+        include: { provider: true },
       });
     } else if (keyString) {
       const keyHash = hashSecret(keyString.trim());
       keyRecord = await prisma.apiKey.findFirst({
         where: { keyHash, userId: req.user!.id, status: 'active' },
+        include: { provider: true },
       });
     } else {
       keyRecord = await prisma.apiKey.findFirst({
         where: { userId: req.user!.id, status: 'active' },
+        include: { provider: true },
         orderBy: { createdAt: 'desc' },
       });
     }
@@ -1254,32 +1257,160 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     if (!keyRecord) {
       return res.status(404).json({
         success: false,
-        error: { message: 'No active API key found for this user account. Contact admin on WhatsApp to issue a key.' },
+        error: { message: 'No active API key found for this user account. Claim a free trial key or activate a capacity plan.' },
       });
     }
 
-    const startTime = Date.now();
-    const primaryVendor = await prisma.vendorProvider.findFirst({
-      where: { isPrimary: true },
+    // Resolve active vendor provider
+    let vendor = keyRecord.provider;
+    if (!vendor || vendor.status === 'disabled') {
+      vendor = await prisma.vendorProvider.findFirst({
+        where: { isPrimary: true, status: { not: 'disabled' } },
+      });
+    }
+    if (!vendor || vendor.status === 'disabled') {
+      vendor = await prisma.vendorProvider.findFirst({
+        where: { status: { not: 'disabled' } },
+        orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      });
+    }
+
+    if (!vendor) {
+      return res.status(503).json({
+        success: false,
+        error: { message: 'No active upstream vendor provider configured in the gateway. Please contact support.' },
+      });
+    }
+
+    const masterKey = vendor.masterApiKeyEncrypted ? decryptText(vendor.masterApiKeyEncrypted) : '';
+    if (!masterKey) {
+      return res.status(503).json({
+        success: false,
+        error: { message: 'Upstream vendor master key is not configured or missing.' },
+      });
+    }
+
+    const testPrompt = (typeof prompt === 'string' && prompt.trim())
+      ? prompt.trim()
+      : 'Write a concise, high-performance TypeScript function with friendly comments.';
+    const selectedModel = (typeof model === 'string' && model.trim())
+      ? model.trim()
+      : 'claude-sonnet-5.5';
+
+    const prepared = buildProviderRequest(vendor, masterKey, selectedModel, {
+      messages: [{ role: 'user', content: testPrompt }],
+      max_tokens: 1000,
+      stream: false,
     });
 
-    const latencyMs = Date.now() - startTime + Math.floor(Math.random() * 40 + 85);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+    const startTime = Date.now();
 
-    res.json({
+    let upstreamRes: any;
+    try {
+      upstreamRes = await fetch(prepared.url, {
+        method: 'POST',
+        headers: prepared.headers,
+        body: JSON.stringify(prepared.body),
+        signal: controller.signal,
+      });
+    } catch (fetchErr: any) {
+      clearTimeout(timeoutId);
+      const latencyMs = Date.now() - startTime;
+      return res.status(502).json({
+        success: false,
+        error: { message: `Gateway network error connecting to vendor (${vendor.name}): ${fetchErr.message}` },
+        latencyMs,
+      });
+    }
+    clearTimeout(timeoutId);
+    const latencyMs = Date.now() - startTime;
+
+    if (!upstreamRes.ok) {
+      const errText = await upstreamRes.text();
+      let parsedErr: any;
+      try { parsedErr = JSON.parse(errText); } catch {}
+      const errMsg = parsedErr?.error?.message || parsedErr?.message || errText || `HTTP ${upstreamRes.status}`;
+      return res.status(upstreamRes.status).json({
+        success: false,
+        error: { message: `Vendor (${vendor.name}) error: ${errMsg}` },
+        latencyMs,
+      });
+    }
+
+    const responseJson: any = await upstreamRes.json();
+    let responseText = '';
+    if (Array.isArray(responseJson.content)) {
+      responseText = responseJson.content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('\n');
+    } else if (typeof responseJson.content === 'string') {
+      responseText = responseJson.content;
+    } else if (responseJson.choices?.[0]?.message?.content) {
+      responseText = responseJson.choices[0].message.content;
+    } else {
+      responseText = JSON.stringify(responseJson, null, 2);
+    }
+
+    const inputTokens = Number(responseJson.usage?.input_tokens) || Math.max(1, Math.ceil(testPrompt.length / 4));
+    const outputTokens = Number(responseJson.usage?.output_tokens) || Math.max(1, Math.ceil(responseText.length / 4));
+    const totalTokens = inputTokens + outputTokens;
+
+    // Deduct tokens from user's key and record request in db
+    const remainingAfter = keyRecord.tokensRemaining > BigInt(totalTokens)
+      ? keyRecord.tokensRemaining - BigInt(totalTokens)
+      : 0n;
+
+    await prisma.apiKey.update({
+      where: { id: keyRecord.id },
+      data: {
+        tokensUsed: { increment: BigInt(totalTokens) },
+        tokensRemaining: remainingAfter,
+        totalRequests: { increment: 1 },
+        totalInputTokens: { increment: BigInt(inputTokens) },
+        totalOutputTokens: { increment: BigInt(outputTokens) },
+        lastUsedAt: new Date(),
+        firstUsedAt: keyRecord.firstUsedAt || new Date(),
+      },
+    });
+
+    await prisma.apiRequest.create({
+      data: {
+        apiKeyId: keyRecord.id,
+        userId: req.user!.id,
+        model: selectedModel,
+        status: 200,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        latencyMs,
+        providerId: vendor.id,
+        streaming: false,
+        usageSource: 'PROVIDER_REPORTED',
+      },
+    });
+
+    return res.json({
       success: true,
       status: 'active',
-      displayKey: keyRecord.displayKey,
-      keyName: keyRecord.name,
-      plan: keyRecord.plan,
-      modelTested: 'claude-3-5-sonnet-20241022',
+      content: [{ type: 'text', text: responseText }],
+      usage: {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        total_tokens: totalTokens,
+      },
+      modelTested: selectedModel,
       latencyMs,
-      tokensRemaining: keyRecord.tokensRemaining.toString(),
+      tokensRemaining: remainingAfter.toString(),
       purchasedTokens: keyRecord.purchasedTokens.toString(),
-      vendorStatus: primaryVendor ? primaryVendor.status : 'connected',
+      vendorStatus: vendor.status,
       testedAt: new Date().toISOString(),
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: { message: err.message } });
+    console.error('[API PLAYGROUND TEST ERROR]', err);
+    res.status(500).json({ success: false, error: { message: err.message || 'Internal error executing test request.' } });
   }
 });
 

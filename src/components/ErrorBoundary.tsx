@@ -25,6 +25,24 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[REACT ERROR BOUNDARY]', error, errorInfo);
     this.setState({ errorInfo });
+
+    // Handle post-deployment stale chunk cache mismatches automatically
+    const isChunkFailure =
+      error?.message?.includes('Failed to fetch dynamically imported module') ||
+      error?.message?.includes('Importing a module script failed') ||
+      error?.name === 'ChunkLoadError' ||
+      String(error?.message || '').toLowerCase().includes('dynamically imported module');
+
+    if (isChunkFailure && typeof window !== 'undefined') {
+      const reloadKey = 'lightning_chunk_reload_lock';
+      const lastReload = sessionStorage.getItem(reloadKey);
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem(reloadKey, now.toString());
+        console.warn('[RECOVERY] Stale chunk detected after deployment. Auto-reloading to load current assets...');
+        window.location.reload();
+      }
+    }
   }
 
   private handleReset = () => {

@@ -150,29 +150,37 @@ export const ElectricDeveloperStudio: React.FC = () => {
         </div>
 
         {/* The Developer Studio Code Workbench */}
-        <div className="rounded-3xl border border-[#292524] bg-[#141210] overflow-hidden shadow-2xl">
+        <div className="rounded-3xl border border-neutral-800 bg-[#0c0d14] overflow-hidden shadow-2xl ring-1 ring-white/10">
           
-          {/* Studio Top Rail: Switcher & Actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#292524] px-4 sm:px-6 py-3 bg-[#1c1917] gap-3">
+          {/* Studio Top Rail: Window Chrome, Switcher & Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-800/80 px-4 sm:px-6 py-3 bg-[#11131c] gap-3">
             
-            {/* Environment Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-              {Object.values(configs).map((cfg) => {
-                const isActive = activeTab === cfg.id;
-                return (
-                  <button
-                    key={cfg.id}
-                    onClick={() => setActiveTab(cfg.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer whitespace-nowrap ${
-                      isActive
-                        ? 'bg-[#292524] text-white shadow-xs border border-neutral-700'
-                        : 'text-neutral-400 hover:text-white hover:bg-neutral-800/40'
-                    }`}
-                  >
-                    {cfg.name}
-                  </button>
-                );
-              })}
+            {/* macOS Window Controls + Environment Tabs */}
+            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+              <div className="hidden sm:flex items-center gap-1.5 shrink-0 pr-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57] border border-[#e0443e]/50 shadow-2xs" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e] border border-[#d8a123]/50 shadow-2xs" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#28c840] border border-[#1aab29]/50 shadow-2xs" />
+              </div>
+
+              <div className="flex items-center gap-1 bg-[#181b28] p-1 rounded-xl border border-neutral-800/90 overflow-x-auto no-scrollbar">
+                {Object.values(configs).map((cfg) => {
+                  const isActive = activeTab === cfg.id;
+                  return (
+                    <button
+                      key={cfg.id}
+                      onClick={() => setActiveTab(cfg.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer whitespace-nowrap ${
+                        isActive
+                          ? 'bg-[#6d28d9] text-white shadow-plum font-semibold'
+                          : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {cfg.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Quick Actions (Copy & Test Ping) */}
@@ -181,7 +189,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
                 type="button"
                 onClick={runSimulatedPing}
                 disabled={pingRunning}
-                className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer border border-neutral-700"
+                className="px-3 py-1.5 rounded-xl bg-[#181b28] hover:bg-[#202436] border border-neutral-700/80 text-neutral-300 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Play className={`w-3 h-3 text-emerald-400 ${pingRunning ? 'animate-spin' : ''}`} />
                 <span>{pingRunning ? 'Testing...' : 'Test Gateway Ping'}</span>
@@ -190,7 +198,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
               <button
                 type="button"
                 onClick={handleCopy}
-                className="px-3.5 py-1.5 rounded-lg bg-[#6d28d9] hover:bg-[#7c3aed] text-white text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-plum"
+                className="px-3.5 py-1.5 rounded-xl bg-[#6d28d9] hover:bg-[#7c3aed] text-white text-xs font-mono font-semibold flex items-center gap-1.5 transition-all shadow-plum cursor-pointer"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? 'Copied' : 'Copy Snippet'}</span>
@@ -199,15 +207,37 @@ export const ElectricDeveloperStudio: React.FC = () => {
 
           </div>
 
-          {/* Code Viewer Body */}
-          <div className="p-5 sm:p-7 space-y-4 font-mono">
-            <div className="flex items-center justify-between text-[11px] text-neutral-500 pb-2 border-b border-neutral-800">
-              <span>TARGET FILE: {current.targetFile}</span>
-              <span className="text-[#a78bfa]">{current.badge}</span>
+          {/* Subheader Rail: Target File + Capability Badge */}
+          <div className="flex items-center justify-between text-[11px] font-mono px-4 sm:px-6 py-2 bg-[#0e1017] border-b border-neutral-800/80 text-neutral-400">
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-500 font-bold uppercase tracking-wider">TARGET:</span>
+              <span className="text-neutral-200 bg-white/5 px-2 py-0.5 rounded border border-white/10 font-mono">{current.targetFile}</span>
             </div>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20">{current.badge}</span>
+          </div>
 
-            <pre className="text-xs sm:text-sm text-neutral-200 leading-relaxed overflow-x-auto whitespace-pre-wrap">
-              {current.code}
+          {/* Code Viewer Body */}
+          <div className="p-5 sm:p-7 space-y-4 font-mono bg-[#08090f]">
+            <pre className="text-xs sm:text-[13px] leading-relaxed overflow-x-auto whitespace-pre-wrap font-mono selection:bg-purple-900 selection:text-white">
+              {current.code.split('\n').map((line, idx) => {
+                const trimmed = line.trim();
+                const isComment = trimmed.startsWith('#') || trimmed.startsWith('//');
+                const isCommand = trimmed.startsWith('npx ') || trimmed.startsWith('claude') || trimmed.startsWith('export ');
+                return (
+                  <div
+                    key={idx}
+                    className={
+                      isComment
+                        ? 'text-neutral-500 italic select-none'
+                        : isCommand
+                        ? 'text-emerald-400 font-semibold'
+                        : 'text-neutral-200'
+                    }
+                  >
+                    {line}
+                  </div>
+                );
+              })}
             </pre>
 
             {/* Live Ping Result Banner */}
@@ -217,7 +247,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800/80 text-emerald-300 text-xs flex items-center justify-between"
+                  className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800/80 text-emerald-300 text-xs flex items-center justify-between font-mono"
                 >
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -230,8 +260,9 @@ export const ElectricDeveloperStudio: React.FC = () => {
               )}
             </AnimatePresence>
 
-            <div className="pt-2 text-xs text-neutral-400 border-t border-neutral-800">
-              💡 {current.explanatoryNote}
+            <div className="pt-2 text-xs text-neutral-400 border-t border-neutral-800/80 flex items-center gap-2">
+              <span className="text-amber-400">💡</span>
+              <span>{current.explanatoryNote}</span>
             </div>
           </div>
 

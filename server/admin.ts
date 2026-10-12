@@ -292,6 +292,14 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
       },
     });
 
+    if (isPrimary) {
+      await prisma.systemSetting.upsert({
+        where: { key: 'default_provider_id' },
+        update: { value: provider.id },
+        create: { key: 'default_provider_id', value: provider.id },
+      });
+    }
+
     await prisma.adminLog.create({
       data: {
         adminUserId: req.user?.id,
@@ -365,6 +373,11 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
     if (isPrimary) {
       await prisma.vendorProvider.updateMany({ data: { isPrimary: false } });
       updateData.isPrimary = true;
+      await prisma.systemSetting.upsert({
+        where: { key: 'default_provider_id' },
+        update: { value: id },
+        create: { key: 'default_provider_id', value: id },
+      });
     }
 
     const provider = await prisma.vendorProvider.update({

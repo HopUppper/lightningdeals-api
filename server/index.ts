@@ -291,6 +291,9 @@ app.get('*', async (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/v1')) {
     return next(new NotFoundError(`API endpoint ${req.path} not found.`));
   }
+  if (req.path.startsWith('/assets/')) {
+    return res.status(404).type('text/plain').send('Chunk asset not found');
+  }
 
   const cleanPath = req.path.replace(/^\//, '').replace(/\/$/, '');
   const sectionName = cleanPath.split('/')[0];

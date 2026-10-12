@@ -109,74 +109,104 @@ const ReferralAttributionListener: React.FC = () => {
   );
 };
 
+// Resilient Dynamic Import Wrapper with Automatic Post-Deploy Cache Invalidation
+function safeLazy<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+): React.LazyExoticComponent<T> {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (err: any) {
+      console.warn('[Vite Dynamic Import Recovery]', err);
+      const isChunkFailure =
+        err?.message?.includes('Failed to fetch dynamically imported module') ||
+        err?.message?.includes('Importing a module script failed') ||
+        err?.name === 'ChunkLoadError' ||
+        String(err?.message || '').toLowerCase().includes('dynamically imported module');
+
+      if (isChunkFailure && typeof window !== 'undefined') {
+        const reloadKey = 'lightning_chunk_reload_lock';
+        const lastReload = sessionStorage.getItem(reloadKey);
+        const now = Date.now();
+        if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+          sessionStorage.setItem(reloadKey, now.toString());
+          window.location.reload();
+          return new Promise<{ default: T }>(() => {});
+        }
+      }
+      throw err;
+    }
+  });
+}
+
 // Lazy Loaded Public Pages
-const TrialPage = lazy(() => import('./pages/TrialPage').then(m => ({ default: m.TrialPage })));
-const QuoteRequestPage = lazy(() => import('./pages/QuoteRequestPage').then(m => ({ default: m.QuoteRequestPage })));
-const ModelsPage = lazy(() => import('./pages/ModelsPage').then(m => ({ default: m.ModelsPage })));
-const DocsPage = lazy(() => import('./pages/docs/DocsPage').then(m => ({ default: m.DocsPage })));
-const StatusPage = lazy(() => import('./pages/StatusPage').then(m => ({ default: m.StatusPage })));
-const CheckKeyPage = lazy(() => import('./pages/CheckKeyPage').then(m => ({ default: m.CheckKeyPage })));
-const TermsPage = lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
-const RefundPage = lazy(() => import('./pages/RefundPage').then(m => ({ default: m.RefundPage })));
+const TrialPage = safeLazy(() => import('./pages/TrialPage').then(m => ({ default: m.TrialPage })));
+const QuoteRequestPage = safeLazy(() => import('./pages/QuoteRequestPage').then(m => ({ default: m.QuoteRequestPage })));
+const ModelsPage = safeLazy(() => import('./pages/ModelsPage').then(m => ({ default: m.ModelsPage })));
+const DocsPage = safeLazy(() => import('./pages/docs/DocsPage').then(m => ({ default: m.DocsPage })));
+const StatusPage = safeLazy(() => import('./pages/StatusPage').then(m => ({ default: m.StatusPage })));
+const CheckKeyPage = safeLazy(() => import('./pages/CheckKeyPage').then(m => ({ default: m.CheckKeyPage })));
+const TermsPage = safeLazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage = safeLazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const RefundPage = safeLazy(() => import('./pages/RefundPage').then(m => ({ default: m.RefundPage })));
 
 // Lazy Loaded Auth Pages
-const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
-const RegisterPage = lazy(() => import('./pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
-const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+const LoginPage = safeLazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = safeLazy(() => import('./pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const VerifyEmailPage = safeLazy(() => import('./pages/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
+const ForgotPasswordPage = safeLazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = safeLazy(() => import('./pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+const NotFoundPage = safeLazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 // Customer Dashboard Pages (Lazy Loaded)
 import { UserAuthGuard } from './components/UserAuthGuard';
-const UserDashboardLayout = lazy(() => import('./pages/dashboard/UserDashboardLayout').then(m => ({ default: m.UserDashboardLayout })));
-const UserOverview = lazy(() => import('./pages/dashboard/UserOverview').then(m => ({ default: m.UserOverview })));
-const UserKeys = lazy(() => import('./pages/dashboard/UserKeys').then(m => ({ default: m.UserKeys })));
-const UserUsage = lazy(() => import('./pages/dashboard/UserUsage').then(m => ({ default: m.UserUsage })));
-const UserPlan = lazy(() => import('./pages/dashboard/UserPlan').then(m => ({ default: m.UserPlan })));
-const UserDocs = lazy(() => import('./pages/dashboard/UserDocs').then(m => ({ default: m.UserDocs })));
-const UserOrders = lazy(() => import('./pages/dashboard/UserOrders').then(m => ({ default: m.UserOrders })));
-const UserApiTestConsole = lazy(() => import('./pages/dashboard/UserApiTestConsole').then(m => ({ default: m.UserApiTestConsole })));
-const UserSupport = lazy(() => import('./pages/dashboard/UserSupport').then(m => ({ default: m.UserSupport })));
-const UserSettings = lazy(() => import('./pages/dashboard/UserSettings').then(m => ({ default: m.UserSettings })));
-const UserRewards = lazy(() => import('./pages/dashboard/UserRewards').then(m => ({ default: m.UserRewards })));
-const UserSubscriptions = lazy(() => import('./pages/dashboard/UserSubscriptions').then(m => ({ default: m.UserSubscriptions })));
-const UserReferrals = lazy(() => import('./pages/dashboard/UserReferrals').then(m => ({ default: m.UserReferrals })));
-const UserFeedback = lazy(() => import('./pages/dashboard/UserFeedback').then(m => ({ default: m.UserFeedback })));
+const UserDashboardLayout = safeLazy(() => import('./pages/dashboard/UserDashboardLayout').then(m => ({ default: m.UserDashboardLayout })));
+const UserOverview = safeLazy(() => import('./pages/dashboard/UserOverview').then(m => ({ default: m.UserOverview })));
+const UserKeys = safeLazy(() => import('./pages/dashboard/UserKeys').then(m => ({ default: m.UserKeys })));
+const UserUsage = safeLazy(() => import('./pages/dashboard/UserUsage').then(m => ({ default: m.UserUsage })));
+const UserPlan = safeLazy(() => import('./pages/dashboard/UserPlan').then(m => ({ default: m.UserPlan })));
+const UserDocs = safeLazy(() => import('./pages/dashboard/UserDocs').then(m => ({ default: m.UserDocs })));
+const UserOrders = safeLazy(() => import('./pages/dashboard/UserOrders').then(m => ({ default: m.UserOrders })));
+const UserApiTestConsole = safeLazy(() => import('./pages/dashboard/UserApiTestConsole').then(m => ({ default: m.UserApiTestConsole })));
+const UserSupport = safeLazy(() => import('./pages/dashboard/UserSupport').then(m => ({ default: m.UserSupport })));
+const UserSettings = safeLazy(() => import('./pages/dashboard/UserSettings').then(m => ({ default: m.UserSettings })));
+const UserRewards = safeLazy(() => import('./pages/dashboard/UserRewards').then(m => ({ default: m.UserRewards })));
+const UserSubscriptions = safeLazy(() => import('./pages/dashboard/UserSubscriptions').then(m => ({ default: m.UserSubscriptions })));
+const UserReferrals = safeLazy(() => import('./pages/dashboard/UserReferrals').then(m => ({ default: m.UserReferrals })));
+const UserFeedback = safeLazy(() => import('./pages/dashboard/UserFeedback').then(m => ({ default: m.UserFeedback })));
 
 // Admin Control Center Pages (Lazy Loaded)
 import { AdminAuthGuard } from './pages/admin/AdminAuthGuard';
-const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
-const AdminLayout = lazy(() => import('./pages/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
-const AdminFeedback = lazy(() => import('./pages/admin/AdminFeedback').then(m => ({ default: m.AdminFeedback })));
-const AdminOverview = lazy(() => import('./pages/admin/AdminOverview').then(m => ({ default: m.AdminOverview })));
-const AdminFulfillment = lazy(() => import('./pages/admin/AdminFulfillment').then(m => ({ default: m.AdminFulfillment })));
-const AdminSubscriptions = lazy(() => import('./pages/admin/AdminSubscriptions').then(m => ({ default: m.AdminSubscriptions })));
-const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals').then(m => ({ default: m.AdminReferrals })));
-const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics').then(m => ({ default: m.AdminAnalytics })));
-const AdminProviders = lazy(() => import('./pages/admin/AdminProviders').then(m => ({ default: m.AdminProviders })));
-const AdminPlans = lazy(() => import('./pages/admin/AdminPlans').then(m => ({ default: m.AdminPlans })));
-const AdminCustomers = lazy(() => import('./pages/admin/AdminCustomers').then(m => ({ default: m.AdminCustomers })));
-const AdminKeys = lazy(() => import('./pages/admin/AdminKeys').then(m => ({ default: m.AdminKeys })));
-const AdminUsage = lazy(() => import('./pages/admin/AdminUsage').then(m => ({ default: m.AdminUsage })));
-const AdminTokens = lazy(() => import('./pages/admin/AdminTokens').then(m => ({ default: m.AdminTokens })));
-const AdminOrders = lazy(() => import('./pages/admin/AdminOrders').then(m => ({ default: m.AdminOrders })));
-const AdminHealth = lazy(() => import('./pages/admin/AdminHealth').then(m => ({ default: m.AdminHealth })));
-const AdminPricing = lazy(() => import('./pages/admin/AdminPricing').then(m => ({ default: m.AdminPricing })));
-const AdminModels = lazy(() => import('./pages/admin/AdminModels').then(m => ({ default: m.AdminModels })));
-const AdminRequests = lazy(() => import('./pages/admin/AdminRequests').then(m => ({ default: m.AdminRequests })));
-const AdminSecurity = lazy(() => import('./pages/admin/AdminSecurity').then(m => ({ default: m.AdminSecurity })));
-const AdminLogs = lazy(() => import('./pages/admin/AdminLogs').then(m => ({ default: m.AdminLogs })));
-const AdminLeads = lazy(() => import('./pages/admin/AdminLeads').then(m => ({ default: m.AdminLeads })));
-const AdminSupport = lazy(() => import('./pages/admin/AdminSupport').then(m => ({ default: m.AdminSupport })));
-const AdminStatus = lazy(() => import('./pages/admin/AdminStatus').then(m => ({ default: m.AdminStatus })));
-const AdminSettings = lazy(() => import('./pages/admin/AdminSettings').then(m => ({ default: m.AdminSettings })));
-const AdminApiTest = lazy(() => import('./pages/admin/AdminApiTest').then(m => ({ default: m.AdminApiTest })));
-const AdminEmergencyControls = lazy(() => import('./pages/admin/AdminEmergencyControls').then(m => ({ default: m.AdminEmergencyControls })));
-const AdminRewards = lazy(() => import('./pages/admin/AdminRewards').then(m => ({ default: m.AdminRewards })));
-const AdminWhatsApp = lazy(() => import('./pages/admin/AdminWhatsApp').then(m => ({ default: m.AdminWhatsApp })));
-const AdminAIControl = lazy(() => import('./pages/admin/AdminAIControl').then(m => ({ default: m.AdminAIControl })));
+const AdminLoginPage = safeLazy(() => import('./pages/admin/AdminLoginPage').then(m => ({ default: m.AdminLoginPage })));
+const AdminLayout = safeLazy(() => import('./pages/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
+const AdminFeedback = safeLazy(() => import('./pages/admin/AdminFeedback').then(m => ({ default: m.AdminFeedback })));
+const AdminOverview = safeLazy(() => import('./pages/admin/AdminOverview').then(m => ({ default: m.AdminOverview })));
+const AdminFulfillment = safeLazy(() => import('./pages/admin/AdminFulfillment').then(m => ({ default: m.AdminFulfillment })));
+const AdminSubscriptions = safeLazy(() => import('./pages/admin/AdminSubscriptions').then(m => ({ default: m.AdminSubscriptions })));
+const AdminReferrals = safeLazy(() => import('./pages/admin/AdminReferrals').then(m => ({ default: m.AdminReferrals })));
+const AdminAnalytics = safeLazy(() => import('./pages/admin/AdminAnalytics').then(m => ({ default: m.AdminAnalytics })));
+const AdminProviders = safeLazy(() => import('./pages/admin/AdminProviders').then(m => ({ default: m.AdminProviders })));
+const AdminPlans = safeLazy(() => import('./pages/admin/AdminPlans').then(m => ({ default: m.AdminPlans })));
+const AdminCustomers = safeLazy(() => import('./pages/admin/AdminCustomers').then(m => ({ default: m.AdminCustomers })));
+const AdminKeys = safeLazy(() => import('./pages/admin/AdminKeys').then(m => ({ default: m.AdminKeys })));
+const AdminUsage = safeLazy(() => import('./pages/admin/AdminUsage').then(m => ({ default: m.AdminUsage })));
+const AdminTokens = safeLazy(() => import('./pages/admin/AdminTokens').then(m => ({ default: m.AdminTokens })));
+const AdminOrders = safeLazy(() => import('./pages/admin/AdminOrders').then(m => ({ default: m.AdminOrders })));
+const AdminHealth = safeLazy(() => import('./pages/admin/AdminHealth').then(m => ({ default: m.AdminHealth })));
+const AdminPricing = safeLazy(() => import('./pages/admin/AdminPricing').then(m => ({ default: m.AdminPricing })));
+const AdminModels = safeLazy(() => import('./pages/admin/AdminModels').then(m => ({ default: m.AdminModels })));
+const AdminRequests = safeLazy(() => import('./pages/admin/AdminRequests').then(m => ({ default: m.AdminRequests })));
+const AdminSecurity = safeLazy(() => import('./pages/admin/AdminSecurity').then(m => ({ default: m.AdminSecurity })));
+const AdminLogs = safeLazy(() => import('./pages/admin/AdminLogs').then(m => ({ default: m.AdminLogs })));
+const AdminLeads = safeLazy(() => import('./pages/admin/AdminLeads').then(m => ({ default: m.AdminLeads })));
+const AdminSupport = safeLazy(() => import('./pages/admin/AdminSupport').then(m => ({ default: m.AdminSupport })));
+const AdminStatus = safeLazy(() => import('./pages/admin/AdminStatus').then(m => ({ default: m.AdminStatus })));
+const AdminSettings = safeLazy(() => import('./pages/admin/AdminSettings').then(m => ({ default: m.AdminSettings })));
+const AdminApiTest = safeLazy(() => import('./pages/admin/AdminApiTest').then(m => ({ default: m.AdminApiTest })));
+const AdminEmergencyControls = safeLazy(() => import('./pages/admin/AdminEmergencyControls').then(m => ({ default: m.AdminEmergencyControls })));
+const AdminRewards = safeLazy(() => import('./pages/admin/AdminRewards').then(m => ({ default: m.AdminRewards })));
+const AdminWhatsApp = safeLazy(() => import('./pages/admin/AdminWhatsApp').then(m => ({ default: m.AdminWhatsApp })));
+const AdminAIControl = safeLazy(() => import('./pages/admin/AdminAIControl').then(m => ({ default: m.AdminAIControl })));
 
 export const LandingPage: React.FC = () => {
   return (

@@ -46,6 +46,8 @@ export const UserApiTestConsole: React.FC = () => {
         method: 'POST',
         body: JSON.stringify({
           apiKeyId: activeKeyObj?.id,
+          model,
+          prompt,
         }),
       });
 
@@ -63,7 +65,7 @@ export const UserApiTestConsole: React.FC = () => {
   };
 
   const handleCopyOutput = () => {
-    const text = response?.content?.[0]?.text;
+    const text = response?.content?.[0]?.text || response?.result || (typeof response?.content === 'string' ? response.content : JSON.stringify(response, null, 2));
     if (text) {
       navigator.clipboard.writeText(text);
       setCopiedResponse(true);
@@ -264,7 +266,7 @@ export const UserApiTestConsole: React.FC = () => {
               <div className="space-y-3">
                 <div className="p-4 rounded-2xl bg-[#171526] text-slate-100 border border-[#2d2948] text-xs font-mono leading-relaxed max-h-[260px] overflow-y-auto">
                   <pre className="whitespace-pre-wrap font-sans text-xs">
-                    {response?.content?.[0]?.text || response?.result || JSON.stringify(response, null, 2)}
+                    {response?.content?.[0]?.text || response?.result || (typeof response?.content === 'string' ? response.content : JSON.stringify(response, null, 2))}
                   </pre>
                 </div>
 

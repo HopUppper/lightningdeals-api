@@ -15,13 +15,22 @@ export interface GeneratedKeyMaterial {
  * Falls back to active ScaleMax if setting is missing.
  */
 export async function getDefaultProviderId(): Promise<string> {
+  // 1. Prioritize vendor provider explicitly designated as Primary
+  const primaryProvider = await prisma.vendorProvider.findFirst({
+    where: { isPrimary: true, status: { not: 'disabled' } },
+    orderBy: { priority: 'desc' },
+  });
+  if (primaryProvider) {
+    return primaryProvider.id;
+  }
+
+  // 2. Fall back to SystemSetting.default_provider_id
   const setting = await prisma.systemSetting.findUnique({
     where: { key: 'default_provider_id' },
   });
 
   if (setting && setting.value && setting.value.trim()) {
     const candidateId = setting.value.trim();
-    // Verify provider still exists and is not disabled
     const provider = await prisma.vendorProvider.findUnique({
       where: { id: candidateId },
     });
@@ -30,15 +39,19 @@ export async function getDefaultProviderId(): Promise<string> {
     }
   }
 
-  // Fallback: ScaleMax provider
-  const scaleMax = await prisma.vendorProvider.findFirst({
-    where: { name: 'ScaleMax', status: { not: 'disabled' } },
+  // 3. Fallback: Opus Max provider
+  const opusMax = await prisma.vendorProvider.findFirst({
+    where: {
+      OR: [{ slug: 'opus_max' }, { name: { contains: 'Opus', mode: 'insensitive' } }],
+      status: { not: 'disabled' },
+    },
   });
-  if (scaleMax) return scaleMax.id;
+  if (opusMax) return opusMax.id;
 
-  // Final fallback: any non-disabled vendor
+  // 4. Final fallback: any non-disabled vendor ordered by priority
   const anyActive = await prisma.vendorProvider.findFirst({
     where: { status: { not: 'disabled' } },
+    orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
   });
   if (anyActive) return anyActive.id;
 

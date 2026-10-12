@@ -27,7 +27,7 @@ import {
 import { ElectricNavbar } from '../../components/ElectricNavbar';
 import { ElectricFooter } from '../../components/ElectricFooter';
 
-// Copy Button Component
+// Uniform Developer Workbench Code Snippet
 const CodeSnippetBlock: React.FC<{
   code: string;
   language?: string;
@@ -42,28 +42,75 @@ const CodeSnippetBlock: React.FC<{
   };
 
   return (
-    <div className="relative my-3 rounded-xl border border-[#27272a] bg-[#18181b] text-[#f4f4f5] shadow-xs overflow-hidden font-mono text-xs">
-      {filename && (
-        <div className="flex items-center justify-between border-b border-[#27272a] bg-[#121214] px-4 py-2 text-[11px] text-[#a1a1aa]">
-          <span className="flex items-center gap-1.5 font-medium">
-            <FileCode className="h-3.5 w-3.5 text-[#a855f7]" />
-            {filename}
-          </span>
-          <span className="uppercase text-[10px] text-[#71717a]">{language}</span>
+    <div className="relative my-4 rounded-2xl border border-neutral-800 bg-[#0c0d14] text-[#f4f4f5] shadow-xl overflow-hidden font-mono text-xs ring-1 ring-white/10">
+      {/* Chrome Top Rail */}
+      <div className="flex items-center justify-between border-b border-neutral-800/80 bg-[#11131c] px-4 py-2.5 text-[11px] text-neutral-400">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57] border border-[#e0443e]/50 shadow-2xs" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e] border border-[#d8a123]/50 shadow-2xs" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#28c840] border border-[#1aab29]/50 shadow-2xs" />
+          </div>
+          {filename ? (
+            <span className="flex items-center gap-1.5 font-medium text-neutral-200 ml-1">
+              <FileCode className="h-3.5 w-3.5 text-[#a855f7]" />
+              {filename}
+            </span>
+          ) : (
+            <span className="uppercase text-[10px] text-neutral-400 font-bold ml-1 tracking-wider">{language}</span>
+          )}
         </div>
-      )}
-      <div className="relative p-4 overflow-x-auto">
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="absolute right-3 top-3 p-1.5 rounded-lg bg-[#27272a] hover:bg-[#3f3f46] text-[#a1a1aa] hover:text-white transition-colors cursor-pointer"
-          title="Copy to clipboard"
-          aria-label="Copy to clipboard"
-        >
-          {copied ? <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-        </button>
-        <pre className="pr-10 leading-relaxed font-mono">
-          <code>{code}</code>
+
+        <div className="flex items-center gap-2">
+          {filename && (
+            <span className="uppercase text-[10px] text-neutral-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+              {language}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="px-2.5 py-1 rounded-lg bg-[#6d28d9] hover:bg-[#7c3aed] text-white text-[11px] font-mono font-semibold transition-all shadow-plum flex items-center gap-1.5 cursor-pointer"
+            title="Copy to clipboard"
+            aria-label="Copy to clipboard"
+          >
+            {copied ? (
+              <>
+                <CheckIcon className="h-3 w-3 text-emerald-300" />
+                <span className="text-emerald-300">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Code Body */}
+      <div className="relative p-4 sm:p-5 overflow-x-auto bg-[#08090f]">
+        <pre className="leading-relaxed font-mono text-xs sm:text-[13px] selection:bg-purple-900 selection:text-white">
+          {code.split('\n').map((line, idx) => {
+            const trimmed = line.trim();
+            const isComment = trimmed.startsWith('#') || trimmed.startsWith('//');
+            const isCommand = trimmed.startsWith('npx ') || trimmed.startsWith('claude') || trimmed.startsWith('export ') || trimmed.startsWith('curl ');
+            return (
+              <div
+                key={idx}
+                className={
+                  isComment
+                    ? 'text-neutral-500 italic select-none'
+                    : isCommand
+                    ? 'text-emerald-400 font-semibold'
+                    : 'text-neutral-200'
+                }
+              >
+                {line}
+              </div>
+            );
+          })}
         </pre>
       </div>
     </div>
@@ -383,11 +430,15 @@ export const DocsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#f5f3ff] border border-[#ddd6fe] text-xs text-[#5b21b6] flex items-start gap-3">
-                  <span className="font-bold text-sm">💡</span>
-                  <div>
-                    <strong className="font-bold">Base URL Protocol Rule:</strong> In standard Anthropic SDKs (Python, TypeScript, and Claude Code), the library automatically appends <code className="font-mono bg-white px-1 py-0.5 rounded border border-[#c4b5fd]">/v1/messages</code> to your base URL. Therefore, set your base URL to <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-[#c4b5fd]">https://lightningapi.pro</code> (without trailing <code className="font-mono">/v1</code>).
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#f8f5ff] border border-[#ddd6fe] text-xs text-[#5b21b6] space-y-2 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#ede9fe] text-[#6d28d9] border border-[#ddd6fe]">
+                      💡 BASE URL PROTOCOL RULE
+                    </span>
                   </div>
+                  <p className="leading-relaxed">
+                    In standard Anthropic SDKs (Python, TypeScript, and Claude Code), the library automatically appends <code className="font-mono bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#5b21b6] shadow-2xs">/v1/messages</code> to your base URL. Therefore, set your base URL to <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://lightningapi.pro</code> (without trailing <code className="font-mono">/v1</code>).
+                  </p>
                 </div>
               </section>
 
@@ -551,13 +602,16 @@ export const DocsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#fffbeb] border border-[#fef08a] text-xs text-[#92400e] space-y-1">
-                  <strong className="font-bold flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                    Security Best Practice: Key Custody
-                  </strong>
-                  <p>
-                    Never commit your API key to public git repositories or client-side web browser bundles. Store keys in local environment variables (<code className="font-mono bg-white px-1 py-0.5 rounded">.env.local</code>) or your operating system keychain. If a key is compromised, revoke it immediately via the Customer Portal.
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#fffdf5] border border-[#fef08a] text-xs text-[#92400e] space-y-2 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#fef3c7] text-[#b45309] border border-[#fde68a]">
+                      <AlertTriangle className="w-3 h-3 text-[#b45309]" />
+                      SECURITY BEST PRACTICE
+                    </span>
+                    <span className="font-bold text-[#78350f]">Key Custody &amp; Environment Isolation</span>
+                  </div>
+                  <p className="leading-relaxed text-[#92400e]">
+                    Never commit your API key to public git repositories or client-side web browser bundles. Store keys in local environment variables (<code className="font-mono bg-white px-1.5 py-0.5 rounded-md border border-[#fde68a] text-[#78350f] shadow-2xs">.env.local</code>) or your operating system keychain. If a key is compromised, revoke it immediately via the Customer Portal.
                   </p>
                 </div>
               </section>
@@ -1178,16 +1232,16 @@ claude --model claude-opus-5-thinking`}
                   </div>
 
                   {/* Pro-Tip: Inspecting Key Authorizations */}
-                  <div className="p-4 rounded-2xl bg-[#f5f3ff] border border-[#ddd6fe] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="font-mono text-xs font-bold text-[#6d28d9] uppercase tracking-wider">
-                        Inspect Active Key Authorizations &amp; Quotas
-                      </div>
-                      <p className="text-xs text-[#5b21b6]">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#f8f5ff] border border-[#ddd6fe] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="space-y-1">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#ede9fe] text-[#6d28d9] border border-[#ddd6fe]">
+                        PRO-TIP: VERIFY KEY QUOTAS
+                      </span>
+                      <p className="text-xs text-[#5b21b6] font-medium">
                         Want to verify remaining rolling tokens or inspect all authorized models on your key?
                       </p>
                     </div>
-                    <code className="px-3 py-1.5 rounded-xl bg-white border border-[#ddd6fe] text-xs font-mono font-bold text-[#6d28d9] shadow-xs shrink-0">
+                    <code className="px-3.5 py-2 rounded-xl bg-white border border-[#ddd6fe] text-xs font-mono font-bold text-[#6d28d9] shadow-xs shrink-0">
                       npx lightningdeals models
                     </code>
                   </div>

@@ -1375,6 +1375,7 @@ router.get('/keys', async (req: AuthRequest, res: Response) => {
           createdAt: k.createdAt,
           firstUsedAt: windowMetrics.effectiveFirstUse,
           lastUsedAt: k.lastUsedAt,
+          lastPlatform: k.lastPlatform || null,
           windowActive: windowMetrics.windowActive,
           nextResetAt: windowMetrics.nextResetAt,
           windowResetSeconds: windowMetrics.windowResetSeconds,
@@ -1414,10 +1415,12 @@ router.get('/keys/:id/usage', async (req: AuthRequest, res: Response) => {
         streaming: true,
         isEstimated: true,
         usageSource: true,
+        clientPlatform: true,
+        userAgent: true,
+        ipAddress: true,
         createdAt: true,
       },
     });
-
 
     const windowMetrics = await calculateKeyRollingWindow(key);
 
@@ -1428,6 +1431,7 @@ router.get('/keys/:id/usage', async (req: AuthRequest, res: Response) => {
         displayKey: key.displayKey,
         customer: key.user ? `${key.user.name} (${key.user.email})` : 'Unassigned',
         status: key.status,
+        lastPlatform: key.lastPlatform,
         purchasedTokens: windowMetrics.purchasedNum.toString(),
         tokensUsed: windowMetrics.windowTokensUsed.toString(),
         tokensRemaining: windowMetrics.remainingNum.toString(),
@@ -3059,6 +3063,9 @@ router.get('/usage', async (req: AuthRequest, res: Response) => {
         exactFailureReason: r.statusCode >= 400 ? (r.errorMessage || r.errorCode || `HTTP ${r.statusCode} Request Failed`) : null,
         isEstimated: r.isEstimated,
         usageSource: r.usageSource,
+        clientPlatform: r.clientPlatform || 'Unknown Client',
+        userAgent: r.userAgent || null,
+        ipAddress: r.ipAddress || null,
         createdAt: r.createdAt,
       })),
     };

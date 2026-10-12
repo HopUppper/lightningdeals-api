@@ -20,6 +20,9 @@ interface RequestItem {
   exactFailureReason?: string | null;
   isEstimated: boolean;
   usageSource: string;
+  clientPlatform?: string;
+  userAgent?: string | null;
+  ipAddress?: string | null;
   createdAt: string;
 }
 
@@ -88,51 +91,130 @@ export const AdminUsage: React.FC = () => {
     }
   };
 
+  const renderPlatformBadge = (platform?: string, userAgent?: string | null) => {
+    if (!platform || platform === 'Unknown Client') {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-subtle text-muted border border-border" title={userAgent || 'Unknown'}>
+          HTTP Client
+        </span>
+      );
+    }
+
+    const pLower = platform.toLowerCase();
+
+    if (pLower.includes('claude code')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-700 border border-indigo-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>⚡</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('cursor')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-700 border border-cyan-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🎯</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('vscode') || pLower.includes('vs code') || pLower.includes('cline') || pLower.includes('roo')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-700 border border-blue-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>💻</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('windsurf')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-500/10 text-teal-700 border border-teal-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🌊</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('python')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🐍</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('node') || pLower.includes('typescript') || pLower.includes('js')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🟢</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('curl')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-500/10 text-slate-700 border border-slate-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>⌨️</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('playground')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-500/10 text-violet-700 border border-violet-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🧪</span> {platform}
+        </span>
+      );
+    }
+
+    return (
+      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-subtle text-fg border border-border" title={userAgent || platform}>
+        {platform}
+      </span>
+    );
+  };
+
   return (
-    <div className="space-y-6 font-sans">
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border">
+    <div className="space-y-6">
+      {/* Top Banner / Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-accent font-bold bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
-              LEDGER TELEMETRY
-            </span>
-            <span className="text-xs text-muted font-mono">CRYPTOGRAPHIC ACCOUNTING</span>
-          </div>
-          <h1 className="text-2xl font-bold text-fg tracking-tight flex items-center gap-2">
+          <h2 className="text-xl font-bold font-mono tracking-tight text-fg flex items-center gap-2">
             <Activity className="w-5 h-5 text-accent" />
-            <span>Platform Usage & Token Accounting Ledger</span>
-          </h1>
-          <p className="text-xs text-muted mt-1">
-            Authoritative token consumption analytics, 5-hour rolling usage metrics, and source-verified API request ledgers.
+            <span>Real-Time Token Accounting & Usage Analytics</span>
+          </h2>
+          <p className="text-xs font-mono text-muted mt-1">
+            Authoritative rolling 5-hour consumption window ledger and historical audit logs.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {lastUpdated && <span className="text-[11px] font-mono text-muted">Sync: {lastUpdated}</span>}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {lastUpdated && (
+            <span className="text-[11px] font-mono text-muted">
+              Updated: <span className="text-fg">{lastUpdated}</span>
+            </span>
+          )}
           <button
             onClick={handleReconcileUsage}
             disabled={reconciling}
-            className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 font-mono font-semibold"
+            className="px-3 py-1.5 rounded-lg text-xs font-mono font-medium border border-border bg-subtle hover:bg-subtle/80 text-fg flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+            title="Reconcile key token usage balances against API request logs"
           >
             <Zap className="w-3.5 h-3.5 text-accent" />
-            <span>{reconciling ? 'Reconciling...' : 'Reconcile Tokens'}</span>
+            <span>{reconciling ? 'Reconciling...' : 'Reconcile'}</span>
           </button>
-          <button onClick={loadUsageData} disabled={loading} className="ui-button-secondary text-xs py-2 px-3.5 gap-1.5 font-mono font-semibold">
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Sync</span>
+          <button
+            onClick={loadUsageData}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg text-xs font-mono font-medium border border-border bg-subtle hover:bg-subtle/80 text-fg flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-accent' : ''}`} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 rounded-panel bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-mono flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
       {reconciliationResult && (
-        <div className={`p-4 rounded-panel border text-xs font-mono flex items-center justify-between gap-3 ${
+        <div className={`p-4 rounded-xl border text-xs font-mono flex items-center justify-between gap-3 ${
           reconciliationResult.isReconciled ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-600'
         }`}>
           <div className="flex items-center gap-2">
@@ -144,6 +226,13 @@ export const AdminUsage: React.FC = () => {
             </span>
           </div>
           <button onClick={() => setReconciliationResult(null)} className="text-muted hover:text-fg font-mono text-xs p-1">✕</button>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 text-xs font-mono flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
@@ -187,7 +276,7 @@ export const AdminUsage: React.FC = () => {
         <div className="p-4 border-b border-border flex items-center justify-between bg-subtle/30">
           <h3 className="text-xs font-mono font-bold text-fg uppercase tracking-wider flex items-center gap-2">
             <Clock className="w-4 h-4 text-accent" />
-            <span>Recent API Request Activity Log & Exact Error Audit</span>
+            <span>Recent API Request Activity Log & Client Detection Audit</span>
           </h3>
           <span className="text-[11px] font-mono text-muted">Last 50 edge requests</span>
         </div>
@@ -207,6 +296,7 @@ export const AdminUsage: React.FC = () => {
                   <th className="py-3 px-4 font-bold">Timestamp</th>
                   <th className="py-3 px-4 font-bold">Model</th>
                   <th className="py-3 px-4 font-bold">Key & Customer</th>
+                  <th className="py-3 px-4 font-bold">Client / Platform</th>
                   <th className="py-3 px-4 font-bold text-center">Status</th>
                   <th className="py-3 px-4 font-bold">Failure / Success Reason</th>
                   <th className="py-3 px-4 font-bold text-right">Tokens Consumed</th>
@@ -236,6 +326,9 @@ export const AdminUsage: React.FC = () => {
                     <td className="py-3 px-4">
                       <p className="font-bold text-fg">{r.keyName}</p>
                       <p className="text-[10px] text-muted">{r.displayKey} · {r.customer}</p>
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {renderPlatformBadge(r.clientPlatform, r.userAgent)}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${

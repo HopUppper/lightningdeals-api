@@ -341,6 +341,86 @@ export const AdminKeys: React.FC = () => {
     return val?.toLocaleString() || '0';
   };
 
+  const renderPlatformBadge = (platform?: string, userAgent?: string) => {
+    if (!platform) {
+      return (
+        <span className="text-muted text-[10px] italic">Not detected yet</span>
+      );
+    }
+
+    const pLower = platform.toLowerCase();
+
+    if (pLower.includes('claude code') || pLower.includes('claude-code')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🤖</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('cursor')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-700 border border-cyan-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🎯</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('vscode') || pLower.includes('vs code') || pLower.includes('cline') || pLower.includes('roo')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-700 border border-blue-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>💻</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('windsurf')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-500/10 text-teal-700 border border-teal-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🌊</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('python')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🐍</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('node') || pLower.includes('typescript') || pLower.includes('js')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🟢</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('curl')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-500/10 text-slate-700 border border-slate-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>⌨️</span> {platform}
+        </span>
+      );
+    }
+
+    if (pLower.includes('playground')) {
+      return (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-500/10 text-violet-700 border border-violet-500/20 inline-flex items-center gap-1" title={userAgent || platform}>
+          <span>🧪</span> {platform}
+        </span>
+      );
+    }
+
+    return (
+      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-subtle text-fg border border-border" title={userAgent || platform}>
+        {platform}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Actions */}
@@ -415,6 +495,7 @@ export const AdminKeys: React.FC = () => {
                   <th className="py-3 px-4 font-bold">Plan Name</th>
                   <th className="py-3 px-4 font-bold">Provider</th>
                   <th className="py-3 px-4 font-bold">Customer</th>
+                  <th className="py-3 px-4 font-bold">Last Platform</th>
                   <th className="py-3 px-4 font-bold">Type</th>
                   <th className="py-3 px-4 font-bold">Status</th>
                   <th className="py-3 px-4 font-bold">Allowance (5h Window)</th>
@@ -438,6 +519,9 @@ export const AdminKeys: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-muted">{k.customer}</td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      {renderPlatformBadge(k.lastPlatform)}
+                    </td>
 
                     <td className="py-3.5 px-4 font-mono font-bold">
                       <span className={`px-2 py-0.5 rounded text-[10px] uppercase ${
@@ -590,6 +674,7 @@ export const AdminKeys: React.FC = () => {
                               <th className="py-2.5 px-3">Timestamp</th>
                               <th className="py-2.5 px-3">Model</th>
                               <th className="py-2.5 px-3">Endpoint</th>
+                              <th className="py-2.5 px-3">Platform</th>
                               <th className="py-2.5 px-3">Status</th>
                               <th className="py-2.5 px-3">Input</th>
                               <th className="py-2.5 px-3">Output</th>
@@ -605,6 +690,9 @@ export const AdminKeys: React.FC = () => {
                                 </td>
                                 <td className="py-2.5 px-3 font-bold text-amber-500">{req.model}</td>
                                 <td className="py-2.5 px-3 text-fg text-[11px]">{req.endpoint}</td>
+                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                  {renderPlatformBadge(req.clientPlatform, req.userAgent)}
+                                </td>
                                 <td className="py-2.5 px-3">
                                   {req.statusCode < 400 ? (
                                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 inline-flex items-center gap-1">

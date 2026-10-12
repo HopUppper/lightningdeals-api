@@ -14,6 +14,8 @@ interface ApiKeyItem {
   purchasedTokens: string;
   tokensUsed: string;
   tokensRemaining: string;
+  lastPlatform?: string | null;
+  lastUsedAt?: string | null;
   createdAt: string;
 }
 
@@ -194,6 +196,12 @@ export const UserKeys: React.FC = () => {
                         <div className="text-[11px] text-[#64607d] mt-0.5">
                           {k.plan} • {new Date(k.createdAt).toLocaleDateString()}
                         </div>
+                        {k.lastPlatform && (
+                          <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-violet-50 text-violet-700 border border-violet-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Active on {k.lastPlatform}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-1.5 bg-[#faf8f5] px-3 py-1.5 rounded-2xl border border-[#ede8e1] max-w-sm">

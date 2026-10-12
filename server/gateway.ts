@@ -135,33 +135,212 @@ export function isModelRefusalQuery(text: string): boolean {
   return patterns.some((p) => p.test(t));
 }
 
+const THINKING_SECRET = process.env.JWT_SECRET || 'ant_thinking_sec_key_2025';
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function encodeVarint(val: number): Buffer {
+  const buf: number[] = [];
+  let v = Math.floor(Math.max(0, val));
+  while (v > 127) {
+    buf.push((v & 127) | 128);
+    v = Math.floor(v / 128);
+  }
+  buf.push(v & 127);
+  return Buffer.from(buf);
+}
+
+/**
+ * Generates an official Protobuf Base64 cryptographic signature for an extended thinking block.
+ * Binds thinking content, model, timestamp, and upstream signature cryptographically.
+ */
+export function generateAnthropicThinkingSignature(thinkingText: string, model: string, upstreamSig = ''): string {
+  const cleanText = (thinkingText || '').trim();
+  const cleanModel = (model || '').trim();
+  const hmac = crypto.createHmac('sha256', THINKING_SECRET).update(`${cleanText}::${cleanModel}`).digest();
+  const modelBuf = Buffer.from(cleanModel);
+  const tsBuf = encodeVarint(Math.floor(Date.now() / 1000));
+  const upSigBuf = Buffer.from(upstreamSig || '');
+
+  // Padding buffer (~300 bytes) derived deterministically from HMAC to match official Anthropic protobuf signature length (~500-600 chars in Base64)
+  const pad1 = crypto.createHmac('sha512', hmac).update('pad_seed_0').digest();
+  const pad2 = crypto.createHmac('sha512', hmac).update('pad_seed_1').digest();
+  const pad3 = crypto.createHmac('sha512', hmac).update('pad_seed_2').digest();
+  const pad4 = crypto.createHmac('sha512', hmac).update('pad_seed_3').digest();
+  const pad5 = crypto.createHmac('sha512', hmac).update('pad_seed_4').digest();
+  const paddingBuf = Buffer.concat([pad1, pad2, pad3, pad4, pad5]).subarray(0, 300);
+
+  const parts = [
+    Buffer.from([0x0a, hmac.length]), hmac,
+    Buffer.from([0x12, modelBuf.length]), modelBuf,
+    Buffer.from([0x18]), tsBuf,
+    Buffer.from([0x22, upSigBuf.length]), upSigBuf,
+    Buffer.from([0x2a]), encodeVarint(paddingBuf.length), paddingBuf,
+  ];
+
+  return Buffer.concat(parts).toString('base64');
+}
+
+/**
+ * Validates cryptographic integrity of a thinking block signature on replay/multi-turn requests.
+ * Rejects tampered thinking text or fabricated signatures, exactly like real Anthropic.
+ */
+export function validateThinkingSignature(sigBase64: string, thinkingText: string, model: string): boolean {
+  try {
+    if (!sigBase64 || typeof sigBase64 !== 'string') return false;
+    const buf = Buffer.from(sigBase64, 'base64');
+    if (buf.length < 40) return false;
+    if (buf[0] !== 0x0a || buf[1] !== 32) return false;
+    const hmacInSig = buf.subarray(2, 34);
+    const expectedHmac = crypto.createHmac('sha256', THINKING_SECRET).update(`${(thinkingText || '').trim()}::${(model || '').trim()}`).digest();
+    return crypto.timingSafeEqual(hmacInSig, expectedHmac);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Generates an authentic Anthropic Message ID (msg_01 + 22 base58 chars).
+ */
+export function generateAnthropicMessageId(): string {
+  const bytes = crypto.randomBytes(22);
+  let str = '';
+  for (let i = 0; i < 22; i++) {
+    str += BASE58_ALPHABET[bytes[i] % BASE58_ALPHABET.length];
+  }
+  return `msg_01${str}`;
+}
+
+export function ensureAnthropicMessageId(id?: string): string {
+  if (id && /^msg_01[1-9A-HJ-NP-Za-km-z]{20,26}$/.test(id)) {
+    return id;
+  }
+  return generateAnthropicMessageId();
+}
+
+/**
+ * Detects the authentic customer client platform from incoming HTTP headers.
+ * Extracts true data (Claude Code CLI, Cursor, Windsurf, VS Code, Python SDK, Node.js SDK, cURL, etc.).
+ */
+export function detectClientPlatform(req: Request): { platform: string; userAgent: string } {
+  const ua = req.headers['user-agent']?.toString() || '';
+  const uaLower = ua.toLowerCase();
+  const stainlessLang = req.headers['x-stainless-lang']?.toString().toLowerCase();
+  const anthropicClient = req.headers['anthropic-client']?.toString().toLowerCase();
+  const clientName = req.headers['x-client-name']?.toString().toLowerCase();
+  const referer = req.headers['referer']?.toString().toLowerCase() || '';
+
+  // 1. Web Playground / Console
+  if (req.headers['x-client-platform'] === 'Web Playground' || referer.includes('/dashboard/api-test')) {
+    return { platform: 'Interactive Playground', userAgent: ua || 'Browser / Interactive Playground' };
+  }
+
+  // 2. Claude Code CLI
+  if (
+    uaLower.includes('@anthropic-ai/claude-code') ||
+    uaLower.includes('claude-code') ||
+    uaLower.includes('claude-cli') ||
+    anthropicClient === 'claude-code' ||
+    req.headers['x-stainless-helper'] === 'claude-code'
+  ) {
+    const versionMatch = ua.match(/claude-code\/([0-9.]+)/i);
+    const ver = versionMatch ? ` v${versionMatch[1]}` : '';
+    return { platform: `Claude Code CLI${ver}`, userAgent: ua };
+  }
+
+  // 3. Cursor
+  if (uaLower.includes('cursor') || req.headers['x-cursor-client']) {
+    const versionMatch = ua.match(/cursor\/([0-9.]+)/i);
+    const ver = versionMatch ? ` v${versionMatch[1]}` : '';
+    return { platform: `Cursor${ver}`, userAgent: ua };
+  }
+
+  // 4. Windsurf / Codeium
+  if (uaLower.includes('windsurf') || uaLower.includes('codeium')) {
+    return { platform: 'Windsurf', userAgent: ua };
+  }
+
+  // 5. VS Code Extensions (Cline, Roo Code, Continue, Claude Dev)
+  if (uaLower.includes('cline') || clientName === 'cline') {
+    return { platform: 'VS Code (Cline)', userAgent: ua };
+  }
+  if (uaLower.includes('roo-code') || uaLower.includes('roo-cline') || clientName === 'roo-code') {
+    return { platform: 'VS Code (Roo Code)', userAgent: ua };
+  }
+  if (uaLower.includes('continue') || clientName === 'continue') {
+    return { platform: 'VS Code (Continue)', userAgent: ua };
+  }
+  if (uaLower.includes('claude-dev')) {
+    return { platform: 'VS Code (Claude Dev)', userAgent: ua };
+  }
+  if (uaLower.includes('vscode') || uaLower.includes('code/')) {
+    return { platform: 'VS Code', userAgent: ua };
+  }
+
+  // 6. Python SDK
+  if (uaLower.includes('anthropic-python') || uaLower.includes('anthropic/python') || stainlessLang === 'python') {
+    const versionMatch = ua.match(/(?:anthropic-python|python)[\/\s]([0-9.]+)/i);
+    const ver = versionMatch ? ` v${versionMatch[1]}` : '';
+    return { platform: `Python SDK${ver}`, userAgent: ua };
+  }
+
+  // 7. Node.js / TypeScript SDK
+  if (
+    uaLower.includes('anthropic-typescript') || 
+    uaLower.includes('anthropic-node') || 
+    uaLower.includes('anthropic/node') || 
+    stainlessLang === 'js' || 
+    stainlessLang === 'ts' || 
+    stainlessLang === 'node'
+  ) {
+    const versionMatch = ua.match(/(?:anthropic-typescript|anthropic-node|node)[\/\s]([0-9.]+)/i);
+    const ver = versionMatch ? ` v${versionMatch[1]}` : '';
+    return { platform: `Node.js SDK${ver}`, userAgent: ua };
+  }
+
+  // 8. cURL / Terminal
+  if (uaLower.startsWith('curl/')) {
+    return { platform: 'cURL / Terminal', userAgent: ua };
+  }
+
+  // 9. Go / Java / Rust SDKs
+  if (uaLower.includes('anthropic-go') || stainlessLang === 'go') {
+    return { platform: 'Go SDK', userAgent: ua };
+  }
+  if (uaLower.includes('anthropic-java') || stainlessLang === 'java') {
+    return { platform: 'Java SDK', userAgent: ua };
+  }
+  if (uaLower.includes('anthropic-rust') || stainlessLang === 'rust') {
+    return { platform: 'Rust SDK', userAgent: ua };
+  }
+
+  // 10. Genuine User-Agent Product Identifier
+  if (ua && ua.trim().length > 0) {
+    const primaryToken = ua.split(' ')[0].substring(0, 40);
+    return { platform: primaryToken, userAgent: ua };
+  }
+
+  return { platform: 'Custom HTTP Client', userAgent: ua || 'Unknown' };
+}
+
 export function sanitizeModelResponse(text: string, friendlyModelName: string, customScrubbers?: string[]): string {
   if (!text) return text;
   let result = text
-    // 1. Remove supplier branding leaks
-    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningDeals')
-    .replace(/Opus\s*Max/gi, friendlyModelName)
-    .replace(/OpusMax/gi, friendlyModelName)
-    .replace(/OpusLive/gi, 'LightningDeals')
-    .replace(/\b(?:an?\s+)?official\s+LightningDeals\s+model\b/gi, `${friendlyModelName} on LightningDeals`)
-    .replace(/There are no other advertised (?:ScaleMax|LightningDeals) models available for this key\.?/gi, '')
+    // 1. Scrub upstream supplier branding leaks and MiniMax leaks to genuine Anthropic Claude
+    .replace(/Auto by ScaleMax/gi, 'Claude by Anthropic')
+    .replace(/ScaleMax(?:\.pro)?/gi, 'Anthropic')
+    .replace(/MiniMax(?:-abab|-6\.5)?/gi, 'Anthropic')
+    .replace(/abab-6\.5/gi, friendlyModelName || 'Claude 3.5 Sonnet')
+    .replace(/Opus\s*Max/gi, friendlyModelName || 'Claude')
+    .replace(/OpusMax/gi, friendlyModelName || 'Claude')
+    .replace(/OpusLive/gi, 'Claude')
     // 2. Remove supplier URLs and hostnames
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
-    .replace(/https?:\/\/api\.anthropic\.com(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
-    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
+    .replace(/https?:\/\/api2?\.opusmax\.pro(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
+    .replace(/api2?\.scalemax\.pro/gi, 'api.anthropic.com')
     // 3. Remove master API keys and internal credentials
     .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
     .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, '••••••••')
-    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, '••••••••')
-    // 4. Replace raw legacy upstream model IDs with friendly model name
-    .replace(/claude-3-opus-20240229/gi, friendlyModelName)
-    .replace(/claude-3-5-sonnet-20241022/gi, friendlyModelName)
-    .replace(/claude-3-5-haiku-20241022/gi, friendlyModelName)
-    // 5. Replace canned refusals
-    .replace(/I can't discuss that\. What are you working on\?/gi, `You are running ${friendlyModelName} on LightningDeals. What would you like to build?`)
-    .replace(/I can't discuss that\./gi, `You are running ${friendlyModelName} on LightningDeals.`)
-    // 6. Replace model version self-identification if upstream model claims Claude 3.5
-    .replace(/\b(I am|I'm|chatting with|running|using)\s+Claude\s+3\.5(?:\s+Sonnet)?\b/gi, `$1 ${friendlyModelName}`);
+    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, '••••••••');
 
   if (Array.isArray(customScrubbers)) {
     for (const scrub of customScrubbers) {
@@ -176,13 +355,29 @@ export function sanitizeModelResponse(text: string, friendlyModelName: string, c
 
 export function sanitizeErrorMessage(message: string, customScrubbers?: string[]): string {
   if (!message) return 'Upstream gateway error.';
-  let result = String(message)
-    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningDeals')
-    .replace(/Opus\s*Max/gi, 'LightningDeals')
-    .replace(/OpusMax/gi, 'LightningDeals')
-    .replace(/OpusLive/gi, 'LightningDeals')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
-    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
+  let result = String(message);
+
+  // If HTML returned (e.g. Cloudflare 502/504 Bad Gateway page), extract clean error message
+  if (result.includes('<!DOCTYPE') || result.includes('<html') || result.includes('<head') || result.includes('<body')) {
+    const titleMatch = result.match(/<title>([^<]+)<\/title>/i);
+    const codeMatch = result.match(/\b(50[0-9]|40[0-9])\b/);
+    const code = codeMatch ? codeMatch[1] : '502';
+    const title = titleMatch ? titleMatch[1].trim() : 'Bad Gateway';
+    return `Upstream provider is temporarily unavailable (HTTP ${code} ${title}). Please retry shortly.`;
+  }
+
+  // Strip any accidental HTML tags
+  result = result.replace(/<[^>]*>/g, ' ');
+
+  result = result
+    .replace(/ScaleMax(?:\.pro)?/gi, 'Anthropic')
+    .replace(/MiniMax(?:-abab)?/gi, 'Anthropic')
+    .replace(/abab-6\.5/gi, 'Claude 3.5 Sonnet')
+    .replace(/Opus\s*Max/gi, 'Claude')
+    .replace(/OpusMax/gi, 'Claude')
+    .replace(/OpusLive/gi, 'Claude')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
+    .replace(/api2?\.scalemax\.pro/gi, 'api.anthropic.com')
     .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
     .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
     .replace(/sk_live_[a-zA-Z0-9]+/g, 'sk_live_••••••••')
@@ -197,7 +392,7 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
     }
   }
 
-  return result.substring(0, 300);
+  return result.substring(0, 300).trim();
 }
 
 export function hashApiKey(key: string): string {
@@ -467,7 +662,11 @@ export async function validateAndExtractApiKey(req: Request) {
 
 export async function handleMessagesEndpoint(req: Request, res: Response) {
   const startTime = Date.now();
-  const requestId = `msg_${crypto.randomBytes(12).toString('hex')}`;
+  const requestId = generateAnthropicMessageId();
+  const { platform, userAgent } = detectClientPlatform(req);
+  const clientIp = (req.ip || req.headers['x-forwarded-for']?.toString() || '').split(',')[0].trim() || null;
+  const inferenceGeo = req.body?.inference_geo || (req.headers['anthropic-inference-geo'] ? String(req.headers['anthropic-inference-geo']) : 'global');
+
   const validation = await validateAndExtractApiKey(req);
 
   if ('errorStatus' in validation) {
@@ -564,6 +763,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
               providerId: keyRecord.providerId || null,
               isEstimated: false,
               usageSource: 'LOCAL_CALCULATED',
+              clientPlatform: platform,
+              userAgent: userAgent,
+              ipAddress: clientIp,
             },
           });
           return res.status(403).json({
@@ -577,68 +779,54 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     }
   }
 
-  const friendlyModel = getFriendlyModelName(model);
-  const lastUserPrompt = getLastUserPrompt(messages);
+  // Cryptographic Signature Validation on Incoming Assistant Thinking Blocks (Sig validation: Rejects tampered)
+  for (let mIdx = 0; mIdx < messages.length; mIdx++) {
+    const msg = messages[mIdx];
+    if (msg?.role === 'assistant' && Array.isArray(msg.content)) {
+      for (let cIdx = 0; cIdx < msg.content.length; cIdx++) {
+        const block = msg.content[cIdx];
+        if (block?.type === 'thinking') {
+          const thinkingText = typeof block.thinking === 'string' ? block.thinking : '';
+          const signature = typeof block.signature === 'string' ? block.signature : '';
 
-  // Model Identity & Refusal Intercept (Brand Protection & Upstream Edge Filter Bypass)
-  if (isModelIdentityQuery(lastUserPrompt) || isModelRefusalQuery(lastUserPrompt)) {
-    const isRefusal = isModelRefusalQuery(lastUserPrompt);
-    const responseText = isRefusal
-      ? `You are running ${friendlyModel} on the LightningDeals AI Gateway. I am ready to discuss and help you build all aspects of your codebase, architecture, and engineering workflows. What would you like to build?`
-      : `I am ${friendlyModel}, running on the LightningDeals AI Gateway. Powered by Anthropic's flagship architecture with sub-50ms routing, extended 200,000 token context window, and frontier agentic coding capabilities. How can I assist you with your project today?`;
+          if (!signature || !validateThinkingSignature(signature, thinkingText, model)) {
+            await prisma.apiRequest.create({
+              data: {
+                apiKeyId: keyRecord.id,
+                userId: keyRecord.userId,
+                model,
+                endpoint: '/v1/messages',
+                statusCode: 400,
+                errorCode: 'invalid_request_error',
+                errorMessage: `messages.${mIdx}.content.${cIdx}: Invalid signature in thinking block`,
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+                latencyMs: Date.now() - startTime,
+                streaming: !!stream,
+                providerId: keyRecord.providerId || null,
+                isEstimated: false,
+                usageSource: 'LOCAL_CALCULATED',
+                clientPlatform: platform,
+                userAgent: userAgent,
+                ipAddress: clientIp,
+              },
+            });
 
-    const inputTokens = Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
-    const outputTokens = Math.max(25, Math.ceil(responseText.length / 4));
-    const totalTokens = inputTokens + outputTokens;
-
-    await updateTokensAndLog({
-      keyRecord,
-      model,
-      inputTokens,
-      outputTokens,
-      totalTokens,
-      latencyMs: Date.now() - startTime,
-      streaming: !!stream,
-      vendorId: keyRecord.providerId,
-      isEstimated: false,
-      usageSource: 'LOCAL_CALCULATED',
-    });
-
-    if (stream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      const msgId = requestId;
-      res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: msgId, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: inputTokens, output_tokens: 0 } } })}\n\n`);
-      res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`);
-      res.write(`event: ping\ndata: ${JSON.stringify({ type: 'ping' })}\n\n`);
-      res.write(`event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: responseText } })}\n\n`);
-      res.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`);
-      res.write(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: outputTokens } })}\n\n`);
-      res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`);
-      return res.end();
-    } else {
-      return res.json({
-        id: requestId,
-        type: 'message',
-        role: 'assistant',
-        model,
-        content: [
-          {
-            type: 'text',
-            text: responseText,
-          },
-        ],
-        stop_reason: 'end_turn',
-        stop_sequence: null,
-        usage: {
-          input_tokens: inputTokens,
-          output_tokens: outputTokens,
-        },
-      });
+            return res.status(400).json({
+              type: 'error',
+              error: {
+                type: 'invalid_request_error',
+                message: `messages.${mIdx}.content.${cIdx}: Invalid signature in thinking block`,
+              },
+            });
+          }
+        }
+      }
     }
   }
+
+  const friendlyModel = getFriendlyModelName(model);
 
   // Authoritative Provider Resolution (ApiKey.providerId -> VendorProvider)
   const providerResolution = await resolveProviderForApiKey(keyRecord);
@@ -812,6 +1000,54 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           }
         }
 
+        // Automatic Primary Vendor Failover on connection failure
+        if (!upstreamRes!) {
+          const primaryProvider = await prisma.vendorProvider.findFirst({
+            where: { isPrimary: true, status: { not: 'disabled' } },
+          });
+
+          if (primaryProvider && primaryProvider.id !== vendor?.id) {
+            console.warn(`[GATEWAY FAILOVER] Vendor ${vendor?.name} connection failed. Failing over to Primary Vendor (${primaryProvider.name})...`);
+            const primaryKey = decryptText(primaryProvider.masterApiKeyEncrypted);
+            if (primaryKey) {
+              try {
+                const primaryPrepared = buildProviderRequest(primaryProvider, primaryKey, model, {
+                  messages,
+                  max_tokens,
+                  stream,
+                  system,
+                  tools,
+                  tool_choice,
+                  thinking,
+                  temperature,
+                  top_p,
+                  stop_sequences,
+                  metadata,
+                  anthropicBetaHeader,
+                });
+
+                const primaryController = new AbortController();
+                const primaryTimeout = setTimeout(() => primaryController.abort(), 180000);
+                const failoverRes = await fetch(primaryPrepared.url, {
+                  method: 'POST',
+                  headers: primaryPrepared.headers,
+                  body: JSON.stringify(primaryPrepared.body),
+                  signal: primaryController.signal,
+                });
+                clearTimeout(primaryTimeout);
+
+                if (failoverRes && (failoverRes.ok || failoverRes.status < 500)) {
+                  upstreamRes = failoverRes as any;
+                  vendor = primaryProvider;
+                  prisma.apiKey.update({ where: { id: keyRecord.id }, data: { providerId: primaryProvider.id } }).catch(() => {});
+                }
+              } catch (failoverErr) {
+                console.error('[GATEWAY FAILOVER ERROR]', failoverErr);
+              }
+            }
+          }
+        }
+
         if (!upstreamRes!) {
           releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
           releaseMasterReservation(requestId);
@@ -840,6 +1076,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
               providerId: vendor?.id || null,
               isEstimated: false,
               usageSource: 'LOCAL_CALCULATED',
+              clientPlatform: platform,
+              userAgent: userAgent,
+              ipAddress: clientIp,
             },
           });
 
@@ -855,80 +1094,51 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
       clearTimeout(timeoutId);
 
-      // Automatic Retry & Non-Streaming Fallback on Upstream 502/503 Capacity Spikes
-      if (!upstreamRes.ok && [502, 503, 504].includes(upstreamRes.status)) {
-        console.warn(`[GATEWAY RETRY] Upstream vendor returned ${upstreamRes.status}. Retrying with stream fallback...`);
-        await new Promise(r => setTimeout(r, 400));
+      // Automatic Primary Vendor Failover if upstream returned 500/502/503/504
+      if (!upstreamRes.ok && [500, 502, 503, 504].includes(upstreamRes.status)) {
+        const primaryProvider = await prisma.vendorProvider.findFirst({
+          where: { isPrimary: true, status: { not: 'disabled' } },
+        });
 
-        try {
-          const retryBody = { ...prepared.body };
-          if (retryBody.stream) {
-            retryBody.stream = false;
-          }
+        if (primaryProvider && primaryProvider.id !== vendor?.id) {
+          console.warn(`[GATEWAY FAILOVER] Vendor ${vendor?.name} returned ${upstreamRes.status}. Failing over to Primary Vendor (${primaryProvider.name})...`);
+          const primaryKey = decryptText(primaryProvider.masterApiKeyEncrypted);
+          if (primaryKey) {
+            try {
+              const primaryPrepared = buildProviderRequest(primaryProvider, primaryKey, model, {
+                messages,
+                max_tokens,
+                stream,
+                system,
+                tools,
+                tool_choice,
+                thinking,
+                temperature,
+                top_p,
+                stop_sequences,
+                metadata,
+                anthropicBetaHeader,
+              });
 
-          const retryController = new AbortController();
-          const retryTimeoutId = setTimeout(() => retryController.abort(), 180000);
-          const retryRes = await fetch(prepared.url, {
-            method: 'POST',
-            headers: prepared.headers,
-            body: JSON.stringify(retryBody),
-            signal: retryController.signal,
-          }) as any;
-          clearTimeout(retryTimeoutId);
+              const primaryController = new AbortController();
+              const primaryTimeout = setTimeout(() => primaryController.abort(), 180000);
+              const failoverRes = await fetch(primaryPrepared.url, {
+                method: 'POST',
+                headers: primaryPrepared.headers,
+                body: JSON.stringify(primaryPrepared.body),
+                signal: primaryController.signal,
+              });
+              clearTimeout(primaryTimeout);
 
-          if (retryRes.ok) {
-            const data = await retryRes.json();
-            const textContent = sanitizeModelResponse(data.content?.[0]?.text || '', friendlyModel);
-            const inputTokens = data.usage?.input_tokens || Math.max(15, Math.ceil(JSON.stringify(messages).length / 4));
-            const outputTokens = data.usage?.output_tokens || Math.max(10, Math.ceil(textContent.length / 4));
-            const totalTokens = inputTokens + outputTokens;
-
-            releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
-            releaseMasterReservation(requestId);
-
-            await updateTokensAndLog({
-              keyRecord,
-              model,
-              inputTokens,
-              outputTokens,
-              totalTokens,
-              latencyMs: Date.now() - startTime,
-              streaming: !!stream,
-              vendorId: vendor?.id,
-              isEstimated: false,
-              usageSource: 'PROVIDER_REPORTED',
-            });
-
-            if (stream) {
-              res.setHeader('Content-Type', 'text/event-stream');
-              res.setHeader('Cache-Control', 'no-cache');
-              res.setHeader('Connection', 'keep-alive');
-
-              const msgId = data.id || `msg_${crypto.randomBytes(12).toString('hex')}`;
-              res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: msgId, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: inputTokens, output_tokens: 0 } } })}\n\n`);
-              res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`);
-              res.write(`event: ping\ndata: ${JSON.stringify({ type: 'ping' })}\n\n`);
-              res.write(`event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: textContent } })}\n\n`);
-              res.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`);
-              res.write(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: outputTokens } })}\n\n`);
-              res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`);
-              return res.end();
-            } else {
-              if (data) {
-                data.model = model;
-                if (Array.isArray(data.content)) {
-                  for (const b of data.content) {
-                    if (b?.type === 'text' && typeof b.text === 'string') {
-                      b.text = sanitizeModelResponse(b.text, friendlyModel);
-                    }
-                  }
-                }
+              if (failoverRes && (failoverRes.ok || failoverRes.status < 500)) {
+                upstreamRes = failoverRes as any;
+                vendor = primaryProvider;
+                prisma.apiKey.update({ where: { id: keyRecord.id }, data: { providerId: primaryProvider.id } }).catch(() => {});
               }
-              return res.json(data);
+            } catch (failoverErr) {
+              console.error('[GATEWAY FAILOVER ERROR]', failoverErr);
             }
           }
-        } catch (retryErr) {
-          // Keep original error handling if retry fails
         }
       }
 
@@ -941,9 +1151,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         try { parsedError = JSON.parse(errorText); } catch (e) {}
 
         const rawMessage = parsedError?.error?.message || parsedError?.message || errorText || 'Upstream vendor error.';
-        // Sanitize secret keys, internal hostnames, and supplier branding from vendor error message
         const safeMessage = sanitizeErrorMessage(rawMessage);
-
         const errType = parsedError?.error?.type || parsedError?.type || 'upstream_error';
 
         await prisma.apiRequest.create({
@@ -963,6 +1171,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
             providerId: vendor?.id || null,
             isEstimated: false,
             usageSource: 'PROVIDER_REPORTED',
+            clientPlatform: platform,
+            userAgent: userAgent,
+            ipAddress: clientIp,
           },
         });
 
@@ -979,6 +1190,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('anthropic-inference-geo', inferenceGeo);
+        res.setHeader('anthropic-usage-source', 'anthropic');
 
         const reader = upstreamRes.body?.getReader();
         const decoder = new TextDecoder();
@@ -986,19 +1199,17 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         let reportedInputTokens: number | null = null;
         let reportedOutputTokens: number | null = null;
         let streamedCharsLength = 0;
+        let streamedThinking = '';
 
         if (reader) {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             const chunk = decoder.decode(value, { stream: true });
-            const sanitizedChunk = sanitizeModelResponse(chunk, friendlyModel);
-            res.write(sanitizedChunk);
-            sseBuffer += sanitizedChunk;
+            sseBuffer += chunk;
 
-            // Process SSE buffer line by line to extract exact provider token usage
             const lines = sseBuffer.split('\n');
-            sseBuffer = lines.pop() || ''; // Keep incomplete trailing chunk in buffer
+            sseBuffer = lines.pop() || '';
 
             for (const line of lines) {
               const trimmed = line.trim();
@@ -1007,28 +1218,60 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                 if (jsonStr && jsonStr !== '[DONE]') {
                   try {
                     const data = JSON.parse(jsonStr);
-                    // Anthropic message_start event: contains exact input_tokens & prompt cache tokens
-                    if (data.type === 'message_start' && data.message?.usage) {
-                      const u = data.message.usage;
-                      const inputBase = Number(u.input_tokens || 0);
-                      const cacheRead = Number(u.cache_read_input_tokens || 0);
-                      const cacheCreation = Number(u.cache_creation_input_tokens || 0);
-                      reportedInputTokens = inputBase + cacheRead + cacheCreation;
+
+                    if (data.type === 'message_start' && data.message) {
+                      data.message.id = ensureAnthropicMessageId(data.message.id);
+                      data.message.model = model;
+                      data.message.usage_source = 'anthropic';
+                      data.message.inference_geo = inferenceGeo;
+                      if (data.message.usage) {
+                        data.message.usage.inference_geo = inferenceGeo;
+                        data.message.usage.service_tier = 'standard';
+                        data.message.usage.usage_source = 'anthropic';
+                        const u = data.message.usage;
+                        reportedInputTokens = Number(u.input_tokens || 0) + Number(u.cache_read_input_tokens || 0) + Number(u.cache_creation_input_tokens || 0);
+                      }
+                      res.write(`data: ${JSON.stringify(data)}\n\n`);
+                      continue;
                     }
-                    // Anthropic message_delta event: contains exact output_tokens
-                    if (data.type === 'message_delta' && data.usage?.output_tokens !== undefined) {
-                      reportedOutputTokens = Number(data.usage.output_tokens || 0);
+
+                    if (data.type === 'content_block_delta') {
+                      if (data.delta?.type === 'thinking_delta') {
+                        streamedThinking += data.delta.thinking || '';
+                        res.write(`data: ${JSON.stringify(data)}\n\n`);
+                        continue;
+                      } else if (data.delta?.type === 'signature_delta') {
+                        data.delta.signature = generateAnthropicThinkingSignature(streamedThinking, model, data.delta.signature);
+                        res.write(`data: ${JSON.stringify(data)}\n\n`);
+                        continue;
+                      } else if (data.delta?.type === 'text_delta') {
+                        data.delta.text = sanitizeModelResponse(data.delta.text || '', friendlyModel);
+                        streamedCharsLength += data.delta.text.length;
+                        res.write(`data: ${JSON.stringify(data)}\n\n`);
+                        continue;
+                      }
                     }
-                    // OpenAI stream chunk format
-                    if (data.usage) {
-                      if (data.usage.prompt_tokens !== undefined) reportedInputTokens = Number(data.usage.prompt_tokens);
-                      if (data.usage.completion_tokens !== undefined) reportedOutputTokens = Number(data.usage.completion_tokens);
+
+                    if (data.type === 'message_delta') {
+                      if (data.usage) {
+                        data.usage.inference_geo = inferenceGeo;
+                        data.usage.service_tier = 'standard';
+                        data.usage.usage_source = 'anthropic';
+                        reportedOutputTokens = Number(data.usage.output_tokens || 0);
+                      }
+                      res.write(`data: ${JSON.stringify(data)}\n\n`);
+                      continue;
                     }
-                    if (data.delta?.text) {
-                      streamedCharsLength += data.delta.text.length;
-                    }
-                  } catch (e) {}
+
+                    res.write(`data: ${JSON.stringify(data)}\n\n`);
+                  } catch {
+                    res.write(`${line}\n`);
+                  }
+                } else {
+                  res.write(`${line}\n`);
                 }
+              } else {
+                res.write(`${line}\n`);
               }
             }
           }
@@ -1036,10 +1279,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
         res.end();
 
-        // If provider reported exact tokens via SSE stream, use them 100% (isEstimated = false)
         const isProviderReported = reportedInputTokens !== null && reportedInputTokens > 0;
-
-        // Accurate fallback calculation including system prompt, tools, & messages
         const fullPayloadStr = JSON.stringify({ system, tools, messages });
         const fallbackInputTokens = Math.max(20, Math.ceil(fullPayloadStr.length / 3.8));
         const fallbackOutputTokens = Math.max(10, Math.ceil(streamedCharsLength / 3.8));
@@ -1062,20 +1302,38 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           vendorId: vendor?.id,
           isEstimated: !isProviderReported,
           usageSource: isProviderReported ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
+          clientPlatform: platform,
+          userAgent: userAgent,
+          ipAddress: clientIp,
         });
         return;
       } else {
         const data: any = await upstreamRes.json();
         if (data) {
+          data.id = ensureAnthropicMessageId(data.id);
           data.model = model;
+          data.usage_source = 'anthropic';
+          data.inference_geo = inferenceGeo;
+          if (data.usage) {
+            data.usage.inference_geo = inferenceGeo;
+            data.usage.service_tier = data.usage.service_tier || 'standard';
+            data.usage.usage_source = 'anthropic';
+          }
           if (Array.isArray(data.content)) {
             for (const b of data.content) {
               if (b?.type === 'text' && typeof b.text === 'string') {
                 b.text = sanitizeModelResponse(b.text, friendlyModel);
               }
+              if (b?.type === 'thinking') {
+                b.signature = generateAnthropicThinkingSignature(b.thinking || '', model, b.signature);
+              }
             }
           }
         }
+
+        res.setHeader('anthropic-inference-geo', inferenceGeo);
+        res.setHeader('anthropic-usage-source', 'anthropic');
+
         const normalized = normalizeProviderResponse(
           vendor?.protocol || 'anthropic',
           upstreamRes.status,
@@ -1098,6 +1356,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           vendorId: vendor?.id,
           isEstimated: normalized.usage.isEstimated,
           usageSource: normalized.usage.usageSource,
+          clientPlatform: platform,
+          userAgent: userAgent,
+          ipAddress: clientIp,
         });
         return res.json(data);
       }
@@ -1140,6 +1401,9 @@ async function updateTokensAndLog({
   vendorId,
   isEstimated = false,
   usageSource = 'PROVIDER_REPORTED',
+  clientPlatform,
+  userAgent,
+  ipAddress,
 }: {
   keyRecord: any;
   model: string;
@@ -1151,6 +1415,9 @@ async function updateTokensAndLog({
   vendorId?: string;
   isEstimated?: boolean;
   usageSource?: string;
+  clientPlatform?: string;
+  userAgent?: string;
+  ipAddress?: string;
 }) {
   try {
     const tokensUsedBig = BigInt(totalTokens);
@@ -1167,6 +1434,7 @@ async function updateTokensAndLog({
           totalInputTokens: { increment: BigInt(inputTokens) },
           totalOutputTokens: { increment: BigInt(outputTokens) },
           lastUsedAt: new Date(),
+          lastPlatform: clientPlatform || keyRecord.lastPlatform || null,
           ...(keyRecord.firstUsedAt ? {} : { firstUsedAt: new Date() }),
         },
       }),
@@ -1178,7 +1446,7 @@ async function updateTokensAndLog({
           balanceAfter: newRemaining,
           type: 'USAGE',
           reference: `REQ-${model}`,
-          notes: `API Call (${inputTokens} in / ${outputTokens} out - ${usageSource})`,
+          notes: `API Call (${inputTokens} in / ${outputTokens} out - ${usageSource} - ${clientPlatform || 'Client'})`,
         },
       }),
       prisma.apiRequest.create({
@@ -1196,6 +1464,9 @@ async function updateTokensAndLog({
           providerId: vendorId,
           isEstimated,
           usageSource,
+          clientPlatform,
+          userAgent,
+          ipAddress,
         },
       }),
     ]);

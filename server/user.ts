@@ -19,6 +19,7 @@ import { extractClientIp, resolveIpLocation } from './geoService';
 import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
 import { generateProviderApiKey } from './keyService';
 import { buildProviderRequest } from './providerAdapter';
+import { sanitizeErrorMessage } from './gateway';
 
 const router = Router();
 
@@ -1297,44 +1298,82 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       ? model.trim()
       : 'claude-sonnet-5.5';
 
-    const prepared = buildProviderRequest(vendor, masterKey, selectedModel, {
-      messages: [{ role: 'user', content: testPrompt }],
-      max_tokens: 1000,
-      stream: false,
-    });
+    let currentVendor = vendor;
+    let currentMasterKey = masterKey;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000);
-    const startTime = Date.now();
-
-    let upstreamRes: any;
-    try {
-      upstreamRes = await fetch(prepared.url, {
-        method: 'POST',
-        headers: prepared.headers,
-        body: JSON.stringify(prepared.body),
-        signal: controller.signal,
+    const executeProbe = async (targetVendor: any, keyStr: string) => {
+      const prep = buildProviderRequest(targetVendor, keyStr, selectedModel, {
+        messages: [{ role: 'user', content: testPrompt }],
+        max_tokens: 1000,
+        stream: false,
       });
-    } catch (fetchErr: any) {
-      clearTimeout(timeoutId);
-      const latencyMs = Date.now() - startTime;
+
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 45000);
+      try {
+        const response = await fetch(prep.url, {
+          method: 'POST',
+          headers: prep.headers,
+          body: JSON.stringify(prep.body),
+          signal: ctrl.signal,
+        });
+        clearTimeout(tid);
+        return { response, error: null };
+      } catch (err: any) {
+        clearTimeout(tid);
+        return { response: null, error: err };
+      }
+    };
+
+    const startTime = Date.now();
+    let probeResult = await executeProbe(currentVendor, currentMasterKey);
+
+    // Automatic Failover to Primary Vendor (Opus Max) if assigned vendor fails (500/502/503/504 or network error)
+    if (!probeResult.response || (!probeResult.response.ok && [500, 502, 503, 504].includes(probeResult.response.status))) {
+      const primaryVendor = await prisma.vendorProvider.findFirst({
+        where: { isPrimary: true, status: { not: 'disabled' } },
+      });
+
+      if (primaryVendor && primaryVendor.id !== currentVendor.id) {
+        const primaryKey = primaryVendor.masterApiKeyEncrypted ? decryptText(primaryVendor.masterApiKeyEncrypted) : '';
+        if (primaryKey) {
+          console.warn(`[PLAYGROUND FAILOVER] Vendor ${currentVendor.name} failed (${probeResult.response?.status || 'Network Error'}). Failing over to ${primaryVendor.name}...`);
+          const failoverResult = await executeProbe(primaryVendor, primaryKey);
+          if (failoverResult.response && (failoverResult.response.ok || failoverResult.response.status < 500)) {
+            probeResult = failoverResult;
+            currentVendor = primaryVendor;
+            // Automatically heal the key's provider binding in database
+            await prisma.apiKey.update({
+              where: { id: keyRecord.id },
+              data: { providerId: primaryVendor.id },
+            }).catch(() => {});
+          }
+        }
+      }
+    }
+
+    const latencyMs = Date.now() - startTime;
+    const upstreamRes = probeResult.response;
+
+    if (!upstreamRes) {
+      const rawMsg = probeResult.error?.message || 'Network connection failed.';
+      const cleanMsg = sanitizeErrorMessage(rawMsg);
       return res.status(502).json({
         success: false,
-        error: { message: `Gateway network error connecting to vendor (${vendor.name}): ${fetchErr.message}` },
+        error: { message: `Gateway network error connecting to vendor (${currentVendor.name}): ${cleanMsg}` },
         latencyMs,
       });
     }
-    clearTimeout(timeoutId);
-    const latencyMs = Date.now() - startTime;
 
     if (!upstreamRes.ok) {
       const errText = await upstreamRes.text();
       let parsedErr: any;
       try { parsedErr = JSON.parse(errText); } catch {}
-      const errMsg = parsedErr?.error?.message || parsedErr?.message || errText || `HTTP ${upstreamRes.status}`;
+      const rawErrMsg = parsedErr?.error?.message || parsedErr?.message || errText || `HTTP ${upstreamRes.status}`;
+      const safeErrMsg = sanitizeErrorMessage(rawErrMsg);
       return res.status(upstreamRes.status).json({
         success: false,
-        error: { message: `Vendor (${vendor.name}) error: ${errMsg}` },
+        error: { message: `Vendor (${currentVendor.name}) error: ${safeErrMsg}` },
         latencyMs,
       });
     }
@@ -1372,6 +1411,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         totalInputTokens: { increment: BigInt(inputTokens) },
         totalOutputTokens: { increment: BigInt(outputTokens) },
         lastUsedAt: new Date(),
+        lastPlatform: 'Interactive Playground',
         firstUsedAt: keyRecord.firstUsedAt || new Date(),
       },
     });
@@ -1381,14 +1421,18 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         apiKeyId: keyRecord.id,
         userId: req.user!.id,
         model: selectedModel,
-        status: 200,
+        endpoint: '/v1/messages',
+        statusCode: 200,
         inputTokens,
         outputTokens,
         totalTokens,
         latencyMs,
-        providerId: vendor.id,
+        providerId: currentVendor.id,
         streaming: false,
         usageSource: 'PROVIDER_REPORTED',
+        clientPlatform: 'Interactive Playground',
+        userAgent: req.headers['user-agent']?.toString() || 'Browser / Interactive Playground',
+        ipAddress: (req.ip || req.headers['x-forwarded-for']?.toString() || '').split(',')[0].trim() || null,
       },
     });
 
@@ -1405,7 +1449,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       latencyMs,
       tokensRemaining: remainingAfter.toString(),
       purchasedTokens: keyRecord.purchasedTokens.toString(),
-      vendorStatus: vendor.status,
+      vendorStatus: currentVendor.status,
       testedAt: new Date().toISOString(),
     });
   } catch (err: any) {
@@ -1900,6 +1944,8 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           totalInputTokens: k.totalInputTokens.toString(),
           totalOutputTokens: k.totalOutputTokens.toString(),
           expiresAt: k.expiresAt,
+          lastPlatform: k.lastPlatform || null,
+          lastUsedAt: k.lastUsedAt || null,
           createdAt: k.createdAt,
         };
       }),

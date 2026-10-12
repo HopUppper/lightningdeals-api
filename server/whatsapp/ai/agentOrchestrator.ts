@@ -169,7 +169,7 @@ ${examplesSummary || 'Respond helpful and concisely in user language.'}`;
           confidence: agentResponse.confidence,
           language: agentResponse.language,
           toolsUsed: agentResponse.toolsUsed,
-          provider: agentResponse.provider || 'ScaleMax',
+          provider: agentResponse.provider || 'Opus Max',
           model: agentResponse.model || 'claude-3-5-sonnet-20241022',
           latencyMs: agentResponse.latencyMs || 0,
           tokens: agentResponse.tokens || null,

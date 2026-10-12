@@ -515,7 +515,7 @@ export const AdminKeys: React.FC = () => {
                     <td className="py-3.5 px-4 font-mono font-bold text-accent">{k.plan || 'PRO'}</td>
                     <td className="py-3.5 px-4 font-mono">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20">
-                        {k.providerName || 'ScaleMax'}
+                        {k.providerName || 'Opus Max'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-muted">{k.customer}</td>

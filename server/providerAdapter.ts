@@ -380,14 +380,14 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
 }
 
 /**
- * Concrete Adapter: ScaleMax
+ * Concrete Adapter: Anthropic Official / Generic
  */
-export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
+export class AnthropicOfficialProviderAdapter extends BaseProviderAdapter {
   constructor(record: VendorProviderRecord) {
     super({
       ...record,
-      name: 'ScaleMax',
-      slug: 'scalemax',
+      name: record.name || 'Anthropic Official',
+      slug: record.slug || 'anthropic',
     });
   }
 }
@@ -455,14 +455,13 @@ export class ProviderRegistry {
     if (slug.includes('opus')) {
       return new OpusMaxProviderAdapter(record);
     }
-    return new ScaleMaxProviderAdapter(record);
+    return new AnthropicOfficialProviderAdapter(record);
   }
 
   /**
    * Resolves provider adapter for a specific customer API key record
    * Authoritative: keyRecord.providerId
-   * Hint: keyRecord.keyPrefix ('sk_' -> Opus Max, 'ld_' -> ScaleMax)
-   * Fallback: Default provider config
+   * Fallback: Default primary provider config
    */
   static async resolveAdapterForKey(keyRecord: {
     id: string;
@@ -475,13 +474,8 @@ export class ProviderRegistry {
 
     // Fallback 1: Routing hint by key prefix if DB providerId is unset
     if (!targetProviderId) {
-      if (keyRecord.keyPrefix?.toLowerCase().startsWith('sk')) {
-        const opus = Array.from(this.cache.values()).find((a) => a.slug === 'opus_max');
-        if (opus) targetProviderId = opus.id;
-      } else {
-        const scale = Array.from(this.cache.values()).find((a) => a.slug === 'scalemax');
-        if (scale) targetProviderId = scale.id;
-      }
+      const primary = Array.from(this.cache.values()).find((a) => a.isPrimary) || this.cache.values().next().value;
+      if (primary) targetProviderId = primary.id;
     }
 
     // Fallback 2: Gateway Default Provider
@@ -515,11 +509,7 @@ export class ProviderRegistry {
 
     // Environment variable fallback if encrypted key is missing
     if (!decryptedKey || decryptedKey.includes(':') || (!decryptedKey.startsWith('sm_') && !decryptedKey.startsWith('sk-'))) {
-      if (adapter.slug === 'opus_max') {
-        decryptedKey = process.env.OPUSMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-      } else {
-        decryptedKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-      }
+      decryptedKey = process.env.OPUSMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
     }
 
     return { adapter, decryptedMasterKey: decryptedKey };
@@ -555,11 +545,7 @@ export class ProviderRegistry {
     const adapter = this.createAdapterInstance(providerRecord as VendorProviderRecord);
     let decryptedKey = decryptText(providerRecord.masterApiKeyEncrypted);
     if (!decryptedKey || decryptedKey.includes(':') || (!decryptedKey.startsWith('sm_') && !decryptedKey.startsWith('sk-'))) {
-      if (adapter.slug === 'opus_max') {
-        decryptedKey = process.env.OPUSMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-      } else {
-        decryptedKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-      }
+      decryptedKey = process.env.OPUSMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
     }
 
     return { adapter, decryptedMasterKey: decryptedKey };
@@ -779,7 +765,7 @@ export function buildProviderRequest(
       status: 'connected',
       isPrimary: true,
     };
-    return new ScaleMaxProviderAdapter(dummy).buildRequest(decryptedMasterKey, internalModel, payload);
+    return new OpusMaxProviderAdapter(dummy).buildRequest(decryptedMasterKey, internalModel, payload);
   }
   const adapter = ProviderRegistry.createAdapterInstance(vendor);
   return adapter.buildRequest(decryptedMasterKey, internalModel, payload);
@@ -802,6 +788,6 @@ export function normalizeProviderResponse(
     status: 'connected',
     isPrimary: true,
   };
-  const adapter = new ScaleMaxProviderAdapter(dummy);
+  const adapter = new OpusMaxProviderAdapter(dummy);
   return adapter.normalizeResponse(statusCode, responseJson, fallbackInputTokens, fallbackOutputTokens);
 }

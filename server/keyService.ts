@@ -12,7 +12,7 @@ export interface GeneratedKeyMaterial {
 
 /**
  * Retrieves the authoritative default provider ID from SystemSetting.
- * Falls back to active ScaleMax if setting is missing.
+ * Falls back to active Opus Max if setting is missing.
  */
 export async function getDefaultProviderId(): Promise<string> {
   // 1. Prioritize vendor provider explicitly designated as Primary
@@ -90,16 +90,12 @@ export async function resolveProviderForNewKey(explicitProviderId?: string): Pro
 }
 
 /**
- * Determines the customer key prefix based on the provider:
- * - ScaleMax: ld_live_ / ld_trial_
- * - Opus Max: sk_live_ / sk_trial_
+ * Determines the customer key prefix:
+ * - sk_live_ (Production)
+ * - sk_trial_ (Trial)
  */
-export function determineKeyPrefix(provider: { name: string }, isTrial: boolean): string {
-  const norm = provider.name.toLowerCase();
-  if (norm.includes('opus')) {
-    return isTrial ? 'sk_trial_' : 'sk_live_';
-  }
-  return isTrial ? 'ld_trial_' : 'ld_live_';
+export function determineKeyPrefix(_provider: { name: string }, isTrial: boolean): string {
+  return isTrial ? 'sk_trial_' : 'sk_live_';
 }
 
 /**

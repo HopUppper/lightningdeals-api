@@ -1365,7 +1365,7 @@ router.get('/keys', async (req: AuthRequest, res: Response) => {
           status: k.status,
           plan: computedPlan,
           providerId: k.providerId,
-          providerName: k.provider?.name || 'ScaleMax',
+          providerName: k.provider?.name || 'Opus Max',
           purchasedTokens: windowMetrics.purchasedNum.toString(),
           tokensUsed: windowMetrics.windowTokensUsed.toString(),
           tokensRemaining: windowMetrics.remainingNum.toString(),
@@ -3479,7 +3479,7 @@ router.get('/action-center', async (req: AuthRequest, res: Response) => {
           id: 'supplier-crit',
           type: 'critical',
           title: '🔴 Master Supplier Balance Critically Low',
-          subtitle: `ScaleMax available tokens is ${Number(avail / 1000000n)}M (threshold: ${Number(crit / 1000000n)}M). Top-up immediately!`,
+          subtitle: `${primaryVendor.name} available tokens is ${Number(avail / 1000000n)}M (threshold: ${Number(crit / 1000000n)}M). Top-up immediately!`,
           actionUrl: '/admin/providers',
         });
       } else if (avail < warn) {
@@ -3487,7 +3487,7 @@ router.get('/action-center', async (req: AuthRequest, res: Response) => {
           id: 'supplier-warn',
           type: 'warning',
           title: '🟡 Master Supplier Balance Low',
-          subtitle: `ScaleMax available tokens is ${Number(avail / 1000000n)}M (threshold: ${Number(warn / 1000000n)}M). Consider adding tokens.`,
+          subtitle: `${primaryVendor.name} available tokens is ${Number(avail / 1000000n)}M (threshold: ${Number(warn / 1000000n)}M). Consider adding tokens.`,
           actionUrl: '/admin/providers',
         });
       }

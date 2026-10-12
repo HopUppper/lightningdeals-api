@@ -69,7 +69,7 @@ export class AIProvider {
 
   /**
    * Primary entry point for AI Agent reasoning and response generation.
-   * Routes through existing configured VendorProvider (e.g. ScaleMax / Claude)
+   * Routes through existing configured VendorProvider (e.g. Opus Max / Claude)
    * or falls back to direct external APIs or high-precision local semantic NLU.
    */
   static async generateResponse(options: LLMGenerateOptions): Promise<AgentResponse> {
@@ -93,7 +93,7 @@ export class AIProvider {
       }
     } catch {}
 
-    // 1. Primary: Dispatch to configured database VendorProvider (ScaleMax / Claude proxy infrastructure)
+    // 1. Primary: Dispatch to configured database VendorProvider (Opus Max / Claude proxy infrastructure)
     try {
       const vendorResp = await this.callConfiguredVendorProvider(
         messages,
@@ -104,7 +104,7 @@ export class AIProvider {
       );
       if (vendorResp) {
         this.recordCall(
-          vendorResp.provider || 'ScaleMax',
+          vendorResp.provider || 'Opus Max',
           vendorResp.model || activeModel,
           Date.now() - startTime,
           vendorResp.tokens ? { prompt: vendorResp.tokens.prompt, completion: vendorResp.tokens.completion } : undefined
@@ -165,7 +165,7 @@ export class AIProvider {
     return await this.generateLocalSemanticResponse(latestUserMsg, context);
   }
 
-  // --- CONFIGURED VENDOR PROXY PROVIDER CALL (ScaleMax / Claude) ---
+  // --- CONFIGURED VENDOR PROXY PROVIDER CALL (Opus Max / Claude) ---
 
   /**
    * Normalizes and cleans message history to ensure strictly alternating roles for Anthropic API.
@@ -213,7 +213,7 @@ export class AIProvider {
   }
 
   /**
-   * Calls the configured primary VendorProvider (ScaleMax / Claude Sonnet 3.5)
+   * Calls the configured primary VendorProvider (Opus Max / Claude Sonnet 3.5)
    * through the existing provider proxy infrastructure with full multi-turn tool use.
    */
   private static async callConfiguredVendorProvider(
@@ -239,7 +239,7 @@ export class AIProvider {
     // 2. Decrypt Master API Key
     let decryptedKey = decryptText(vendor.masterApiKeyEncrypted);
     if (!decryptedKey || decryptedKey.includes(':') || (!decryptedKey.startsWith('sm_') && !decryptedKey.startsWith('sk-'))) {
-      const envKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
+      const envKey = process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
       if (envKey) decryptedKey = envKey;
     }
 
@@ -249,7 +249,7 @@ export class AIProvider {
     }
 
     // SSRF Check on Vendor Base URL
-    const ssrf = validateVendorBaseUrl(vendor.baseUrl || 'https://api2.scalemax.pro');
+    const ssrf = validateVendorBaseUrl(vendor.baseUrl || 'https://api.opusmax.pro');
     if (!ssrf.safe) {
       console.warn(`[AI PROVIDER] SSRF blocked vendor base URL: ${vendor.baseUrl}`);
       return null;

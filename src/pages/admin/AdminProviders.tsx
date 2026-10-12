@@ -233,7 +233,7 @@ export const AdminProviders: React.FC = () => {
     setShowModal(true);
   };
 
-  const applyPreset = (preset: 'opus_max' | 'scalemax' | 'anthropic_direct' | 'openai_compat') => {
+  const applyPreset = (preset: 'opus_max' | 'anthropic_direct' | 'openai_compat') => {
     if (preset === 'opus_max') {
       setName('Opus Max');
       setProviderType('custom_http');
@@ -245,16 +245,6 @@ export const AdminProviders: React.FC = () => {
       setAvailableTokens('5000000');
       setWarningThresholdTokens('1000000');
       setCriticalThresholdTokens('250000');
-      setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
-    } else if (preset === 'scalemax') {
-      setName('ScaleMax');
-      setProviderType('custom_http');
-      setProtocol('anthropic');
-      setBaseUrl('https://api2.scalemax.pro');
-      setCapacityModel('lifetime_prepaid');
-      setAvailableTokens('500000000');
-      setWarningThresholdTokens('20000000');
-      setCriticalThresholdTokens('5000000');
       setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     } else if (preset === 'anthropic_direct') {
       setName('Anthropic Official');
@@ -535,7 +525,7 @@ export const AdminProviders: React.FC = () => {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
               <h2 className="text-base font-bold text-fg font-sans">Multi-Provider API Gateway Routing</h2>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-violet-500/10 text-violet-600 border border-violet-500/20">
-                SCALEMAX + OPUS MAX
+                OPUS MAX ENTERPRISE
               </span>
             </div>
             <p className="text-xs text-muted">
@@ -548,9 +538,7 @@ export const AdminProviders: React.FC = () => {
               onClick={() => {
                 setShowMigrateModal(true);
                 setMigrateResult(null);
-                const sm = providers.find((p) => p.name.toLowerCase().includes('scale'));
-                const op = providers.find((p) => p.name.toLowerCase().includes('opus'));
-                if (sm) setMigrateSourceId(sm.id);
+                const op = providers.find((p) => p.name.toLowerCase().includes('opus') || p.isPrimary);
                 if (op) setMigrateTargetId(op.id);
               }}
               className="px-3 py-1.5 rounded-control text-xs font-bold border border-indigo-500/30 text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
@@ -1174,9 +1162,6 @@ export const AdminProviders: React.FC = () => {
                 <span className="text-[10px] font-bold text-muted uppercase">Quick Presets:</span>
                 <button type="button" onClick={() => applyPreset('opus_max')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-violet-600/10 text-violet-600 hover:bg-violet-600/20 transition-colors">
                   Opus Max
-                </button>
-                <button type="button" onClick={() => applyPreset('scalemax')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-600/10 text-blue-600 hover:bg-blue-600/20 transition-colors">
-                  ScaleMax
                 </button>
                 <button type="button" onClick={() => applyPreset('anthropic_direct')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-600/10 text-amber-600 hover:bg-amber-600/20 transition-colors">
                   Anthropic Direct

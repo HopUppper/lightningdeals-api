@@ -883,7 +883,7 @@ export const AdminWhatsApp: React.FC = () => {
                     <Cpu className="w-3.5 h-3.5 text-violet-500" /> Active Provider & Model
                   </div>
                   <div className="text-xs font-bold text-fg mt-1.5 truncate">
-                    {botTelemetry?.summary?.activeProvider ?? 'ScaleMax'}
+                    {botTelemetry?.summary?.activeProvider ?? 'Opus Max'}
                   </div>
                   <div className="text-[10px] text-muted truncate mt-0.5">
                     {botTelemetry?.summary?.activeModel ?? 'claude-sonnet-5.5'}

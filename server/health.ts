@@ -59,7 +59,7 @@ healthRouter.get('/public/status', async (req: Request, res: Response) => {
     lastChecked: now,
   });
 
-  // 4. Primary Supplier / Vendor Network (ScaleMax)
+  // 4. Primary Supplier / Vendor Network (Opus Max)
   const suppStart = Date.now();
   try {
     const primaryVendor = await prisma.vendorProvider.findFirst({
@@ -172,7 +172,7 @@ healthRouter.get('/admin/health', authenticateJwt, requireAdmin, async (req: Aut
     const primary = vendors.find((v) => v.isPrimary) || vendors[0];
 
     subsystems.push({
-      name: `Primary Vendor (${primary?.name || 'ScaleMax'})`,
+      name: `Primary Vendor (${primary?.name || 'Opus Max'})`,
       key: 'supplier',
       status: primary?.status === 'connected' ? 'operational' : primary?.status || 'degraded',
       details: {

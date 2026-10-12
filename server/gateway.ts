@@ -412,19 +412,18 @@ export async function resolveProviderForApiKey(keyRecord: any): Promise<{
 }> {
   let providerId = keyRecord?.providerId;
 
-  // Resilient Prefix Routing Hint & Default Provider Fallback
+  // Resilient Primary Provider Fallback
   if (!providerId) {
-    const prefix = (keyRecord?.keyPrefix || '').toLowerCase();
-    if (prefix.startsWith('sk')) {
+    const primary = await prisma.vendorProvider.findFirst({
+      where: { isPrimary: true, status: { not: 'disabled' } },
+    });
+    if (primary) {
+      providerId = primary.id;
+    } else {
       const opus = await prisma.vendorProvider.findFirst({
         where: { OR: [{ slug: 'opus_max' }, { name: { contains: 'Opus', mode: 'insensitive' } }] },
       });
       if (opus) providerId = opus.id;
-    } else {
-      const scale = await prisma.vendorProvider.findFirst({
-        where: { OR: [{ slug: 'scalemax' }, { name: { contains: 'ScaleMax', mode: 'insensitive' } }] },
-      });
-      if (scale) providerId = scale.id;
     }
 
     if (!providerId) {
@@ -900,16 +899,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   let decryptedMasterKey = vendor ? decryptText(vendor.masterApiKeyEncrypted) : '';
   // If decrypted key is invalid (e.g. corrupt iv:ciphertext string or empty), fallback to environment variables
   if (!decryptedMasterKey || decryptedMasterKey.includes(':') || (!decryptedMasterKey.startsWith('sm_') && !decryptedMasterKey.startsWith('sk-'))) {
-    if (vendor?.name === 'ScaleMax') {
-      const envKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
-      if (envKey) {
-        decryptedMasterKey = envKey;
-      }
-    } else if (vendor?.name === 'Opus Max') {
-      const envKey = process.env.OPUS_MAX_MASTER_API_KEY || process.env.OPUSMAX_MASTER_API_KEY || '';
-      if (envKey) {
-        decryptedMasterKey = envKey;
-      }
+    const envKey = process.env.OPUS_MAX_MASTER_API_KEY || process.env.OPUSMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.SUPPLIER_MASTER_API_KEY || '';
+    if (envKey) {
+      decryptedMasterKey = envKey;
     }
   }
 

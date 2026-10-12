@@ -640,7 +640,7 @@ adminWhatsAppRouter.get('/bot-telemetry', async (req: AuthRequest, res: Response
       const latencyMs = meta.latencyMs || 0;
       const tools = Array.isArray(meta.toolsUsed) ? meta.toolsUsed : [];
       const model = meta.model || runtimeTelemetry.activeModel || 'claude-3-5-sonnet-20241022';
-      const provider = meta.provider || runtimeTelemetry.activeProvider || 'ScaleMax';
+      const provider = meta.provider || runtimeTelemetry.activeProvider || 'Opus Max';
 
       totalPromptTokens += promptTokens;
       totalCompletionTokens += completionTokens;

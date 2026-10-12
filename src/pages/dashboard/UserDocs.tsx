@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Copy, Check, Terminal, Code2, Cpu, Zap, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
+import { BookOpen, Copy, Check, Terminal, Code2, Cpu, Zap, Sparkles, CheckCircle2, ArrowRight, Sliders } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const UserDocs: React.FC = () => {
@@ -13,6 +13,10 @@ export const UserDocs: React.FC = () => {
 
   const npxSnippet = `npx lightningdeals`;
   const npxWithKeySnippet = `npx lightningdeals --key ld_live_your_api_key_here`;
+  const modelPickerSnippet = `npx lightningdeals model`;
+  const directModelSnippet = `npx lightningdeals model claude-opus-5.5`;
+  const claudeFlagSnippet = `claude --model claude-opus-5.5`;
+  const listModelsSnippet = `npx lightningdeals models`;
 
   const claudeCodeSnippet = `export ANTHROPIC_BASE_URL="https://lightningapi.pro"
 export ANTHROPIC_AUTH_TOKEN="ld_live_your_api_key_here"
@@ -141,6 +145,90 @@ console.log(response.content[0].text);`;
               <span>{copiedId === 'npx_key' ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Model Switching Control Card */}
+      <div className="rounded-3xl border border-border/80 bg-white p-6 sm:p-7 shadow-playful space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold">
+              <Sliders className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-extrabold text-fg">
+                  Switch AI Models Anytime (10 Models Authorized)
+                </h3>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                  Instant
+                </span>
+              </div>
+              <p className="text-xs text-muted">
+                Your key has full access to Opus 5.5, Sonnet 5.5, Extended Thinking, and Haiku. Switch anytime without re-authenticating.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => copyCode(modelPickerSnippet, 'model_picker')}
+            className="ui-button-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold cursor-pointer"
+          >
+            {copiedId === 'model_picker' ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+            <span>{copiedId === 'model_picker' ? 'Copied' : 'Copy Interactive CLI'}</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-2xl bg-[#1E1B2E] text-white p-4 font-mono text-xs flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] text-violet-300 uppercase font-bold tracking-wider mb-2">
+                1. Interactive Selector
+              </p>
+              <pre className="text-emerald-300 font-bold">{modelPickerSnippet}</pre>
+              <p className="text-[11px] text-slate-400 mt-2 font-sans font-normal leading-relaxed">
+                Opens full menu (1–10). Updates Claude Code &amp; system config in 1 keystroke.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-[#1E1B2E] text-white p-4 font-mono text-xs flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] text-violet-300 uppercase font-bold tracking-wider mb-2">
+                2. Direct One-Liner
+              </p>
+              <pre className="text-amber-300 font-bold truncate">{directModelSnippet}</pre>
+              <p className="text-[11px] text-slate-400 mt-2 font-sans font-normal leading-relaxed">
+                Switch straight to Opus 5.5, Sonnet 5.5, Fable 5, or Extended Thinking.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-[#1E1B2E] text-white p-4 font-mono text-xs flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] text-violet-300 uppercase font-bold tracking-wider mb-2">
+                3. Claude Session Flag
+              </p>
+              <pre className="text-cyan-300 font-bold">{claudeFlagSnippet}</pre>
+              <p className="text-[11px] text-slate-400 mt-2 font-sans font-normal leading-relaxed">
+                Launch Claude Code directly into your target model for this session.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-violet-50/70 border border-violet-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-violet-900 font-medium">
+            💡 <strong>Claude Code /model Command:</strong> Selecting Slot 5 runs your custom model. To verify authorized models &amp; rolling quota balance, run <code className="font-mono font-bold text-violet-800 bg-white px-1.5 py-0.5 rounded border border-violet-200">npx lightningdeals models</code>.
+          </span>
+          <Link to="/docs#models" className="font-bold text-violet-700 hover:text-violet-900 flex items-center gap-1">
+            <span>View 10-Model Catalog</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
       </div>
 

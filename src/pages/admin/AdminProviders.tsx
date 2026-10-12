@@ -13,6 +13,12 @@ interface VendorProviderItem {
   status: string;
   isPrimary: boolean;
   isDefault?: boolean;
+  capacityModel?: string;
+  windowHours?: number;
+  windowAllowance?: string;
+  windowTokensUsed?: number;
+  nextResetAt?: string | null;
+  windowResetSeconds?: number | null;
   availableTokens: string;
   purchasedTokens: string;
   consumedTokens: string;
@@ -45,9 +51,12 @@ export const AdminProviders: React.FC = () => {
   const [baseUrl, setBaseUrl] = useState('https://api.anthropic.com');
   const [isPrimary, setIsPrimary] = useState(false);
   const [status, setStatus] = useState('connected');
-  const [warningThresholdTokens, setWarningThresholdTokens] = useState('20000000');
-  const [criticalThresholdTokens, setCriticalThresholdTokens] = useState('5000000');
-  const [availableTokens, setAvailableTokens] = useState('100000000');
+  const [capacityModel, setCapacityModel] = useState<'lifetime_prepaid' | 'rolling_window'>('rolling_window');
+  const [windowHours, setWindowHours] = useState('5');
+  const [windowAllowance, setWindowAllowance] = useState('5000000');
+  const [warningThresholdTokens, setWarningThresholdTokens] = useState('1000000');
+  const [criticalThresholdTokens, setCriticalThresholdTokens] = useState('250000');
+  const [availableTokens, setAvailableTokens] = useState('5000000');
   const [modelMappingsJson, setModelMappingsJson] = useState('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
   const [headersJson, setHeadersJson] = useState('');
   const [notes, setNotes] = useState('');
@@ -208,12 +217,15 @@ export const AdminProviders: React.FC = () => {
     setProviderType('custom_http');
     setProtocol('anthropic');
     setMasterApiKey('');
-    setBaseUrl('');
+    setBaseUrl('https://api.opusmax.pro');
     setIsPrimary(false);
     setStatus('connected');
-    setWarningThresholdTokens('20000000');
-    setCriticalThresholdTokens('5000000');
-    setAvailableTokens('100000000');
+    setCapacityModel('rolling_window');
+    setWindowHours('5');
+    setWindowAllowance('5000000');
+    setWarningThresholdTokens('1000000');
+    setCriticalThresholdTokens('250000');
+    setAvailableTokens('5000000');
     setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     setHeadersJson('');
     setNotes('');
@@ -226,23 +238,38 @@ export const AdminProviders: React.FC = () => {
       setName('Opus Max');
       setProviderType('custom_http');
       setProtocol('anthropic');
+      setBaseUrl('https://api.opusmax.pro');
+      setCapacityModel('rolling_window');
+      setWindowHours('5');
+      setWindowAllowance('5000000');
+      setAvailableTokens('5000000');
+      setWarningThresholdTokens('1000000');
+      setCriticalThresholdTokens('250000');
       setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     } else if (preset === 'scalemax') {
       setName('ScaleMax');
       setProviderType('custom_http');
       setProtocol('anthropic');
       setBaseUrl('https://api2.scalemax.pro');
+      setCapacityModel('lifetime_prepaid');
+      setAvailableTokens('500000000');
+      setWarningThresholdTokens('20000000');
+      setCriticalThresholdTokens('5000000');
       setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     } else if (preset === 'anthropic_direct') {
       setName('Anthropic Official');
       setProviderType('anthropic');
       setProtocol('anthropic');
       setBaseUrl('https://api.anthropic.com');
+      setCapacityModel('lifetime_prepaid');
+      setWarningThresholdTokens('20000000');
+      setCriticalThresholdTokens('5000000');
       setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     } else if (preset === 'openai_compat') {
       setName('OpenAI Gateway');
       setProviderType('openai');
       setProtocol('openai-compatible');
+      setCapacityModel('lifetime_prepaid');
       setModelMappingsJson('{\n  "claude-sonnet-5": "gpt-4o",\n  "claude-opus-5": "o3-mini"\n}');
     }
   };
@@ -256,9 +283,12 @@ export const AdminProviders: React.FC = () => {
     setBaseUrl(p.baseUrl);
     setIsPrimary(p.isPrimary);
     setStatus(p.status || 'connected');
-    setWarningThresholdTokens(p.warningThresholdTokens || '20000000');
-    setCriticalThresholdTokens(p.criticalThresholdTokens || '5000000');
-    setAvailableTokens(p.availableTokens || '100000000');
+    setCapacityModel((p.capacityModel as any) || (Number(p.windowAllowance || 0) > 0 ? 'rolling_window' : 'lifetime_prepaid'));
+    setWindowHours(String(p.windowHours || 5));
+    setWindowAllowance(p.windowAllowance || '5000000');
+    setWarningThresholdTokens(p.warningThresholdTokens || '1000000');
+    setCriticalThresholdTokens(p.criticalThresholdTokens || '250000');
+    setAvailableTokens(p.availableTokens || '5000000');
     setModelMappingsJson(p.modelMappingsJson || '');
     setHeadersJson(p.headersJson || '');
     setNotes(p.notes || '');
@@ -300,9 +330,13 @@ export const AdminProviders: React.FC = () => {
           baseUrl: baseUrl.trim(),
           isPrimary,
           status,
+          capacityModel,
+          windowHours: Number(windowHours || 5),
+          windowAllowance: capacityModel === 'rolling_window' ? windowAllowance : undefined,
           warningThresholdTokens,
           criticalThresholdTokens,
-          availableTokens,
+          availableTokens: capacityModel === 'rolling_window' ? windowAllowance : availableTokens,
+          purchasedTokens: capacityModel === 'rolling_window' ? windowAllowance : undefined,
           modelMappingsJson: modelMappingsJson.trim() || undefined,
           headersJson: headersJson.trim() || undefined,
           notes: notes.trim() || undefined,
@@ -657,11 +691,26 @@ export const AdminProviders: React.FC = () => {
         {/* Master Balance KPIs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
           <div className="p-4 rounded-control bg-bg border border-border space-y-1">
-            <p className="text-[11px] text-muted uppercase font-bold">Available Master Tokens</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted uppercase font-bold">
+                {primaryProvider?.capacityModel === 'rolling_window' || balanceMetrics?.capacityModel === 'rolling_window'
+                  ? 'Available 5h Rolling Capacity'
+                  : 'Available Master Tokens'}
+              </p>
+              {(primaryProvider?.capacityModel === 'rolling_window' || balanceMetrics?.capacityModel === 'rolling_window') && (
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                  {balanceMetrics?.windowHours || primaryProvider?.windowHours || 5}H ROLLING
+                </span>
+              )}
+            </div>
             <p className="text-2xl font-bold text-emerald-600">
               {formatTokens(balanceMetrics?.availableTokens ?? primaryProvider?.availableTokens ?? 0)}
             </p>
-            <p className="text-[10px] text-muted">Prepaid capacity available for customer completions</p>
+            <p className="text-[10px] text-muted">
+              {primaryProvider?.capacityModel === 'rolling_window' || balanceMetrics?.capacityModel === 'rolling_window'
+                ? `Allowance: ${formatTokens(balanceMetrics?.windowAllowance || primaryProvider?.windowAllowance || 5000000)} / ${balanceMetrics?.windowHours || primaryProvider?.windowHours || 5}h (used in window: ${formatTokens(balanceMetrics?.windowTokensUsed || 0)})`
+                : 'Prepaid capacity available for customer completions'}
+            </p>
           </div>
 
           <div className="p-4 rounded-control bg-bg border border-border space-y-1">
@@ -868,7 +917,14 @@ export const AdminProviders: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] text-muted font-mono mt-0.5">{p.displayMasterKey}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] text-muted font-mono">{p.displayMasterKey}</span>
+                              {p.capacityModel === 'rolling_window' && (
+                                <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20 font-mono">
+                                  {p.windowHours || 5}H ROLLING ({formatTokens(p.windowAllowance || 5000000)})
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3.5 px-3">
                             {getStatusBadge(p.status, Boolean(p.displayMasterKey && p.displayMasterKey !== 'Not Set'), p.availableTokens)}
@@ -1147,16 +1203,67 @@ export const AdminProviders: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-fg mb-1 uppercase">Initial Prepaid Tokens</label>
+                  <label className="block font-bold text-fg mb-1 uppercase">Capacity Model</label>
+                  <select
+                    value={capacityModel}
+                    onChange={(e) => setCapacityModel(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-bold"
+                  >
+                    <option value="rolling_window">5h Rolling Window (Auto-Renew)</option>
+                    <option value="lifetime_prepaid">Lifetime Prepaid (Static Pool)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">
+                    {capacityModel === 'rolling_window' ? 'Window Allowance (Tokens)' : 'Prepaid Capacity (Tokens)'}
+                  </label>
                   <input
                     type="number"
                     min="0"
-                    value={availableTokens}
-                    onChange={(e) => setAvailableTokens(e.target.value)}
-                    placeholder="100000000"
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                    value={capacityModel === 'rolling_window' ? windowAllowance : availableTokens}
+                    onChange={(e) => {
+                      if (capacityModel === 'rolling_window') {
+                        setWindowAllowance(e.target.value);
+                        setAvailableTokens(e.target.value);
+                      } else {
+                        setAvailableTokens(e.target.value);
+                      }
+                    }}
+                    placeholder={capacityModel === 'rolling_window' ? '5000000' : '100000000'}
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono font-bold"
                   />
+                  <p className="text-[10px] text-muted mt-0.5 font-sans">
+                    Formatted: <span className="text-emerald-600 font-bold font-mono">{formatTokens(capacityModel === 'rolling_window' ? windowAllowance : availableTokens)} tokens</span>
+                  </p>
                 </div>
+
+                {capacityModel === 'rolling_window' ? (
+                  <div>
+                    <label className="block font-bold text-fg mb-1 uppercase">Rolling Window Period</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="168"
+                        value={windowHours}
+                        onChange={(e) => setWindowHours(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono font-bold"
+                      />
+                      <span className="text-xs text-muted font-bold">Hours</span>
+                    </div>
+                    <p className="text-[10px] text-muted mt-0.5 font-sans">Tokens replenish continuously after window</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block font-bold text-fg mb-1 uppercase">Pool Management</label>
+                    <div className="px-3 py-2 text-xs text-muted bg-muted/10 border border-border rounded-control">
+                      Requires manual top-ups
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

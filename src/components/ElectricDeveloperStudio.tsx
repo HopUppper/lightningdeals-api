@@ -35,8 +35,16 @@ export const ElectricDeveloperStudio: React.FC = () => {
       name: 'Claude Code CLI',
       targetFile: '~/.bashrc or terminal',
       badge: 'Automated Setup',
-      code: `# Option A: Automated CLI Assistant Setup\nnpx lightningdeals\n\n# Option B: Standard Shell Environment Variables\nexport ANTHROPIC_BASE_URL="https://lightningapi.pro"\nexport ANTHROPIC_API_KEY="ld_live_your_key_here"\n\n# Run Claude Code normally — all requests route seamlessly through LightningAPI\nclaude`,
-      explanatoryNote: 'Automatically configures your environment in under 60 seconds with zero manual configuration.',
+      code: `# Option A: Automated CLI Assistant Setup (Auto-detects authentic models)\nnpx lightningdeals\n\n# Option B: Switch active model anytime across all tools\nnpx lightningdeals model\n# Or switch directly:\nnpx lightningdeals model claude-sonnet-5.5\n\n# Option C: Standard Shell Environment Variables\nexport ANTHROPIC_BASE_URL="https://lightningapi.pro"\nexport ANTHROPIC_API_KEY="ld_live_your_key_here"\n\n# Run Claude Code — all requests route seamlessly through LightningAPI\nclaude`,
+      explanatoryNote: 'Automatically configures your environment in under 60 seconds with zero manual configuration. Switch models anytime via "npx lightningdeals model".',
+    },
+    modelSwitch: {
+      id: 'modelSwitch',
+      name: 'Switch Models CLI',
+      targetFile: 'Interactive or Direct Command',
+      badge: 'All 10 Models Supported',
+      code: `# 1. Interactive Model Picker (Browse & switch between all 10 authorized models)\nnpx lightningdeals model\n\n# 2. Instant One-Line Model Switch (Updates Claude Code, Cursor & all tools)\nnpx lightningdeals model claude-sonnet-5.5\nnpx lightningdeals model claude-opus-5.5\nnpx lightningdeals model claude-fable-5\nnpx lightningdeals model claude-opus-5-thinking\n\n# 3. Direct Session Flag in Claude Code\nclaude --model claude-sonnet-5.5\n\n# 4. View all live models authorized on your key\nnpx lightningdeals models`,
+      explanatoryNote: 'Switch between any of the 10 authorized models on your key instantly. Updates Claude Code, Cursor, and IDE configs in 1 click.',
     },
     cursor: {
       id: 'cursor',

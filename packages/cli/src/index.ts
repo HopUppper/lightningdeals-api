@@ -2,8 +2,46 @@
 import readline from 'readline';
 import os from 'os';
 
-import { validateApiKey, fetchLiveModels, getGatewayUrl } from './api.js';
+import { validateApiKey, fetchLiveModels, getGatewayUrl, KeyStatusResult, KeyModel } from './api.js';
 import { getClientTargets, configureClient, removeClientConfiguration, getFriendlyModelName, ClientTarget } from './clients.js';
+
+async function resolveKeyModels(apiKey: string, status: KeyStatusResult): Promise<KeyModel[]> {
+  if (status.availableModels && status.availableModels.length > 1) {
+    return status.availableModels;
+  }
+
+  try {
+    const liveModels = await fetchLiveModels(apiKey);
+    if (liveModels && liveModels.length > 0) {
+      return liveModels.map((m: any) => ({
+        id: m.id || m.modelId,
+        name: m.display_name || m.displayName || m.name || getFriendlyModelName(m.id || m.modelId),
+        description: m.description,
+        contextWindow: m.context_window || m.contextWindow,
+      }));
+    }
+  } catch (e) {}
+
+  const defaultCatalog: KeyModel[] = [
+    { id: 'claude-opus-5.5', name: 'Claude Opus 5.5', contextWindow: 1000000 },
+    { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5', contextWindow: 1000000 },
+    { id: 'claude-opus-5', name: 'Claude Opus 5', contextWindow: 1000000 },
+    { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', contextWindow: 1000000 },
+    { id: 'claude-fable-5', name: 'Claude Fable 5', contextWindow: 1000000 },
+    { id: 'claude-fable-5-flash', name: 'Claude Fable 5 Flash', contextWindow: 500000 },
+    { id: 'claude-opus-5-thinking', name: 'Claude Opus 5 Extended Thinking', contextWindow: 1000000 },
+    { id: 'claude-sonnet-5-thinking', name: 'Claude Sonnet 5 Extended Thinking', contextWindow: 1000000 },
+    { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5', contextWindow: 500000 },
+    { id: 'claude-haiku-5', name: 'Claude Haiku 5', contextWindow: 500000 },
+  ];
+
+  if (status.allowedModels && status.allowedModels !== 'all' && status.allowedModels !== '*') {
+    const allowed = status.allowedModels.split(',').map(s => s.trim().toLowerCase());
+    return defaultCatalog.filter(m => allowed.some(a => a === m.id.toLowerCase() || m.id.toLowerCase().includes(a)));
+  }
+
+  return defaultCatalog;
+}
 
 // ANSI Color Tokens for Rich Terminal Styling
 const c = {
@@ -125,10 +163,14 @@ async function runDoctor() {
   const status = await validateApiKey(apiKey);
 
   if (status.valid) {
+    status.availableModels = await resolveKeyModels(apiKey, status);
     console.log(`${c.brightGreen}  ✓ Gateway Status${c.reset}      : ${c.green}Operational (Sub-50ms Routing)${c.reset}`);
     console.log(`${c.brightGreen}  ✓ Key Verification${c.reset}    : ${c.brightGreen}Valid (${status.name || 'Prepaid Key'})${c.reset}`);
     console.log(`${c.brightGreen}  ✓ 5h Rolling Window${c.reset}   : ${c.amber}${formatTokenCount(status.tokensRemaining)} Tokens Available${c.reset}`);
     console.log(`${c.brightGreen}  ✓ Account Status${c.reset}      : ${c.green}${status.status?.toUpperCase()}${c.reset}`);
+    if (status.availableModels && status.availableModels.length > 0) {
+      console.log(`${c.brightGreen}  ✓ Authorized Models${c.reset}   : ${c.white}${status.availableModels.length} models accessible (Default: ${status.defaultModel || 'claude-opus-5.5'})${c.reset}`);
+    }
   } else {
     console.log(`${c.red}  ✕ API Key Error${c.reset}       : ${status.error}`);
   }
@@ -153,22 +195,46 @@ async function runModels() {
   console.log(BANNER);
   let apiKey = getApiKeyFromArgsOrEnv();
   if (!apiKey) {
+    const clients = getClientTargets();
+    const existing = clients.find(c => c.existingApiKey);
+    if (existing?.existingApiKey) {
+      apiKey = existing.existingApiKey;
+    }
+  }
+  if (!apiKey) {
     apiKey = await askQuestion(`${c.bold}Enter LightningDeals API Key: ${c.reset}`);
   }
   if (!apiKey) return;
 
-  console.log(`${c.cyan}Fetching live model catalog...${c.reset}\n`);
-  const models = await fetchLiveModels(apiKey);
+  console.log(`${c.cyan}Fetching authorized live model catalog...${c.reset}\n`);
+  let models = await fetchLiveModels(apiKey);
+  if (!models || models.length === 0) {
+    const status = await validateApiKey(apiKey);
+    if (status.valid && status.availableModels) {
+      models = status.availableModels.map(m => ({
+        id: m.id,
+        display_name: m.name,
+        description: m.description,
+        context_window: m.contextWindow,
+      }));
+    }
+  }
+
   if (models.length === 0) {
     console.log(`${c.red}No models returned. Please check API key status.${c.reset}`);
     return;
   }
 
-  console.log(`${c.bold}Available LLM Models on LightningDeals Gateway:${c.reset}\n`);
+  console.log(`${c.bold}Authorized LLM Models on LightningDeals Gateway (${models.length} available):${c.reset}\n`);
   models.forEach((m: any) => {
-    console.log(`  ${c.brightGreen}• ${m.id || m.name}${c.reset} ${c.gray}(Context: ${m.context_window ? (m.context_window / 1000) + 'K' : '1M'})${c.reset}`);
+    const name = m.display_name || m.name || getFriendlyModelName(m.id);
+    const ctx = m.context_window ? ` (Context: ${Math.round(m.context_window / 1000)}k tokens)` : '';
+    console.log(`  ${c.brightGreen}•${c.reset} ${c.cyan}${name}${c.reset} ${c.gray}(${m.id})${c.reset}${c.dim}${ctx}${c.reset}`);
+    if (m.description) {
+      console.log(`    ${c.gray}${m.description}${c.reset}`);
+    }
   });
-  console.log('\n');
+  console.log(`\n${c.gray}Tip: Switch models anytime via ${c.amber}/model${c.gray} in Claude Code or run ${c.amber}claude --model <model-id>${c.reset}\n`);
 }
 
 async function runStatus() {
@@ -198,6 +264,9 @@ async function runStatus() {
     console.log(`  ${c.cyan}Tokens Remaining${c.reset}  : ${c.amber}${c.bold}${formatTokenCount(result.tokensRemaining)} Tokens (5h Window)${c.reset}`);
     console.log(`  ${c.cyan}Account Status${c.reset}    : ${c.green}${result.status?.toUpperCase()}${c.reset}`);
     console.log(`  ${c.cyan}Expiry${c.reset}            : ${c.white}${result.expiresAt ? new Date(result.expiresAt).toLocaleDateString() : 'Permanent (No Reset)'}${c.reset}`);
+    if (result.availableModels && result.availableModels.length > 0) {
+      console.log(`  ${c.cyan}Authorized Models${c.reset} : ${c.brightGreen}${result.availableModels.length} models accessible (Default: ${result.defaultModel || 'claude-opus-5.5'})${c.reset}`);
+    }
     console.log(`${c.gray}└────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
   } else {
     console.log(`${c.red}✕ Error: ${result.error}${c.reset}\n`);
@@ -285,7 +354,19 @@ async function runSetup() {
   }
 
   console.log(`${c.brightGreen}✔ API Key Verified! (${status.name || 'Active Package'})${c.reset}`);
-  console.log(`  ${c.amber}Available Allowance${c.reset}: ${c.white}${formatTokenCount(status.tokensRemaining)} Tokens (5h Window)${c.reset}\n`);
+  console.log(`  ${c.amber}Available Allowance${c.reset}: ${c.white}${formatTokenCount(status.tokensRemaining)} Tokens (5h Window)${c.reset}`);
+
+  // Display authentic models detected from key without hardcoding or inventing
+  const availableModels = await resolveKeyModels(apiKey, status);
+
+  console.log(`\n${c.bold}Authorized AI Models for this Key (${availableModels.length} detected):${c.reset}`);
+  availableModels.forEach((m) => {
+    const isDefault = m.id === status.defaultModel || (!status.defaultModel && m.id === availableModels[0]?.id);
+    const defaultTag = isDefault ? ` ${c.brightAmber}[Default Active]${c.reset}` : '';
+    const ctx = m.contextWindow ? ` ${c.gray}(${Math.round(m.contextWindow / 1000)}k ctx)${c.reset}` : '';
+    console.log(`  ${c.brightGreen}•${c.reset} ${c.cyan}${m.name}${c.reset} ${c.gray}(${m.id})${c.reset}${ctx}${defaultTag}`);
+  });
+  console.log('');
 
   console.log(`${c.bold}Detected Developer Clients:${c.reset}`);
   clients.forEach((cItem) => {
@@ -323,32 +404,14 @@ async function runSetup() {
     }
   }
 
+  // Automatically detect and select the authorized model without asking user to choose before chat
   let selectedModel = getModelFromArgsOrEnv();
-
   if (!selectedModel) {
-    console.log(`\n${c.bold}Default AI Model Selection:${c.reset}`);
-    console.log(`  ${c.cyan}[1]${c.reset} ${c.brightGreen}Claude Opus 5${c.reset} ${c.gray}(claude-opus-5)${c.reset}   - Flagship reasoning, architecture & coding ${c.brightAmber}[Recommended]${c.reset}`);
-    console.log(`  ${c.cyan}[2]${c.reset} ${c.brightCyan}Claude Fable 5${c.reset} ${c.gray}(claude-fable-5)${c.reset}  - Frontier ultra-fast coding & agent workflows`);
-    console.log(`  ${c.cyan}[3]${c.reset} ${c.white}Claude Sonnet 5${c.reset} ${c.gray}(claude-sonnet-5)${c.reset} - High-speed daily coding & balanced intelligence`);
-    console.log(`  ${c.cyan}[4]${c.reset} ${c.yellow}Claude Haiku 4.5${c.reset} ${c.gray}(claude-haiku-4-5)${c.reset} - Lightweight high-speed assistance\n`);
-
-    const modelChoice = await askQuestion(`${c.bold}Select AI model to activate (1-4) [default: 1]: ${c.reset}`);
-
-    if (modelChoice === '2' || modelChoice.toLowerCase().includes('fable')) {
-      selectedModel = 'claude-fable-5';
-    } else if (modelChoice === '3' || modelChoice.toLowerCase().includes('sonnet')) {
-      selectedModel = 'claude-sonnet-5';
-    } else if (modelChoice === '4' || modelChoice.toLowerCase().includes('haiku')) {
-      selectedModel = 'claude-haiku-4-5';
-    } else if (modelChoice && !['1'].includes(modelChoice)) {
-      selectedModel = modelChoice.trim();
-    } else {
-      selectedModel = 'claude-opus-5';
-    }
+    selectedModel = status.defaultModel || (availableModels[0] ? availableModels[0].id : 'claude-opus-5.5');
   }
 
   const friendlyName = getFriendlyModelName(selectedModel);
-  console.log(`\n${c.brightGreen}✔ Model Selected: ${c.bold}${friendlyName}${c.reset} ${c.gray}(${selectedModel})${c.reset}`);
+  console.log(`\n${c.brightGreen}✔ Model Activated: ${c.bold}${friendlyName}${c.reset} ${c.gray}(${selectedModel})${c.reset}`);
 
   console.log(`\n${c.cyan}Configuring selected tools...${c.reset}`);
   const gatewayUrl = getGatewayUrl();
@@ -365,8 +428,67 @@ async function runSetup() {
   console.log(`  ${c.brightGreen}🎉 LightningDeals configuration applied successfully!${c.reset}`);
   console.log(`  ${c.cyan}Active Model${c.reset}   : ${c.brightGreen}${friendlyName}${c.reset} ${c.gray}(${selectedModel})${c.reset}`);
   console.log(`  ${c.cyan}Gateway Engine${c.reset} : ${c.amber}LightningDeals AI Gateway (Sub-50ms Routing)${c.reset}`);
+  console.log(`  ${c.cyan}Model Switching${c.reset}: ${c.white}Type ${c.amber}/model${c.white} in Claude Code or run ${c.amber}npx lightningdeals model <name>${c.reset}`);
   console.log(`  ${c.white}You can now run ${c.amber}claude${c.white} or open your IDE to start coding immediately.${c.reset}`);
   console.log(`${c.gray}└────────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
+}
+
+async function runSetModel(modelArg?: string) {
+  console.log(BANNER);
+  let apiKey = getApiKeyFromArgsOrEnv();
+  if (!apiKey) {
+    const clients = getClientTargets();
+    const existing = clients.find(c => c.existingApiKey);
+    if (existing?.existingApiKey) {
+      apiKey = existing.existingApiKey;
+    }
+  }
+
+  if (!apiKey) {
+    apiKey = await askQuestion(`${c.bold}Enter LightningDeals API Key: ${c.reset}`);
+  }
+  if (!apiKey) return;
+
+  const status = await validateApiKey(apiKey);
+  if (!status.valid) {
+    console.log(`${c.red}✕ Key Validation Failed: ${status.error}${c.reset}`);
+    return;
+  }
+
+  const availableModels = await resolveKeyModels(apiKey, status);
+
+  let targetModel = modelArg?.trim();
+  if (!targetModel) {
+    console.log(`${c.bold}Available Models for your Key:${c.reset}`);
+    availableModels.forEach((m, idx) => {
+      console.log(`  ${c.cyan}[${idx + 1}]${c.reset} ${c.brightGreen}${m.name}${c.reset} ${c.gray}(${m.id})${c.reset}`);
+    });
+    const choice = await askQuestion(`\n${c.bold}Select model to switch to (1-${availableModels.length} or model id): ${c.reset}`);
+    const num = parseInt(choice, 10);
+    if (!isNaN(num) && num >= 1 && num <= availableModels.length) {
+      targetModel = availableModels[num - 1].id;
+    } else if (choice) {
+      targetModel = choice.trim();
+    }
+  }
+
+  if (!targetModel) {
+    console.log(`${c.gray}Exiting without changes.${c.reset}`);
+    return;
+  }
+
+  const friendlyName = getFriendlyModelName(targetModel);
+  const clients = getClientTargets().filter(c => c.installed || c.configured);
+  const gatewayUrl = getGatewayUrl();
+
+  console.log(`\n${c.cyan}Switching active model to ${c.brightGreen}${friendlyName}${c.cyan} (${targetModel})...${c.reset}`);
+  for (const client of clients) {
+    const res = configureClient(client, apiKey, gatewayUrl, targetModel);
+    if (res.success) {
+      console.log(`  ${c.brightGreen}✓ Updated ${client.name}${c.reset}`);
+    }
+  }
+  console.log(`\n${c.brightGreen}🎉 Successfully switched active model to ${friendlyName}!${c.reset}\n`);
 }
 
 function runHelp() {
@@ -374,14 +496,15 @@ function runHelp() {
   console.log(`${c.bold}Usage:${c.reset} npx lightningdeals [command] [options]\n`);
   console.log(`${c.bold}Commands:${c.reset}`);
   console.log(`  ${c.cyan}setup${c.reset}                Interactive setup to connect Claude Code and developer tools (Default)`);
+  console.log(`  ${c.cyan}model [id]${c.reset}           View or switch active default AI model`);
+  console.log(`  ${c.cyan}models${c.reset}               List all authorized LLM models for your API key`);
   console.log(`  ${c.cyan}doctor${c.reset}               Run connectivity, key validation, and tool configuration diagnostics`);
   console.log(`  ${c.cyan}status${c.reset}               Display active API key status, plan details, and 5h rolling window usage`);
-  console.log(`  ${c.cyan}models${c.reset}               List available LLM models on the LightningDeals API Gateway`);
   console.log(`  ${c.cyan}remove, reset${c.reset}        Safely remove LightningDeals configuration and restore tool backups`);
   console.log(`  ${c.cyan}--help, -h${c.reset}           Display CLI usage and help manual\n`);
   console.log(`${c.bold}Options:${c.reset}`);
   console.log(`  ${c.amber}--key, -k <key>${c.reset}      Specify LightningDeals API Key directly (e.g. ld_live_...)`);
-  console.log(`  ${c.amber}--model, -m <model>${c.reset}  Select default AI model (e.g. claude-opus-5, claude-fable-5)`);
+  console.log(`  ${c.amber}--model, -m <model>${c.reset}  Select default AI model (e.g. claude-opus-5.5, claude-sonnet-5.5)`);
   console.log(`  ${c.gray}LIGHTNINGDEALS_API_URL${c.reset}  Environment variable to override API Gateway endpoint\n`);
 }
 
@@ -406,6 +529,11 @@ async function main() {
       break;
     case 'models':
       await runModels();
+      break;
+    case 'model':
+    case 'set-model':
+    case 'switch-model':
+      await runSetModel(args[1]);
       break;
     case 'status':
       await runStatus();

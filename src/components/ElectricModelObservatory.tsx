@@ -390,6 +390,125 @@ export const ElectricModelObservatory: React.FC = () => {
           </div>
         </div>
 
+        {/* MODEL SWITCHING CONTROL CENTER */}
+        <div className="mt-12 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-[#1c1917] to-[#141210] text-white border border-neutral-800 shadow-2xl space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-bold uppercase tracking-wider mb-2">
+                <Terminal className="w-3.5 h-3.5" />
+                <span>UNIVERSAL MODEL SWITCHER</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                How to Switch Models in Your Developer Environment
+              </h3>
+              <p className="text-xs sm:text-sm text-neutral-400 mt-1 max-w-2xl">
+                Every API key includes instant access to all 10 frontier models. Switch your active model across Claude Code, Cursor, and IDEs with a single command.
+              </p>
+            </div>
+            <Link
+              to="/docs#models"
+              className="text-xs font-bold text-amber-400 hover:text-amber-300 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-neutral-900 border border-neutral-700 hover:border-amber-500/50 transition-colors shrink-0 self-start md:self-auto"
+            >
+              <span>View Full Model Docs</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Method 1: Interactive CLI Switcher */}
+            <div className="rounded-2xl bg-neutral-900/90 border border-neutral-800 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold font-mono text-purple-400">1. INTERACTIVE PICKER</span>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">Terminal CLI</span>
+              </div>
+              <h4 className="text-sm font-bold text-white">Interactive Model Selector</h4>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Lists all 10 models with numbered choices (1–10). Select any model with a single keystroke.
+              </p>
+              <div className="bg-[#0c0a09] p-3 rounded-xl border border-neutral-800 font-mono text-xs text-amber-300 flex items-center justify-between">
+                <code>npx lightningdeals model</code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText('npx lightningdeals model');
+                    setCopiedIdentifier('switcher_int');
+                    setTimeout(() => setCopiedIdentifier(null), 2000);
+                  }}
+                  className="p-1 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  title="Copy command"
+                >
+                  {copiedIdentifier === 'switcher_int' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Method 2: Direct One-Line Switch */}
+            <div className="rounded-2xl bg-neutral-900/90 border border-neutral-800 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold font-mono text-cyan-400">2. DIRECT ONE-LINER</span>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Instant Switch</span>
+              </div>
+              <h4 className="text-sm font-bold text-white">Direct Model Activation</h4>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Instantly activates the model across Claude Code, Cursor, Windsurf, and IDE configs in 1 command.
+              </p>
+              <div className="bg-[#0c0a09] p-3 rounded-xl border border-neutral-800 font-mono text-xs text-amber-300 flex items-center justify-between">
+                <code className="truncate pr-2">npx lightningdeals model claude-sonnet-5.5</code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText('npx lightningdeals model claude-sonnet-5.5');
+                    setCopiedIdentifier('switcher_direct');
+                    setTimeout(() => setCopiedIdentifier(null), 2000);
+                  }}
+                  className="p-1 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white transition-colors cursor-pointer shrink-0"
+                  title="Copy command"
+                >
+                  {copiedIdentifier === 'switcher_direct' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Method 3: Claude Code In-Session & Flags */}
+            <div className="rounded-2xl bg-neutral-900/90 border border-neutral-800 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold font-mono text-emerald-400">3. CLAUDE CODE NATIVE</span>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">In-Session / Flag</span>
+              </div>
+              <h4 className="text-sm font-bold text-white">Session Flag or /model</h4>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Launch any session with <code className="text-neutral-200 font-mono">--model &lt;id&gt;</code> or type <code className="text-neutral-200 font-mono">/model</code> inside Claude Code to switch mid-session.
+              </p>
+              <div className="bg-[#0c0a09] p-3 rounded-xl border border-neutral-800 font-mono text-xs text-amber-300 flex items-center justify-between">
+                <code className="truncate pr-2">claude --model claude-sonnet-5.5</code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText('claude --model claude-sonnet-5.5');
+                    setCopiedIdentifier('switcher_flag');
+                    setTimeout(() => setCopiedIdentifier(null), 2000);
+                  }}
+                  className="p-1 hover:bg-neutral-800 rounded text-neutral-400 hover:text-white transition-colors cursor-pointer shrink-0"
+                  title="Copy command"
+                >
+                  {copiedIdentifier === 'switcher_flag' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick note on Claude Code /model menu */}
+          <div className="p-4 rounded-xl bg-neutral-900/50 border border-neutral-800 flex items-start gap-3 text-xs text-neutral-300">
+            <span className="text-amber-400 font-bold text-sm shrink-0">💡</span>
+            <div className="space-y-1">
+              <span className="font-bold text-white">Understanding Claude Code's <code className="font-mono text-amber-300">/model</code> Picker:</span>
+              <p className="text-neutral-400 leading-relaxed">
+                Claude Code's interactive picker displays Anthropic's 4 native tiers (Default, Sonnet, Sonnet 1M, Haiku) alongside Slot 5, which dynamically connects to your active LightningDeals flagship model (e.g. <strong>Claude Opus 5.5</strong>). When you switch models using <code className="font-mono text-amber-300">npx lightningdeals model &lt;name&gt;</code>, Slot 5 is updated immediately to reflect that model.
+              </p>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
   );

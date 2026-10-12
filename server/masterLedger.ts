@@ -36,11 +36,59 @@ export async function checkMasterCapacity(providerId?: string, requiredTokens = 
       providerId: provider?.id || 'none',
       providerName: provider?.name || 'No Upstream Provider Configured',
       status: 'NOT_CONFIGURED',
+      capacityModel: 'lifetime_prepaid',
+      windowHours: 5,
+      windowAllowance: '0',
+      windowTokensUsed: 0,
+      nextResetAt: null,
+      windowResetSeconds: null,
     };
   }
 
+  const isRolling = provider.capacityModel === 'rolling_window' || Number(provider.windowAllowance) > 0;
+  const windowHours = provider.windowHours || 5;
+  const windowMs = windowHours * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  const windowStartMs = nowMs - windowMs;
+
+  let windowTokensUsed = 0;
+  let nextResetAt: string | null = null;
+  let windowResetSeconds: number | null = null;
+  let allowanceNum = 0;
+  let availableNum = 0;
   const reservedNum = getActiveMasterReservations(provider.id);
-  const availableNum = Number(provider.availableTokens) - reservedNum;
+
+  if (isRolling) {
+    const windowUsage = await prisma.apiRequest.aggregate({
+      _sum: { totalTokens: true },
+      where: {
+        providerId: provider.id,
+        createdAt: { gte: new Date(windowStartMs) },
+      },
+    });
+    windowTokensUsed = windowUsage._sum.totalTokens || 0;
+    allowanceNum = Number(provider.windowAllowance > 0 ? provider.windowAllowance : (provider.purchasedTokens > 0 ? provider.purchasedTokens : 5000000));
+    availableNum = Math.max(0, allowanceNum - windowTokensUsed - reservedNum);
+
+    if (windowTokensUsed > 0) {
+      const oldestInWindow = await prisma.apiRequest.findFirst({
+        where: {
+          providerId: provider.id,
+          createdAt: { gte: new Date(windowStartMs) },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (oldestInWindow) {
+        const rollOffMs = new Date(oldestInWindow.createdAt).getTime() + windowMs;
+        nextResetAt = new Date(rollOffMs).toISOString();
+        windowResetSeconds = Math.max(0, Math.floor((rollOffMs - nowMs) / 1000));
+      }
+    }
+  } else {
+    allowanceNum = Number(provider.purchasedTokens || 0);
+    availableNum = Number(provider.availableTokens) - reservedNum;
+  }
+
   const isAvailable = availableNum >= requiredTokens && provider.status !== 'disabled';
 
   let status = 'HEALTHY';
@@ -55,11 +103,17 @@ export async function checkMasterCapacity(providerId?: string, requiredTokens = 
   return {
     available: isAvailable,
     availableTokens: Math.max(0, availableNum),
-    rawAvailableTokens: provider.availableTokens.toString(),
+    rawAvailableTokens: availableNum.toString(),
     reservedTokens: reservedNum,
     providerId: provider.id,
     providerName: provider.name,
     status,
+    capacityModel: provider.capacityModel,
+    windowHours,
+    windowAllowance: allowanceNum.toString(),
+    windowTokensUsed,
+    nextResetAt,
+    windowResetSeconds,
   };
 }
 
@@ -87,8 +141,27 @@ export async function settleMasterUsage({
     const provider = await tx.vendorProvider.findUnique({ where: { id: providerId } });
     if (!provider) return;
 
-    const newAvailable = provider.availableTokens > tokensUsedBig ? provider.availableTokens - tokensUsedBig : BigInt(0);
+    const isRolling = provider.capacityModel === 'rolling_window' || Number(provider.windowAllowance) > 0;
     const newConsumed = provider.consumedTokens + tokensUsedBig;
+
+    let newAvailable: bigint;
+    if (isRolling) {
+      const windowHours = provider.windowHours || 5;
+      const windowMs = windowHours * 60 * 60 * 1000;
+      const windowUsage = await tx.apiRequest.aggregate({
+        _sum: { totalTokens: true },
+        where: {
+          providerId,
+          createdAt: { gte: new Date(Date.now() - windowMs) },
+        },
+      });
+      const usedInWindow = (windowUsage._sum.totalTokens || 0) + actualTokens;
+      const allowanceNum = Number(provider.windowAllowance > 0 ? provider.windowAllowance : (provider.purchasedTokens > 0 ? provider.purchasedTokens : 5000000));
+      const remainingRolling = Math.max(0, allowanceNum - usedInWindow);
+      newAvailable = BigInt(remainingRolling);
+    } else {
+      newAvailable = provider.availableTokens > tokensUsedBig ? provider.availableTokens - tokensUsedBig : BigInt(0);
+    }
 
     const updatedProvider = await tx.vendorProvider.update({
       where: { id: providerId },
@@ -105,7 +178,7 @@ export async function settleMasterUsage({
         amount: -tokensUsedBig,
         balanceAfter: newAvailable,
         reference: reference || 'API_USAGE_SETTLEMENT',
-        notes: notes || `Customer API request completed (${actualTokens} tokens)`,
+        notes: notes || (isRolling ? `Customer API request completed (${actualTokens} tokens, 5h rolling model)` : `Customer API request completed (${actualTokens} tokens)`),
         apiKeyId,
         userId,
       },

@@ -1,3 +1,11 @@
+export interface KeyModel {
+  id: string;
+  name: string;
+  description?: string;
+  contextWindow?: number;
+  ownedBy?: string;
+}
+
 export interface KeyStatusResult {
   valid: boolean;
   status?: string;
@@ -6,6 +14,9 @@ export interface KeyStatusResult {
   purchasedTokens?: string;
   tokensUsed?: string;
   expiresAt?: string | null;
+  allowedModels?: string;
+  defaultModel?: string;
+  availableModels?: KeyModel[];
   error?: string;
 }
 
@@ -64,6 +75,9 @@ export const validateApiKey = async (apiKey: string): Promise<KeyStatusResult> =
       purchasedTokens: data.purchasedTokens,
       tokensUsed: data.tokensUsed,
       expiresAt: data.expiresAt,
+      allowedModels: data.allowedModels,
+      defaultModel: data.defaultModel,
+      availableModels: Array.isArray(data.availableModels) ? data.availableModels : [],
     };
   } catch (err: any) {
     return {
@@ -79,7 +93,10 @@ export const fetchLiveModels = async (apiKey: string): Promise<any[]> => {
   const baseUrl = getGatewayUrl();
   try {
     const res = await fetch(`${baseUrl}/v1/models`, {
-      headers: { 'x-api-key': cleanKey },
+      headers: {
+        'x-api-key': cleanKey,
+        'Authorization': `Bearer ${cleanKey}`,
+      },
     });
     if (res.ok) {
       const data = await res.json();

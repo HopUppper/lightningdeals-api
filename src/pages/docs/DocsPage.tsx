@@ -96,7 +96,7 @@ export const DocsPage: React.FC = () => {
     {
       title: 'GATEWAY ENGINE',
       items: [
-        { id: 'models', label: '7. Model Catalog & Aliases', icon: Cpu },
+        { id: 'models', label: '7. Model Catalog & Switching', icon: Cpu },
         { id: 'quotas', label: '8. 5-Hour Rolling Quotas', icon: RefreshCw },
         { id: 'errors', label: '9. Errors & Troubleshooting', icon: AlertTriangle },
         { id: 'support', label: '10. Support & Diagnostics', icon: LifeBuoy },
@@ -807,6 +807,15 @@ export ANTHROPIC_MODEL="claude-sonnet-5.5"
 # Launch Claude Code agent
 claude`}
                     />
+                    <div className="p-3.5 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-1.5">
+                      <p className="text-xs font-bold text-[#1c1917] flex items-center gap-1.5">
+                        <Sliders className="h-3.5 w-3.5 text-[#6d28d9]" />
+                        <span>Switching Models in Claude Code</span>
+                      </p>
+                      <p className="text-[11px] text-[#57534e]">
+                        Run <code className="font-mono text-[#1c1917] font-semibold">npx lightningdeals model</code> to pick from all 10 models interactively, or launch with <code className="font-mono text-[#1c1917] font-semibold">claude --model &lt;model-id&gt;</code>. See <button type="button" onClick={() => scrollToSection('models')} className="text-[#6d28d9] font-bold underline underline-offset-2 cursor-pointer">Section 7.1</button> for full switcher guide.
+                      </p>
+                    </div>
                     <p className="text-[11px] text-[#78716c]">
                       *Note: The gateway automatically normalizes Claude Code model hints such as <code className="font-mono text-[#1c1917]">claude-sonnet-5.5[1m]</code> to ensure seamless context window handling.
                     </p>
@@ -1063,6 +1072,124 @@ run();`}
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+                </div>
+
+                {/* 7.1 Activating & Switching Models */}
+                <div className="mt-8 space-y-6 pt-6 border-t border-[#e7e5e4]">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#f5f3ff] text-[#6d28d9] font-mono text-[11px] font-bold uppercase tracking-wider mb-1.5">
+                      <Sliders className="h-3 w-3 text-[#6d28d9]" />
+                      <span>SECTION 7.1</span>
+                      <span>·</span>
+                      <span>MODEL ACTIVATION &amp; SWITCHING</span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold tracking-tight text-[#1c1917]">
+                      How to Switch &amp; Activate Any Model in Claude Code &amp; Developer Tools
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#57534e] mt-1 leading-relaxed">
+                      Every key on LightningAPI.pro has unrestricted authorization across all 10 frontier models. You can switch your active model instantly using our CLI, terminal flags, or environment variables without re-authenticating.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Method 1: Interactive Menu */}
+                    <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 rounded-lg bg-[#6d28d9]/10 text-[#6d28d9] font-mono text-xs font-bold items-center justify-center">1</span>
+                        <h4 className="text-sm font-bold text-[#1c1917]">Interactive Model Selector</h4>
+                      </div>
+                      <p className="text-xs text-[#57534e]">
+                        Launches a numbered terminal UI displaying your key's live quota, active model, and all 10 available choices:
+                      </p>
+                      <CodeSnippetBlock
+                        language="bash"
+                        code="npx lightningdeals model"
+                      />
+                      <p className="text-[11px] text-[#78716c]">
+                        Press <strong className="text-[#1c1917]">1–10</strong> to pick Opus 5.5, Sonnet 5.5, Fable 5, Extended Thinking, etc. It updates <code className="font-mono text-[#1c1917]">~/.claude/settings.json</code> automatically.
+                      </p>
+                    </div>
+
+                    {/* Method 2: Direct Command Switch */}
+                    <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 rounded-lg bg-[#6d28d9]/10 text-[#6d28d9] font-mono text-xs font-bold items-center justify-center">2</span>
+                        <h4 className="text-sm font-bold text-[#1c1917]">Direct Model Selection (One-Liner)</h4>
+                      </div>
+                      <p className="text-xs text-[#57534e]">
+                        Pass the canonical model ID directly to switch instantly without opening the interactive menu:
+                      </p>
+                      <CodeSnippetBlock
+                        language="bash"
+                        code={`# Switch active model to Opus 5.5
+npx lightningdeals model claude-opus-5.5
+
+# Switch active model to Sonnet 5.5
+npx lightningdeals model claude-sonnet-5.5`}
+                      />
+                      <p className="text-[11px] text-[#78716c]">
+                        Accepts any model ID or alias (<code className="font-mono text-[#1c1917]">opus-5.5</code>, <code className="font-mono text-[#1c1917]">sonnet-5</code>, <code className="font-mono text-[#1c1917]">fable-5</code>, <code className="font-mono text-[#1c1917]">opus-thinking</code>).
+                      </p>
+                    </div>
+
+                    {/* Method 3: Claude Code Launch Flag */}
+                    <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 rounded-lg bg-[#6d28d9]/10 text-[#6d28d9] font-mono text-xs font-bold items-center justify-center">3</span>
+                        <h4 className="text-sm font-bold text-[#1c1917]">Claude Code Session Flag</h4>
+                      </div>
+                      <p className="text-xs text-[#57534e]">
+                        Run Claude Code with a specific model for a single terminal session without modifying persistent config:
+                      </p>
+                      <CodeSnippetBlock
+                        language="bash"
+                        code={`# Run with Opus 5.5
+claude --model claude-opus-5.5
+
+# Run with Extended Thinking
+claude --model claude-opus-5-thinking`}
+                      />
+                      <p className="text-[11px] text-[#78716c]">
+                        The gateway resolves the request and routes directly to the requested model.
+                      </p>
+                    </div>
+
+                    {/* Method 4: Inside Claude Code /model Command */}
+                    <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 rounded-lg bg-[#6d28d9]/10 text-[#6d28d9] font-mono text-xs font-bold items-center justify-center">4</span>
+                        <h4 className="text-sm font-bold text-[#1c1917]">Claude Code /model Command</h4>
+                      </div>
+                      <p className="text-xs text-[#57534e]">
+                        Anthropic's native <code className="font-mono text-[#1c1917]">/model</code> command in Claude Code shows built-in slots plus your custom LightningAPI model:
+                      </p>
+                      <div className="p-3 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] font-mono text-[11px] text-[#57534e] space-y-1">
+                        <div>1. Default (Sonnet 4.6)</div>
+                        <div>2. Claude Sonnet 4.6</div>
+                        <div>3. Claude Sonnet 4.6 (with 1M context)</div>
+                        <div>4. Claude Haiku 4.5</div>
+                        <div className="font-bold text-[#6d28d9]">5. Claude Opus 5.5 (Custom Model Option) ← LightningAPI</div>
+                      </div>
+                      <p className="text-[11px] text-[#78716c]">
+                        Selecting Slot 5 activates your configured custom model. To change what Slot 5 points to, run <code className="font-mono text-[#1c1917]">npx lightningdeals model &lt;id&gt;</code>.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Pro-Tip: Inspecting Key Authorizations */}
+                  <div className="p-4 rounded-2xl bg-[#f5f3ff] border border-[#ddd6fe] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="font-mono text-xs font-bold text-[#6d28d9] uppercase tracking-wider">
+                        Inspect Active Key Authorizations &amp; Quotas
+                      </div>
+                      <p className="text-xs text-[#5b21b6]">
+                        Want to verify remaining rolling tokens or inspect all authorized models on your key?
+                      </p>
+                    </div>
+                    <code className="px-3 py-1.5 rounded-xl bg-white border border-[#ddd6fe] text-xs font-mono font-bold text-[#6d28d9] shadow-xs shrink-0">
+                      npx lightningdeals models
+                    </code>
                   </div>
                 </div>
               </section>

@@ -187,8 +187,13 @@ router.get('/providers', async (req: AuthRequest, res: Response) => {
         const errorRate = totalRequests > 0 ? Number(((errorRequests / totalRequests) * 100).toFixed(2)) : 0;
         const avgLatencyMs = latencyAgg._avg.latencyMs ? Math.round(latencyAgg._avg.latencyMs) : 0;
 
+        const cap = await checkMasterCapacity(p.id, 0);
+
         return {
           ...p,
+          availableTokens: cap.availableTokens.toString(),
+          purchasedTokens: (p.capacityModel === 'rolling_window' && Number(p.windowAllowance) > 0 ? p.windowAllowance : p.purchasedTokens).toString(),
+          status: p.status === 'disabled' ? 'disabled' : cap.status,
           isDefault: p.id === defaultId,
           masterApiKeyEncrypted: undefined,
           displayMasterKey: displayKey,
@@ -198,6 +203,9 @@ router.get('/providers', async (req: AuthRequest, res: Response) => {
           requestCount: totalRequests,
           errorRate,
           avgLatencyMs,
+          windowTokensUsed: cap.windowTokensUsed,
+          nextResetAt: cap.nextResetAt,
+          windowResetSeconds: cap.windowResetSeconds,
         };
       })
     );
@@ -223,6 +231,9 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
     criticalThresholdTokens,
     availableTokens,
     purchasedTokens,
+    capacityModel,
+    windowHours,
+    windowAllowance,
   } = req.body;
 
   // Validate Base URL against SSRF threats
@@ -238,10 +249,20 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
       await prisma.vendorProvider.updateMany({ data: { isPrimary: false } });
     }
 
-    const initialAvailable = availableTokens !== undefined ? BigInt(availableTokens) : (masterApiKey ? BigInt(100000000) : BigInt(0));
-    const initialPurchased = purchasedTokens !== undefined ? BigInt(purchasedTokens) : initialAvailable;
-    const warningTokens = warningThresholdTokens !== undefined ? BigInt(warningThresholdTokens) : BigInt(20000000);
-    const criticalTokens = criticalThresholdTokens !== undefined ? BigInt(criticalThresholdTokens) : BigInt(5000000);
+    const isRolling = capacityModel === 'rolling_window';
+    const winHours = windowHours !== undefined ? Number(windowHours) : 5;
+    const winAllowance = windowAllowance !== undefined ? BigInt(windowAllowance) : (isRolling ? BigInt(5000000) : BigInt(0));
+
+    const initialAvailable = availableTokens !== undefined
+      ? BigInt(availableTokens)
+      : (isRolling ? winAllowance : (masterApiKey ? BigInt(100000000) : BigInt(0)));
+    const initialPurchased = purchasedTokens !== undefined ? BigInt(purchasedTokens) : (isRolling ? winAllowance : initialAvailable);
+    const warningTokens = warningThresholdTokens !== undefined
+      ? BigInt(warningThresholdTokens)
+      : (isRolling ? BigInt(1000000) : BigInt(20000000));
+    const criticalTokens = criticalThresholdTokens !== undefined
+      ? BigInt(criticalThresholdTokens)
+      : (isRolling ? BigInt(250000) : BigInt(5000000));
 
     const provider = await prisma.vendorProvider.create({
       data: {
@@ -252,6 +273,9 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
         baseUrl: ssrfCheck.normalizedUrl || 'https://api.anthropic.com',
         isPrimary: !!isPrimary,
         status: status || (masterApiKey ? 'connected' : 'disabled'),
+        capacityModel: isRolling ? 'rolling_window' : 'lifetime_prepaid',
+        windowHours: winHours,
+        windowAllowance: winAllowance,
         availableTokens: initialAvailable,
         purchasedTokens: initialPurchased,
         warningThresholdTokens: warningTokens,
@@ -268,7 +292,7 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
         action: 'CREATE_VENDOR_PROVIDER',
         targetType: 'VendorProvider',
         targetId: provider.id,
-        metadata: `Created vendor provider: ${provider.name}`,
+        metadata: `Created vendor provider: ${provider.name} (Model: ${provider.capacityModel})`,
       },
     });
 
@@ -294,6 +318,10 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
     warningThresholdTokens,
     criticalThresholdTokens,
     availableTokens,
+    purchasedTokens,
+    capacityModel,
+    windowHours,
+    windowAllowance,
   } = req.body;
 
   try {
@@ -305,6 +333,16 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
     if (notes !== undefined) updateData.notes = notes;
     if (modelMappingsJson !== undefined) updateData.modelMappingsJson = modelMappingsJson;
     if (headersJson !== undefined) updateData.headersJson = headersJson;
+    if (capacityModel !== undefined) updateData.capacityModel = capacityModel;
+    if (windowHours !== undefined) updateData.windowHours = Number(windowHours);
+    if (windowAllowance !== undefined) {
+      updateData.windowAllowance = BigInt(windowAllowance);
+      if (capacityModel === 'rolling_window' || updateData.capacityModel === 'rolling_window') {
+        updateData.availableTokens = BigInt(windowAllowance);
+        updateData.purchasedTokens = BigInt(windowAllowance);
+      }
+    }
+    if (purchasedTokens !== undefined) updateData.purchasedTokens = BigInt(purchasedTokens);
     if (masterApiKey && masterApiKey.trim()) updateData.masterApiKeyEncrypted = encryptText(masterApiKey.trim());
     if (warningThresholdTokens !== undefined) updateData.warningThresholdTokens = BigInt(warningThresholdTokens);
     if (criticalThresholdTokens !== undefined) updateData.criticalThresholdTokens = BigInt(criticalThresholdTokens);
@@ -656,10 +694,16 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
       providerName: provider.name,
       status: capacity.status,
       isPrimary: provider.isPrimary,
-      availableTokens: provider.availableTokens.toString(),
-      purchasedTokens: provider.purchasedTokens.toString(),
+      availableTokens: capacity.availableTokens.toString(),
+      purchasedTokens: (provider.capacityModel === 'rolling_window' && Number(provider.windowAllowance) > 0 ? provider.windowAllowance : provider.purchasedTokens).toString(),
       consumedTokens: provider.consumedTokens.toString(),
       reservedTokens: capacity.reservedTokens,
+      capacityModel: provider.capacityModel,
+      windowHours: provider.windowHours,
+      windowAllowance: provider.windowAllowance.toString(),
+      windowTokensUsed: capacity.windowTokensUsed,
+      nextResetAt: capacity.nextResetAt,
+      windowResetSeconds: capacity.windowResetSeconds,
       warningThresholdTokens: provider.warningThresholdTokens.toString(),
       criticalThresholdTokens: provider.criticalThresholdTokens.toString(),
       exposure,
@@ -685,12 +729,17 @@ function scanObjectForBalance(obj: any): { total?: number; used?: number; remain
     const lk = k.toLowerCase();
     const val = obj[k];
 
+    // IGNORE per-message completion usage fields (prompt_tokens, completion_tokens, total_tokens)
+    if (lk === 'prompt_tokens' || lk === 'completion_tokens' || lk === 'total_tokens') {
+      continue;
+    }
+
     if (typeof val === 'number' && !isNaN(val)) {
       if (lk === 'remain_quota' || lk === 'remaining_quota' || lk === 'tokens_remaining' || lk === 'remaining_tokens' || lk === 'balance_tokens' || lk === 'available_tokens') {
         remaining = val;
-      } else if (lk === 'total_quota' || lk === 'token_limit' || lk === 'total_tokens' || lk === 'purchased_tokens' || lk === 'quota') {
+      } else if (lk === 'total_quota' || lk === 'token_limit' || lk === 'purchased_tokens' || lk === 'quota') {
         total = val;
-      } else if (lk === 'used_quota' || lk === 'consumed_tokens' || lk === 'used_tokens' || lk === 'usage') {
+      } else if (lk === 'used_quota' || lk === 'consumed_tokens' || lk === 'used_tokens') {
         used = val;
       } else if (lk === 'balance' || lk === 'credits' || lk === 'remaining_credits') {
         // If dollar amount (e.g. 100.0), convert $1 to 500,000 tokens if small
@@ -701,7 +750,7 @@ function scanObjectForBalance(obj: any): { total?: number; used?: number; remain
       if (!isNaN(num) && num > 0) {
         if (lk.includes('remain') || lk.includes('balance') || lk.includes('available')) {
           remaining = num < 10000 ? num * 500000 : num;
-        } else if (lk.includes('total') || lk.includes('limit')) {
+        } else if (lk.includes('quota') || lk.includes('limit')) {
           total = num < 10000 ? num * 500000 : num;
         }
       }
@@ -903,18 +952,8 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
             }
           }
 
-          if (body && !vendorBalance) {
-            const extracted = scanObjectForBalance(body);
-            if (extracted && (extracted.total !== undefined || extracted.remaining !== undefined)) {
-              vendorBalance = {
-                totalTokens: extracted.total,
-                usedTokens: extracted.used,
-                remainingTokens: extracted.remaining,
-                rawResponse: body,
-                endpoint: `${cp.path} (Completion Response Body)`,
-              };
-            }
-          }
+          // NOTE: Do NOT scan completion probe body for balance!
+          // Completion response bodies ONLY contain request-specific usage (e.g. usage: { total_tokens: 292 }), NEVER total account quota!
         } catch (err: any) {
           probeResults.push({ path: cp.path, method: 'POST', status: 0, body: { error: err.message } });
         }
@@ -954,7 +993,7 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
             amount: syncedAvailable,
             balanceAfter: syncedAvailable,
             reference: `VENDOR_AUTO_SYNC_${new Date().toISOString()}`,
-            notes: `Auto-synced from ScaleMax vendor API ${vendorBalance.endpoint}. Total: ${syncedTotal.toString()}, Available: ${syncedAvailable.toString()}`,
+            notes: `Auto-synced from vendor API ${vendorBalance.endpoint}. Total: ${syncedTotal.toString()}, Available: ${syncedAvailable.toString()}`,
             adminUserId: req.user?.id || null,
           },
         });
@@ -966,7 +1005,7 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
             amount: syncedAvailable - provider.availableTokens,
             balanceAfter: syncedAvailable,
             reference: `VENDOR_RESYNC_${new Date().toISOString()}`,
-            notes: `Re-synced from ScaleMax vendor API ${vendorBalance.endpoint}. Previous: ${provider.availableTokens.toString()}, New: ${syncedAvailable.toString()}`,
+            notes: `Re-synced from vendor API ${vendorBalance.endpoint}. Previous: ${provider.availableTokens.toString()}, New: ${syncedAvailable.toString()}`,
             adminUserId: req.user?.id || null,
           },
         });
@@ -985,10 +1024,15 @@ router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Respons
       });
     }
 
+    const isRolling = provider.capacityModel === 'rolling_window' || Number(provider.windowAllowance) > 0;
+    const allowanceDisplay = (Number(provider.windowAllowance || provider.purchasedTokens || 5000000) / 1000000).toFixed(2);
+
     return res.json({
       success: false,
       synced: false,
-      message: 'Probed 19 vendor API endpoints & completion headers. ScaleMax did not return balance data on these endpoints.',
+      message: isRolling
+        ? `Vendor API connection verified (HTTP 200). Provider operates on a ${provider.windowHours || 5}-hour rolling window model (${allowanceDisplay}M allowance); tokens are automatically tracked and renewed via rolling window metrics.`
+        : 'Probed vendor API endpoints & completion headers. Vendor does not expose public billing endpoints or balance headers. Balance can be managed in Provider Settings or Master Top-Up.',
       probeResults,
     });
   } catch (err: any) {

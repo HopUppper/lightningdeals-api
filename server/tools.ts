@@ -96,6 +96,57 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     exactFailureReason = `5-Hour Rolling Token Allowance Exhausted (0 tokens remaining out of ${windowMetrics.purchasedNum.toLocaleString()}). Allowance auto-resets on next 5-hour cycle.`;
   }
 
+  // Authoritatively Resolve Available Models for this Key
+  const allDbModels = await prisma.model.findMany({
+    where: { enabled: true },
+    orderBy: { displayName: 'asc' },
+  });
+
+  const priority = [
+    'claude-opus-5.5',
+    'claude-sonnet-5.5',
+    'claude-opus-5',
+    'claude-sonnet-5',
+    'claude-fable-5',
+    'claude-fable-5-flash',
+    'claude-opus-5-thinking',
+    'claude-sonnet-5-thinking',
+    'claude-haiku-5.5',
+    'claude-haiku-5',
+    'claude-3-5-sonnet-20241022',
+    'claude-3-opus-20240229',
+    'claude-3-5-haiku-20241022',
+  ];
+
+  allDbModels.sort((a, b) => {
+    const idxA = priority.indexOf(a.modelId);
+    const idxB = priority.indexOf(b.modelId);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  let keyAllowedList: string[] = [];
+  const rawAllowed = (keyRecord.allowedModels || '').trim().toLowerCase();
+  if (rawAllowed && rawAllowed !== 'all' && rawAllowed !== '*' && rawAllowed !== '["*"]' && rawAllowed !== '["all"]') {
+    try {
+      const parsed = JSON.parse(keyRecord.allowedModels);
+      keyAllowedList = Array.isArray(parsed) ? parsed.map((s: any) => String(s).trim().toLowerCase()) : [String(parsed).trim().toLowerCase()];
+    } catch {
+      keyAllowedList = keyRecord.allowedModels.split(',').map((s: string) => s.trim().toLowerCase());
+    }
+  }
+
+  const accessibleModels = keyAllowedList.length > 0
+    ? allDbModels.filter(m => keyAllowedList.some(k => k === m.modelId.toLowerCase() || m.modelId.toLowerCase().includes(k) || k.includes(m.modelId.toLowerCase())))
+    : allDbModels;
+
+  const defaultModel = accessibleModels.find(m => m.modelId === 'claude-opus-5.5')?.modelId
+    || accessibleModels.find(m => m.modelId === 'claude-opus-5')?.modelId
+    || accessibleModels[0]?.modelId
+    || 'claude-opus-5.5';
+
   res.json({
     valid: true,
     exactFailureReason,
@@ -117,6 +168,14 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     totalOutputTokens: keyRecord.totalOutputTokens.toString(),
     avgLatencyMs: Math.round(avgLatency._avg.latencyMs || 0),
     allowedModels: keyRecord.allowedModels,
+    defaultModel,
+    availableModels: accessibleModels.map((m) => ({
+      id: m.modelId,
+      name: m.displayName,
+      description: m.description,
+      contextWindow: m.contextWindow,
+      ownedBy: m.provider,
+    })),
     createdAt: keyRecord.createdAt,
     firstUsedAt: windowMetrics.effectiveFirstUse,
     lastUsedAt: keyRecord.lastUsedAt,
@@ -179,6 +238,24 @@ export async function handleSystemStatus(req: Request, res: Response) {
 // 3. Public Models Endpoint (/v1/models)
 export async function handleGetModels(req: Request, res: Response) {
   try {
+    let rawKey = (
+      req.headers['x-api-key']?.toString() ||
+      req.headers['authorization']?.toString().replace(/^Bearer\s+/i, '') ||
+      req.query.key?.toString() ||
+      ''
+    ).trim();
+
+    if (rawKey.startsWith('id_trial_')) rawKey = 'ld_trial_' + rawKey.substring(9);
+    else if (rawKey.startsWith('id_live_')) rawKey = 'ld_live_' + rawKey.substring(8);
+    else if (rawKey.startsWith('trial_')) rawKey = 'ld_trial_' + rawKey.substring(6);
+    else if (rawKey.startsWith('live_')) rawKey = 'ld_live_' + rawKey.substring(5);
+
+    let keyRecord: any = null;
+    if (rawKey) {
+      const keyHash = hashApiKey(rawKey);
+      keyRecord = await prisma.apiKey.findUnique({ where: { keyHash } });
+    }
+
     const priority = [
       'claude-opus-5.5',
       'claude-sonnet-5.5',
@@ -190,15 +267,18 @@ export async function handleGetModels(req: Request, res: Response) {
       'claude-sonnet-5-thinking',
       'claude-haiku-5.5',
       'claude-haiku-5',
+      'claude-3-5-sonnet-20241022',
+      'claude-3-opus-20240229',
+      'claude-3-5-haiku-20241022',
     ];
 
-    const models = await prisma.model.findMany({
+    let models = await prisma.model.findMany({
       where: {
-        modelId: { in: priority },
         enabled: true,
       },
       orderBy: { displayName: 'asc' },
     });
+
     models.sort((a, b) => {
       const idxA = priority.indexOf(a.modelId);
       const idxB = priority.indexOf(b.modelId);
@@ -207,6 +287,24 @@ export async function handleGetModels(req: Request, res: Response) {
       if (idxB !== -1) return 1;
       return a.displayName.localeCompare(b.displayName);
     });
+
+    if (keyRecord && keyRecord.allowedModels) {
+      const rawAllowed = keyRecord.allowedModels.trim().toLowerCase();
+      if (rawAllowed !== 'all' && rawAllowed !== '*' && rawAllowed !== '["*"]' && rawAllowed !== '["all"]') {
+        let keyAllowedList: string[] = [];
+        try {
+          const parsed = JSON.parse(keyRecord.allowedModels);
+          keyAllowedList = Array.isArray(parsed) ? parsed.map((s: any) => String(s).trim().toLowerCase()) : [String(parsed).trim().toLowerCase()];
+        } catch {
+          keyAllowedList = keyRecord.allowedModels.split(',').map((s: string) => s.trim().toLowerCase());
+        }
+        if (keyAllowedList.length > 0) {
+          models = models.filter((m) =>
+            keyAllowedList.some((k) => k === m.modelId.toLowerCase() || m.modelId.toLowerCase().includes(k) || k.includes(m.modelId.toLowerCase()))
+          );
+        }
+      }
+    }
 
     res.json({
       object: 'list',

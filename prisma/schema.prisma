@@ -159,6 +159,9 @@ model VendorProvider {
 
   consumedTokens         BigInt              @default(0)
   reservedTokens         BigInt              @default(0)
+  capacityModel          String              @default("lifetime_prepaid") // "lifetime_prepaid" | "rolling_window"
+  windowHours            Int                 @default(5)
+  windowAllowance        BigInt              @default(0)
   warningThresholdTokens BigInt              @default(20000000)
   criticalThresholdTokens BigInt             @default(5000000)
   modelMappingsJson      String?             // JSON string for internal -> vendor model mappings

@@ -16,11 +16,21 @@ const getHomeDir = (): string => os.homedir();
 
 export const getFriendlyModelName = (modelId: string): string => {
   const m = (modelId || '').toLowerCase().trim();
+  if (m.includes('opus-5.5') || m.includes('opus-5-5')) return 'Claude Opus 5.5';
+  if (m.includes('sonnet-5.5') || m.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
+  if (m.includes('fable-5-flash') || m.includes('fable-flash')) return 'Claude Fable 5 Flash';
   if (m.includes('fable')) return 'Claude Fable 5';
+  if (m.includes('opus') && m.includes('thinking')) return 'Claude Opus 5 Extended Thinking';
+  if (m.includes('sonnet') && m.includes('thinking')) return 'Claude Sonnet 5 Extended Thinking';
+  if (m.includes('haiku-5.5') || m.includes('haiku-5-5')) return 'Claude Haiku 5.5';
+  if (m.includes('haiku-5')) return 'Claude Haiku 5';
+  if (m.includes('haiku')) return 'Claude Haiku 4.5';
   if (m.includes('opus-5') || m.includes('opus-4') || m.includes('opus')) return 'Claude Opus 5';
   if (m.includes('sonnet-5') || m.includes('sonnet-4') || m.includes('sonnet')) return 'Claude Sonnet 5';
-  if (m.includes('haiku')) return 'Claude Haiku 4.5';
-  return 'Claude Opus 5';
+  if (m === 'claude-3-5-sonnet-20241022') return 'Claude 3.5 Sonnet';
+  if (m === 'claude-3-opus-20240229') return 'Claude 3 Opus';
+  if (m === 'claude-3-5-haiku-20241022') return 'Claude 3.5 Haiku';
+  return modelId || 'Claude Opus 5.5';
 };
 
 export const getClientTargets = (): ClientTarget[] => {
@@ -107,8 +117,8 @@ export const getClientTargets = (): ClientTarget[] => {
     if (fs.existsSync(t.configPath)) {
       try {
         const raw = fs.readFileSync(t.configPath, 'utf8');
-        configured = raw.includes('lightningdeals') || raw.includes('ANTHROPIC_BASE_URL') || raw.includes('ld_live_') || raw.includes('lightningapi.pro');
-        const match = raw.match(/ld_(live|trial)_[a-zA-Z0-9]+/);
+        configured = raw.includes('lightningdeals') || raw.includes('ANTHROPIC_BASE_URL') || raw.includes('ld_live_') || raw.includes('sk_live_') || raw.includes('lightningapi.pro');
+        const match = raw.match(/(?:ld|sk)_(?:live|trial)_[a-zA-Z0-9]+/);
         if (match) {
           existingApiKey = match[0];
         }
@@ -174,7 +184,31 @@ export const configureClient = (
 
       // Delete legacy apiKeyHelper & helper settings to prevent Claude Code v2.1+ Auth conflict warnings
       delete updatedData.apiKeyHelper;
-      delete updatedData.scalemax;
+
+      // Completely purge all ScaleMax and legacy auto configurations
+      for (const k of Object.keys(updatedData)) {
+        if (k.toLowerCase().includes('scalemax')) {
+          delete updatedData[k];
+        }
+      }
+      for (const k of Object.keys(cleanEnv)) {
+        if (k.toLowerCase().includes('scalemax')) {
+          delete cleanEnv[k];
+        }
+      }
+
+      // Purge stale or legacy custom model options (e.g. "Auto via ScaleMax")
+      if (
+        cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION === 'auto' ||
+        cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME?.toLowerCase().includes('scalemax') ||
+        cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION?.toLowerCase().includes('scalemax')
+      ) {
+        delete cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION;
+        delete cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME;
+        delete cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION;
+      }
+
+      const friendlyModelName = getFriendlyModelName(selectedModel);
 
       cleanEnv.ANTHROPIC_BASE_URL = gatewayUrl;
       cleanEnv.ANTHROPIC_AUTH_TOKEN = apiKey;
@@ -182,6 +216,11 @@ export const configureClient = (
       cleanEnv.ANTHROPIC_MODEL = selectedModel;
       cleanEnv.CLAUDE_MODEL = selectedModel;
       cleanEnv.ANTHROPIC_DEFAULT_MODEL = selectedModel;
+
+      // Authentically configure custom model option for /model picker in Claude Code
+      cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION = selectedModel;
+      cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME = friendlyModelName;
+      cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION = `${friendlyModelName} (LightningDeals)`;
 
       updatedData.model = selectedModel;
       updatedData.env = cleanEnv;
@@ -284,9 +323,11 @@ export const removeClientConfiguration = (client: ClientTarget): { success: bool
       const raw = fs.readFileSync(client.configPath, 'utf8');
       const data = JSON.parse(raw);
 
-      delete data['lightningdeals.apiKey'];
-      delete data['lightningdeals.baseUrl'];
-      delete data['lightningdeals.model'];
+      for (const k of Object.keys(data)) {
+        if (k.toLowerCase().includes('scalemax') || k.toLowerCase().includes('lightningdeals')) {
+          delete data[k];
+        }
+      }
       delete data['anthropic.baseUrl'];
       delete data['anthropic.apiKey'];
       delete data['anthropic.model'];
@@ -313,6 +354,14 @@ export const removeClientConfiguration = (client: ClientTarget): { success: bool
         delete data.env.ANTHROPIC_MODEL;
         delete data.env.CLAUDE_MODEL;
         delete data.env.ANTHROPIC_DEFAULT_MODEL;
+        delete data.env.ANTHROPIC_CUSTOM_MODEL_OPTION;
+        delete data.env.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME;
+        delete data.env.ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION;
+        for (const k of Object.keys(data.env)) {
+          if (k.toLowerCase().includes('scalemax')) {
+            delete data.env[k];
+          }
+        }
       }
 
       fs.writeFileSync(client.configPath, JSON.stringify(data, null, 2), 'utf8');

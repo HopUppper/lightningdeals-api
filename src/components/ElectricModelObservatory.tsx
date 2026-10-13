@@ -351,9 +351,11 @@ export const ElectricModelObservatory: React.FC = () => {
               { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', context: '1M context', tier: 'Production Coding', bestFor: 'Full-stack engineering' },
               { id: 'claude-haiku-5', name: 'Claude Haiku 5', context: '500K context', tier: 'Lightweight Dispatch', bestFor: 'High-volume routing' },
             ].map((m) => (
-              <div
+              <motion.div
                 key={m.id}
-                className="p-3.5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs flex flex-col justify-between hover:border-[#6d28d9]/40 transition-colors"
+                whileHover={{ y: -4, scale: 1.015 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+                className="p-3.5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs flex flex-col justify-between hover:border-[#6d28d9]/50 hover:shadow-warm transition-all cursor-default"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -385,7 +387,7 @@ export const ElectricModelObservatory: React.FC = () => {
                     )}
                   </button>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>

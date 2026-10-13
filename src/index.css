@@ -267,3 +267,102 @@ pre::-webkit-scrollbar-thumb {
 pre::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* ========================================================================= */
+/* CRED-Inspired High-Octane Motion & Luminescence Design System             */
+/* ========================================================================= */
+
+@keyframes cred-shimmer {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  50%, 100% { transform: translateX(250%) skewX(-20deg); }
+}
+
+@keyframes cred-beam-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes cred-float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(1.5deg); }
+}
+
+@keyframes cred-pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.2; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+@keyframes cred-gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-cred-shimmer {
+  animation: cred-shimmer 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-cred-float {
+  animation: cred-float-slow 6s ease-in-out infinite;
+}
+
+.animate-cred-beam {
+  animation: cred-beam-rotate 4s linear infinite;
+}
+
+.animate-cred-gradient-x {
+  background-size: 200% 200%;
+  animation: cred-gradient-x 5s ease infinite;
+}
+
+/* CRED Shimmer Light Overlay on Buttons */
+.cred-shimmer-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.cred-shimmer-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 80%
+  );
+  transform: translateX(-150%) skewX(-20deg);
+  pointer-events: none;
+  animation: cred-shimmer 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* CRED Spotlight Card Base */
+.cred-card-perspective {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+/* Glassmorphism Bevel Highlight */
+.cred-card-border-glow {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cred-card-border-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(109, 40, 217, 0.2), transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+}
+

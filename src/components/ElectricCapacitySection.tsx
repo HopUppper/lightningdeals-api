@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { usePlans, PlanItem } from '../context/PlansContext';
 import { CheckoutModal } from './CheckoutModal';
+import { CredTiltCard } from './CredTiltCard';
 
 export const ElectricCapacitySection: React.FC = () => {
   const { user } = useAuth();
@@ -171,10 +172,12 @@ export const ElectricCapacitySection: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex justify-between items-baseline text-xs font-semibold">
               <span className="text-[#57534e]">Average Daily AI Coding & Synthesis:</span>
-              <span className="font-mono text-base text-[#1c1917] font-bold">{dailyHours} Hours / Day</span>
+              <span className="font-mono text-base text-[#1c1917] font-bold px-2.5 py-0.5 rounded-lg bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe] shadow-2xs">
+                {dailyHours} Hours / Day
+              </span>
             </div>
             
             <input
@@ -183,7 +186,12 @@ export const ElectricCapacitySection: React.FC = () => {
               max="16"
               value={dailyHours}
               onChange={(e) => setDailyHours(Number(e.target.value))}
-              className="w-full accent-[#6d28d9] cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #6d28d9 0%, #a855f7 ${((dailyHours - 1) / 15) * 100}%, #e7e5e4 ${((dailyHours - 1) / 15) * 100}%, #e7e5e4 100%)`,
+                height: '7px',
+                borderRadius: '9999px',
+              }}
+              className="w-full accent-[#6d28d9] cursor-pointer appearance-none transition-all"
             />
             
             <div className="flex justify-between text-[11px] font-mono text-[#78716c]">
@@ -214,8 +222,11 @@ export const ElectricCapacitySection: React.FC = () => {
             {capacityPlans.map((pkg) => {
               const isRecommended = pkg.id === recommendedPlan?.id;
               return (
-                <div
+                <CredTiltCard
                   key={pkg.id}
+                  tiltAngle={6}
+                  borderBeam={isRecommended}
+                  glowColor={isRecommended ? 'rgba(109, 40, 217, 0.22)' : 'rgba(109, 40, 217, 0.10)'}
                   className={`bg-white p-7 rounded-3xl flex flex-col h-full relative transition-all shadow-xs ${
                     isRecommended
                       ? 'border-2 border-[#6d28d9] shadow-warm ring-2 ring-[#6d28d9]/20'
@@ -224,89 +235,91 @@ export const ElectricCapacitySection: React.FC = () => {
                       : 'border border-[#e7e5e4] hover:border-[#d6d3d1]'
                   }`}
                 >
-                  {(isRecommended || pkg.badge) && (
-                    <div
-                      className={`absolute -top-3.5 left-7 px-3.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase ${
-                        isRecommended
-                          ? 'bg-[#6d28d9] text-white shadow-plum ring-2 ring-white'
-                          : pkg.featured
-                          ? 'bg-[#6d28d9] text-white shadow-plum'
-                          : 'bg-[#1c1917] text-white'
-                      }`}
-                    >
-                      {isRecommended ? 'RECOMMENDED FIT' : pkg.badge}
-                    </div>
-                  )}
-
-                {/* Card Title & Tagline */}
-                <div className="min-h-[80px] flex flex-col justify-start space-y-1.5 pt-1">
-                  <h3 className="text-xl font-extrabold text-[#1c1917] tracking-tight">{pkg.name}</h3>
-                  <p className="text-xs text-[#78716c] leading-relaxed line-clamp-2">{pkg.tagline}</p>
-                </div>
-
-                {/* Price Block */}
-                <div className="py-4 border-y border-[#e7e5e4] my-4 space-y-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-4xl font-extrabold text-[#1c1917] tracking-tight font-mono">
-                      ₹{pkg.priceInr.toLocaleString()}
-                    </span>
-                    {pkg.originalPriceInr && (
-                      <span className="text-xs text-[#78716c] line-through font-mono">
-                        ₹{pkg.originalPriceInr.toLocaleString()}
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#78716c] font-semibold">Tier Plan</span>
+                    {(isRecommended || pkg.badge) && (
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase shrink-0 ${
+                          isRecommended
+                            ? 'bg-[#6d28d9] text-white shadow-plum'
+                            : pkg.featured
+                            ? 'bg-[#6d28d9] text-white shadow-plum'
+                            : 'bg-[#1c1917] text-white'
+                        }`}
+                      >
+                        {isRecommended ? 'RECOMMENDED FIT' : pkg.badge}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#6d28d9] font-mono">
-                    <Zap className="w-3.5 h-3.5 fill-current" />
-                    <span>{pkg.tokenDisplay}</span>
+
+                  {/* Card Title & Tagline */}
+                  <div className="min-h-[72px] flex flex-col justify-start space-y-1 pt-1">
+                    <h3 className="text-xl font-extrabold text-[#1c1917] tracking-tight">{pkg.name}</h3>
+                    <p className="text-xs text-[#78716c] leading-relaxed line-clamp-2">{pkg.tagline}</p>
                   </div>
-                </div>
 
-                {/* Feature Checklist */}
-                <ul className="space-y-2.5 text-xs text-[#57534e] flex-1 pb-6">
-                  {(pkg.features && pkg.features.length > 0
-                    ? pkg.features
-                    : [
-                        `${pkg.tokenDisplay || '5M TOKENS / 5 HOURS'} Window`,
-                        '30-Day Fixed Validity',
-                        'Claude Models Access',
-                      ]
-                  ).map((feat: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>{feat}</span>
-                    </li>
-                  ))}
-                </ul>
+                  {/* Price Block */}
+                  <div className="py-4 border-y border-[#e7e5e4] my-4 space-y-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl sm:text-4xl font-extrabold text-[#1c1917] tracking-tight font-mono">
+                        ₹{pkg.priceInr.toLocaleString()}
+                      </span>
+                      {pkg.originalPriceInr && (
+                        <span className="text-xs text-[#78716c] line-through font-mono">
+                          ₹{pkg.originalPriceInr.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-[#6d28d9] font-mono">
+                      <Zap className="w-3.5 h-3.5 fill-current" />
+                      <span>{pkg.tokenDisplay}</span>
+                    </div>
+                  </div>
 
-                {/* Action Buttons */}
-                <div className="mt-auto pt-2 space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPlan(pkg)}
-                    className={`w-full py-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      isRecommended || pkg.featured
-                        ? 'bg-[#6d28d9] hover:bg-[#581c87] text-white shadow-plum'
-                        : 'bg-[#1c1917] hover:bg-black text-white shadow-xs'
-                    }`}
-                  >
-                    <span>Select Plan — ₹{pkg.priceInr.toLocaleString()}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  {/* Feature Checklist */}
+                  <ul className="space-y-2.5 text-xs text-[#57534e] flex-1 pb-6">
+                    {(pkg.features && pkg.features.length > 0
+                      ? pkg.features
+                      : [
+                          `${pkg.tokenDisplay || '5M TOKENS / 5 HOURS'} Window`,
+                          '30-Day Fixed Validity',
+                          'Claude Models Access',
+                        ]
+                    ).map((feat: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
 
-                  <button
-                    type="button"
-                    onClick={() => handleAddToCart(pkg)}
-                    className="w-full py-2.5 rounded-xl border border-[#e7e5e4] bg-white hover:bg-[#f5f2eb] text-[#1c1917] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5 text-[#78716c]" />
-                    <span>Add to Cart</span>
-                  </button>
-                </div>
+                  {/* Action Buttons */}
+                  <div className="mt-auto pt-2 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectPlan(pkg)}
+                      className={`w-full py-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer cred-shimmer-btn ${
+                        isRecommended || pkg.featured
+                          ? 'bg-[#6d28d9] hover:bg-[#581c87] text-white shadow-plum'
+                          : 'bg-[#1c1917] hover:bg-black text-white shadow-xs'
+                      }`}
+                    >
+                      <span>Select Plan — ₹{pkg.priceInr.toLocaleString()}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
 
-              </div>
-            );
-          })}
+                    <button
+                      type="button"
+                      onClick={() => handleAddToCart(pkg)}
+                      className="w-full py-2.5 rounded-xl border border-[#e7e5e4] bg-white hover:bg-[#f5f2eb] text-[#1c1917] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5 text-[#78716c]" />
+                      <span>Add to Cart</span>
+                    </button>
+                  </div>
+                </CredTiltCard>
+              );
+            })}
           </div>
         )}
 

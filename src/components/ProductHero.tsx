@@ -14,6 +14,7 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { CredTiltCard } from './CredTiltCard';
 
 interface ModelDestination {
   id: string;
@@ -108,29 +109,51 @@ export const ProductHero: React.FC = () => {
           <div className="lg:col-span-6 xl:col-span-6 space-y-6 text-left">
             
             {/* Editorial Category Pill */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-[#6d28d9]" />
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]"
+            >
+              <span className="flex h-1.5 w-1.5 rounded-full bg-[#6d28d9] animate-pulse" />
               <span className="text-[#6d28d9] font-bold">UNIFIED DEVELOPER GATEWAY</span>
               <span className="text-[#d6d3d1]">·</span>
               <span>DROP-IN ANTHROPIC COMPATIBLE</span>
-            </div>
+            </motion.div>
 
-            {/* Confident Headline */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-extrabold tracking-tight text-[#1c1917] leading-[1.12]">
+            {/* Confident Headline with CRED-Style Staggered Entrance */}
+            <motion.h1
+              initial={{ opacity: 0, y: 25 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-extrabold tracking-tight text-[#1c1917] leading-[1.12]"
+            >
               Your AI stack,{' '}
-              <span className="text-[#6d28d9] inline">beautifully connected.</span>
-            </h1>
+              <span className="bg-gradient-to-r from-[#6d28d9] via-[#8b5cf6] to-[#6d28d9] bg-clip-text text-transparent inline">
+                beautifully connected.
+              </span>
+            </motion.h1>
 
-            {/* Clear Customer-Benefit Supporting Text (Simplified to 2 concise sentences) */}
-            <p className="text-base sm:text-lg text-[#57534e] leading-relaxed max-w-xl">
+            {/* Clear Customer-Benefit Supporting Text */}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="text-base sm:text-lg text-[#57534e] leading-relaxed max-w-xl"
+            >
               Access the frontier Claude models your engineering workflow depends on through a single reliable connection. Keep your coding agents and IDE tools moving forward without midday quota freezes.
-            </p>
+            </motion.p>
 
-            {/* Primary & Secondary CTAs */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
+            {/* Primary & Secondary CTAs with CRED Shimmer & Spring */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-wrap items-center gap-3 pt-1"
+            >
               <Link
                 to="/trial"
-                className="px-5 py-3 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-sm transition-all shadow-plum hover:shadow-lg inline-flex items-center gap-2 cursor-pointer"
+                className="px-5 py-3 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-semibold text-sm transition-all shadow-plum hover:shadow-lg inline-flex items-center gap-2 cursor-pointer cred-shimmer-btn hover:scale-[1.03] active:scale-[0.98]"
               >
                 <Sparkles className="w-4 h-4 text-purple-200" />
                 <span>Claim Free 200k Trial</span>
@@ -139,12 +162,12 @@ export const ProductHero: React.FC = () => {
 
               <Link
                 to="/models"
-                className="px-4 py-3 rounded-xl bg-white hover:bg-[#f5f2eb] text-[#1c1917] border border-[#e7e5e4] font-semibold text-sm transition-colors cursor-pointer shadow-xs inline-flex items-center gap-2"
+                className="px-4 py-3 rounded-xl bg-white hover:bg-[#f5f2eb] text-[#1c1917] border border-[#e7e5e4] font-semibold text-sm transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Compass className="w-4 h-4 text-[#78716c]" />
                 <span>Explore Model Catalog</span>
               </Link>
-            </div>
+            </motion.div>
 
             {/* Ingress Endpoint 1-Click Copy Bar */}
             <div className="pt-1">
@@ -185,8 +208,12 @@ export const ProductHero: React.FC = () => {
           {/* RIGHT COLUMN: Polished, Uncluttered Gateway Visualization     */}
           {/* ============================================================ */}
           <div className="lg:col-span-6 xl:col-span-6">
-            <div className="relative rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 shadow-warm space-y-4">
-              
+            <CredTiltCard
+              tiltAngle={7}
+              borderBeam={true}
+              glowColor="rgba(109, 40, 217, 0.18)"
+              className="rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 shadow-warm space-y-4"
+            >
               {/* Visual Card Header */}
               <div className="flex items-center justify-between pb-3.5 border-b border-[#e7e5e4]">
                 <div className="flex items-center gap-2.5">
@@ -204,19 +231,19 @@ export const ProductHero: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-mono text-emerald-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Single Master Key</span>
                 </div>
               </div>
 
-              {/* Subtle Lightweight Connection Graphic */}
-              <div className="relative py-1 flex items-center justify-center" aria-hidden="true">
-                <div className="w-full h-px bg-gradient-to-r from-transparent via-[#c4b5fd] to-transparent" />
+              {/* Subtle Lightweight Connection Graphic with animated packet */}
+              <div className="relative py-2 flex items-center justify-center" aria-hidden="true">
+                <div className="w-full h-[1.5px] bg-gradient-to-r from-transparent via-[#c4b5fd] to-transparent" />
                 {!prefersReducedMotion && (
                   <motion.div
-                    className="absolute w-2 h-2 rounded-full bg-[#6d28d9] shadow-[0_0_8px_#6d28d9]"
-                    animate={{ x: [-100, 100] }}
-                    transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                    className="absolute w-2.5 h-2.5 rounded-full bg-[#6d28d9] shadow-[0_0_12px_#6d28d9]"
+                    animate={{ x: [-140, 140] }}
+                    transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
                   />
                 )}
               </div>
@@ -225,16 +252,19 @@ export const ProductHero: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[11px] font-mono text-[#78716c] px-0.5">
                   <span>VERIFIED DESTINATIONS</span>
-                  <span className="text-[10px] text-[#6d28d9]">Select to preview</span>
+                  <span className="text-[10px] text-[#6d28d9] font-semibold">Select to route</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {DESTINATIONS.map((dest) => {
                     const isSelected = activeModelId === dest.id;
                     return (
-                      <button
+                      <motion.button
                         key={dest.id}
                         type="button"
+                        whileHover={{ y: -2, scale: 1.015 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: 'spring', damping: 20, stiffness: 350 }}
                         onClick={() => setActiveModelId(dest.id)}
                         className={`p-3 rounded-2xl text-left border transition-all cursor-pointer relative ${
                           isSelected
@@ -253,7 +283,7 @@ export const ProductHero: React.FC = () => {
                         <p className="text-[11px] text-[#57534e] line-clamp-2 pt-1 leading-snug">
                           {dest.summary}
                         </p>
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
@@ -267,8 +297,9 @@ export const ProductHero: React.FC = () => {
                     {activeDestination.identifier}
                   </code>
                 </div>
-                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
-                  Drop-In Ready
+                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  <span>Drop-In Ready</span>
                 </span>
               </div>
 
@@ -285,8 +316,7 @@ export const ProductHero: React.FC = () => {
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
-
-            </div>
+            </CredTiltCard>
           </div>
 
         </div>

@@ -14,6 +14,7 @@ import {
   Workflow
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { CredTiltCard } from './CredTiltCard';
 
 export interface WorkflowConduit {
   id: string;
@@ -294,44 +295,56 @@ export const InteractiveGatewayDemo: React.FC = () => {
             </div>
 
             {/* Right 7 Cols: Real-Time Stream Terminal Simulation */}
-            <div className="lg:col-span-7 rounded-2xl border border-[#292524] bg-[#141210] p-4 sm:p-5 flex flex-col justify-between shadow-xl text-neutral-200 font-mono">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between pb-3 border-b border-[#292524] text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
-                    <span className="text-neutral-400 pl-2 text-[11px]">stream_output.log</span>
-                  </div>
-                  <span className="text-emerald-400 text-[10px] bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
-                    STATUS 200 OK
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 text-xs text-neutral-300 py-1 font-mono">
-                  {activeWorkflow.streamSimulation.map((line, idx) => (
-                    <div
-                      key={idx}
-                      className={
-                        line.startsWith('+')
-                          ? 'text-emerald-400'
-                          : line.startsWith('✓')
-                          ? 'text-purple-400 font-semibold'
-                          : line.startsWith('⚡')
-                          ? 'text-amber-300'
-                          : 'text-neutral-400'
-                      }
-                    >
-                      {line}
+            <div className="lg:col-span-7 h-full">
+              <CredTiltCard
+                tiltAngle={4}
+                borderBeam={true}
+                glowColor="rgba(109, 40, 217, 0.24)"
+                className="rounded-2xl border border-[#292524] bg-[#141210] p-4 sm:p-5 flex flex-col justify-between shadow-2xl text-neutral-200 font-mono h-full"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#292524] text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
+                      <span className="text-neutral-400 pl-2 text-[11px]">stream_output.log</span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] bg-emerald-950/80 px-2.5 py-0.5 rounded border border-emerald-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>LIVE SSE 200 OK</span>
+                    </div>
+                  </div>
 
-              <div className="pt-3 border-t border-[#292524] flex items-center justify-between text-[11px] text-neutral-400">
-                <span>Protocol: Anthropic SSE v1</span>
-                <span className="text-neutral-300">Transit: Ephemeral RAM</span>
-              </div>
+                  <div className="space-y-1.5 text-xs text-neutral-300 py-1 font-mono min-h-[160px]">
+                    {activeWorkflow.streamSimulation.map((line, idx) => (
+                      <div
+                        key={idx}
+                        className={
+                          line.startsWith('+')
+                            ? 'text-emerald-400'
+                            : line.startsWith('✓')
+                            ? 'text-purple-400 font-semibold'
+                            : line.startsWith('⚡')
+                            ? 'text-amber-300'
+                            : 'text-neutral-400'
+                        }
+                      >
+                        {line}
+                      </div>
+                    ))}
+                    <div className="flex items-center text-emerald-400 text-xs pt-1">
+                      <span>▸ listening for next token burst</span>
+                      <span className="inline-block w-2 h-3.5 bg-emerald-400 ml-1.5 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[#292524] flex items-center justify-between text-[11px] text-neutral-400">
+                  <span>Protocol: Anthropic SSE v1</span>
+                  <span className="text-emerald-400/90 font-medium">Transit: Volatile RAM · Zero Disk</span>
+                </div>
+              </CredTiltCard>
             </div>
 
           </div>

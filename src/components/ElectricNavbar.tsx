@@ -147,7 +147,7 @@ export const ElectricNavbar: React.FC = () => {
 
                 <Link
                   to="/trial"
-                  className="px-3.5 py-2 rounded-lg bg-[#6d28d9] hover:bg-[#581c87] text-white font-medium text-xs transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap hover:shadow-plum cursor-pointer"
+                  className="px-3.5 py-2 rounded-lg bg-[#6d28d9] hover:bg-[#581c87] text-white font-medium text-xs transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap hover:shadow-plum cursor-pointer cred-shimmer-btn"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-purple-200" />
                   <span>Claim 200k Trial</span>
@@ -160,7 +160,7 @@ export const ElectricNavbar: React.FC = () => {
           <div className="flex items-center gap-2 xl:hidden">
             <Link
               to="/trial"
-              className="hidden sm:inline-flex px-3 py-1.5 rounded-lg bg-[#6d28d9] hover:bg-[#581c87] text-white font-medium text-xs transition-colors items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              className="hidden sm:inline-flex px-3 py-1.5 rounded-lg bg-[#6d28d9] hover:bg-[#581c87] text-white font-medium text-xs transition-colors items-center gap-1.5 whitespace-nowrap cursor-pointer cred-shimmer-btn"
             >
               <Sparkles className="w-3.5 h-3.5 text-purple-200" />
               <span>Claim 200k Trial</span>

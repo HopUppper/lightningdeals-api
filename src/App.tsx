@@ -36,6 +36,7 @@ const ScrollToHash: React.FC = () => {
 // Public Landing Components (Electric Editorial Direction)
 import { ElectricNavbar } from './components/ElectricNavbar';
 import { ProductHero } from './components/ProductHero';
+import { CredVelocityMetrics } from './components/CredVelocityMetrics';
 import { HowItWorksSection } from './components/HowItWorksSection';
 import { InteractiveGatewayDemo } from './components/InteractiveGatewayDemo';
 import { ElectricEditorialContrast } from './components/ElectricEditorialContrast';
@@ -217,6 +218,9 @@ export const LandingPage: React.FC = () => {
       <main id="main-content">
         {/* Section A: Hero (Product introduction & visual gateway concept) */}
         <ProductHero />
+
+        {/* CRED-Style Kinetic Telemetry & Live Hardware Metrics Ticker */}
+        <CredVelocityMetrics />
 
         {/* Section B: Supported Model Ecosystem (Top 10 latest Claude models & direct link to /models) */}
         <ElectricModelObservatory />

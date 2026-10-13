@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles, CheckCircle2, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { CredTiltCard } from './CredTiltCard';
 
 export const ElectricFinalCta: React.FC = () => {
   return (
@@ -9,8 +10,12 @@ export const ElectricFinalCta: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Warm Editorial Invitation Card */}
-        <div className="rounded-3xl border border-[#e7e5e4] bg-white p-8 sm:p-12 md:p-16 text-center space-y-8 shadow-warm relative overflow-hidden">
-          
+        <CredTiltCard
+          tiltAngle={3}
+          borderBeam={true}
+          glowColor="rgba(109, 40, 217, 0.24)"
+          className="rounded-3xl border border-[#e7e5e4] bg-white p-8 sm:p-12 md:p-16 text-center space-y-8 shadow-warm relative"
+        >
           {/* Subtle Ambient Radial Lighting */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-b from-[#6d28d9]/10 via-amber-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
 
@@ -32,7 +37,7 @@ export const ElectricFinalCta: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-4">
               <Link
                 to="/trial"
-                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-bold text-sm transition-all shadow-plum flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
+                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white font-bold text-sm transition-all shadow-plum flex items-center justify-center gap-2 cursor-pointer cred-shimmer-btn"
               >
                 <span>Claim Free 200k Trial Pass</span>
                 <ArrowRight className="w-4 h-4" />
@@ -64,7 +69,7 @@ export const ElectricFinalCta: React.FC = () => {
 
           </div>
 
-        </div>
+        </CredTiltCard>
 
       </div>
     </section>

@@ -164,12 +164,14 @@ export const ElectricReservoirSimulator: React.FC = () => {
                 <div className="space-y-2">
                   <div className="h-8 rounded-xl bg-[#e7e5e4] p-1 overflow-hidden relative shadow-inner">
                     <motion.div
-                      className="h-full rounded-lg bg-gradient-to-r from-[#6d28d9] via-[#8b5cf6] to-[#a78bfa] relative flex items-center justify-end pr-3"
+                      className="h-full rounded-lg bg-gradient-to-r from-[#6d28d9] via-[#8b5cf6] to-[#a78bfa] relative flex items-center justify-end pr-3 overflow-hidden"
                       initial={false}
                       animate={{ width: `${current.reservoirPercent}%` }}
-                      transition={{ duration: 0.6, ease: 'easeInOut' }}
+                      transition={{ type: 'spring', damping: 22, stiffness: 160 }}
                     >
-                      <span className="text-xs font-bold font-mono text-white drop-shadow-sm">
+                      {/* Animated CRED Shimmer Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-cred-shimmer pointer-events-none" />
+                      <span className="text-xs font-bold font-mono text-white drop-shadow-sm relative z-10">
                         {current.reservoirPercent}%
                       </span>
                     </motion.div>

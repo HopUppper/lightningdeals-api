@@ -13,6 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { CredTiltCard } from './CredTiltCard';
 
 export const HowItWorksSection: React.FC = () => {
   const [activeConfigTab, setActiveConfigTab] = useState<'env' | 'cli' | 'python' | 'node'>('env');
@@ -83,10 +84,14 @@ const response = await anthropic.messages.create({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
           
           {/* STEP 1 */}
-          <div className="rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 flex flex-col justify-between shadow-warm relative">
+          <CredTiltCard
+            tiltAngle={6}
+            glowColor="rgba(109, 40, 217, 0.18)"
+            className="rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 flex flex-col justify-between shadow-warm relative h-full"
+          >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-2xl bg-[#f5f3ff] border border-[#c4b5fd] flex items-center justify-center text-[#6d28d9]">
+                <div className="w-10 h-10 rounded-2xl bg-[#f5f3ff] border border-[#c4b5fd] flex items-center justify-center text-[#6d28d9] shadow-xs">
                   <Key className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-mono font-bold text-[#78716c] px-2.5 py-1 rounded-full bg-[#fbf9f5] border border-[#e7e5e4]">
@@ -108,7 +113,7 @@ const response = await anthropic.messages.create({
                 <div className="flex items-center justify-between text-[11px] text-[#78716c]">
                   <span>AUTHENTICATION KEY</span>
                   <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Active
                   </span>
                 </div>
@@ -122,19 +127,23 @@ const response = await anthropic.messages.create({
             <div className="pt-6 border-t border-[#f0eee9] mt-6">
               <Link
                 to="/trial"
-                className="text-xs font-bold text-[#6d28d9] hover:text-[#581c87] inline-flex items-center gap-1.5"
+                className="text-xs font-bold text-[#6d28d9] hover:text-[#581c87] inline-flex items-center gap-1.5 transition-colors"
               >
                 <span>Activate Free Trial Pass</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
-          </div>
+          </CredTiltCard>
 
           {/* STEP 2 */}
-          <div className="rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 flex flex-col justify-between shadow-warm relative">
+          <CredTiltCard
+            tiltAngle={6}
+            glowColor="rgba(37, 99, 235, 0.18)"
+            className="rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 flex flex-col justify-between shadow-warm relative h-full"
+          >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-2xl bg-[#eff6ff] border border-[#bfdbfe] flex items-center justify-center text-[#2563eb]">
+                <div className="w-10 h-10 rounded-2xl bg-[#eff6ff] border border-[#bfdbfe] flex items-center justify-center text-[#2563eb] shadow-xs">
                   <SlidersHorizontal className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-mono font-bold text-[#78716c] px-2.5 py-1 rounded-full bg-[#fbf9f5] border border-[#e7e5e4]">
@@ -173,19 +182,23 @@ const response = await anthropic.messages.create({
             <div className="pt-6 border-t border-[#f0eee9] mt-6">
               <Link
                 to="/docs"
-                className="text-xs font-bold text-[#2563eb] hover:text-[#1d4ed8] inline-flex items-center gap-1.5"
+                className="text-xs font-bold text-[#2563eb] hover:text-[#1d4ed8] inline-flex items-center gap-1.5 transition-colors"
               >
                 <span>Read Integration Specs</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
-          </div>
+          </CredTiltCard>
 
           {/* STEP 3 */}
-          <div className="rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 flex flex-col justify-between shadow-warm relative">
+          <CredTiltCard
+            tiltAngle={6}
+            glowColor="rgba(5, 150, 105, 0.18)"
+            className="rounded-3xl border border-[#e7e5e4] bg-white p-6 sm:p-7 flex flex-col justify-between shadow-warm relative h-full"
+          >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-2xl bg-[#ecfdf5] border border-[#a7f3d0] flex items-center justify-center text-[#059669]">
+                <div className="w-10 h-10 rounded-2xl bg-[#ecfdf5] border border-[#a7f3d0] flex items-center justify-center text-[#059669] shadow-xs">
                   <Send className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-mono font-bold text-[#78716c] px-2.5 py-1 rounded-full bg-[#fbf9f5] border border-[#e7e5e4]">
@@ -219,18 +232,23 @@ const response = await anthropic.messages.create({
             <div className="pt-6 border-t border-[#f0eee9] mt-6">
               <Link
                 to="/models"
-                className="text-xs font-bold text-[#059669] hover:text-[#047857] inline-flex items-center gap-1.5"
+                className="text-xs font-bold text-[#059669] hover:text-[#047857] inline-flex items-center gap-1.5 transition-colors"
               >
                 <span>Browse All 10 Supported Models</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
-          </div>
+          </CredTiltCard>
 
         </div>
 
         {/* Interactive Tabbed Code Implementation Container */}
-        <div className="rounded-3xl border border-[#e7e5e4] bg-[#1c1917] text-[#fbf9f5] p-5 sm:p-8 shadow-2xl space-y-4">
+        <CredTiltCard
+          tiltAngle={3}
+          borderBeam={true}
+          glowColor="rgba(109, 40, 217, 0.22)"
+          className="rounded-3xl border border-neutral-800 bg-[#1c1917] text-[#fbf9f5] p-5 sm:p-8 shadow-2xl space-y-4"
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#292524]">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white">
@@ -290,7 +308,7 @@ const response = await anthropic.messages.create({
               )}
             </button>
           </div>
-        </div>
+        </CredTiltCard>
 
       </div>
     </section>

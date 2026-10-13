@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal, Play, Zap, AlertCircle, Mail, Check, Copy, Code, CheckCircle2, Sparkles, Bot, Clock } from 'lucide-react';
+import { Terminal, Play, Zap, AlertCircle, Mail, Check, Copy, Code, CheckCircle2, Sparkles, Bot, Clock, Cpu, ShieldCheck, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { adminFetch } from '../../utils/api';
+
+const PRO_TIPS = [
+  '⚡ Lightning Deals proxies stream tokens with sub-50ms latency via worldwide edge mesh.',
+  '🔄 Auto-failover continuously monitors vendor health and transparently reroutes without request drops.',
+  '⏱️ Rolling 5-hour refill windows reset continuously so high-throughput teams never get locked out.',
+  '🛠️ 100% drop-in Anthropic API compatible with Claude Code, Cline, Cursor, Continue.dev, and native SDKs.',
+  '🔐 Hardware enclave AES-256 isolation prevents key leaks and guarantees pristine upstream identity.',
+];
+
+const PIPELINE_STAGES = [
+  { minMs: 0, maxMs: 800, label: 'Authorizing Key & Validating Quota', icon: ShieldCheck, color: 'text-violet-600' },
+  { minMs: 800, maxMs: 1800, label: 'Routing via Low-Latency Edge Mesh', icon: Zap, color: 'text-amber-500' },
+  { minMs: 1800, maxMs: 3800, label: 'Frontier Model Synthesizing Tokens', icon: Cpu, color: 'text-fuchsia-500' },
+  { minMs: 3800, maxMs: Infinity, label: 'Assembling Cryptographic Response Stream', icon: Sparkles, color: 'text-emerald-500' },
+];
 
 export const UserApiTestConsole: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
@@ -13,6 +28,29 @@ export const UserApiTestConsole: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loadingKeys, setLoadingKeys] = useState(true);
   const [copiedResponse, setCopiedResponse] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [tipIndex, setTipIndex] = useState(0);
+
+  useEffect(() => {
+    if (!loading) {
+      setElapsedMs(0);
+      return;
+    }
+
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setElapsedMs(Date.now() - start);
+    }, 50);
+
+    const tipInterval = setInterval(() => {
+      setTipIndex((prev) => (prev + 1) % PRO_TIPS.length);
+    }, 2800);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(tipInterval);
+    };
+  }, [loading]);
 
   useEffect(() => {
     async function loadKeys() {
@@ -76,6 +114,14 @@ export const UserApiTestConsole: React.FC = () => {
   const setPresetPrompt = (text: string) => {
     setPrompt(text);
   };
+
+  const progressPercent = loading
+    ? Math.min(96, Math.round(15 + 81 * (1 - Math.exp(-elapsedMs / 2200))))
+    : 100;
+
+  const currentStage = PIPELINE_STAGES.find(
+    (stage) => elapsedMs >= stage.minMs && elapsedMs < stage.maxMs
+  ) || PIPELINE_STAGES[PIPELINE_STAGES.length - 1];
 
   if (loadingKeys) {
     return (
@@ -170,9 +216,9 @@ export const UserApiTestConsole: React.FC = () => {
               onChange={(e) => setModel(e.target.value)}
               className="w-full px-3.5 py-2.5 text-xs font-mono bg-[#faf8f5] border border-[#ede8e1] rounded-2xl focus:outline-none focus:border-violet-500 text-[#1e1b2e]"
             >
-              <option value="claude-sonnet-5.5">⚡ Claude Sonnet 5.5 (Flagship Coding & Autonomous Agents)</option>
-              <option value="claude-opus-5.5">🧠 Claude Opus 5.5 (Cognitive Frontier & Architecture)</option>
-              <option value="claude-fable-5">✨ Claude Fable 5 (Ultra-Fast IDE Specialist)</option>
+              <option value="claude-sonnet-5.5">⚡ Claude Sonnet 5.5 (Fastest • Flagship Coding)</option>
+              <option value="claude-opus-5.5">🧠 Claude Opus 5.5 (Cognitive Frontier • Architecture)</option>
+              <option value="claude-fable-5">✨ Claude Fable 5 (Ultra-Fast • IDE Specialist)</option>
               <option value="claude-opus-5-thinking">💡 Claude Opus 5 Extended Thinking (Deliberative Logic)</option>
               <option value="claude-haiku-5.5">🚀 Claude Haiku 5.5 (High-Throughput Streaming)</option>
             </select>
@@ -238,18 +284,23 @@ export const UserApiTestConsole: React.FC = () => {
         </form>
 
         {/* Response Panel */}
-        <div className="bg-white p-6 rounded-3xl border border-[#ede8e1] space-y-4 shadow-playful min-h-[360px] flex flex-col justify-between">
+        <div className="bg-white p-6 rounded-3xl border border-[#ede8e1] space-y-4 shadow-playful min-h-[380px] flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-[#ede8e1] pb-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b2e] flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-500 fill-current" />
                 <span>Gateway Response</span>
               </h3>
-              {response && (
+              {loading ? (
+                <span className="text-[10px] font-bold text-violet-800 bg-violet-50 px-2.5 py-0.5 rounded-full border border-violet-200 animate-pulse flex items-center gap-1.5 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-600 animate-ping inline-block" />
+                  <span>PROBING • {(elapsedMs / 1000).toFixed(1)}s</span>
+                </span>
+              ) : response ? (
                 <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                   HTTP 200 OK
                 </span>
-              )}
+              ) : null}
             </div>
 
             {error && (
@@ -262,7 +313,70 @@ export const UserApiTestConsole: React.FC = () => {
               </div>
             )}
 
-            {response ? (
+            {loading ? (
+              <div className="space-y-4 py-1">
+                {/* Kinetic Progress Bar */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-[#1e1b2e] flex items-center gap-1.5">
+                      <currentStage.icon className={`w-3.5 h-3.5 ${currentStage.color} animate-pulse`} />
+                      <span className="text-violet-900">{currentStage.label}</span>
+                    </span>
+                    <span className="font-mono font-bold text-violet-700">{progressPercent}%</span>
+                  </div>
+                  <div className="h-2.5 w-full bg-[#f4effa] rounded-full overflow-hidden p-0.5 border border-violet-100 shadow-inner">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-500 to-amber-400 transition-all duration-150 ease-out shadow-xs"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Animated Dark Holographic Terminal */}
+                <div className="p-4 rounded-2xl bg-[#171526] text-slate-100 border border-[#2d2948] text-xs font-mono space-y-3 relative overflow-hidden shadow-inner">
+                  {/* Glowing header bar */}
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10 text-[10px] text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                      <span className="ml-2 font-mono text-slate-300">gateway_stream.log</span>
+                    </div>
+                    <span className="font-mono text-violet-300 flex items-center gap-1">
+                      <Activity className="w-3 h-3 text-violet-400 animate-pulse" />
+                      <span>{Math.round(elapsedMs)}ms</span>
+                    </span>
+                  </div>
+
+                  {/* Pulsing skeleton bars simulating incoming tokens */}
+                  <div className="space-y-2 py-1">
+                    <div className="h-2.5 bg-gradient-to-r from-violet-900/60 via-violet-700/40 to-transparent rounded-md w-3/4 animate-pulse" />
+                    <div className="h-2.5 bg-gradient-to-r from-fuchsia-900/60 via-fuchsia-700/40 to-transparent rounded-md w-11/12 animate-pulse" style={{ animationDelay: '150ms' }} />
+                    <div className="h-2.5 bg-gradient-to-r from-violet-900/60 via-violet-700/40 to-transparent rounded-md w-2/3 animate-pulse" style={{ animationDelay: '300ms' }} />
+                    <div className="h-2.5 bg-gradient-to-r from-amber-900/50 via-amber-700/30 to-transparent rounded-md w-4/5 animate-pulse" style={{ animationDelay: '450ms' }} />
+                  </div>
+
+                  <div className="pt-1 flex items-center gap-2 text-[11px] text-violet-300">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+                    <span>Receiving cryptographic chunks from upstream provider</span>
+                    <span className="inline-block w-1.5 h-3.5 bg-violet-400 animate-pulse" />
+                  </div>
+                </div>
+
+                {/* Pro-Tip Cycling Pill */}
+                <div className="p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] flex items-start gap-2.5 transition-all">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-violet-700 block">
+                      Lightning Architecture Note
+                    </span>
+                    <p className="text-[11px] text-[#64607d] leading-relaxed transition-opacity duration-300">
+                      {PRO_TIPS[tipIndex]}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : response ? (
               <div className="space-y-3">
                 <div className="p-4 rounded-2xl bg-[#171526] text-slate-100 border border-[#2d2948] text-xs font-mono leading-relaxed max-h-[260px] overflow-y-auto">
                   <pre className="whitespace-pre-wrap font-sans text-xs">

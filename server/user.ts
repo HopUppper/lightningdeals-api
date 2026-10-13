@@ -1304,9 +1304,12 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     const executeProbe = async (targetVendor: any, keyStr: string) => {
       const prep = buildProviderRequest(targetVendor, keyStr, selectedModel, {
         messages: [{ role: 'user', content: testPrompt }],
-        max_tokens: 1000,
+        max_tokens: 400,
         stream: false,
       });
+
+      prep.headers['Connection'] = 'keep-alive';
+      prep.headers['Keep-Alive'] = 'timeout=60, max=1000';
 
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), 60000);

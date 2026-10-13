@@ -20,6 +20,8 @@ model User {
   emailVerifiedAt     DateTime?
   phoneVerifiedAt     DateTime?
   status              String                   @default("unverified") // "unverified" | "active" | "suspended"
+  hasStudioAccess     Boolean                  @default(false)        // Admin grant to use AI Studio for demo/testing
+  studioAccessGrantedAt DateTime?
   failedLoginAttempts Int                      @default(0)
   lockedUntil         DateTime?
   passwordChangedAt   DateTime?

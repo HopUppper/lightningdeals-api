@@ -1235,13 +1235,17 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
   const { apiKeyId, keyString, model, prompt, messages, system, temperature, max_tokens, clientPlatform } = req.body;
 
   try {
+    const userRecord = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { hasStudioAccess: true },
+    });
     const paidOrder = await prisma.order.findFirst({
       where: { userId: req.user!.id, paymentStatus: 'PAID' },
     });
     const paidSub = await prisma.subscription.findFirst({
       where: { userId: req.user!.id, status: 'active' },
     });
-    const isPaidCustomer = Boolean(paidOrder || paidSub);
+    const isPaidCustomer = Boolean(paidOrder || paidSub || userRecord?.hasStudioAccess);
 
     let keyRecord: any = null;
     if (apiKeyId) {
@@ -1993,13 +1997,17 @@ router.get('/trial/status', authenticateJwt, async (req: AuthRequest, res: Respo
 // GET /api/user/keys — List User's Own API Keys (IDOR Protected)
 router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
+    const userRecord = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { hasStudioAccess: true },
+    });
     const paidOrder = await prisma.order.findFirst({
       where: { userId: req.user!.id, paymentStatus: 'PAID' },
     });
     const paidSub = await prisma.subscription.findFirst({
       where: { userId: req.user!.id, status: 'active' },
     });
-    const isPaidCustomer = Boolean(paidOrder || paidSub);
+    const isPaidCustomer = Boolean(paidOrder || paidSub || userRecord?.hasStudioAccess);
 
     const keys = await prisma.apiKey.findMany({
       where: { userId: req.user!.id },

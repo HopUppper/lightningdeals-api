@@ -1921,6 +1921,8 @@ router.get('/customers', async (req: AuthRequest, res: Response) => {
         phone: u.phone,
         role: u.role,
         status: u.status,
+        hasStudioAccess: Boolean(u.hasStudioAccess),
+        studioAccessGrantedAt: u.studioAccessGrantedAt,
         emailVerified: u.emailVerified,
         phoneVerified: u.phoneVerified,
         createdAt: u.createdAt,
@@ -1960,7 +1962,7 @@ router.get('/customers', async (req: AuthRequest, res: Response) => {
 
 // POST /admin/customers — Create persistent Customer Account
 router.post('/customers', async (req: AuthRequest, res: Response) => {
-  const { name, email, password, role = 'user', status = 'active' } = req.body;
+  const { name, email, password, role = 'user', status = 'active', hasStudioAccess = false } = req.body;
   if (!name || !email) {
     return res.status(400).json({ error: { message: 'Customer name and email are required.' } });
   }
@@ -1983,6 +1985,8 @@ router.post('/customers', async (req: AuthRequest, res: Response) => {
           passwordHash,
           role,
           status,
+          hasStudioAccess: Boolean(hasStudioAccess),
+          studioAccessGrantedAt: Boolean(hasStudioAccess) ? new Date() : null,
         },
       });
 
@@ -1992,7 +1996,7 @@ router.post('/customers', async (req: AuthRequest, res: Response) => {
           action: 'CREATE_CUSTOMER',
           targetType: 'User',
           targetId: newUser.id,
-          metadata: `Created customer account ${newUser.name} (${newUser.email})`,
+          metadata: `Created customer account ${newUser.name} (${newUser.email}) - studioAccess: ${Boolean(hasStudioAccess)}`,
         },
       });
 
@@ -2007,6 +2011,8 @@ router.post('/customers', async (req: AuthRequest, res: Response) => {
         email: result.email,
         role: result.role,
         status: result.status,
+        hasStudioAccess: result.hasStudioAccess,
+        studioAccessGrantedAt: result.studioAccessGrantedAt,
         createdAt: result.createdAt,
       },
     });
@@ -2018,7 +2024,7 @@ router.post('/customers', async (req: AuthRequest, res: Response) => {
 // PUT /admin/customers/:id — Update Customer Account
 router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { name, email, role, status, password } = req.body;
+  const { name, email, role, status, password, hasStudioAccess } = req.body;
 
   try {
     const existing = await prisma.user.findUnique({ where: { id } });
@@ -2029,6 +2035,15 @@ router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
     if (email !== undefined) updateData.email = email.trim().toLowerCase();
     if (role !== undefined) updateData.role = role;
     if (status !== undefined) updateData.status = status;
+    if (hasStudioAccess !== undefined) {
+      const isGranted = Boolean(hasStudioAccess);
+      updateData.hasStudioAccess = isGranted;
+      if (isGranted && !existing.hasStudioAccess) {
+        updateData.studioAccessGrantedAt = new Date();
+      } else if (!isGranted) {
+        updateData.studioAccessGrantedAt = null;
+      }
+    }
     if (password) {
       updateData.passwordHash = hashPasswordScrypt(password);
     }
@@ -2045,7 +2060,7 @@ router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
           action: user.status === 'suspended' ? 'CUSTOMER_SUSPENDED' : user.status === 'active' && existing.status === 'suspended' ? 'CUSTOMER_REACTIVATED' : 'CUSTOMER_UPDATED',
           targetType: 'User',
           targetId: user.id,
-          metadata: `Updated customer account ${user.name} (${user.email}) - status: ${user.status}, role: ${user.role}`,
+          metadata: `Updated customer account ${user.name} (${user.email}) - status: ${user.status}, role: ${user.role}, studioAccess: ${user.hasStudioAccess}`,
         },
       });
 
@@ -2075,12 +2090,14 @@ router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
         email: existing.email,
         role: existing.role,
         status: existing.status,
+        hasStudioAccess: existing.hasStudioAccess,
       },
       afterState: {
         name: updated.name,
         email: updated.email,
         role: updated.role,
         status: updated.status,
+        hasStudioAccess: updated.hasStudioAccess,
       },
       metadata: {
         customerEmail: updated.email,
@@ -2096,8 +2113,72 @@ router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
         email: updated.email,
         role: updated.role,
         status: updated.status,
+        hasStudioAccess: updated.hasStudioAccess,
+        studioAccessGrantedAt: updated.studioAccessGrantedAt,
         updatedAt: updated.updatedAt,
       },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /admin/customers/:id/toggle-studio — Grant or Revoke AI Chat Studio Access (Demo / VIP)
+router.post('/customers/:id/toggle-studio', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { granted } = req.body;
+  try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Customer account not found.' } });
+
+    const isGranted = granted !== undefined ? Boolean(granted) : !existing.hasStudioAccess;
+    const updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id },
+        data: {
+          hasStudioAccess: isGranted,
+          studioAccessGrantedAt: isGranted ? new Date() : null,
+        },
+      });
+
+      await tx.adminLog.create({
+        data: {
+          adminUserId: req.user?.id,
+          action: isGranted ? 'GRANT_STUDIO_ACCESS' : 'REVOKE_STUDIO_ACCESS',
+          targetType: 'User',
+          targetId: user.id,
+          metadata: `${isGranted ? 'Granted' : 'Revoked'} AI Chat Studio access for customer ${user.name} (${user.email})`,
+        },
+      });
+
+      return user;
+    });
+
+    await recordAuditEvent({
+      eventType: isGranted ? 'STUDIO_ACCESS_GRANTED' : 'STUDIO_ACCESS_REVOKED',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      adminId: req.user?.id,
+      customerId: updated.id,
+      resourceType: 'CUSTOMER',
+      resourceId: updated.id,
+      action: isGranted ? 'GRANT_STUDIO_ACCESS' : 'REVOKE_STUDIO_ACCESS',
+      result: 'SUCCESS',
+      beforeState: { hasStudioAccess: existing.hasStudioAccess },
+      afterState: { hasStudioAccess: updated.hasStudioAccess, studioAccessGrantedAt: updated.studioAccessGrantedAt },
+      metadata: { customerEmail: updated.email },
+      req,
+    });
+
+    res.json({
+      success: true,
+      hasStudioAccess: updated.hasStudioAccess,
+      studioAccessGrantedAt: updated.studioAccessGrantedAt,
+      message: isGranted
+        ? `AI Chat Studio access granted to ${updated.name}.`
+        : `AI Chat Studio access revoked from ${updated.name}.`,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

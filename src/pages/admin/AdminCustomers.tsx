@@ -66,6 +66,8 @@ interface CustomerItem {
   phone?: string;
   role: string;
   status: 'active' | 'unverified' | 'suspended';
+  hasStudioAccess?: boolean;
+  studioAccessGrantedAt?: string;
   emailVerified: boolean;
   phoneVerified: boolean;
   createdAt: string;
@@ -119,6 +121,8 @@ export const AdminCustomers: React.FC = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('user');
   const [status, setStatus] = useState<'active' | 'unverified' | 'suspended'>('active');
+  const [hasStudioAccess, setHasStudioAccess] = useState(false);
+  const [togglingStudio, setTogglingStudio] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -185,6 +189,7 @@ export const AdminCustomers: React.FC = () => {
     const total = customers.length;
     let paying = 0;
     let trialActive = 0;
+    let studioVip = 0;
     let verified = 0;
     let suspended = 0;
     let totalRevenue = 0;
@@ -193,6 +198,7 @@ export const AdminCustomers: React.FC = () => {
     customers.forEach((c) => {
       if (c.paidKeyCount > 0 || c.totalSpendInr > 0) paying++;
       if (c.trialKeyCount > 0) trialActive++;
+      if (c.hasStudioAccess) studioVip++;
       if (c.emailVerified) verified++;
       if (c.status === 'suspended') suspended++;
       totalRevenue += c.totalSpendInr || 0;
@@ -205,6 +211,7 @@ export const AdminCustomers: React.FC = () => {
       total,
       paying,
       trialActive,
+      studioVip,
       verified,
       suspended,
       totalRevenue,
@@ -234,6 +241,7 @@ export const AdminCustomers: React.FC = () => {
     return customers.filter((c) => {
       // Quick filter
       if (quickFilter === 'PAYING' && c.paidKeyCount === 0 && c.totalSpendInr === 0) return false;
+      if (quickFilter === 'STUDIO_VIP' && !c.hasStudioAccess) return false;
       if (quickFilter === 'TRIAL' && c.trialKeyCount === 0) return false;
       if (quickFilter === 'VERIFIED' && !c.emailVerified) return false;
       if (quickFilter === 'UNVERIFIED' && c.emailVerified) return false;
@@ -297,6 +305,7 @@ export const AdminCustomers: React.FC = () => {
     setPassword('');
     setRole('user');
     setStatus('active');
+    setHasStudioAccess(false);
     setFormError(null);
     setShowModal(true);
   };
@@ -309,6 +318,7 @@ export const AdminCustomers: React.FC = () => {
     setPassword('');
     setRole(cust.role || 'user');
     setStatus(cust.status || 'active');
+    setHasStudioAccess(Boolean(cust.hasStudioAccess));
     setFormError(null);
     setShowModal(true);
   };
@@ -328,6 +338,7 @@ export const AdminCustomers: React.FC = () => {
         phone: phone.trim() || undefined,
         role,
         status,
+        hasStudioAccess,
       };
       if (password) payload.password = password;
 
@@ -340,6 +351,9 @@ export const AdminCustomers: React.FC = () => {
       if (res.ok) {
         setShowModal(false);
         fetchCustomers();
+        if (selectedCustomer?.id === editingCustomer?.id) {
+          setSelectedCustomer((prev) => (prev ? { ...prev, ...payload } : null));
+        }
       } else {
         setFormError(resData.error?.message || 'Failed to save customer account.');
       }
@@ -371,6 +385,46 @@ export const AdminCustomers: React.FC = () => {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleToggleStudioAccess = async (cust: CustomerItem, granted?: boolean) => {
+    const targetGranted = granted !== undefined ? granted : !cust.hasStudioAccess;
+    const confirmMsg = targetGranted
+      ? `Grant full AI Chat Studio access to ${cust.name}? They will immediately be able to use Claude 3.7 & GPT-4o Studio, multimodal vision, and multi-turn chat without an active paid subscription.`
+      : `Revoke AI Chat Studio VIP access from ${cust.name}?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setTogglingStudio(true);
+    try {
+      const res = await adminFetch(`/api/admin/customers/${cust.id}/toggle-studio`, {
+        method: 'POST',
+        body: JSON.stringify({ granted: targetGranted }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCustomers((prev) =>
+          prev.map((c) =>
+            c.id === cust.id
+              ? { ...c, hasStudioAccess: data.hasStudioAccess, studioAccessGrantedAt: data.studioAccessGrantedAt }
+              : c
+          )
+        );
+        if (selectedCustomer?.id === cust.id) {
+          setSelectedCustomer((prev) =>
+            prev
+              ? { ...prev, hasStudioAccess: data.hasStudioAccess, studioAccessGrantedAt: data.studioAccessGrantedAt }
+              : null
+          );
+        }
+      } else {
+        alert(data?.error?.message || 'Failed to update AI Chat Studio access.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error updating AI Chat Studio access.');
+    } finally {
+      setTogglingStudio(false);
     }
   };
 
@@ -505,7 +559,7 @@ export const AdminCustomers: React.FC = () => {
       </div>
 
       {/* Real-Time Metrics Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 font-mono text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 font-mono text-xs">
         <div className="p-3.5 bg-card border border-border rounded-panel space-y-1 shadow-xs">
           <span className="text-[10px] text-muted uppercase font-bold tracking-wider">Total Accounts</span>
           <div className="text-lg font-extrabold text-fg">{metrics.total.toLocaleString()}</div>
@@ -516,6 +570,13 @@ export const AdminCustomers: React.FC = () => {
             <span>💎 Paying Customers</span>
           </span>
           <div className="text-lg font-extrabold text-emerald-600">{metrics.paying.toLocaleString()}</div>
+        </div>
+
+        <div className="p-3.5 bg-card border border-amber-200/90 rounded-panel space-y-1 shadow-xs bg-amber-50/20">
+          <span className="text-[10px] text-amber-700 uppercase font-bold tracking-wider flex items-center gap-1">
+            <span>✨ Studio VIPs</span>
+          </span>
+          <div className="text-lg font-extrabold text-amber-600">{metrics.studioVip.toLocaleString()}</div>
         </div>
 
         <div className="p-3.5 bg-card border border-violet-200 rounded-panel space-y-1 shadow-xs">
@@ -544,6 +605,7 @@ export const AdminCustomers: React.FC = () => {
         {[
           { id: 'ALL', label: 'ALL ACCOUNTS' },
           { id: 'PAYING', label: '💎 PAYING CUSTOMERS' },
+          { id: 'STUDIO_VIP', label: '✨ STUDIO VIP (DEMO/TESTING)' },
           { id: 'TRIAL', label: '⚡ FREE TRIAL ACTIVE' },
           { id: 'VERIFIED', label: '✓ EMAIL VERIFIED' },
           { id: 'UNVERIFIED', label: '⚠️ UNVERIFIED' },
@@ -688,11 +750,20 @@ export const AdminCustomers: React.FC = () => {
                             {cust.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-bold text-fg flex items-center gap-1.5">
+                            <div className="font-bold text-fg flex items-center gap-1.5 flex-wrap">
                               <span>{cust.name}</span>
                               {cust.role === 'admin' && (
                                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-violet-100 text-violet-800">
                                   ADMIN
+                                </span>
+                              )}
+                              {cust.hasStudioAccess && (
+                                <span
+                                  className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5 shadow-xs"
+                                  title="Admin-granted AI Chat Studio VIP access (Demo/Testing)"
+                                >
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-600" />
+                                  STUDIO VIP
                                 </span>
                               )}
                             </div>
@@ -849,6 +920,21 @@ export const AdminCustomers: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              handleToggleStudioAccess(cust);
+                            }}
+                            className={`p-1.5 rounded-control transition-colors ${
+                              cust.hasStudioAccess
+                                ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300'
+                                : 'hover:bg-amber-50 text-muted hover:text-amber-600'
+                            }`}
+                            title={cust.hasStudioAccess ? 'Revoke AI Chat Studio Access' : 'Grant AI Chat Studio VIP Access'}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               openIssueKeyModal(cust);
                             }}
                             className="p-1.5 rounded-control hover:bg-violet-50 text-violet-600 transition-colors"
@@ -970,6 +1056,67 @@ export const AdminCustomers: React.FC = () => {
                       {selectedCustomer.userAgent || 'Web Browser'}
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* AI Chat Studio VIP Override (Demo / Testing) */}
+              <div className={`p-4 rounded-panel border space-y-3 transition-all ${
+                selectedCustomer.hasStudioAccess
+                  ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-amber-500/10 border-amber-300 shadow-xs'
+                  : 'bg-card border-border'
+              }`}>
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                  <span className="text-xs font-bold uppercase font-mono tracking-wider flex items-center gap-1.5 text-fg">
+                    <Sparkles className={`w-4 h-4 ${selectedCustomer.hasStudioAccess ? 'text-amber-600 animate-pulse' : 'text-muted'}`} />
+                    <span>AI Chat Studio VIP Override (Demo / Testing)</span>
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                      selectedCustomer.hasStudioAccess
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : 'bg-subtle text-muted border border-border'
+                    }`}
+                  >
+                    {selectedCustomer.hasStudioAccess ? '✨ VIP ACCESS ACTIVE' : 'LOCKED (PAID ONLY)'}
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="space-y-1">
+                    <div className="font-bold text-fg">
+                      {selectedCustomer.hasStudioAccess
+                        ? 'Customer has full, unrestricted access to the AI Chat Studio.'
+                        : 'Customer is restricted from multi-turn chat, Claude 3.7 / GPT-4o, and multimodal vision.'}
+                    </div>
+                    <div className="text-[11px] text-muted font-sans">
+                      {selectedCustomer.hasStudioAccess
+                        ? `Granted by administrator on ${
+                            selectedCustomer.studioAccessGrantedAt
+                              ? new Date(selectedCustomer.studioAccessGrantedAt).toLocaleDateString()
+                              : 'Admin Override'
+                          }. This customer bypasses all paid subscription checks for studio chat, code debugging, and attachments.`
+                        : 'Grant instant VIP studio access to this customer for demoing, debugging, or VIP evaluations without requiring a paid subscription.'}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleToggleStudioAccess(selectedCustomer)}
+                    disabled={togglingStudio}
+                    className={`px-4 py-2 rounded-control font-bold text-xs flex items-center justify-center gap-1.5 shrink-0 shadow-sm transition-all ${
+                      selectedCustomer.hasStudioAccess
+                        ? 'bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100'
+                        : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold shadow-amber-200'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>
+                      {togglingStudio
+                        ? 'Updating...'
+                        : selectedCustomer.hasStudioAccess
+                        ? 'Revoke Studio VIP Access'
+                        : '✨ Grant Studio VIP Access'}
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -1221,6 +1368,28 @@ export const AdminCustomers: React.FC = () => {
                     <option value="suspended">Suspended</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Studio VIP Access Toggle */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200/90 rounded-control flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-fg text-xs flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Grant AI Chat Studio VIP Access (Demo / Testing)</span>
+                  </div>
+                  <div className="text-[11px] text-muted mt-0.5">
+                    Unlocks full multi-turn chat studio & vision without requiring an active paid plan.
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                  <input
+                    type="checkbox"
+                    checked={hasStudioAccess}
+                    onChange={(e) => setHasStudioAccess(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                </label>
               </div>
 
               <div className="flex gap-2 pt-2 shrink-0">

@@ -86,43 +86,151 @@ interface ChatThread {
   updatedAt: number;
 }
 
-const MODEL_OPTIONS = [
+export interface StudioModelOption {
+  id: string;
+  name: string;
+  category: 'Flagship 5.5 & 5.0 Series' | 'Extended Thinking & Reasoning' | 'IDE & High-Velocity Series' | 'Standard Anthropic Series';
+  badge: string;
+  tokenMultiplier: string;
+  color: string;
+}
+
+const MODEL_OPTIONS: StudioModelOption[] = [
+  // ── Flagship 5.5 & 5.0 Series ──
   {
     id: 'claude-sonnet-5.5',
-    name: 'Claude 3.7 Sonnet',
-    badge: 'Frontier Coding & Reasoning',
+    name: 'Claude Sonnet 5.5',
+    category: 'Flagship 5.5 & 5.0 Series',
+    badge: 'Flagship Autonomous Coding & Engineering',
     tokenMultiplier: '1x Token Baseline',
     color: 'text-violet-400',
   },
   {
-    id: 'claude-3-5-sonnet-20241022',
-    name: 'Claude 3.5 Sonnet',
-    badge: 'Vision & Multimodal',
+    id: 'claude-opus-5.5',
+    name: 'Claude Opus 5.5',
+    category: 'Flagship 5.5 & 5.0 Series',
+    badge: 'Cognitive Frontier Intelligence',
+    tokenMultiplier: '2.5x Tokens',
+    color: 'text-amber-400',
+  },
+  {
+    id: 'claude-sonnet-5',
+    name: 'Claude Sonnet 5',
+    category: 'Flagship 5.5 & 5.0 Series',
+    badge: 'Production Engineering Workhorse',
     tokenMultiplier: '1x Token Baseline',
-    color: 'text-cyan-400',
+    color: 'text-indigo-400',
+  },
+  {
+    id: 'claude-opus-5',
+    name: 'Claude Opus 5',
+    category: 'Flagship 5.5 & 5.0 Series',
+    badge: 'Cognitive Heavyweight Architecture',
+    tokenMultiplier: '2x Tokens',
+    color: 'text-orange-400',
+  },
+
+  // ── Extended Thinking & Frontier Reasoning ──
+  {
+    id: 'claude-3-7-sonnet-20250219',
+    name: 'Claude 3.7 Sonnet',
+    category: 'Extended Thinking & Reasoning',
+    badge: 'Frontier Hybrid Reasoning (Thinking Mode)',
+    tokenMultiplier: '1x Token Baseline',
+    color: 'text-emerald-400',
+  },
+  {
+    id: 'claude-opus-5-thinking',
+    name: 'Claude Opus 5 Extended Thinking',
+    category: 'Extended Thinking & Reasoning',
+    badge: 'Hybrid Deliberative Logic',
+    tokenMultiplier: '2.5x Tokens (Deep Reasoning)',
+    color: 'text-yellow-400',
+  },
+  {
+    id: 'claude-sonnet-5-thinking',
+    name: 'Claude Sonnet 5 Extended Thinking',
+    category: 'Extended Thinking & Reasoning',
+    badge: 'Controllable Verification Reasoning',
+    tokenMultiplier: '1x Token Baseline',
+    color: 'text-teal-400',
+  },
+
+  // ── IDE & High-Velocity Series ──
+  {
+    id: 'claude-fable-5',
+    name: 'Claude Fable 5',
+    category: 'IDE & High-Velocity Series',
+    badge: 'Ultra-Fast IDE Specialist',
+    tokenMultiplier: '0.8x Tokens',
+    color: 'text-blue-400',
+  },
+  {
+    id: 'claude-fable-5-flash',
+    name: 'Claude Fable 5 Flash',
+    category: 'IDE & High-Velocity Series',
+    badge: 'Sub-Second Autopilot',
+    tokenMultiplier: '0.5x Tokens',
+    color: 'text-sky-400',
   },
   {
     id: 'claude-haiku-5.5',
-    name: 'Claude 3.5 Haiku',
-    badge: 'Ultra-Fast • 5x Cheaper',
+    name: 'Claude Haiku 5.5',
+    category: 'IDE & High-Velocity Series',
+    badge: 'High-Throughput Streaming',
     tokenMultiplier: '0.2x Tokens (Lowest Cost)',
     color: 'text-emerald-400',
   },
   {
-    id: 'claude-opus-5.5',
-    name: 'Claude 3 Opus',
-    badge: 'Cognitive Frontier Logic',
-    tokenMultiplier: '2.5x Tokens (Deep Reasoning)',
-    color: 'text-amber-400',
+    id: 'claude-haiku-5',
+    name: 'Claude Haiku 5',
+    category: 'IDE & High-Velocity Series',
+    badge: 'Rapid Code Completions',
+    tokenMultiplier: '0.2x Tokens',
+    color: 'text-green-400',
+  },
+
+  // ── Standard Anthropic Series ──
+  {
+    id: 'claude-3-5-sonnet-20241022',
+    name: 'Claude 3.5 Sonnet',
+    category: 'Standard Anthropic Series',
+    badge: 'Vision & Multimodal Standard',
+    tokenMultiplier: '1x Token Baseline',
+    color: 'text-cyan-400',
   },
   {
-    id: 'claude-fable-5',
-    name: 'Claude Fable 5',
-    badge: 'IDE Rapid Specialist',
-    tokenMultiplier: '0.8x Tokens',
-    color: 'text-indigo-400',
+    id: 'claude-3-5-haiku-20241022',
+    name: 'Claude 3.5 Haiku',
+    category: 'Standard Anthropic Series',
+    badge: 'Rapid Micro-Tasks',
+    tokenMultiplier: '0.2x Tokens',
+    color: 'text-lime-400',
+  },
+  {
+    id: 'claude-3-opus-20240229',
+    name: 'Claude 3 Opus',
+    category: 'Standard Anthropic Series',
+    badge: 'Legacy Cognitive Logic',
+    tokenMultiplier: '2.5x Tokens',
+    color: 'text-amber-500',
   },
 ];
+
+const getModelDisplayName = (modelId: string): string => {
+  const found = MODEL_OPTIONS.find((m) => m.id === modelId);
+  if (found) return found.name;
+  if (modelId.includes('3-7') || modelId.includes('3.7')) return 'Claude 3.7 Sonnet';
+  if (modelId.includes('opus-5.5') || modelId.includes('opus-5-5')) return 'Claude Opus 5.5';
+  if (modelId.includes('sonnet-5.5') || modelId.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
+  if (modelId.includes('opus-5')) return 'Claude Opus 5';
+  if (modelId.includes('sonnet-5')) return 'Claude Sonnet 5';
+  if (modelId.includes('fable-5-flash')) return 'Claude Fable 5 Flash';
+  if (modelId.includes('fable-5') || modelId.includes('fable')) return 'Claude Fable 5';
+  if (modelId.includes('haiku-5.5')) return 'Claude Haiku 5.5';
+  if (modelId.includes('haiku-5') || modelId.includes('haiku-4-5')) return 'Claude Haiku 5';
+  return modelId;
+};
 
 const SLASH_COMMANDS = [
   { cmd: '/code', desc: 'Generate complete, production-grade implementation' },
@@ -794,11 +902,34 @@ export const UserChatStudio: React.FC = () => {
               onChange={(e) => updateActiveThread({ model: e.target.value })}
               className="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-violet-500 cursor-pointer"
             >
-              {MODEL_OPTIONS.map((m) => (
-                <option key={m.id} value={m.id} className="bg-slate-900 text-slate-200">
-                  {m.name} ({m.tokenMultiplier})
-                </option>
-              ))}
+              <optgroup label="👑 Flagship 5.5 & 5.0 Series" className="bg-slate-900 text-violet-400 font-bold">
+                {MODEL_OPTIONS.filter((m) => m.category === 'Flagship 5.5 & 5.0 Series').map((m) => (
+                  <option key={m.id} value={m.id} className="bg-slate-900 text-slate-200 font-normal">
+                    {m.name} ({m.tokenMultiplier})
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="🧠 Extended Thinking & Reasoning" className="bg-slate-900 text-emerald-400 font-bold">
+                {MODEL_OPTIONS.filter((m) => m.category === 'Extended Thinking & Reasoning').map((m) => (
+                  <option key={m.id} value={m.id} className="bg-slate-900 text-slate-200 font-normal">
+                    {m.name} ({m.tokenMultiplier})
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="⚡ IDE & High-Velocity Series" className="bg-slate-900 text-cyan-400 font-bold">
+                {MODEL_OPTIONS.filter((m) => m.category === 'IDE & High-Velocity Series').map((m) => (
+                  <option key={m.id} value={m.id} className="bg-slate-900 text-slate-200 font-normal">
+                    {m.name} ({m.tokenMultiplier})
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="🌐 Standard Anthropic Series" className="bg-slate-900 text-slate-400 font-bold">
+                {MODEL_OPTIONS.filter((m) => m.category === 'Standard Anthropic Series').map((m) => (
+                  <option key={m.id} value={m.id} className="bg-slate-900 text-slate-200 font-normal">
+                    {m.name} ({m.tokenMultiplier})
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -1180,8 +1311,8 @@ export const UserChatStudio: React.FC = () => {
                         {/* Assistant Header Metadata */}
                         <div className="flex items-center gap-2 text-xs font-mono">
                           <span className="font-bold text-slate-200">Claude Assistant</span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                            {msg.modelUsed || activeThread.model}
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                            {getModelDisplayName(msg.modelUsed || activeThread.model)}
                           </span>
                           {msg.latencyMs && (
                             <span className="text-[10px] text-slate-500">

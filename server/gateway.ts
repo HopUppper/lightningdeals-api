@@ -13,27 +13,72 @@ export function mapToUpstreamModel(inputModel: string, providerType = 'anthropic
   const normalized = (inputModel || '').toLowerCase().trim();
 
   if (providerType === 'anthropic' || providerType === 'custom_http') {
+    // 1. Claude 3.7 Sonnet (Thinking / Hybrid Reasoning)
     if (
-      normalized.includes('fable') ||
-      normalized.includes('sonnet-5') ||
-      normalized.includes('sonnet-4-6') ||
-      normalized.includes('sonnet-4-5') ||
+      normalized.includes('3-7-sonnet') ||
+      normalized.includes('3.7-sonnet') ||
+      normalized.includes('3-7') ||
+      normalized.includes('3.7')
+    ) {
+      return 'claude-3-7-sonnet-20250219';
+    }
+
+    // 2. Opus 5.5 / Opus 5 / Opus
+    if (
+      normalized.includes('opus-5.5') ||
+      normalized.includes('opus-5-5')
+    ) {
+      return 'claude-opus-5-5';
+    }
+
+    if (
+      normalized.includes('opus-5')
+    ) {
+      return 'claude-opus-5';
+    }
+
+    // 3. Sonnet 5.5 / Sonnet 5
+    if (
+      normalized.includes('sonnet-5.5') ||
+      normalized.includes('sonnet-5-5') ||
+      normalized.includes('sonnet-5')
+    ) {
+      return 'claude-sonnet-5';
+    }
+
+    // 4. Fable 5 / Fable 5.1 / Fable Flash
+    if (
+      normalized.includes('fable-5.1') ||
+      normalized.includes('fable-5-1')
+    ) {
+      return 'claude-fable-5-1';
+    }
+    if (normalized.includes('fable-flash')) {
+      return 'claude-fable-5-flash';
+    }
+    if (normalized.includes('fable')) {
+      return 'claude-fable-5';
+    }
+
+    // 5. Haiku 5.5 / Haiku 5 / Haiku 4.5
+    if (
+      normalized.includes('haiku-5.5') ||
+      normalized.includes('haiku-5') ||
+      normalized.includes('haiku-4-5')
+    ) {
+      return 'claude-haiku-4-5-20251001';
+    }
+
+    // 6. Anthropic Standard Models
+    if (
+      normalized.includes('3-5-sonnet') ||
       normalized.includes('sonnet-4') ||
       normalized.includes('sonnet')
     ) {
       return 'claude-3-5-sonnet-20241022';
     }
 
-    if (
-      normalized.includes('opus-5') ||
-      normalized.includes('opus-4-8') ||
-      normalized.includes('opus-4-7') ||
-      normalized.includes('opus-4-6') ||
-      normalized.includes('opus-4-5') ||
-      normalized.includes('opus-4-1') ||
-      normalized.includes('opus-4') ||
-      normalized.includes('opus')
-    ) {
+    if (normalized.includes('opus')) {
       return 'claude-3-opus-20240229';
     }
 
@@ -61,16 +106,20 @@ export function isSupportedModel(inputModel: string): boolean {
 
 export function getFriendlyModelName(model: string): string {
   const m = (model || '').toLowerCase().trim();
+  if (m.includes('3-7-sonnet') || m.includes('3.7-sonnet') || m.includes('3-7') || m.includes('3.7')) return 'Claude 3.7 Sonnet';
   if (m.includes('opus-5.5') || m.includes('opus-5-5')) return 'Claude Opus 5.5';
   if (m.includes('sonnet-5.5') || m.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
+  if (m.includes('opus-5-thinking') || (m.includes('opus') && m.includes('thinking'))) return 'Claude Opus 5 Extended Thinking';
+  if (m.includes('sonnet-5-thinking') || (m.includes('sonnet') && m.includes('thinking'))) return 'Claude Sonnet 5 Extended Thinking';
   if (m.includes('fable-5-flash') || m.includes('fable-flash')) return 'Claude Fable 5 Flash';
   if (m.includes('fable')) return 'Claude Fable 5';
-  if (m.includes('opus') && m.includes('thinking')) return 'Claude Opus 5 Extended Thinking';
-  if (m.includes('sonnet') && m.includes('thinking')) return 'Claude Sonnet 5 Extended Thinking';
   if (m.includes('haiku-5.5') || m.includes('haiku-5-5')) return 'Claude Haiku 5.5';
-  if (m.includes('haiku')) return 'Claude Haiku 5';
-  if (m.includes('opus')) return 'Claude Opus 5';
-  if (m.includes('sonnet')) return 'Claude Sonnet 5';
+  if (m.includes('haiku-5') || m.includes('haiku-4-5')) return 'Claude Haiku 5';
+  if (m.includes('opus-5')) return 'Claude Opus 5';
+  if (m.includes('sonnet-5')) return 'Claude Sonnet 5';
+  if (m.includes('3-5-sonnet')) return 'Claude 3.5 Sonnet';
+  if (m.includes('3-opus')) return 'Claude 3 Opus';
+  if (m.includes('3-5-haiku')) return 'Claude 3.5 Haiku';
   return 'Claude Sonnet 5.5';
 }
 

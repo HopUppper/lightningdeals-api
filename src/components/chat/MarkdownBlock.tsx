@@ -43,7 +43,7 @@ export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
   const parts = cleanContent.split(/(```[\s\S]*?```)/g);
 
   return (
-    <div className="space-y-3 leading-relaxed text-[13px] text-slate-200 font-normal">
+    <div className="space-y-3 leading-relaxed text-[13.5px] text-[#1F1E1D] dark:text-slate-100 font-normal">
       {/* Collapsible Claude 3.7 Thinking Process Block */}
       {extractedThinking && (
         <div className="my-2.5 rounded-xl border border-amber-500/30 bg-amber-950/20 overflow-hidden text-xs">
@@ -230,21 +230,21 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         // Header check
         if (trimmed.startsWith('### ')) {
           return (
-            <h4 key={pIdx} className="text-sm font-bold text-slate-100 mt-4 mb-1">
+            <h4 key={pIdx} className="text-sm font-bold text-slate-900 dark:text-white mt-4 mb-1">
               {formatInline(trimmed.replace('### ', ''))}
             </h4>
           );
         }
         if (trimmed.startsWith('## ')) {
           return (
-            <h3 key={pIdx} className="text-base font-extrabold text-slate-100 mt-5 mb-1.5 pb-1 border-b border-slate-800">
+            <h3 key={pIdx} className="text-base font-extrabold text-slate-900 dark:text-white mt-5 mb-1.5 pb-1 border-b border-slate-200 dark:border-slate-800">
               {formatInline(trimmed.replace('## ', ''))}
             </h3>
           );
         }
         if (trimmed.startsWith('# ')) {
           return (
-            <h2 key={pIdx} className="text-lg font-black text-slate-100 mt-6 mb-2">
+            <h2 key={pIdx} className="text-lg font-black text-slate-900 dark:text-white mt-6 mb-2">
               {formatInline(trimmed.replace('# ', ''))}
             </h2>
           );
@@ -255,7 +255,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
           return (
             <blockquote
               key={pIdx}
-              className="my-2 border-l-3 border-violet-500 pl-3.5 py-1 text-slate-300 bg-violet-950/20 rounded-r-xl italic text-[12.5px]"
+              className="my-2 border-l-3 border-violet-500 pl-3.5 py-1 text-slate-700 dark:text-slate-300 bg-violet-50 dark:bg-violet-950/20 rounded-r-xl italic text-[12.5px]"
             >
               {formatInline(trimmed.replace(/^>\s*/, ''))}
             </blockquote>
@@ -266,7 +266,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         const lines = trimmed.split('\n');
         if (lines.every((l) => l.trim().startsWith('- ') || l.trim().startsWith('* '))) {
           return (
-            <ul key={pIdx} className="my-2 list-disc list-inside space-y-1 pl-1 text-[13px] text-slate-300">
+            <ul key={pIdx} className="my-2 list-disc list-inside space-y-1.5 pl-1 text-[13px] text-slate-800 dark:text-slate-200">
               {lines.map((l, lIdx) => (
                 <li key={lIdx} className="leading-relaxed">
                   {formatInline(l.trim().replace(/^[-*]\s+/, ''))}
@@ -279,7 +279,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         // Numbered list check
         if (lines.every((l) => /^\d+\.\s+/.test(l.trim()))) {
           return (
-            <ol key={pIdx} className="my-2 list-decimal list-inside space-y-1 pl-1 text-[13px] text-slate-300">
+            <ol key={pIdx} className="my-2 list-decimal list-inside space-y-1.5 pl-1 text-[13px] text-slate-800 dark:text-slate-200">
               {lines.map((l, lIdx) => (
                 <li key={lIdx} className="leading-relaxed">
                   {formatInline(l.trim().replace(/^\d+\.\s+/, ''))}
@@ -291,7 +291,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
 
         // Regular paragraph with line breaks
         return (
-          <p key={pIdx} className="leading-relaxed whitespace-pre-line text-slate-200">
+          <p key={pIdx} className="leading-relaxed whitespace-pre-line text-slate-800 dark:text-slate-200 text-[13.5px]">
             {formatInline(trimmed)}
           </p>
         );
@@ -309,7 +309,7 @@ function formatInline(text: string): React.ReactNode {
       return (
         <code
           key={i}
-          className="px-1.5 py-0.5 mx-0.5 rounded-md bg-violet-950/60 text-violet-300 font-mono text-[11.5px] border border-violet-500/30 font-semibold"
+          className="px-1.5 py-0.5 mx-0.5 rounded-md bg-slate-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 font-mono text-[11.5px] border border-slate-200 dark:border-violet-500/30 font-semibold"
         >
           {code}
         </code>
@@ -320,7 +320,7 @@ function formatInline(text: string): React.ReactNode {
     return boldParts.map((bp, bIdx) => {
       if (bp.startsWith('**') && bp.endsWith('**') && bp.length > 4) {
         return (
-          <strong key={`${i}-${bIdx}`} className="font-bold text-slate-100">
+          <strong key={`${i}-${bIdx}`} className="font-bold text-slate-900 dark:text-white">
             {bp.slice(2, -2)}
           </strong>
         );

@@ -1312,6 +1312,23 @@ export const UserChatStudio: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                    ) : msg.isError ? (
+                      /* Error Message Alert Banner */
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-mono text-amber-600 dark:text-amber-400">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <span className="font-bold">Gateway Notice</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+                            0 Tokens Deducted
+                          </span>
+                          <span className={`text-[10px] ${c.textMuted}`}>
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-950/30 text-xs sm:text-sm text-amber-900 dark:text-amber-200 leading-relaxed font-sans">
+                          <p className="whitespace-pre-wrap">{msg.content.replace(/^⚠️\s*/, '')}</p>
+                        </div>
+                      </div>
                     ) : (
                       /* Assistant Message (Clean Open Layout) */
                       <div className="space-y-3">

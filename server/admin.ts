@@ -645,6 +645,21 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
         return res.json({ status: 'INVALID_RESPONSE', message: 'Provider returned non-JSON payload.' });
       }
 
+      // Intercept upstream vendor pseudo-200 responses containing auth errors (e.g. Opus Max)
+      const assistantText = parsedBody?.content?.[0]?.text || parsedBody?.choices?.[0]?.message?.content || parsedBody?.error?.message || '';
+      if (typeof assistantText === 'string' && (assistantText.includes('Invalid API key') || assistantText.includes('invalid_api_key'))) {
+        if (providerId) {
+          await prisma.vendorProvider.update({
+            where: { id: providerId },
+            data: { status: 'invalid_credential', lastTestedAt: new Date(), lastError: 'Upstream vendor reported: ' + assistantText },
+          });
+        }
+        return res.json({
+          status: 'AUTHENTICATION_FAILED',
+          message: `Upstream vendor rejected master key: "${assistantText}". Please update the master key under Admin > Providers.`,
+        });
+      }
+
       if (providerId) {
         await prisma.vendorProvider.update({
           where: { id: providerId },
@@ -1462,7 +1477,13 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
       expiresAt.setDate(expiresAt.getDate() + Number(expiryDays));
     }
 
-    const initialTokens = BigInt(tokenLimit || (isTrial ? 200000 : 20000000));
+    const initialTokens = BigInt(
+      tokenLimit !== undefined && tokenLimit !== null && tokenLimit !== ''
+        ? tokenLimit
+        : isTrial
+        ? 200000
+        : 1000000
+    );
     const numM = Math.round(Number(initialTokens) / 1000000);
     const defaultPlan = isTrial ? 'Trial Key' : `Claude Max ${numM}x`;
     const finalPlan = plan || defaultPlan;

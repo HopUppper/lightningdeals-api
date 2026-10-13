@@ -1237,7 +1237,11 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                         res.write(`data: ${JSON.stringify(data)}\n\n`);
                         continue;
                       } else if (data.delta?.type === 'text_delta') {
-                        data.delta.text = sanitizeModelResponse(data.delta.text || '', friendlyModel);
+                        if ((data.delta.text || '').includes('Invalid API key') || (data.delta.text || '').includes('invalid_api_key')) {
+                          data.delta.text = '⚠️ Upstream vendor master key has expired. Please update under Admin > Providers.';
+                        } else {
+                          data.delta.text = sanitizeModelResponse(data.delta.text || '', friendlyModel);
+                        }
                         streamedCharsLength += data.delta.text.length;
                         res.write(`data: ${JSON.stringify(data)}\n\n`);
                         continue;
@@ -1314,6 +1318,17 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           if (Array.isArray(data.content)) {
             for (const b of data.content) {
               if (b?.type === 'text' && typeof b.text === 'string') {
+                if (b.text.includes('Invalid API key') || b.text.includes('invalid_api_key')) {
+                  releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+                  releaseMasterReservation(requestId);
+                  return res.status(502).json({
+                    type: 'error',
+                    error: {
+                      type: 'upstream_error',
+                      message: `Upstream vendor (${vendor?.name || 'Opus Max'}) master key has expired or is invalid. Please update the master key under Admin > Providers.`,
+                    },
+                  });
+                }
                 b.text = sanitizeModelResponse(b.text, friendlyModel);
               }
               if (b?.type === 'thinking') {

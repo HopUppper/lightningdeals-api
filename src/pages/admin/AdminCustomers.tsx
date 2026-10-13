@@ -125,7 +125,10 @@ export const AdminCustomers: React.FC = () => {
   // Issue Key Modal State
   const [showIssueKeyModal, setShowIssueKeyModal] = useState(false);
   const [selectedKeyCustomer, setSelectedKeyCustomer] = useState<CustomerItem | null>(null);
-  const [issuePlanId, setIssuePlanId] = useState('20000000');
+  const [issuePlanId, setIssuePlanId] = useState('1000000');
+  const [customTokens, setCustomTokens] = useState('');
+  const [selectedProviderId, setSelectedProviderId] = useState('');
+  const [providers, setProviders] = useState<any[]>([]);
   const [issueKeyName, setIssueKeyName] = useState('Production Key');
   const [issueRpm, setIssueRpm] = useState('100');
   const [issueIsTrial, setIssueIsTrial] = useState(false);
@@ -160,8 +163,21 @@ export const AdminCustomers: React.FC = () => {
     }
   };
 
+  const fetchProviders = async () => {
+    try {
+      const res = await adminFetch('/api/admin/providers');
+      if (res.ok) {
+        const data = await res.json();
+        setProviders(data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
+    fetchProviders();
   }, []);
 
   // Summary Metrics Computation
@@ -360,7 +376,9 @@ export const AdminCustomers: React.FC = () => {
 
   const openIssueKeyModal = (cust: CustomerItem) => {
     setSelectedKeyCustomer(cust);
-    setIssuePlanId('20000000');
+    setIssuePlanId('1000000');
+    setCustomTokens('');
+    setSelectedProviderId('');
     setIssueKeyName(`${cust.name.split(' ')[0]}'s Production Key`);
     setIssueRpm('100');
     setIssueIsTrial(false);
@@ -375,8 +393,12 @@ export const AdminCustomers: React.FC = () => {
     setIssueSubmitting(true);
     setIssueError(null);
 
-    const tokenLimitNum = Number(issuePlanId);
-    const numM = Math.round(tokenLimitNum / 1000000);
+    const tokenLimitNum = issuePlanId === 'custom'
+      ? Number(customTokens || 1000000)
+      : Number(issuePlanId);
+    const numM = tokenLimitNum >= 1000000
+      ? (tokenLimitNum / 1000000).toFixed(tokenLimitNum % 1000000 === 0 ? 0 : 1)
+      : (tokenLimitNum / 1000000).toFixed(2);
     const planName = issueIsTrial ? 'Free Trial' : `${numM}M Tokens / 5h Window`;
 
     try {
@@ -389,6 +411,7 @@ export const AdminCustomers: React.FC = () => {
           plan: planName,
           rateLimitRpm: Number(issueRpm || 100),
           isTrial: issueIsTrial,
+          providerId: selectedProviderId || undefined,
         }),
       });
 
@@ -1286,17 +1309,63 @@ export const AdminCustomers: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-muted mb-1 font-bold uppercase">Token Allowance Plan</label>
+                  <label className="block text-muted mb-1 font-bold uppercase">Token Allowance Plan (5-Hour Window)</label>
                   <select
                     value={issuePlanId}
-                    onChange={(e) => setIssuePlanId(e.target.value)}
-                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setIssuePlanId(val);
+                      if (val === '200000') {
+                        setIssueIsTrial(true);
+                        setIssueKeyName(`${selectedKeyCustomer.name.split(' ')[0]}'s Free Trial Key`);
+                      } else {
+                        setIssueIsTrial(false);
+                        setIssueKeyName(`${selectedKeyCustomer.name.split(' ')[0]}'s Production Key`);
+                      }
+                    }}
+                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
                   >
-                    <option value="1000000">1 Million Tokens (Trial Pass)</option>
-                    <option value="50000000">50 Million Tokens (PRO Plan)</option>
-                    <option value="120000000">120 Million Tokens (MAX Plan)</option>
-                    <option value="250000000">250 Million Tokens (ULTRA Plan)</option>
+                    <option value="1000000">1 Million Tokens (1M Tokens / 5h Window)</option>
+                    <option value="5000000">5 Million Tokens (Max 5x — 5M / 5h Window)</option>
+                    <option value="20000000">20 Million Tokens (MAX 20X — 20M / 5h Window)</option>
+                    <option value="40000000">40 Million Tokens (MAX 40X — 40M / 5h Window)</option>
+                    <option value="100000000">100 Million Tokens (MAX 100x — 100M / 5h Window)</option>
+                    <option value="200000">200,000 Tokens (Free Trial Pass)</option>
+                    <option value="custom">Custom Token Allowance...</option>
                   </select>
+                </div>
+
+                {issuePlanId === 'custom' && (
+                  <div>
+                    <label className="block text-muted mb-1 font-bold uppercase">Custom Token Amount</label>
+                    <input
+                      type="number"
+                      required
+                      value={customTokens}
+                      onChange={(e) => setCustomTokens(e.target.value)}
+                      placeholder="e.g. 1000000 for 1 Million Tokens"
+                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-muted mb-1 font-bold uppercase">Upstream Vendor Provider</label>
+                  <select
+                    value={selectedProviderId}
+                    onChange={(e) => setSelectedProviderId(e.target.value)}
+                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
+                  >
+                    <option value="">System Default / Primary Vendor (Opus Max)</option>
+                    {providers.filter((p) => p.status !== 'disabled').map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.status === 'connected' ? 'Connected' : p.status}) {p.isPrimary ? '★ Primary' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-muted mt-0.5">
+                    Selects which upstream vendor will route this key's token traffic.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1317,8 +1386,8 @@ export const AdminCustomers: React.FC = () => {
                       onChange={(e) => setIssueIsTrial(e.target.value === 'trial')}
                       className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
                     >
-                      <option value="production">Production (ld_live_)</option>
-                      <option value="trial">Free Trial (ld_trial_)</option>
+                      <option value="production">Production Key</option>
+                      <option value="trial">Free Trial Key</option>
                     </select>
                   </div>
                 </div>

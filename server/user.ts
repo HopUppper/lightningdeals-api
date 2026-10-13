@@ -1397,6 +1397,17 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     const outputTokens = Number(responseJson.usage?.output_tokens) || Math.max(1, Math.ceil(responseText.length / 4));
     const totalTokens = inputTokens + outputTokens;
 
+    // Check if upstream vendor returned an auth error (e.g. Opus Max pseudo-200 with "Invalid API key")
+    if (typeof responseText === 'string' && (responseText.includes('Invalid API key') || responseText.includes('invalid_api_key'))) {
+      return res.status(502).json({
+        success: false,
+        error: {
+          message: `Upstream vendor (${currentVendor.name}) rejected the master key: "${responseText}". The vendor master key has expired or needs to be refreshed under Admin > Providers.`,
+        },
+        latencyMs,
+      });
+    }
+
     // Deduct tokens from user's key and record request in db
     const remainingAfter = keyRecord.tokensRemaining > BigInt(totalTokens)
       ? keyRecord.tokensRemaining - BigInt(totalTokens)

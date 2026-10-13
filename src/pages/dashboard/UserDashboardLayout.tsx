@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { Zap, LayoutDashboard, Key, Activity, LifeBuoy, Settings, LogOut, BookOpen, CreditCard, Layers, Users, Menu, X, Play, Star } from 'lucide-react';
+import { Zap, LayoutDashboard, Key, Activity, LifeBuoy, Settings, LogOut, BookOpen, CreditCard, Layers, Users, Menu, X, Play, Star, Bot, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationCenter } from '../../components/NotificationCenter';
 
@@ -16,8 +16,9 @@ export const UserDashboardLayout: React.FC = () => {
 
   const navItems = [
     { name: 'Overview', path: '/dashboard', icon: LayoutDashboard, end: true },
+    { name: 'AI Chat Studio', path: '/dashboard/studio', icon: Bot, badge: 'PRO' },
     { name: 'API Keys', path: '/dashboard/keys', icon: Key },
-    { name: 'Playground', path: '/dashboard/api-test', icon: Play },
+    { name: 'API Console', path: '/dashboard/api-test', icon: Play },
     { name: 'Usage & Quota', path: '/dashboard/usage', icon: Activity },
     { name: 'Active Plans', path: '/dashboard/plan', icon: CreditCard },
     { name: 'Subscriptions', path: '/dashboard/subscriptions', icon: Layers },
@@ -106,7 +107,12 @@ export const UserDashboardLayout: React.FC = () => {
               }
             >
               <item.icon className="w-4 h-4 shrink-0" />
-              <span>{item.name}</span>
+              <span className="flex-1">{item.name}</span>
+              {(item as any).badge && (
+                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-2xs">
+                  {(item as any).badge}
+                </span>
+              )}
             </NavLink>
           ))}
 

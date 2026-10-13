@@ -167,6 +167,7 @@ const UserPlan = safeLazy(() => import('./pages/dashboard/UserPlan').then(m => (
 const UserDocs = safeLazy(() => import('./pages/dashboard/UserDocs').then(m => ({ default: m.UserDocs })));
 const UserOrders = safeLazy(() => import('./pages/dashboard/UserOrders').then(m => ({ default: m.UserOrders })));
 const UserApiTestConsole = safeLazy(() => import('./pages/dashboard/UserApiTestConsole').then(m => ({ default: m.UserApiTestConsole })));
+const UserChatStudio = safeLazy(() => import('./pages/dashboard/UserChatStudio').then(m => ({ default: m.UserChatStudio })));
 const UserSupport = safeLazy(() => import('./pages/dashboard/UserSupport').then(m => ({ default: m.UserSupport })));
 const UserSettings = safeLazy(() => import('./pages/dashboard/UserSettings').then(m => ({ default: m.UserSettings })));
 const UserRewards = safeLazy(() => import('./pages/dashboard/UserRewards').then(m => ({ default: m.UserRewards })));
@@ -299,6 +300,8 @@ export function App() {
                   <Route path="referral" element={<UserReferrals />} />
                   <Route path="docs" element={<UserDocs />} />
                   <Route path="orders" element={<UserOrders />} />
+                  <Route path="studio" element={<UserChatStudio />} />
+                  <Route path="chat" element={<UserChatStudio />} />
                   <Route path="api-test" element={<UserApiTestConsole />} />
                   <Route path="support" element={<UserSupport />} />
                   <Route path="feedback" element={<UserFeedback />} />

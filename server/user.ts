@@ -1230,11 +1230,19 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
   }
 });
 
-// POST /api/user/keys/test — Live Interactive API Key Playground Execution
+// POST /api/user/keys/test — Live Interactive API Key Playground & AI Studio Execution
 router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Response) => {
-  const { apiKeyId, keyString, model, prompt } = req.body;
+  const { apiKeyId, keyString, model, prompt, messages, system, temperature, max_tokens, clientPlatform } = req.body;
 
   try {
+    const paidOrder = await prisma.order.findFirst({
+      where: { userId: req.user!.id, paymentStatus: 'PAID' },
+    });
+    const paidSub = await prisma.subscription.findFirst({
+      where: { userId: req.user!.id, status: 'active' },
+    });
+    const isPaidCustomer = Boolean(paidOrder || paidSub);
+
     let keyRecord: any = null;
     if (apiKeyId) {
       keyRecord = await prisma.apiKey.findFirst({
@@ -1298,15 +1306,47 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       ? model.trim()
       : 'claude-sonnet-5.5';
 
+    let outboundMessages: any[] = [];
+    if (Array.isArray(messages) && messages.length > 0) {
+      const isMultiTurn = messages.length > 1;
+      const hasAttachments = messages.some((m: any) =>
+        Array.isArray(m.content) && m.content.some((c: any) => c.type === 'image' || c.type === 'document')
+      );
+
+      // Gate advanced multi-turn and vision/attachments to paid customers only
+      if ((isMultiTurn || hasAttachments) && !isPaidCustomer) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'PRO_TIER_REQUIRED',
+            message: 'Multi-turn chat threads and file/image vision analysis are exclusively available for active paid subscribers. Please upgrade your capacity plan (starting at 1M tokens) to unlock full AI Studio access.',
+          },
+        });
+      }
+
+      outboundMessages = messages;
+    } else {
+      outboundMessages = [{ role: 'user', content: testPrompt }];
+    }
+
+    const effectiveMaxTokens = Number(max_tokens) || (Array.isArray(messages) ? 1500 : 400);
+    const effectiveSystem = typeof system === 'string' && system.trim() ? system.trim() : undefined;
+    const effectiveTemperature = typeof temperature === 'number' ? Math.max(0, Math.min(1, temperature)) : undefined;
+
     let currentVendor = vendor;
     let currentMasterKey = masterKey;
 
     const executeProbe = async (targetVendor: any, keyStr: string) => {
-      const prep = buildProviderRequest(targetVendor, keyStr, selectedModel, {
-        messages: [{ role: 'user', content: testPrompt }],
-        max_tokens: 400,
+      const payload: any = {
+        messages: outboundMessages,
+        max_tokens: effectiveMaxTokens,
         stream: false,
-      });
+        injectPersona: true,
+      };
+      if (effectiveSystem) payload.system = effectiveSystem;
+      if (effectiveTemperature !== undefined) payload.temperature = effectiveTemperature;
+
+      const prep = buildProviderRequest(targetVendor, keyStr, selectedModel, payload);
 
       prep.headers['Connection'] = 'keep-alive';
       prep.headers['Keep-Alive'] = 'timeout=60, max=1000';
@@ -1399,9 +1439,8 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       responseText = JSON.stringify(responseJson, null, 2);
     }
 
-    responseText = sanitizeModelResponse(responseText, getFriendlyModelName(selectedModel));
-
-    const inputTokens = Number(responseJson.usage?.input_tokens) || Math.max(1, Math.ceil(testPrompt.length / 4));
+    const rawInputTokens = responseJson.usage?.input_tokens;
+    const inputTokens = Number(rawInputTokens) || Math.max(1, Math.ceil(JSON.stringify(outboundMessages).length / 4));
     const outputTokens = Number(responseJson.usage?.output_tokens) || Math.max(1, Math.ceil(responseText.length / 4));
     const totalTokens = inputTokens + outputTokens;
 
@@ -1421,6 +1460,8 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       ? keyRecord.tokensRemaining - BigInt(totalTokens)
       : 0n;
 
+    const platformTag = (typeof clientPlatform === 'string' && clientPlatform.trim()) ? clientPlatform.trim() : 'Interactive Playground';
+
     await prisma.apiKey.update({
       where: { id: keyRecord.id },
       data: {
@@ -1430,7 +1471,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         totalInputTokens: { increment: BigInt(inputTokens) },
         totalOutputTokens: { increment: BigInt(outputTokens) },
         lastUsedAt: new Date(),
-        lastPlatform: 'Interactive Playground',
+        lastPlatform: platformTag,
         firstUsedAt: keyRecord.firstUsedAt || new Date(),
       },
     });
@@ -1449,7 +1490,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         providerId: currentVendor.id,
         streaming: false,
         usageSource: 'PROVIDER_REPORTED',
-        clientPlatform: 'Interactive Playground',
+        clientPlatform: platformTag,
         userAgent: req.headers['user-agent']?.toString() || 'Browser / Interactive Playground',
         ipAddress: (req.ip || req.headers['x-forwarded-for']?.toString() || '').split(',')[0].trim() || null,
       },
@@ -1458,7 +1499,8 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     return res.json({
       success: true,
       status: 'active',
-      content: [{ type: 'text', text: responseText }],
+      result: responseText,
+      content: responseJson.content || [{ type: 'text', text: responseText }],
       usage: {
         input_tokens: inputTokens,
         output_tokens: outputTokens,
@@ -1470,6 +1512,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       purchasedTokens: keyRecord.purchasedTokens.toString(),
       vendorStatus: currentVendor.status,
       testedAt: new Date().toISOString(),
+      isPaidCustomer,
     });
   } catch (err: any) {
     console.error('[API PLAYGROUND TEST ERROR]', err);
@@ -1940,12 +1983,21 @@ router.get('/trial/status', authenticateJwt, async (req: AuthRequest, res: Respo
 // GET /api/user/keys — List User's Own API Keys (IDOR Protected)
 router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
+    const paidOrder = await prisma.order.findFirst({
+      where: { userId: req.user!.id, paymentStatus: 'PAID' },
+    });
+    const paidSub = await prisma.subscription.findFirst({
+      where: { userId: req.user!.id, status: 'active' },
+    });
+    const isPaidCustomer = Boolean(paidOrder || paidSub);
+
     const keys = await prisma.apiKey.findMany({
       where: { userId: req.user!.id },
       orderBy: { createdAt: 'desc' },
     });
 
     res.json({
+      isPaidCustomer,
       keys: keys.map((k) => {
         const decrypted = k.keyEncrypted ? decryptText(k.keyEncrypted) : null;
         return {

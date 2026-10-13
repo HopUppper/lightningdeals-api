@@ -175,12 +175,21 @@ export const UserApiTestConsole: React.FC = () => {
           </p>
         </div>
 
-        <Link
-          to="/dashboard/keys"
-          className="ui-button-secondary text-xs px-4 py-2 font-semibold self-start sm:self-auto"
-        >
-          View All API Keys
-        </Link>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <Link
+            to="/dashboard/studio"
+            className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all"
+          >
+            <Sparkles className="w-3.5 h-3.5 fill-current text-amber-300" />
+            <span>Launch AI Chat Studio</span>
+          </Link>
+          <Link
+            to="/dashboard/keys"
+            className="ui-button-secondary text-xs px-3.5 py-2 font-semibold"
+          >
+            View All API Keys
+          </Link>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 items-start">

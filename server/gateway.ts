@@ -386,13 +386,20 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
     .replace(/Opus\s*Max/gi, 'Claude')
     .replace(/OpusMax/gi, 'Claude')
     .replace(/OpusLive/gi, 'Claude')
+    .replace(/opusmax(?:\.pro)?/gi, 'claude')
+    .replace(/api\.opusmax\.pro/gi, 'api.anthropic.com')
     .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*opusmax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
     .replace(/api2?\.scalemax\.pro/gi, 'api.anthropic.com')
+    .replace(/sk-ant-opm-[a-zA-Z0-9_-]+/g, '••••••••')
     .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
     .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
     .replace(/sk_live_[a-zA-Z0-9]+/g, 'sk_live_••••••••')
     .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
-    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••');
+    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
+    .replace(/connecting to vendor\s*\([^)]*\):?/gi, '')
+    .replace(/vendor\s*\([^)]*\)\s*error:?/gi, 'AI Gateway error:')
+    .replace(/upstream\s+vendor\s*\([^)]*\)/gi, 'AI Gateway');
 
   if (Array.isArray(customScrubbers)) {
     for (const scrub of customScrubbers) {
@@ -1365,7 +1372,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                     type: 'error',
                     error: {
                       type: 'upstream_error',
-                      message: `Upstream vendor (${vendor?.name || 'Opus Max'}) master key has expired or is invalid. Please update the master key under Admin > Providers.`,
+                      message: 'AI Gateway upstream credentials require refresh. Please contact support.',
                     },
                   });
                 }

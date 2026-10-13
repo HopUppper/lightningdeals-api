@@ -5,7 +5,7 @@ import { adminFetch } from '../../utils/api';
 
 const PRO_TIPS = [
   '⚡ Lightning Deals proxies stream tokens with sub-50ms latency via worldwide edge mesh.',
-  '🔄 Auto-failover continuously monitors vendor health and transparently reroutes without request drops.',
+  '🔄 Auto-failover continuously monitors gateway health and transparently reroutes without request drops.',
   '⏱️ Rolling 5-hour refill windows reset continuously so high-throughput teams never get locked out.',
   '🛠️ 100% drop-in Anthropic API compatible with Claude Code, Cline, Cursor, Continue.dev, and native SDKs.',
   '🔐 Hardware enclave AES-256 isolation prevents key leaks and guarantees pristine upstream identity.',

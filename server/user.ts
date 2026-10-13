@@ -1287,7 +1287,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     if (!vendor) {
       return res.status(503).json({
         success: false,
-        error: { message: 'No active upstream vendor provider configured in the gateway. Please contact support.' },
+        error: { message: 'AI Gateway conduit is temporarily initializing. Please contact support.' },
       });
     }
 
@@ -1295,7 +1295,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     if (!masterKey) {
       return res.status(503).json({
         success: false,
-        error: { message: 'Upstream vendor master key is not configured or missing.' },
+        error: { message: 'AI Gateway conduit credentials require configuration. Please contact support.' },
       });
     }
 
@@ -1348,9 +1348,6 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
 
       const prep = buildProviderRequest(targetVendor, keyStr, selectedModel, payload);
 
-      prep.headers['Connection'] = 'keep-alive';
-      prep.headers['Keep-Alive'] = 'timeout=60, max=1000';
-
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), 60000);
       try {
@@ -1371,7 +1368,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     const startTime = Date.now();
     let probeResult = await executeProbe(currentVendor, currentMasterKey);
 
-    // Automatic Failover to Primary Vendor (Opus Max) if assigned vendor fails (500/502/503/504 or network error)
+    // Automatic Failover to Primary Vendor if assigned vendor fails (500/502/503/504 or network error)
     if (!probeResult.response || (!probeResult.response.ok && [500, 502, 503, 504].includes(probeResult.response.status))) {
       const primaryVendor = await prisma.vendorProvider.findFirst({
         where: { isPrimary: true, status: { not: 'disabled' } },
@@ -1380,7 +1377,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       if (primaryVendor && primaryVendor.id !== currentVendor.id) {
         const primaryKey = primaryVendor.masterApiKeyEncrypted ? decryptText(primaryVendor.masterApiKeyEncrypted) : '';
         if (primaryKey) {
-          console.warn(`[PLAYGROUND FAILOVER] Vendor ${currentVendor.name} failed (${probeResult.response?.status || 'Network Error'}). Failing over to ${primaryVendor.name}...`);
+          console.warn(`[PLAYGROUND FAILOVER] Gateway conduit failed (${probeResult.response?.status || 'Network Error'}). Failing over...`);
           const failoverResult = await executeProbe(primaryVendor, primaryKey);
           if (failoverResult.response && (failoverResult.response.ok || failoverResult.response.status < 500)) {
             probeResult = failoverResult;
@@ -1403,7 +1400,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       const cleanMsg = sanitizeErrorMessage(rawMsg);
       return res.status(502).json({
         success: false,
-        error: { message: `Gateway network error connecting to vendor (${currentVendor.name}): ${cleanMsg}` },
+        error: { message: `AI Gateway connection error: ${cleanMsg}` },
         latencyMs,
       });
     }
@@ -1416,7 +1413,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       const safeErrMsg = sanitizeErrorMessage(rawErrMsg);
       return res.status(upstreamRes.status).json({
         success: false,
-        error: { message: `Vendor (${currentVendor.name}) error: ${safeErrMsg}` },
+        error: { message: `AI Gateway error: ${safeErrMsg}` },
         latencyMs,
       });
     }
@@ -1438,22 +1435,35 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     } else {
       responseText = JSON.stringify(responseJson, null, 2);
     }
+    responseText = sanitizeModelResponse(responseText, getFriendlyModelName(selectedModel));
+
+    // Check if upstream returned an auth error or capacity limit
+    if (typeof responseText === 'string') {
+      if (responseText.includes('Invalid API key') || responseText.includes('invalid_api_key')) {
+        return res.status(502).json({
+          success: false,
+          error: {
+            message: 'AI Gateway credentials are being refreshed. Please retry in a moment.',
+          },
+          latencyMs,
+        });
+      }
+
+      if (responseText.includes('Usage limit reached') || responseText.includes('100% of your 5-hour quota')) {
+        return res.status(429).json({
+          success: false,
+          error: {
+            message: 'AI Gateway Capacity Peak: High-throughput capacity pool is currently refilling. The rolling refill window will automatically refresh shortly. Please retry in a moment.',
+          },
+          latencyMs,
+        });
+      }
+    }
 
     const rawInputTokens = responseJson.usage?.input_tokens;
     const inputTokens = Number(rawInputTokens) || Math.max(1, Math.ceil(JSON.stringify(outboundMessages).length / 4));
     const outputTokens = Number(responseJson.usage?.output_tokens) || Math.max(1, Math.ceil(responseText.length / 4));
     const totalTokens = inputTokens + outputTokens;
-
-    // Check if upstream vendor returned an auth error (e.g. Opus Max pseudo-200 with "Invalid API key")
-    if (typeof responseText === 'string' && (responseText.includes('Invalid API key') || responseText.includes('invalid_api_key'))) {
-      return res.status(502).json({
-        success: false,
-        error: {
-          message: `Upstream vendor (${currentVendor.name}) rejected the master key: "${responseText}". The vendor master key has expired or needs to be refreshed under Admin > Providers.`,
-        },
-        latencyMs,
-      });
-    }
 
     // Deduct tokens from user's key and record request in db
     const remainingAfter = keyRecord.tokensRemaining > BigInt(totalTokens)
@@ -1510,7 +1520,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       latencyMs,
       tokensRemaining: remainingAfter.toString(),
       purchasedTokens: keyRecord.purchasedTokens.toString(),
-      vendorStatus: currentVendor.status,
+      gatewayStatus: 'operational',
       testedAt: new Date().toISOString(),
       isPaidCustomer,
     });

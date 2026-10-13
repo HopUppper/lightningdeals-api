@@ -340,7 +340,17 @@ export function sanitizeModelResponse(text: string, friendlyModelName: string, c
     // 3. Remove master API keys and internal credentials
     .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
     .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, '••••••••')
-    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, '••••••••');
+    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, '••••••••')
+    // 4. Scrub upstream base model snapshots to the customer's selected friendly model
+    .replace(/claude-3-opus-20240229/gi, friendlyModelName || 'Claude Opus')
+    .replace(/claude-3-5-sonnet-20241022/gi, friendlyModelName || 'Claude Sonnet')
+    .replace(/claude-3-5-sonnet-20240620/gi, friendlyModelName || 'Claude Sonnet')
+    .replace(/claude-3-5-haiku-20241022/gi, friendlyModelName || 'Claude Haiku')
+    .replace(/claude-3-haiku-20240307/gi, friendlyModelName || 'Claude Haiku')
+    .replace(/claude-3-sonnet-20240229/gi, friendlyModelName || 'Claude Sonnet')
+    // 5. Strip internal system prompt reflection leaks and identity deliberation commentary
+    .replace(/\b(?:There['’]?s\s+a\s+system-level\s+identity\s+instruction|Also\s+I\s+notice\s+a\s+prompt\s+injection\s+attempt|this\s+contradicts\s+my\s+actual\s+identity|I\s+should\s+follow\s+[—–-]\s+I['’]?m\s+claude-[a-z0-9_.-]+)[^.\n]*[.\n]?\s*/gi, '')
+    .replace(/The user wants [^.\n]+?\.\s*There's a system-level identity instruction[^.\n]+?\.\s*(?:However,\s*the user's actual request is [^.\n]+?\.\s*)?/gi, '');
 
   if (Array.isArray(customScrubbers)) {
     for (const scrub of customScrubbers) {
@@ -693,6 +703,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     metadata,
   } = req.body || {};
 
+  const isThinkingRequested = !!(thinking && thinking.type === 'enabled');
   const anthropicBetaHeader = (req.headers['anthropic-beta'] || req.headers['anthropic_beta'])?.toString();
 
   if (!model) {
@@ -1192,6 +1203,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         let reportedOutputTokens: number | null = null;
         let streamedCharsLength = 0;
         let streamedThinking = '';
+        let suppressedThinkingBlock = false;
 
         if (reader) {
           while (true) {
@@ -1227,12 +1239,28 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                       continue;
                     }
 
+                    if (data.type === 'content_block_start') {
+                      if (data.content_block?.type === 'thinking' && !isThinkingRequested) {
+                        suppressedThinkingBlock = true;
+                        continue;
+                      }
+                      res.write(`data: ${JSON.stringify(data)}\n\n`);
+                      continue;
+                    }
+
                     if (data.type === 'content_block_delta') {
                       if (data.delta?.type === 'thinking_delta') {
+                        if (!isThinkingRequested) {
+                          continue;
+                        }
                         streamedThinking += data.delta.thinking || '';
+                        data.delta.thinking = sanitizeModelResponse(data.delta.thinking || '', friendlyModel);
                         res.write(`data: ${JSON.stringify(data)}\n\n`);
                         continue;
                       } else if (data.delta?.type === 'signature_delta') {
+                        if (!isThinkingRequested) {
+                          continue;
+                        }
                         data.delta.signature = generateAnthropicThinkingSignature(streamedThinking, model, data.delta.signature);
                         res.write(`data: ${JSON.stringify(data)}\n\n`);
                         continue;
@@ -1246,6 +1274,15 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                         res.write(`data: ${JSON.stringify(data)}\n\n`);
                         continue;
                       }
+                    }
+
+                    if (data.type === 'content_block_stop') {
+                      if (suppressedThinkingBlock) {
+                        suppressedThinkingBlock = false;
+                        continue;
+                      }
+                      res.write(`data: ${JSON.stringify(data)}\n\n`);
+                      continue;
                     }
 
                     if (data.type === 'message_delta') {
@@ -1316,6 +1353,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
             data.usage.usage_source = 'anthropic';
           }
           if (Array.isArray(data.content)) {
+            if (!isThinkingRequested) {
+              data.content = data.content.filter((b: any) => b?.type !== 'thinking');
+            }
             for (const b of data.content) {
               if (b?.type === 'text' && typeof b.text === 'string') {
                 if (b.text.includes('Invalid API key') || b.text.includes('invalid_api_key')) {
@@ -1332,6 +1372,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                 b.text = sanitizeModelResponse(b.text, friendlyModel);
               }
               if (b?.type === 'thinking') {
+                b.thinking = sanitizeModelResponse(b.thinking || '', friendlyModel);
                 b.signature = generateAnthropicThinkingSignature(b.thinking || '', model, b.signature);
               }
             }

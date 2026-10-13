@@ -9,7 +9,12 @@ import { PlansProvider, DEFAULT_PLANS, PlanItem } from '../src/context/PlansCont
 import { prisma } from '../server/db';
 
 // Component imports
-import { LandingPage, PublicPricingPage } from '../src/App';
+import { LandingPage } from '../src/App';
+import { PricingPage } from '../src/pages/PricingPage';
+import { HowItWorksPage } from '../src/pages/HowItWorksPage';
+import { WhyUsPage } from '../src/pages/WhyUsPage';
+import { DemoPage } from '../src/pages/DemoPage';
+import { FaqPage } from '../src/pages/FaqPage';
 import { DocsPage } from '../src/pages/docs/DocsPage';
 import { ModelsPage } from '../src/pages/ModelsPage';
 import { StatusPage } from '../src/pages/StatusPage';
@@ -137,7 +142,7 @@ const routes: RouteConfig[] = [
   {
     path: '/pricing',
     outFile: 'pricing.html',
-    component: PublicPricingPage,
+    component: PricingPage,
     title: 'Prepaid Token Packages & Pricing — LightningDeals AI Gateway',
     description: 'Explore prepaid token package allocations for Claude Opus 5, Fable 5, and Sonnet 5. Contact our WhatsApp help desk for custom developer quotes.',
     schemaJson: {
@@ -152,16 +157,44 @@ const routes: RouteConfig[] = [
   {
     path: '/plans',
     outFile: 'plans.html',
-    component: PublicPricingPage,
+    component: PricingPage,
     title: 'Prepaid Token Packages & Pricing — LightningDeals AI Gateway',
     description: 'Explore prepaid token package allocations for Claude Opus 5, Fable 5, and Sonnet 5. Contact our WhatsApp help desk for custom developer quotes.',
   },
   {
     path: '/checkout',
     outFile: 'checkout.html',
-    component: PublicPricingPage,
+    component: PricingPage,
     title: 'Checkout & Subscription Activation — LightningDeals AI Gateway',
     description: 'Activate your Claude Max subscription with instant automated API Key delivery.',
+  },
+  {
+    path: '/how-it-works',
+    outFile: 'how-it-works.html',
+    component: HowItWorksPage,
+    title: 'How It Works — LightningDeals AI Gateway Integration Guide',
+    description: 'Connect Claude Code CLI, Cursor, and Python in under 60 seconds with our zero-friction API gateway.',
+  },
+  {
+    path: '/why-us',
+    outFile: 'why-us.html',
+    component: WhyUsPage,
+    title: 'Why LightningAPI — Architecture, Zero-Logging & 99.99% SLA',
+    description: 'Discover why top engineering teams choose LightningAPI for high-throughput, private, reliable Claude routing.',
+  },
+  {
+    path: '/demo',
+    outFile: 'demo.html',
+    component: DemoPage,
+    title: 'Live Gateway Conduit & SSE Streaming Demo — LightningDeals',
+    description: 'Test real-time token streaming and sub-50ms gateway dispatch directly in your browser.',
+  },
+  {
+    path: '/faq',
+    outFile: 'faq.html',
+    component: FaqPage,
+    title: 'Frequently Asked Questions & Support — LightningDeals',
+    description: 'Answers about token windows, rollover policies, rate limits, and SDK compatibility.',
   },
   {
     path: '/models',

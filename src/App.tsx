@@ -37,21 +37,14 @@ const ScrollToHash: React.FC = () => {
 import { ElectricNavbar } from './components/ElectricNavbar';
 import { ProductHero } from './components/ProductHero';
 import { CredVelocityMetrics } from './components/CredVelocityMetrics';
-import { HowItWorksSection } from './components/HowItWorksSection';
-import { InteractiveGatewayDemo } from './components/InteractiveGatewayDemo';
-import { ElectricEditorialContrast } from './components/ElectricEditorialContrast';
-import { ElectricModelObservatory } from './components/ElectricModelObservatory';
-import { ElectricReservoirSimulator } from './components/ElectricReservoirSimulator';
-import { ElectricDeveloperStudio } from './components/ElectricDeveloperStudio';
 import { ElectricCapacitySection } from './components/ElectricCapacitySection';
-import { ElectricGovernanceSla } from './components/ElectricGovernanceSla';
 import { ElectricPublicReviews } from './components/ElectricPublicReviews';
-import { ElectricFaqSection } from './components/ElectricFaqSection';
 import { ElectricFinalCta } from './components/ElectricFinalCta';
 import { ElectricFooter } from './components/ElectricFooter';
 import { SupportWidget } from './components/SupportWidget';
 import { PromotionalOfferBanner } from './components/PromotionalOfferBanner';
 import { PromotionalOfferModal } from './components/PromotionalOfferModal';
+import { HomePlatformNavigator } from './components/HomePlatformNavigator';
 
 const PageLoader: React.FC = () => (
   <div className="min-h-screen bg-bg text-muted flex flex-col items-center justify-center space-y-3 font-mono text-xs">
@@ -150,6 +143,11 @@ const CheckKeyPage = safeLazy(() => import('./pages/CheckKeyPage').then(m => ({ 
 const TermsPage = safeLazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPage = safeLazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const RefundPage = safeLazy(() => import('./pages/RefundPage').then(m => ({ default: m.RefundPage })));
+const HowItWorksPage = safeLazy(() => import('./pages/HowItWorksPage').then(m => ({ default: m.HowItWorksPage })));
+const WhyUsPage = safeLazy(() => import('./pages/WhyUsPage').then(m => ({ default: m.WhyUsPage })));
+const DemoPage = safeLazy(() => import('./pages/DemoPage').then(m => ({ default: m.DemoPage })));
+const FaqPage = safeLazy(() => import('./pages/FaqPage').then(m => ({ default: m.FaqPage })));
+const PricingPage = safeLazy(() => import('./pages/PricingPage').then(m => ({ default: m.PricingPage })));
 
 // Lazy Loaded Auth Pages
 const LoginPage = safeLazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
@@ -222,47 +220,20 @@ export const LandingPage: React.FC = () => {
         {/* CRED-Style Kinetic Telemetry & Live Hardware Metrics Ticker */}
         <CredVelocityMetrics />
 
-        {/* Section B: Supported Model Ecosystem (Top 10 latest Claude models & direct link to /models) */}
-        <ElectricModelObservatory />
+        {/* Section B: Billion-Dollar Platform Portals Navigator */}
+        <HomePlatformNavigator />
 
-        {/* Section C: How It Works (3 clear, verified integration steps) */}
-        <HowItWorksSection />
-
-        {/* Section D: Why LightningAPI (Architectural contrast & Zero-logging SLA) */}
-        <ElectricEditorialContrast />
-        <ElectricGovernanceSla />
-
-        {/* Section E: Interactive Gateway Demonstration (Conduit simulator & real-time SSE stream playground) */}
-        <InteractiveGatewayDemo />
-
-        {/* Section F: Capacity & Plans (The 4 verified plans & Token reservoir simulator) */}
+        {/* Section C: Capacity Plans Preview */}
         <ElectricCapacitySection />
-        <ElectricReservoirSimulator />
 
-        {/* Section G: Developer Resources, Reviews & FAQ */}
-        <ElectricDeveloperStudio />
+        {/* Section D: Developer Community Reviews & Testimonials */}
         <ElectricPublicReviews />
-        <ElectricFaqSection />
 
-        {/* Section H: Final Call to Action */}
+        {/* Section E: Final Call to Action */}
         <ElectricFinalCta />
       </main>
       <ElectricFooter />
       <SupportWidget />
-    </div>
-  );
-};
-
-export const PublicPricingPage: React.FC = () => {
-  return (
-    <div className="min-h-screen bg-[#fbf9f5] text-[#1c1917] selection:bg-[#6d28d9]/10 selection:text-[#6d28d9] flex flex-col font-sans antialiased">
-      <PromotionalOfferBanner />
-      <ElectricNavbar />
-      <PromotionalOfferModal />
-      <main className="flex-1">
-        <ElectricCapacitySection />
-      </main>
-      <ElectricFooter />
     </div>
   );
 };
@@ -277,13 +248,17 @@ export function App() {
               <ScrollToHash />
               <Suspense fallback={<PageLoader />}>
               <Routes>
-                {/* Public Routes */}
+                {/* Dedicated Public Routes (Billion-Dollar Multi-Page Architecture) */}
                 <Route path="/" element={<LandingPage />} />
-                <Route path="/pricing" element={<PublicPricingPage />} />
-                <Route path="/plans" element={<PublicPricingPage />} />
-                <Route path="/checkout" element={<PublicPricingPage />} />
-                <Route path="/buy" element={<PublicPricingPage />} />
+                <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/plans" element={<PricingPage />} />
+                <Route path="/checkout" element={<PricingPage />} />
+                <Route path="/buy" element={<PricingPage />} />
                 <Route path="/models" element={<ModelsPage />} />
+                <Route path="/how-it-works" element={<HowItWorksPage />} />
+                <Route path="/why-us" element={<WhyUsPage />} />
+                <Route path="/demo" element={<DemoPage />} />
+                <Route path="/faq" element={<FaqPage />} />
                 <Route path="/docs" element={<DocsPage />} />
                 <Route path="/status" element={<StatusPage />} />
                 <Route path="/check-key" element={<CheckKeyPage />} />

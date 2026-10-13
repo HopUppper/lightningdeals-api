@@ -1309,7 +1309,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       });
 
       const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 45000);
+      const tid = setTimeout(() => ctrl.abort(), 60000);
       try {
         const response = await fetch(prep.url, {
           method: 'POST',
@@ -1385,6 +1385,9 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         .filter((c: any) => c.type === 'text')
         .map((c: any) => c.text)
         .join('\n');
+      if (!responseText && responseJson.content[0]?.type === 'thinking') {
+        responseText = responseJson.content[0]?.thinking || '';
+      }
     } else if (typeof responseJson.content === 'string') {
       responseText = responseJson.content;
     } else if (responseJson.choices?.[0]?.message?.content) {
@@ -1392,6 +1395,8 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     } else {
       responseText = JSON.stringify(responseJson, null, 2);
     }
+
+    responseText = sanitizeModelResponse(responseText, getFriendlyModelName(selectedModel));
 
     const inputTokens = Number(responseJson.usage?.input_tokens) || Math.max(1, Math.ceil(testPrompt.length / 4));
     const outputTokens = Number(responseJson.usage?.output_tokens) || Math.max(1, Math.ceil(responseText.length / 4));

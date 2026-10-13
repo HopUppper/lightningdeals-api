@@ -11,7 +11,7 @@ export function getAuthHeaders(isAdmin = false): Record<string, string> {
   return headers;
 }
 
-export async function adminFetch(url: string, options: RequestInit = {}, timeoutMs: number = 15000): Promise<Response> {
+export async function adminFetch(url: string, options: RequestInit = {}, timeoutMs: number = 60000): Promise<Response> {
   const defaultHeaders = getAuthHeaders(true);
   const requestId = `req_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
   
@@ -46,7 +46,7 @@ export async function adminFetch(url: string, options: RequestInit = {}, timeout
   }
 }
 
-export async function userFetch(url: string, options: RequestInit = {}, timeoutMs: number = 15000): Promise<Response> {
+export async function userFetch(url: string, options: RequestInit = {}, timeoutMs: number = 60000): Promise<Response> {
   const defaultHeaders = getAuthHeaders(false);
   const requestId = `req_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
   

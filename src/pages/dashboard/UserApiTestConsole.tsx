@@ -6,7 +6,7 @@ import { adminFetch } from '../../utils/api';
 export const UserApiTestConsole: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
   const [selectedKey, setSelectedKey] = useState('');
-  const [model, setModel] = useState('claude-sonnet-5');
+  const [model, setModel] = useState('claude-sonnet-5.5');
   const [prompt, setPrompt] = useState('Write a concise, high-performance TypeScript function with friendly comments.');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<any>(null);
@@ -49,7 +49,7 @@ export const UserApiTestConsole: React.FC = () => {
           model,
           prompt,
         }),
-      });
+      }, 90000);
 
       const data = await res.json();
       if (!res.ok || !data.success) {

@@ -31,13 +31,13 @@ export const ElectricNavbar: React.FC = () => {
   };
 
   const navLinks = [
-    { name: 'Models', href: '/#models' },
-    { name: 'How It Works', href: '/#how-it-works' },
-    { name: 'Why LightningAPI', href: '/#why-us' },
-    { name: 'Demo', href: '/#demo' },
-    { name: 'Capacity Plans', href: '/#pricing' },
+    { name: 'Models', href: '/models' },
+    { name: 'Capacity Plans', href: '/pricing' },
+    { name: 'How It Works', href: '/how-it-works' },
+    { name: 'Why LightningAPI', href: '/why-us' },
+    { name: 'Demo', href: '/demo' },
     { name: 'Documentation', href: '/docs' },
-    { name: 'FAQ', href: '/#faq' },
+    { name: 'FAQ', href: '/faq' },
   ];
 
   return (
@@ -80,15 +80,22 @@ export const ElectricNavbar: React.FC = () => {
 
           {/* Editorial Nav Links (>= xl) */}
           <nav className="hidden xl:flex items-center gap-1.5" aria-label="Primary">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className="px-3 py-1.5 text-xs font-medium text-[#57534e] hover:text-[#1c1917] hover:bg-[#f5f2eb] transition-colors rounded-lg whitespace-nowrap"
-              >
-                {link.name}
-              </a>
-            ))}
+            {navLinks.map((link) => {
+              const isActive = location.pathname === link.href;
+              return (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    isActive
+                      ? 'text-[#6d28d9] bg-[#f5f3ff] font-semibold border border-[#ddd6fe]'
+                      : 'text-[#57534e] hover:text-[#1c1917] hover:bg-[#f5f2eb]'
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Right Action Suite (>= xl) */}
@@ -202,16 +209,23 @@ export const ElectricNavbar: React.FC = () => {
             className="md:hidden border-b border-[#e7e5e4] bg-[#fbf9f5] px-5 py-6 space-y-5 overflow-hidden"
           >
             <div className="space-y-1">
-              {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1c1917] hover:bg-[#f5f2eb] transition-colors"
-                >
-                  {link.name}
-                </a>
-              ))}
+              {navLinks.map((link) => {
+                const isActive = location.pathname === link.href;
+                return (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'text-[#6d28d9] bg-[#f5f3ff] font-semibold border border-[#ddd6fe]'
+                        : 'text-[#1c1917] hover:bg-[#f5f2eb]'
+                    }`}
+                  >
+                    {link.name}
+                  </Link>
+                );
+              })}
               <Link
                 to="/status"
                 onClick={() => setMobileMenuOpen(false)}

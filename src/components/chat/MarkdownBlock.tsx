@@ -1,26 +1,89 @@
 import React, { useState } from 'react';
-import { Copy, Check, Download, FileCode } from 'lucide-react';
+import {
+  Copy,
+  Check,
+  Download,
+  FileCode,
+  Sparkles,
+  ChevronRight,
+  ChevronDown,
+  Eye,
+  Brain,
+} from 'lucide-react';
+import { ArtifactData } from './ArtifactCanvas';
 
 interface MarkdownBlockProps {
   content: string;
+  thinkingContent?: string | null;
+  onOpenCanvas?: (artifact: ArtifactData) => void;
 }
 
-export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({ content }) => {
-  if (!content) return null;
+export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
+  content,
+  thinkingContent,
+  onOpenCanvas,
+}) => {
+  const [showThinking, setShowThinking] = useState(false);
 
-  // Split by code blocks ```lang ... ```
-  const parts = content.split(/(```[\s\S]*?```)/g);
+  if (!content && !thinkingContent) return null;
+
+  // Extract inline <thinking> tags if embedded in the content
+  let cleanContent = content || '';
+  let extractedThinking = thinkingContent || '';
+
+  const thinkingMatch = cleanContent.match(/<thinking>([\s\S]*?)<\/thinking>/i);
+  if (thinkingMatch) {
+    if (!extractedThinking) {
+      extractedThinking = thinkingMatch[1].trim();
+    }
+    cleanContent = cleanContent.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+  }
+
+  // Split content by code blocks ```lang ... ```
+  const parts = cleanContent.split(/(```[\s\S]*?```)/g);
 
   return (
-    <div className="space-y-3 leading-relaxed text-[13px] text-slate-800 font-normal">
+    <div className="space-y-3 leading-relaxed text-[13px] text-slate-200 font-normal">
+      {/* Collapsible Claude 3.7 Thinking Process Block */}
+      {extractedThinking && (
+        <div className="my-2.5 rounded-xl border border-amber-500/30 bg-amber-950/20 overflow-hidden text-xs">
+          <button
+            type="button"
+            onClick={() => setShowThinking(!showThinking)}
+            className="w-full px-3.5 py-2 bg-amber-950/30 hover:bg-amber-900/30 flex items-center justify-between font-mono text-[11px] text-amber-300 font-bold transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Brain className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span>Thinking Process (Extended Reasoning)</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-amber-400/80 text-[10px]">
+              <span>{showThinking ? 'Hide' : 'Show reasoning'}</span>
+              {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            </div>
+          </button>
+          {showThinking && (
+            <div className="p-3.5 font-mono text-[11.5px] text-amber-200/90 whitespace-pre-wrap leading-relaxed border-t border-amber-500/20 bg-black/20 select-text max-h-80 overflow-y-auto">
+              {extractedThinking}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Formatted Text & Code Blocks */}
       {parts.map((part, index) => {
         if (part.startsWith('```') && part.endsWith('```')) {
-          // Extract language and code
           const firstLineBreak = part.indexOf('\n');
           const lang = part.slice(3, firstLineBreak).trim() || 'text';
           const code = part.slice(firstLineBreak + 1, -3);
 
-          return <CodeBlock key={index} language={lang} code={code} />;
+          return (
+            <CodeBlock
+              key={index}
+              language={lang}
+              code={code}
+              onOpenCanvas={onOpenCanvas}
+            />
+          );
         }
 
         return <TextBlock key={index} text={part} />;
@@ -29,7 +92,11 @@ export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({ content }) => {
   );
 };
 
-const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, code }) => {
+const CodeBlock: React.FC<{
+  language: string;
+  code: string;
+  onOpenCanvas?: (artifact: ArtifactData) => void;
+}> = ({ language, code, onOpenCanvas }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -49,12 +116,28 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
     URL.revokeObjectURL(url);
   };
 
+  const handleOpenCanvas = () => {
+    if (onOpenCanvas) {
+      onOpenCanvas({
+        id: `art_${Date.now()}`,
+        title: `Snippet (${language.toUpperCase()})`,
+        language,
+        code,
+        type:
+          language === 'html' || language === 'svg'
+            ? (language as any)
+            : 'code',
+      });
+    }
+  };
+
   const lines = code.split('\n');
+  const isPreviewable = language === 'html' || language === 'svg' || language === 'tsx' || language === 'jsx';
 
   return (
-    <div className="my-3 rounded-2xl overflow-hidden border border-[#2d2948] bg-[#141224] text-slate-200 shadow-md">
+    <div className="my-3 rounded-2xl overflow-hidden border border-slate-800 bg-[#0c101c] text-slate-200 shadow-lg">
       {/* Code Header Bar */}
-      <div className="px-4 py-2 bg-[#1c1932] border-b border-[#2d2948] flex items-center justify-between text-xs">
+      <div className="px-3.5 py-2 bg-[#111728] border-b border-slate-800 flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
           <FileCode className="w-3.5 h-3.5 text-violet-400" />
           <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-violet-300">
@@ -62,20 +145,34 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
           </span>
           <span className="text-[10px] text-slate-500 font-mono">({lines.length} lines)</span>
         </div>
+
         <div className="flex items-center gap-1.5">
+          {onOpenCanvas && (
+            <button
+              type="button"
+              onClick={handleOpenCanvas}
+              className="p-1 px-2.5 rounded-lg text-[11px] font-semibold bg-violet-600/30 text-violet-200 hover:bg-violet-600 hover:text-white border border-violet-500/30 transition-all flex items-center gap-1 cursor-pointer"
+              title="Open in interactive Claude Canvas"
+            >
+              {isPreviewable ? <Eye className="w-3 h-3 text-cyan-400" /> : <Sparkles className="w-3 h-3 text-amber-400" />}
+              <span>{isPreviewable ? 'Open Canvas' : 'Inspect'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleDownload}
-            className="p-1 px-2 rounded-lg text-[11px] text-slate-400 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+            className="p-1 px-2 rounded-lg text-[11px] text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1 cursor-pointer"
             title="Download code file"
           >
             <Download className="w-3 h-3" />
-            <span className="hidden sm:inline">Download</span>
+            <span className="hidden sm:inline">Save</span>
           </button>
+
           <button
             type="button"
             onClick={handleCopy}
-            className="p-1 px-2.5 rounded-lg text-[11px] font-semibold bg-violet-600/30 text-violet-200 hover:bg-violet-600/50 hover:text-white border border-violet-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+            className="p-1 px-2.5 rounded-lg text-[11px] font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
             title="Copy to clipboard"
           >
             {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -85,7 +182,7 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
       </div>
 
       {/* Code Content with Line Numbers and Diff Highlighting */}
-      <div className="p-3.5 font-mono text-xs overflow-x-auto leading-relaxed">
+      <div className="p-3.5 font-mono text-xs overflow-x-auto leading-relaxed select-text">
         <table className="w-full border-collapse">
           <tbody>
             {lines.map((line, i) => {
@@ -95,18 +192,18 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
               return (
                 <tr
                   key={i}
-                  className={`hover:bg-white/5 transition-colors ${
+                  className={`hover:bg-slate-800/30 transition-colors ${
                     isDiffAdd
-                      ? 'bg-emerald-950/40 text-emerald-300'
+                      ? 'bg-emerald-950/30 text-emerald-300'
                       : isDiffRemove
-                      ? 'bg-rose-950/40 text-rose-300 line-through opacity-80'
+                      ? 'bg-rose-950/30 text-rose-300 line-through opacity-75'
                       : ''
                   }`}
                 >
                   <td className="w-8 pr-3 text-right select-none text-[11px] text-slate-600 font-mono">
                     {i + 1}
                   </td>
-                  <td className="whitespace-pre font-mono pl-1">
+                  <td className="whitespace-pre font-mono pl-1 text-slate-300">
                     {line || '\n'}
                   </td>
                 </tr>
@@ -122,7 +219,6 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
 const TextBlock: React.FC<{ text: string }> = ({ text }) => {
   if (!text.trim()) return null;
 
-  // Split into paragraphs
   const paragraphs = text.split(/\n\n+/);
 
   return (
@@ -134,21 +230,21 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         // Header check
         if (trimmed.startsWith('### ')) {
           return (
-            <h4 key={pIdx} className="text-sm font-bold text-slate-900 mt-4 mb-1">
+            <h4 key={pIdx} className="text-sm font-bold text-slate-100 mt-4 mb-1">
               {formatInline(trimmed.replace('### ', ''))}
             </h4>
           );
         }
         if (trimmed.startsWith('## ')) {
           return (
-            <h3 key={pIdx} className="text-base font-extrabold text-slate-900 mt-5 mb-1.5 pb-1 border-b border-slate-200">
+            <h3 key={pIdx} className="text-base font-extrabold text-slate-100 mt-5 mb-1.5 pb-1 border-b border-slate-800">
               {formatInline(trimmed.replace('## ', ''))}
             </h3>
           );
         }
         if (trimmed.startsWith('# ')) {
           return (
-            <h2 key={pIdx} className="text-lg font-black text-slate-900 mt-6 mb-2">
+            <h2 key={pIdx} className="text-lg font-black text-slate-100 mt-6 mb-2">
               {formatInline(trimmed.replace('# ', ''))}
             </h2>
           );
@@ -159,7 +255,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
           return (
             <blockquote
               key={pIdx}
-              className="my-2 border-l-3 border-violet-500 pl-3.5 py-1 text-slate-700 bg-violet-50/50 rounded-r-xl italic text-[12.5px]"
+              className="my-2 border-l-3 border-violet-500 pl-3.5 py-1 text-slate-300 bg-violet-950/20 rounded-r-xl italic text-[12.5px]"
             >
               {formatInline(trimmed.replace(/^>\s*/, ''))}
             </blockquote>
@@ -170,7 +266,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         const lines = trimmed.split('\n');
         if (lines.every((l) => l.trim().startsWith('- ') || l.trim().startsWith('* '))) {
           return (
-            <ul key={pIdx} className="my-2 list-disc list-inside space-y-1 pl-1 text-[13px] text-slate-800">
+            <ul key={pIdx} className="my-2 list-disc list-inside space-y-1 pl-1 text-[13px] text-slate-300">
               {lines.map((l, lIdx) => (
                 <li key={lIdx} className="leading-relaxed">
                   {formatInline(l.trim().replace(/^[-*]\s+/, ''))}
@@ -183,7 +279,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         // Numbered list check
         if (lines.every((l) => /^\d+\.\s+/.test(l.trim()))) {
           return (
-            <ol key={pIdx} className="my-2 list-decimal list-inside space-y-1 pl-1 text-[13px] text-slate-800">
+            <ol key={pIdx} className="my-2 list-decimal list-inside space-y-1 pl-1 text-[13px] text-slate-300">
               {lines.map((l, lIdx) => (
                 <li key={lIdx} className="leading-relaxed">
                   {formatInline(l.trim().replace(/^\d+\.\s+/, ''))}
@@ -195,7 +291,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
 
         // Regular paragraph with line breaks
         return (
-          <p key={pIdx} className="leading-relaxed whitespace-pre-line text-slate-800">
+          <p key={pIdx} className="leading-relaxed whitespace-pre-line text-slate-200">
             {formatInline(trimmed)}
           </p>
         );
@@ -205,7 +301,6 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
 };
 
 function formatInline(text: string): React.ReactNode {
-  // Replace inline code `code`
   const parts = text.split(/(`[^`]+`)/g);
 
   return parts.map((part, i) => {
@@ -214,19 +309,18 @@ function formatInline(text: string): React.ReactNode {
       return (
         <code
           key={i}
-          className="px-1.5 py-0.5 mx-0.5 rounded-md bg-violet-100/70 text-violet-900 font-mono text-[11.5px] border border-violet-200 font-semibold"
+          className="px-1.5 py-0.5 mx-0.5 rounded-md bg-violet-950/60 text-violet-300 font-mono text-[11.5px] border border-violet-500/30 font-semibold"
         >
           {code}
         </code>
       );
     }
 
-    // Bold formatting **bold**
     const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
     return boldParts.map((bp, bIdx) => {
       if (bp.startsWith('**') && bp.endsWith('**') && bp.length > 4) {
         return (
-          <strong key={`${i}-${bIdx}`} className="font-bold text-slate-900">
+          <strong key={`${i}-${bIdx}`} className="font-bold text-slate-100">
             {bp.slice(2, -2)}
           </strong>
         );
@@ -238,8 +332,8 @@ function formatInline(text: string): React.ReactNode {
 
 function getExtension(lang: string): string {
   const map: Record<string, string> = {
-    typescript: 'ts',
-    javascript: 'js',
+    typescript: 'tsx',
+    javascript: 'jsx',
     python: 'py',
     json: 'json',
     sql: 'sql',
@@ -250,5 +344,5 @@ function getExtension(lang: string): string {
     bash: 'sh',
     shell: 'sh',
   };
-  return map[lang.toLowerCase()] || 'txt';
+  return map[(lang || '').toLowerCase()] || 'txt';
 }

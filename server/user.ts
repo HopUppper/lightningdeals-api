@@ -1232,7 +1232,7 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
 
 // POST /api/user/keys/test — Live Interactive API Key Playground & AI Studio Execution
 router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Response) => {
-  const { apiKeyId, keyString, model, prompt, messages, system, temperature, max_tokens, clientPlatform } = req.body;
+  const { apiKeyId, keyString, model, prompt, messages, system, temperature, max_tokens, clientPlatform, thinking } = req.body;
 
   try {
     const userRecord = await prisma.user.findUnique({
@@ -1349,6 +1349,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       };
       if (effectiveSystem) payload.system = effectiveSystem;
       if (effectiveTemperature !== undefined) payload.temperature = effectiveTemperature;
+      if (thinking) payload.thinking = thinking;
 
       const prep = buildProviderRequest(targetVendor, keyStr, selectedModel, payload);
 
@@ -1424,13 +1425,20 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
 
     const responseJson: any = await upstreamRes.json();
     let responseText = '';
+    let thinkingText = '';
     if (Array.isArray(responseJson.content)) {
       responseText = responseJson.content
         .filter((c: any) => c.type === 'text')
         .map((c: any) => c.text)
         .join('\n');
-      if (!responseText && responseJson.content[0]?.type === 'thinking') {
-        responseText = responseJson.content[0]?.thinking || '';
+      const thinkBlocks = responseJson.content
+        .filter((c: any) => c.type === 'thinking')
+        .map((c: any) => c.thinking);
+      if (thinkBlocks.length > 0) {
+        thinkingText = thinkBlocks.join('\n');
+      }
+      if (!responseText && thinkingText) {
+        responseText = thinkingText;
       }
     } else if (typeof responseJson.content === 'string') {
       responseText = responseJson.content;
@@ -1514,6 +1522,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       success: true,
       status: 'active',
       result: responseText,
+      thinking: thinkingText || null,
       content: responseJson.content || [{ type: 'text', text: responseText }],
       usage: {
         input_tokens: inputTokens,

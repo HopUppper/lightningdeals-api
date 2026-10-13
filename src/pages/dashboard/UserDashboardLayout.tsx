@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Zap, LayoutDashboard, Key, Activity, LifeBuoy, Settings, LogOut, BookOpen, CreditCard, Layers, Users, Menu, X, Play, Star, Bot, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationCenter } from '../../components/NotificationCenter';
@@ -31,10 +31,13 @@ export const UserDashboardLayout: React.FC = () => {
     { name: 'Settings', path: '/dashboard/settings', icon: Settings },
   ];
 
+  const location = useLocation();
+  const isStudio = location.pathname.startsWith('/dashboard/studio');
+
   return (
     <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
       {/* Top Header */}
-      <header className="h-16 border-b border-[#e5e7eb] bg-white sticky top-0 z-40 px-4 sm:px-6 flex items-center justify-between">
+      <header className="h-14 sm:h-16 border-b border-[#e5e7eb] bg-white sticky top-0 z-40 px-3 sm:px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3.5">
           <button
             type="button"
@@ -86,47 +89,53 @@ export const UserDashboardLayout: React.FC = () => {
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid md:grid-cols-[220px_1fr] gap-6 items-start">
-        {/* Sidebar Navigation */}
-        <aside className={`md:block ${mobileNavOpen ? 'block' : 'hidden'} space-y-1 bg-white p-3 rounded-xl border border-[#e5e7eb] shadow-xs`}>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6b7280] px-2.5 py-1 mb-1">
-            Navigation
-          </p>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.end}
-              onClick={() => setMobileNavOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                  isActive
-                    ? 'bg-[#0f172a] text-white font-semibold'
-                    : 'text-[#4b5563] hover:text-[#111827] hover:bg-[#f4f4f0]'
-                }`
-              }
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              <span className="flex-1">{item.name}</span>
-              {(item as any).badge && (
-                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-2xs">
-                  {(item as any).badge}
-                </span>
-              )}
-            </NavLink>
-          ))}
-
-          <div className="pt-3 mt-3 border-t border-[#e5e7eb] px-2.5 text-[11px] text-[#6b7280]">
-            <p className="font-semibold text-[#111827]">Gateway v1.4</p>
-            <p className="text-emerald-700 mt-0.5">● Anthropic /v1/messages</p>
-          </div>
-        </aside>
-
-        {/* Content Outlet */}
-        <main className="min-w-0">
+      {isStudio ? (
+        <div className="flex-1 w-full flex overflow-hidden h-[calc(100vh-56px)] sm:h-[calc(100vh-64px)]">
           <Outlet />
-        </main>
-      </div>
+        </div>
+      ) : (
+        <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid md:grid-cols-[220px_1fr] gap-6 items-start">
+          {/* Sidebar Navigation */}
+          <aside className={`md:block ${mobileNavOpen ? 'block' : 'hidden'} space-y-1 bg-white p-3 rounded-xl border border-[#e5e7eb] shadow-xs`}>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6b7280] px-2.5 py-1 mb-1">
+              Navigation
+            </p>
+            {navItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.end}
+                onClick={() => setMobileNavOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#0f172a] text-white font-semibold'
+                      : 'text-[#4b5563] hover:text-[#111827] hover:bg-[#f4f4f0]'
+                  }`
+                }
+              >
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span className="flex-1">{item.name}</span>
+                {(item as any).badge && (
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-2xs">
+                    {(item as any).badge}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+
+            <div className="pt-3 mt-3 border-t border-[#e5e7eb] px-2.5 text-[11px] text-[#6b7280]">
+              <p className="font-semibold text-[#111827]">Gateway v1.4</p>
+              <p className="text-emerald-700 mt-0.5">● Anthropic /v1/messages</p>
+            </div>
+          </aside>
+
+          {/* Content Outlet */}
+          <main className="min-w-0">
+            <Outlet />
+          </main>
+        </div>
+      )}
     </div>
   );
 };

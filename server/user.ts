@@ -2161,14 +2161,16 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
       activeKeysCount: keys.filter(k => k.status === 'active').length,
       recentRequests: recentRequests.map(r => ({
         ...r,
-        promptTokens: r.promptTokens.toString(),
-        completionTokens: r.completionTokens.toString(),
-        totalTokens: r.totalTokens.toString(),
+        inputTokens: (r.inputTokens ?? 0).toString(),
+        outputTokens: (r.outputTokens ?? 0).toString(),
+        promptTokens: (r.inputTokens ?? 0).toString(),
+        completionTokens: (r.outputTokens ?? 0).toString(),
+        totalTokens: (r.totalTokens ?? 0).toString(),
       })),
       ledgerEntries: ledgerEntries.map(l => ({
         ...l,
-        amount: l.amount.toString(),
-        balanceAfter: l.balanceAfter.toString(),
+        amount: (l.amount ?? 0n).toString(),
+        balanceAfter: (l.balanceAfter ?? 0n).toString(),
       })),
     });
   } catch (err: any) {

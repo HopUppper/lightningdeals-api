@@ -117,8 +117,8 @@ app.use(
 );
 
 app.use(cookieParser());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 import { securityThreatDetector } from './securityDetection';
 // Automated Security Threat Detector (SQLi, XSS, Path Traversal, Bot Scanners)

@@ -302,6 +302,10 @@ export const UserChatStudio: React.FC = () => {
     }
 
     Array.from(files).forEach((file) => {
+      if (file.size > 25 * 1024 * 1024) {
+        alert(`"${file.name}" is too large (${Math.round(file.size / 1024 / 1024)}MB). The maximum file upload size for documents is 25MB.`);
+        return;
+      }
       const isImg = file.type.startsWith('image/');
       const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
       const reader = new FileReader();

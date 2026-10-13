@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check,
@@ -56,16 +56,26 @@ export const ElectricCapacitySection: React.FC = () => {
     openCart();
   };
 
-  // Dynamic Calculator recommendation based on active plans
-  const sortedPlans = [...displayPlans].sort((a, b) => a.priceInr - b.priceInr);
-  const recommendedPlan =
-    sortedPlans.length >= 3
-      ? dailyHours <= 3
-        ? sortedPlans[0]
-        : dailyHours <= 7
-        ? sortedPlans[1]
-        : sortedPlans[sortedPlans.length - 1]
-      : sortedPlans[0] || null;
+  // Filter for regular capacity tiers (excluding trial passes) and sort by price
+  const capacityPlans = useMemo(() => {
+    const valid = displayPlans.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const slug = (p.slug || '').toLowerCase();
+      const id = (p.id || '').toLowerCase();
+      const isTrial = name.includes('trial') || slug.includes('trial') || id.includes('trial') || slug.includes('test');
+      return !isTrial && p.priceInr >= 500;
+    });
+    return (valid.length > 0 ? valid : displayPlans).sort((a, b) => a.priceInr - b.priceInr);
+  }, [displayPlans]);
+
+  // Dynamic Calculator recommendation proportionally mapped across all capacity tiers
+  const recommendedPlan = useMemo(() => {
+    if (capacityPlans.length === 0) return null;
+    if (capacityPlans.length === 1) return capacityPlans[0];
+    const normalized = Math.max(0, Math.min(1, (dailyHours - 1) / 15));
+    const index = Math.min(capacityPlans.length - 1, Math.floor(normalized * capacityPlans.length));
+    return capacityPlans[index];
+  }, [capacityPlans, dailyHours]);
 
   const recommendedTier = recommendedPlan?.name || 'Max 5x';
   const recommendedPrice = recommendedPlan?.priceInr || 2499;
@@ -177,10 +187,10 @@ export const ElectricCapacitySection: React.FC = () => {
             />
             
             <div className="flex justify-between text-[11px] font-mono text-[#78716c]">
-              <span>1h (Casual Light)</span>
-              <span>4h (Daily Full-Stack)</span>
-              <span>8h (Heavy Agentic)</span>
-              <span>16h (Team / Multi-Agent)</span>
+              <span>1h (Light · 5x)</span>
+              <span>6h (Full-Stack · 20x)</span>
+              <span>10h (Heavy · 40x)</span>
+              <span>16h (Scale · 100x)</span>
             </div>
           </div>
 
@@ -200,27 +210,33 @@ export const ElectricCapacitySection: React.FC = () => {
 
         {/* Paid Plans Display: Grid Mode */}
         {viewMode === 'grid' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-            {displayPlans.map((pkg) => (
-              <div
-                key={pkg.id}
-                className={`bg-white p-7 rounded-3xl flex flex-col h-full relative transition-all shadow-xs ${
-                  pkg.featured
-                    ? 'border-2 border-[#6d28d9] shadow-warm ring-2 ring-[#6d28d9]/10'
-                    : 'border border-[#e7e5e4] hover:border-[#d6d3d1]'
-                }`}
-              >
-                {pkg.badge && (
-                  <div
-                    className={`absolute -top-3.5 left-7 px-3.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase ${
-                      pkg.featured
-                        ? 'bg-[#6d28d9] text-white shadow-plum'
-                        : 'bg-[#1c1917] text-white'
-                    }`}
-                  >
-                    {pkg.badge}
-                  </div>
-                )}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${capacityPlans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 items-stretch`}>
+            {capacityPlans.map((pkg) => {
+              const isRecommended = pkg.id === recommendedPlan?.id;
+              return (
+                <div
+                  key={pkg.id}
+                  className={`bg-white p-7 rounded-3xl flex flex-col h-full relative transition-all shadow-xs ${
+                    isRecommended
+                      ? 'border-2 border-[#6d28d9] shadow-warm ring-2 ring-[#6d28d9]/20'
+                      : pkg.featured
+                      ? 'border-2 border-[#6d28d9] shadow-warm ring-2 ring-[#6d28d9]/10'
+                      : 'border border-[#e7e5e4] hover:border-[#d6d3d1]'
+                  }`}
+                >
+                  {(isRecommended || pkg.badge) && (
+                    <div
+                      className={`absolute -top-3.5 left-7 px-3.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase ${
+                        isRecommended
+                          ? 'bg-[#6d28d9] text-white shadow-plum ring-2 ring-white'
+                          : pkg.featured
+                          ? 'bg-[#6d28d9] text-white shadow-plum'
+                          : 'bg-[#1c1917] text-white'
+                      }`}
+                    >
+                      {isRecommended ? 'RECOMMENDED FIT' : pkg.badge}
+                    </div>
+                  )}
 
                 {/* Card Title & Tagline */}
                 <div className="min-h-[80px] flex flex-col justify-start space-y-1.5 pt-1">
@@ -269,7 +285,7 @@ export const ElectricCapacitySection: React.FC = () => {
                     type="button"
                     onClick={() => handleSelectPlan(pkg)}
                     className={`w-full py-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      pkg.featured
+                      isRecommended || pkg.featured
                         ? 'bg-[#6d28d9] hover:bg-[#581c87] text-white shadow-plum'
                         : 'bg-[#1c1917] hover:bg-black text-white shadow-xs'
                     }`}
@@ -289,7 +305,8 @@ export const ElectricCapacitySection: React.FC = () => {
                 </div>
 
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
 
@@ -301,7 +318,7 @@ export const ElectricCapacitySection: React.FC = () => {
                 <thead>
                   <tr className="bg-[#fbf9f5] border-b border-[#e7e5e4]">
                     <th className="p-4 sm:p-5 font-bold text-[#1c1917]">Feature Specification</th>
-                    {displayPlans.map((pkg) => (
+                    {capacityPlans.map((pkg) => (
                       <th
                         key={pkg.id}
                         className={`p-4 sm:p-5 font-bold border-l border-[#e7e5e4] ${
@@ -315,8 +332,8 @@ export const ElectricCapacitySection: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-[#e7e5e4]">
                   <tr>
-                    <td className="p-4 font-semibold text-[#1c1917]">Price ({displayPlans[0]?.validityDays || 30} Days)</td>
-                    {displayPlans.map((pkg) => (
+                    <td className="p-4 font-semibold text-[#1c1917]">Price ({capacityPlans[0]?.validityDays || 30} Days)</td>
+                    {capacityPlans.map((pkg) => (
                       <td
                         key={pkg.id}
                         className={`p-4 font-mono border-l border-[#e7e5e4] ${
@@ -329,9 +346,9 @@ export const ElectricCapacitySection: React.FC = () => {
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">
-                      Rolling Quota (Every {displayPlans[0]?.windowHours || 5} Hours)
+                      Rolling Quota (Every {capacityPlans[0]?.windowHours || 5} Hours)
                     </td>
-                    {displayPlans.map((pkg) => (
+                    {capacityPlans.map((pkg) => (
                       <td
                         key={pkg.id}
                         className={`p-4 font-mono border-l border-[#e7e5e4] ${
@@ -344,7 +361,7 @@ export const ElectricCapacitySection: React.FC = () => {
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Supported Models & Features</td>
-                    {displayPlans.map((pkg) => (
+                    {capacityPlans.map((pkg) => (
                       <td
                         key={pkg.id}
                         className={`p-4 border-l border-[#e7e5e4] ${
@@ -359,7 +376,7 @@ export const ElectricCapacitySection: React.FC = () => {
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Protocol Compatibility</td>
-                    {displayPlans.map((pkg) => (
+                    {capacityPlans.map((pkg) => (
                       <td key={pkg.id} className="p-4 border-l border-[#e7e5e4] font-mono">
                         Anthropic /v1/messages
                       </td>
@@ -367,7 +384,7 @@ export const ElectricCapacitySection: React.FC = () => {
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Data Privacy SLA</td>
-                    {displayPlans.map((pkg) => (
+                    {capacityPlans.map((pkg) => (
                       <td key={pkg.id} className="p-4 border-l border-[#e7e5e4] text-emerald-600 font-semibold">
                         Zero Prompt Logging
                       </td>
@@ -375,7 +392,7 @@ export const ElectricCapacitySection: React.FC = () => {
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">Direct Activation</td>
-                    {displayPlans.map((pkg) => (
+                    {capacityPlans.map((pkg) => (
                       <td key={pkg.id} className="p-4 border-l border-[#e7e5e4]">
                         <button
                           type="button"

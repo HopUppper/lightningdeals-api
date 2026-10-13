@@ -264,7 +264,18 @@ console.log('⚡ Starting SSG Pre-rendering for LightningDeals marketing pages..
 let activeDbPlans: PlanItem[] = DEFAULT_PLANS;
 try {
   const dbPlans = await prisma.plan.findMany({
-    where: { enabled: true, status: 'active', priceInr: { gt: 0 } },
+    where: {
+      enabled: true,
+      status: 'active',
+      priceInr: { gte: 500 },
+      NOT: {
+        OR: [
+          { id: { in: ['free_trial', 'trial'] } },
+          { slug: { in: ['free_trial', 'trial', 'test_plan'] } },
+          { name: { contains: 'trial', mode: 'insensitive' } },
+        ],
+      },
+    },
     orderBy: { sortOrder: 'asc' },
   });
   if (dbPlans && dbPlans.length > 0) {

@@ -100,6 +100,32 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     enabled: true,
     displayOrder: 3,
   },
+  max_100x: {
+    id: '36b000a6-69da-4b3d-9574-68f2769a765d',
+    slug: 'max_100x',
+    name: 'MAX 100x',
+    displayName: 'Supreme ( 100m / 5 hours )',
+    tokenAllowance: 100000000n,
+    tokenDisplay: '100M TOKENS / 5 HOURS',
+    windowHours: 5,
+    validityDays: 30,
+    rateLimitRpm: 100,
+    priceInr: 16999,
+    originalPriceInr: 69999,
+    currency: 'INR',
+    tagline: 'Supreme high-volume capacity for engineering teams & autonomous agentic loops',
+    badge: 'MAX SCALE',
+    features: [
+      '100,000,000 Tokens / 5h Window',
+      '30-Day Fixed Validity',
+      'All Top Claude Opus 5.5, Sonnet 5.5 & Haiku Access',
+      'VIP Priority Concurrency & Dedicated Gateway Ingress',
+      'Instant Automated Delivery',
+    ],
+    featured: false,
+    enabled: true,
+    displayOrder: 4,
+  },
 };
 
 export const FREE_TRIAL_PLAN: ServerPlan = {
@@ -133,9 +159,13 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
       where: {
         status: 'active',
         enabled: true,
-        priceInr: { gt: 0 },
+        priceInr: { gte: 500 },
         NOT: {
-          id: 'free_trial',
+          OR: [
+            { id: { in: ['free_trial', 'trial'] } },
+            { slug: { in: ['free_trial', 'trial', 'test_plan'] } },
+            { name: { contains: 'trial', mode: 'insensitive' } },
+          ],
         },
       },
       orderBy: { sortOrder: 'asc' },
@@ -244,7 +274,15 @@ export function getPlanById(planId: string): ServerPlan | null {
   // Backward compatibility alias lookups
   if (cleanId === 'plan_5m_5h') return AUTHORITATIVE_PLANS['pro'];
   if (cleanId === 'plan_20m_5h') return AUTHORITATIVE_PLANS['max'];
-  if (cleanId === 'plan_40m_5h' || cleanId === 'plan_100m_5h') return AUTHORITATIVE_PLANS['ultra'];
+  if (cleanId === 'plan_40m_5h') return AUTHORITATIVE_PLANS['ultra'];
+  if (
+    cleanId === 'plan_100m_5h' ||
+    cleanId === 'max_100x' ||
+    cleanId === 'max 100x' ||
+    cleanId === '36b000a6-69da-4b3d-9574-68f2769a765d'
+  ) {
+    return AUTHORITATIVE_PLANS['max_100x'];
+  }
 
   const plan = AUTHORITATIVE_PLANS[cleanId];
   if (!plan || !plan.enabled) return null;

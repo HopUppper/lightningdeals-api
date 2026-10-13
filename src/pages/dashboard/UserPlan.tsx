@@ -349,7 +349,7 @@ export const UserPlan: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${(availablePlans.length > 0 ? availablePlans : [1, 2, 3, 4]).length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
           {(availablePlans.length > 0
             ? availablePlans
             : [
@@ -394,6 +394,20 @@ export const UserPlan: React.FC = () => {
                   badge: 'HIGH CAPACITY',
                   featured: false,
                   features: ['40,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Max Concurrency & Throughput', 'All Top Claude Opus 5.5, Sonnet 5.5 & Fable 5 Models', 'VIP Priority Support'],
+                },
+                {
+                  id: '36b000a6-69da-4b3d-9574-68f2769a765d',
+                  name: 'MAX 100x',
+                  displayName: 'Supreme ( 100m / 5 hours )',
+                  tokenAllowance: '100000000',
+                  tokenDisplay: '100M TOKENS / 5 HOURS',
+                  windowHours: 5,
+                  validityDays: 30,
+                  priceInr: 16999,
+                  originalPriceInr: 69999,
+                  badge: 'MAX SCALE',
+                  featured: false,
+                  features: ['100,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'All Top Claude Opus 5.5, Sonnet 5.5 & Haiku Access', 'VIP Priority Concurrency & Dedicated Gateway Ingress', 'Instant Automated Delivery'],
                 },
               ]
           ).map((p: any) => (

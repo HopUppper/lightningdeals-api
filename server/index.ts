@@ -315,8 +315,8 @@ app.get('*', async (req, res, next) => {
       const serialized = serializePublicPlans(activePlans);
       const plansScript = `<script>window.__INITIAL_PLANS__=${JSON.stringify(serialized).replace(/</g, '\\u003c')};</script>`;
 
-      if (html.includes('window.__INITIAL_PLANS__=')) {
-        html = html.replace(/<script[^>]*>window\.__INITIAL_PLANS__\s*=\s*\[.*?\];?<\/script>/s, plansScript);
+      if (/window\.__INITIAL_PLANS__\s*=/i.test(html)) {
+        html = html.replace(/<script[^>]*>window\.__INITIAL_PLANS__\s*=[\s\S]*?<\/script>/i, plansScript);
       } else if (html.includes('</head>')) {
         html = html.replace('</head>', `${plansScript}</head>`);
       }

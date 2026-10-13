@@ -886,6 +886,7 @@ export const AdminKeys: React.FC = () => {
                             <option value="Max 5x">Max 5x (5M / 5h Window — ₹2,499)</option>
                             <option value="MAX 20X">MAX 20X (20M / 5h Window — ₹5,999)</option>
                             <option value="MAX 40X">MAX 40X (40M / 5h Window — ₹8,999)</option>
+                            <option value="MAX 100x">MAX 100x (100M / 5h Window — ₹16,999)</option>
                           </>
                         )}
                         <option value="Trial Key">Trial Key (200k / 24h)</option>
@@ -1151,6 +1152,7 @@ export const AdminKeys: React.FC = () => {
                           <option value="Max 5x">Max 5x (5M / 5h Window)</option>
                           <option value="MAX 20X">MAX 20X (20M / 5h Window)</option>
                           <option value="MAX 40X">MAX 40X (40M / 5h Window)</option>
+                          <option value="MAX 100x">MAX 100x (100M / 5h Window)</option>
                         </>
                       )}
                       <option value="Trial Key">Trial Key</option>

@@ -106,6 +106,31 @@ export const DEFAULT_PLANS: PlanItem[] = [
     ],
     sortOrder: 3,
   },
+  {
+    id: '36b000a6-69da-4b3d-9574-68f2769a765d',
+    slug: 'max_100x',
+    name: 'MAX 100x',
+    displayName: 'Supreme ( 100m / 5 hours )',
+    tokenAllowance: '100000000',
+    tokenDisplay: '100M TOKENS / 5 HOURS',
+    windowHours: 5,
+    validityDays: 30,
+    rateLimitRpm: 100,
+    priceInr: 16999,
+    originalPriceInr: 69999,
+    currency: 'INR',
+    tagline: 'Supreme high-volume capacity for engineering teams & autonomous agentic loops',
+    badge: 'MAX SCALE',
+    featured: false,
+    features: [
+      '100,000,000 Tokens / 5h Window',
+      '30-Day Fixed Validity',
+      'All Top Claude Opus 5.5, Sonnet 5.5 & Haiku Access',
+      'VIP Priority Concurrency & Dedicated Gateway Ingress',
+      'Instant Automated Delivery',
+    ],
+    sortOrder: 4,
+  },
 ];
 
 const PlansContext = createContext<PlansContextType>({
@@ -210,7 +235,14 @@ export const PlansProvider: React.FC<{
 
   const starterPlan = useMemo(() => {
     if (!plans || plans.length === 0) return DEFAULT_PLANS[0];
-    const sorted = [...plans].sort((a, b) => a.priceInr - b.priceInr);
+    const regularPlans = plans.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const slug = (p.slug || '').toLowerCase();
+      const id = (p.id || '').toLowerCase();
+      const isTrial = name.includes('trial') || slug.includes('trial') || id.includes('trial') || slug.includes('test');
+      return !isTrial && p.priceInr >= 500;
+    });
+    const sorted = [...(regularPlans.length > 0 ? regularPlans : plans)].sort((a, b) => a.priceInr - b.priceInr);
     return sorted[0];
   }, [plans]);
 
@@ -227,7 +259,9 @@ export const PlansProvider: React.FC<{
         (p) =>
           p.id.toLowerCase() === clean ||
           (p.slug && p.slug.toLowerCase() === clean) ||
-          p.name.toLowerCase() === clean
+          p.name.toLowerCase() === clean ||
+          (clean === 'max_100x' && p.name.toLowerCase().includes('100x')) ||
+          (clean === 'plan_100m_5h' && p.name.toLowerCase().includes('100x'))
       );
     },
     [plans]

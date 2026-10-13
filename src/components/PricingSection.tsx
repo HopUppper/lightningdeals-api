@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Check, ArrowRight, ShieldCheck, ShoppingBag, LayoutGrid, Table, Sparkles } from 'lucide-react';
 import { CheckoutModal } from './CheckoutModal';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,16 @@ export const PricingSection: React.FC = () => {
   const { plans, loading } = usePlans();
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<PlanItem | null>(null);
 
-  const displayPlans = plans;
+  const displayPlans = useMemo(() => {
+    const valid = plans.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const slug = (p.slug || '').toLowerCase();
+      const id = (p.id || '').toLowerCase();
+      const isTrial = name.includes('trial') || slug.includes('trial') || id.includes('trial') || slug.includes('test');
+      return !isTrial && p.priceInr >= 500;
+    });
+    return (valid.length > 0 ? valid : plans).sort((a, b) => a.priceInr - b.priceInr);
+  }, [plans]);
 
   const handleSelectPlan = (pkg: PlanItem) => {
     if (user) {
@@ -27,7 +36,7 @@ export const PricingSection: React.FC = () => {
 
   return (
     <section id="pricing" className="py-16 sm:py-20 lg:py-24 border-b border-[#e7e5e4] bg-[#fbf9f5] font-sans">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16">
         
         {/* Section Header with Cards/Compare Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-[#e7e5e4] pb-6">
@@ -91,7 +100,7 @@ export const PricingSection: React.FC = () => {
 
         {/* Paid Plans Cards with Strict Geometric Alignment */}
         {viewMode === 'grid' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${displayPlans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 items-stretch`}>
             {displayPlans.map((pkg) => (
               <div
                 key={pkg.id}

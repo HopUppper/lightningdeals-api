@@ -36,10 +36,10 @@ import { MarkdownBlock } from '../../components/chat/MarkdownBlock';
 
 interface ChatAttachment {
   name: string;
-  type: 'image' | 'file';
+  type: 'image' | 'file' | 'document';
   mimeType: string;
   sizeBytes: number;
-  dataBase64?: string; // For images
+  dataBase64?: string; // For images and PDFs
   textSnippet?: string; // For code/text files
 }
 
@@ -303,6 +303,7 @@ export const UserChatStudio: React.FC = () => {
 
     Array.from(files).forEach((file) => {
       const isImg = file.type.startsWith('image/');
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
       const reader = new FileReader();
 
       if (isImg) {
@@ -313,7 +314,22 @@ export const UserChatStudio: React.FC = () => {
             {
               name: file.name,
               type: 'image',
-              mimeType: file.type,
+              mimeType: file.type || 'image/png',
+              sizeBytes: file.size,
+              dataBase64: base64Data,
+            },
+          ]);
+        };
+        reader.readAsDataURL(file);
+      } else if (isPdf) {
+        reader.onload = () => {
+          const base64Data = (reader.result as string).split(',')[1];
+          setAttachments((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              type: 'document',
+              mimeType: 'application/pdf',
               sizeBytes: file.size,
               dataBase64: base64Data,
             },
@@ -406,7 +422,7 @@ export const UserChatStudio: React.FC = () => {
       if (m.attachments && m.attachments.length > 0) {
         const contentParts: any[] = [];
 
-        // Image content blocks
+        // Image and Document content blocks
         m.attachments.forEach((att) => {
           if (att.type === 'image' && att.dataBase64) {
             contentParts.push({
@@ -414,6 +430,15 @@ export const UserChatStudio: React.FC = () => {
               source: {
                 type: 'base64',
                 media_type: att.mimeType,
+                data: att.dataBase64,
+              },
+            });
+          } else if ((att.type === 'document' || att.mimeType === 'application/pdf') && att.dataBase64) {
+            contentParts.push({
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: 'application/pdf',
                 data: att.dataBase64,
               },
             });

@@ -85,8 +85,20 @@ function scanValueForAttacks(val: any, depth: number = 0): {
 
   if (typeof val === 'object') {
     for (const key of Object.keys(val)) {
-      // Don't scan password fields for SQL/XSS false positives, only scan metadata/query/body fields
-      if (/pass(word)?/i.test(key) || /token/i.test(key) || /hash/i.test(key)) continue;
+      // Don't scan password fields, tokens, or AI prompt/message/document payloads for SQL/XSS false positives
+      if (
+        /pass(word)?/i.test(key) ||
+        /token/i.test(key) ||
+        /hash/i.test(key) ||
+        /prompt/i.test(key) ||
+        /messages?/i.test(key) ||
+        /system/i.test(key) ||
+        /content/i.test(key) ||
+        /attachment/i.test(key) ||
+        /file/i.test(key) ||
+        /data/i.test(key) ||
+        /code/i.test(key)
+      ) continue;
 
       const res = scanValueForAttacks(val[key], depth + 1);
       if (res.type) return res;
@@ -179,10 +191,14 @@ export function securityThreatDetector(req: Request, res: Response, next: NextFu
     }
   }
 
-  // 3. Scan JSON Request Body (excluding passwords/tokens)
+  // 3. Scan JSON Request Body (excluding passwords/tokens and AI model payloads)
   if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
-    // Skip large AI prompt bodies from gateway /v1/messages so developer code completions are not falsely blocked
-    const isAiGateway = req.path.startsWith('/v1/messages') || req.path.startsWith('/v1/chat/completions');
+    // Skip large AI prompt bodies from gateway and studio endpoints so developer code/file attachments are not falsely blocked
+    const isAiGateway =
+      req.path.startsWith('/v1/messages') ||
+      req.path.startsWith('/v1/chat/completions') ||
+      req.path.startsWith('/api/user/keys/test') ||
+      req.path.startsWith('/api/admin/keys/test');
     
     if (!isAiGateway) {
       const scan = scanValueForAttacks(req.body);

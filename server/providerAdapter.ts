@@ -217,6 +217,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     headers['x-api-key'] = decryptedMasterKey;
     if (!headers['authorization']) {
       headers['authorization'] = `Bearer ${decryptedMasterKey}`;
+    }
     headers['anthropic-version'] = '2023-06-01';
     const hasDocuments = Array.isArray(payload.messages) && payload.messages.some((m: any) =>
       Array.isArray(m.content) && m.content.some((c: any) => c.type === 'document')

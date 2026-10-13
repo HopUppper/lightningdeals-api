@@ -19,7 +19,7 @@ import { extractClientIp, resolveIpLocation } from './geoService';
 import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
 import { generateProviderApiKey } from './keyService';
 import { buildProviderRequest } from './providerAdapter';
-import { sanitizeErrorMessage } from './gateway';
+import { sanitizeErrorMessage, sanitizeModelResponse, getFriendlyModelName } from './gateway';
 
 const router = Router();
 

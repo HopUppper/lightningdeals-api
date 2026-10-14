@@ -493,29 +493,34 @@ export const UserChatStudio: React.FC = () => {
 
   // Fetch full messages for a conversation
   const loadConversationMessages = async (convId: string) => {
-    if (convId.startsWith('thread_')) return; // local-only draft
+    if (!convId || convId.startsWith('thread_')) return; // local-only draft
+    if (generating) return; // Prevent overwriting when actively generating
+
     try {
       const res = await userFetch(`/api/user/studio/conversations/${convId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.conversation?.messages) {
           setThreads((prev) =>
-            prev.map((t) =>
-              t.id === convId
-                ? {
-                    ...t,
-                    title: data.conversation.title,
-                    model: data.conversation.model,
-                    pinned: Boolean(data.conversation.pinned),
-                    systemPrompt: data.conversation.systemPrompt || '',
-                    thinkingEnabled: Boolean(data.conversation.thinkingEnabled),
-                    tokenSaverEnabled: Boolean(data.conversation.tokenSaverEnabled),
-                    temperature: data.conversation.temperature ?? 0.2,
-                    messages: data.conversation.messages,
-                    messagesLoaded: true,
-                  }
-                : t
-            )
+            prev.map((t) => {
+              if (t.id !== convId) return t;
+              // If local thread already has more messages than server (e.g. user just sent message), preserve local!
+              if (t.messages && t.messages.length > data.conversation.messages.length) {
+                return { ...t, messagesLoaded: true };
+              }
+              return {
+                ...t,
+                title: data.conversation.title,
+                model: data.conversation.model,
+                pinned: Boolean(data.conversation.pinned),
+                systemPrompt: data.conversation.systemPrompt || '',
+                thinkingEnabled: Boolean(data.conversation.thinkingEnabled),
+                tokenSaverEnabled: Boolean(data.conversation.tokenSaverEnabled),
+                temperature: data.conversation.temperature ?? 0.2,
+                messages: data.conversation.messages,
+                messagesLoaded: true,
+              };
+            })
           );
         }
       }
@@ -553,10 +558,10 @@ export const UserChatStudio: React.FC = () => {
 
   // When switching conversations, load messages if not already loaded
   useEffect(() => {
-    if (activeThread && !activeThread.messagesLoaded && !activeThread.id.startsWith('thread_')) {
+    if (!generating && activeThread && !activeThread.messagesLoaded && !activeThread.id.startsWith('thread_')) {
       loadConversationMessages(activeThread.id);
     }
-  }, [activeThreadId]);
+  }, [activeThreadId, generating]);
 
   // Auto-scroll chat to bottom
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -873,6 +878,9 @@ export const UserChatStudio: React.FC = () => {
       timestamp: Date.now(),
     };
 
+    const targetThreadId = activeThread.id;
+    let boundThreadId = targetThreadId;
+
     let newTitle = activeThread.title;
     if (activeThread.messages.length === 0 || activeThread.title === 'New Session') {
       newTitle = promptToSend.trim().slice(0, 36) || 'Coding Task';
@@ -893,9 +901,32 @@ export const UserChatStudio: React.FC = () => {
       modelUsed: activeThread.model,
     };
 
-    updateActiveThread({
-      messages: [...updatedMessages, initialAssistantMsg],
-      title: newTitle,
+    setThreads((prev) => {
+      const exists = prev.some((t) => t.id === targetThreadId);
+      if (exists) {
+        return prev.map((t) =>
+          t.id === targetThreadId
+            ? {
+                ...t,
+                title: newTitle,
+                messages: [...updatedMessages, initialAssistantMsg],
+                messagesLoaded: true,
+                updatedAt: Date.now(),
+              }
+            : t
+        );
+      }
+      return [
+        {
+          ...activeThread,
+          id: targetThreadId,
+          title: newTitle,
+          messages: [...updatedMessages, initialAssistantMsg],
+          messagesLoaded: true,
+          updatedAt: Date.now(),
+        },
+        ...prev,
+      ];
     });
 
     setPrompt('');
@@ -916,7 +947,7 @@ export const UserChatStudio: React.FC = () => {
           ...authHeaders,
         },
         body: JSON.stringify({
-          conversationId: activeThread.id.startsWith('thread_') ? undefined : activeThread.id,
+          conversationId: targetThreadId.startsWith('thread_') ? undefined : targetThreadId,
           model: activeThread.model,
           prompt: promptToSend.trim(),
           messages: baseMessages,
@@ -968,15 +999,31 @@ export const UserChatStudio: React.FC = () => {
               const parsed = JSON.parse(eventData);
 
               if (eventType === 'session') {
-                if (parsed.conversationId && activeThread.id !== parsed.conversationId) {
-                  updateActiveThread({ id: parsed.conversationId, title: parsed.title || activeThread.title });
-                  setActiveThreadId(parsed.conversationId);
+                if (parsed.conversationId && parsed.conversationId !== boundThreadId) {
+                  const newId = parsed.conversationId;
+                  const oldId = boundThreadId;
+                  boundThreadId = newId;
+
+                  setThreads((prev) =>
+                    prev.map((t) =>
+                      t.id === oldId
+                        ? {
+                            ...t,
+                            id: newId,
+                            title: parsed.title || t.title,
+                            messagesLoaded: true,
+                            updatedAt: Date.now(),
+                          }
+                        : t
+                    )
+                  );
+                  setActiveThreadId(newId);
                 }
               } else if (eventType === 'thinking_delta') {
                 accumulatedThinking += parsed.thinking || '';
                 setThreads((prev) =>
                   prev.map((t) =>
-                    t.id === activeThread.id
+                    t.id === boundThreadId
                       ? {
                           ...t,
                           messages: t.messages.map((m) =>
@@ -990,7 +1037,7 @@ export const UserChatStudio: React.FC = () => {
                 accumulatedContent += parsed.text || '';
                 setThreads((prev) =>
                   prev.map((t) =>
-                    t.id === activeThread.id
+                    t.id === boundThreadId
                       ? {
                           ...t,
                           messages: t.messages.map((m) =>
@@ -1003,7 +1050,7 @@ export const UserChatStudio: React.FC = () => {
               } else if (eventType === 'done') {
                 setThreads((prev) =>
                   prev.map((t) =>
-                    t.id === activeThread.id
+                    t.id === boundThreadId
                       ? {
                           ...t,
                           messages: t.messages.map((m) =>
@@ -1037,7 +1084,7 @@ export const UserChatStudio: React.FC = () => {
       if (err.name === 'AbortError') {
         setThreads((prev) =>
           prev.map((t) =>
-            t.id === activeThread.id
+            t.id === boundThreadId
               ? {
                   ...t,
                   messages: t.messages.map((m) =>
@@ -1053,7 +1100,7 @@ export const UserChatStudio: React.FC = () => {
         const errorMsg = err.message || 'Network stream error.';
         setThreads((prev) =>
           prev.map((t) =>
-            t.id === activeThread.id
+            t.id === boundThreadId
               ? {
                   ...t,
                   messages: t.messages.map((m) =>
@@ -1405,7 +1452,7 @@ export const UserChatStudio: React.FC = () => {
           >
             <div className="max-w-4xl mx-auto w-full space-y-6">
               {/* Phase 2.3 New Chat Landing State */}
-              {activeThread.messages.length === 0 && (
+              {activeThread.messages.length === 0 && !generating && (
                 <div className="py-8 sm:py-14 text-center space-y-6">
                   <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/20">
                     <Sparkles className="w-7 h-7" />

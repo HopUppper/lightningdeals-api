@@ -16,6 +16,7 @@ interface WebResearchSourcesProps {
   researchMode?: string;
   inspectedUrl?: string;
   isDarkTheme?: boolean;
+  defaultExpanded?: boolean;
 }
 
 export const WebResearchSources: React.FC<WebResearchSourcesProps> = ({
@@ -23,8 +24,9 @@ export const WebResearchSources: React.FC<WebResearchSourcesProps> = ({
   researchMode,
   inspectedUrl,
   isDarkTheme = true,
+  defaultExpanded = false,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   if ((!sources || sources.length === 0) && !inspectedUrl) return null;
 

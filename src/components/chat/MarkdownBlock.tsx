@@ -11,17 +11,20 @@ import {
   Brain,
 } from 'lucide-react';
 import { ArtifactData } from './ArtifactCanvas';
+import { WebSourceItem } from './WebResearchSources';
 
 interface MarkdownBlockProps {
   content: string;
   thinkingContent?: string | null;
   onOpenCanvas?: (artifact: ArtifactData) => void;
+  sources?: WebSourceItem[];
 }
 
 export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
   content,
   thinkingContent,
   onOpenCanvas,
+  sources,
 }) => {
   const [showThinking, setShowThinking] = useState(false);
 
@@ -86,7 +89,7 @@ export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
           );
         }
 
-        return <TextBlock key={index} text={part} />;
+        return <TextBlock key={index} text={part} sources={sources} />;
       })}
     </div>
   );
@@ -216,7 +219,7 @@ const CodeBlock: React.FC<{
   );
 };
 
-const TextBlock: React.FC<{ text: string }> = ({ text }) => {
+const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text, sources }) => {
   if (!text.trim()) return null;
 
   const paragraphs = text.split(/\n\n+/);
@@ -231,28 +234,28 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         if (trimmed.startsWith('#### ')) {
           return (
             <h5 key={pIdx} className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mt-3 mb-1">
-              {formatInline(trimmed.replace('#### ', ''))}
+              {formatInline(trimmed.replace('#### ', ''), sources)}
             </h5>
           );
         }
         if (trimmed.startsWith('### ')) {
           return (
             <h4 key={pIdx} className="text-sm font-bold text-slate-900 dark:text-white mt-4 mb-1">
-              {formatInline(trimmed.replace('### ', ''))}
+              {formatInline(trimmed.replace('### ', ''), sources)}
             </h4>
           );
         }
         if (trimmed.startsWith('## ')) {
           return (
             <h3 key={pIdx} className="text-base font-extrabold text-slate-900 dark:text-white mt-5 mb-1.5 pb-1 border-b border-slate-200 dark:border-slate-800">
-              {formatInline(trimmed.replace('## ', ''))}
+              {formatInline(trimmed.replace('## ', ''), sources)}
             </h3>
           );
         }
         if (trimmed.startsWith('# ')) {
           return (
             <h2 key={pIdx} className="text-lg font-black text-slate-900 dark:text-white mt-6 mb-2">
-              {formatInline(trimmed.replace('# ', ''))}
+              {formatInline(trimmed.replace('# ', ''), sources)}
             </h2>
           );
         }
@@ -264,7 +267,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
               key={pIdx}
               className="my-2 border-l-3 border-violet-500 pl-3.5 py-1 text-slate-700 dark:text-slate-300 bg-violet-50 dark:bg-violet-950/20 rounded-r-xl italic text-[12.5px]"
             >
-              {formatInline(trimmed.replace(/^>\s*/, ''))}
+              {formatInline(trimmed.replace(/^>\s*/, ''), sources)}
             </blockquote>
           );
         }
@@ -281,14 +284,14 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
                 if (trimmedLine.startsWith('#### ')) {
                   return (
                     <h5 key={lIdx} className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mt-3 mb-1">
-                      {formatInline(trimmedLine.replace('#### ', ''))}
+                      {formatInline(trimmedLine.replace('#### ', ''), sources)}
                     </h5>
                   );
                 }
                 if (trimmedLine.startsWith('### ')) {
                   return (
                     <h4 key={lIdx} className="text-sm font-bold text-slate-900 dark:text-white mt-3 mb-1">
-                      {formatInline(trimmedLine.replace('### ', ''))}
+                      {formatInline(trimmedLine.replace('### ', ''), sources)}
                     </h4>
                   );
                 }
@@ -296,7 +299,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
                   return (
                     <div key={lIdx} className="flex items-start gap-2 text-[13.5px] text-slate-800 dark:text-slate-200 pl-1 leading-relaxed">
                       <span className="text-violet-600 dark:text-violet-400 font-bold shrink-0 mt-0.5">•</span>
-                      <span>{formatInline(trimmedLine.replace(/^[-*]\s+/, ''))}</span>
+                      <span>{formatInline(trimmedLine.replace(/^[-*]\s+/, ''), sources)}</span>
                     </div>
                   );
                 }
@@ -307,13 +310,13 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
                       <span className="text-violet-600 dark:text-violet-400 font-semibold font-mono text-xs shrink-0 mt-0.5">
                         {numMatch ? `${numMatch[1]}.` : '1.'}
                       </span>
-                      <span>{formatInline(numMatch ? numMatch[2] : trimmedLine)}</span>
+                      <span>{formatInline(numMatch ? numMatch[2] : trimmedLine, sources)}</span>
                     </div>
                   );
                 }
                 return (
                   <p key={lIdx} className="leading-relaxed text-slate-800 dark:text-slate-200 text-[13.5px]">
-                    {formatInline(trimmedLine)}
+                    {formatInline(trimmedLine, sources)}
                   </p>
                 );
               })}
@@ -324,7 +327,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         // Regular paragraph with line breaks
         return (
           <p key={pIdx} className="leading-relaxed whitespace-pre-line text-slate-800 dark:text-slate-200 text-[13.5px]">
-            {formatInline(trimmed)}
+            {formatInline(trimmed, sources)}
           </p>
         );
       })}
@@ -332,33 +335,84 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-function formatInline(text: string): React.ReactNode {
-  const parts = text.split(/(`[^`]+`)/g);
+function formatInline(text: string, sources?: WebSourceItem[]): React.ReactNode {
+  // Matches inline code (`...`), bold (**...**), markdown links ([text](url)), and citations ([1], [2], etc.)
+  const tokenRegex = /(`[^`]+`|\*\*[^*]+\*\*|\[(?:[^\]]+)\]\((?:https?:\/\/[^\s)]+)\)|\[\d+\])/g;
+  const parts = text.split(tokenRegex);
 
   return parts.map((part, i) => {
+    if (!part) return null;
+
+    // Inline code
     if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
-      const code = part.slice(1, -1);
       return (
         <code
           key={i}
           className="px-1.5 py-0.5 mx-0.5 rounded-md bg-slate-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 font-mono text-[11.5px] border border-slate-200 dark:border-violet-500/30 font-semibold"
         >
-          {code}
+          {part.slice(1, -1)}
         </code>
       );
     }
 
-    const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
-    return boldParts.map((bp, bIdx) => {
-      if (bp.startsWith('**') && bp.endsWith('**') && bp.length > 4) {
+    // Bold text
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return (
+        <strong key={i} className="font-bold text-slate-900 dark:text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    // Markdown link: [Title](https://...)
+    const linkMatch = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (linkMatch) {
+      return (
+        <a
+          key={i}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-violet-600 dark:text-violet-400 font-medium underline underline-offset-2 hover:text-violet-500 transition-colors inline-flex items-center gap-0.5"
+        >
+          <span>{linkMatch[1]}</span>
+        </a>
+      );
+    }
+
+    // Inline Citation Badge: [1], [2], etc. (Part 1.4)
+    const citeMatch = part.match(/^\[(\d+)\]$/);
+    if (citeMatch) {
+      const citeNum = parseInt(citeMatch[1], 10);
+      const matchedSource = sources?.find((s) => s.citationIndex === citeNum);
+      if (matchedSource) {
         return (
-          <strong key={`${i}-${bIdx}`} className="font-bold text-slate-900 dark:text-white">
-            {bp.slice(2, -2)}
-          </strong>
+          <a
+            key={i}
+            href={matchedSource.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${matchedSource.title}\nSource: ${matchedSource.domain}${matchedSource.publishedDate ? ` • ${matchedSource.publishedDate}` : ''}`}
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 mx-0.5 rounded-full text-[10px] font-bold font-mono bg-violet-500/15 hover:bg-violet-500/30 text-violet-700 dark:text-violet-300 border border-violet-500/30 hover:border-violet-500/60 transition-all select-none align-baseline cursor-pointer group shadow-2xs"
+          >
+            <span className="text-[9.5px]">[{citeNum}]</span>
+            <span className="text-[9px] opacity-80 font-sans truncate max-w-[85px] hidden sm:inline">
+              {matchedSource.domain}
+            </span>
+          </a>
         );
       }
-      return bp;
-    });
+      return (
+        <span
+          key={i}
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 select-none align-baseline"
+        >
+          [{citeNum}]
+        </span>
+      );
+    }
+
+    return part;
   });
 }
 

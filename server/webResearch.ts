@@ -18,6 +18,21 @@ export interface WebSearchResult {
   publishedDate?: string;
 }
 
+// In-Memory Safe Caches for Low-Latency Repeat Queries (Part 2.7)
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+const SEARCH_CACHE_TTL_MS = 15 * 60 * 1000; // 15 min TTL
+const PAGE_CACHE_TTL_MS = 15 * 60 * 1000;   // 15 min TTL
+const searchCache = new Map<string, CacheEntry<{ provider: string; query: string; results: WebSearchResult[]; error?: string }>>();
+const pageCache = new Map<string, CacheEntry<FetchedPageResult>>();
+
+export function clearWebResearchCaches() {
+  searchCache.clear();
+  pageCache.clear();
+}
+
 export interface FetchedPageResult {
   ok: boolean;
   statusCode: number;
@@ -275,6 +290,13 @@ export async function fetchPublicUrl(
   const maxRedirects = options?.maxRedirects ?? 5;
   const timestamp = new Date().toISOString();
 
+  // Low-latency cache lookup (Part 2.7)
+  const cacheKey = rawUrl.trim().toLowerCase();
+  const cached = pageCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now() && cached.data.ok) {
+    return { ...cached.data, timestamp };
+  }
+
   let currentUrl = rawUrl;
   let redirectsCount = 0;
 
@@ -356,7 +378,7 @@ export async function fetchPublicUrl(
       const rawText = decoder.decode(buffer);
       const parsed = extractReadableContentFromHtml(rawText, currentUrl);
 
-      return {
+      const pageResult: FetchedPageResult = {
         ok: true,
         statusCode: 200,
         url: rawUrl,
@@ -368,6 +390,16 @@ export async function fetchPublicUrl(
         extractedSnippet: parsed.text.substring(0, 300) + '...',
         timestamp,
       };
+
+      if (pageResult.text && pageResult.text.length > 50) {
+        if (pageCache.size > 200) {
+          const oldest = pageCache.keys().next().value;
+          if (oldest) pageCache.delete(oldest);
+        }
+        pageCache.set(cacheKey, { data: pageResult, expiresAt: Date.now() + PAGE_CACHE_TTL_MS });
+      }
+
+      return pageResult;
     } catch (err: any) {
       if (err.message && err.message.includes('timed out')) {
         return {
@@ -425,6 +457,27 @@ export async function searchWeb(
     return { provider: 'none', query: '', results: [], error: 'Query is empty.' };
   }
 
+  // Low-latency cache lookup (Part 2.7)
+  const cacheKey = `${cleanQuery.toLowerCase()}_${maxResults}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now() && cached.data.results.length > 0) {
+    return {
+      ...cached.data,
+      results: cached.data.results.map((r) => ({ ...r, timestamp })),
+    };
+  }
+
+  const cacheAndReturn = (result: { provider: string; query: string; results: WebSearchResult[]; error?: string }) => {
+    if (result.results.length > 0) {
+      if (searchCache.size > 200) {
+        const oldest = searchCache.keys().next().value;
+        if (oldest) searchCache.delete(oldest);
+      }
+      searchCache.set(cacheKey, { data: result, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
+    }
+    return result;
+  };
+
   // 1. Brave Search API (Primary if BRAVE_SEARCH_API_KEY configured)
   if (process.env.BRAVE_SEARCH_API_KEY) {
     try {
@@ -447,7 +500,7 @@ export async function searchWeb(
           timestamp,
           publishedDate: r.page_age,
         }));
-        return { provider: 'Brave Search API', query: cleanQuery, results };
+        return cacheAndReturn({ provider: 'Brave Search API', query: cleanQuery, results });
       }
     } catch (e: any) {
       console.warn(`[Brave Search API failed, falling back] ${e.message}`);
@@ -479,7 +532,7 @@ export async function searchWeb(
           timestamp,
           publishedDate: r.published_date,
         }));
-        return { provider: 'Tavily AI Search', query: cleanQuery, results };
+        return cacheAndReturn({ provider: 'Tavily AI Search', query: cleanQuery, results });
       }
     } catch (e: any) {
       console.warn(`[Tavily Search API failed, falling back] ${e.message}`);
@@ -501,7 +554,7 @@ export async function searchWeb(
           domain: new URL(item.link).hostname.replace(/^www\./, ''),
           timestamp,
         }));
-        return { provider: 'Google Custom Search', query: cleanQuery, results };
+        return cacheAndReturn({ provider: 'Google Custom Search', query: cleanQuery, results });
       }
     } catch (e: any) {
       console.warn(`[Google Search failed, falling back] ${e.message}`);
@@ -567,7 +620,7 @@ export async function searchWeb(
       }
 
       if (results.length > 0) {
-        return { provider: 'Direct Web Search (DuckDuckGo Engine)', query: cleanQuery, results };
+        return cacheAndReturn({ provider: 'Direct Web Search (DuckDuckGo Engine)', query: cleanQuery, results });
       }
     }
   } catch (ddgErr: any) {
@@ -694,9 +747,13 @@ ${sourceExcerpts.join('\n\n')}
 
 /**
  * Builds standard system prompt directives for grounding model responses
- * with source citations.
+ * with direct answer synthesis, dates, inline citations, and uncertainty handling.
  */
-export function buildWebResearchPromptDirective(sources: WebSearchResult[], evidenceText: string): string {
+export function buildWebResearchPromptDirective(
+  sources: WebSearchResult[],
+  evidenceText: string,
+  userQuery?: string
+): string {
   if (sources.length === 0) return '';
 
   const sourcesList = sources
@@ -704,15 +761,19 @@ export function buildWebResearchPromptDirective(sources: WebSearchResult[], evid
     .join('\n');
 
   return `[WEB RESEARCH ACTIVE & GROUNDED]
-You have access to real-time external web research retrieved for this turn.
-Available sources:
+[CRITICAL INSTRUCTION - SYNTHESIZE DIRECT ANSWER]
+User Query: "${userQuery || 'Web Research Query'}"
+
+Retrieved Verified Web Sources:
 ${sourcesList}
 
-INSTRUCTIONS FOR CITATIONS:
-1. Cite statements grounded in these sources using bracketed numeric markers matching the source index, e.g. [1], [2], or [1][3].
-2. Distinguish clearly between facts verified by retrieved sources and your own general background inference.
-3. If retrieved sources disagree or information is missing, explicitly note the discrepancy or limitation.
-4. Never invent fake URLs or cite numbers not listed in the retrieved source catalogue.
+VERIFIED WEB EVIDENCE:
+${evidenceText}
 
-${evidenceText}`;
+CRITICAL RESPONSE GUIDELINES (PART 1 - DIRECT ANSWER SYNTHESIS):
+1. DIRECT ANSWER FIRST: You MUST directly, clearly, and concisely answer the user's question in your opening paragraph. Lead immediately with the exact verified date, fact, explanation, numbers, or conclusions (e.g. "**Grok Bot Release Date**: Grok was first announced by xAI on November 4, 2023 [1], with initial beta access rolled out to X Premium+ subscribers on December 7, 2023 [1]..."). Never output only source cards, a meta-description of your search, or an empty response.
+2. INLINE CITATIONS: Cite statements grounded in these sources using bracketed numeric markers matching the source index, e.g. [1], [2], or [1][3] placed immediately next to the sentence or clause it supports. Every single factual assertion, date, number, or quote MUST be cited.
+3. CONTEXT & CLARIFICATION: If the question could refer to different products or versions (e.g. initial beta announcement vs public rollout vs Grok 2 / Grok 3), briefly clarify the distinction so the customer has full clarity.
+4. HANDLE UNCERTAINTY HONESTLY: If sources conflict or an exact detail is not mentioned in the evidence, clearly state what is verified and what remains uncertain.
+5. NO FABRICATIONS: Only cite sources [1] through [${sources.length}] that actually exist in the retrieved list above. Never invent fake URLs or cite index numbers not in the source list.`;
 }

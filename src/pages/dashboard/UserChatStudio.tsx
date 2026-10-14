@@ -2772,31 +2772,23 @@ export const UserChatStudio: React.FC = () => {
                           </details>
                         ) : null}
 
-                        {/* Context-Aware Live Activity & Thinking Panel */}
-                        {(Boolean(msg.currentActivity) || Boolean(msg.activities && msg.activities.length > 0) || (generating && idx === activeThread.messages.length - 1)) && (
-                          <ContextActivityPanel
-                            activities={msg.activities}
-                            currentActivity={msg.currentActivity}
-                            isStreaming={generating && idx === activeThread.messages.length - 1}
-                            hasContent={Boolean(msg.content)}
-                            isDarkTheme={isDark}
-                          />
+                        {/* Context-Aware Live Activity during research / pre-generation */}
+                        {(Boolean(msg.currentActivity) || Boolean(msg.activities && msg.activities.length > 0) || (generating && idx === activeThread.messages.length - 1)) && !msg.content && (
+                          <div className="mb-3">
+                            <ContextActivityPanel
+                              activities={msg.activities}
+                              currentActivity={msg.currentActivity}
+                              isStreaming={generating && idx === activeThread.messages.length - 1}
+                              hasContent={Boolean(msg.content)}
+                              isDarkTheme={isDark}
+                            />
+                          </div>
                         )}
 
-                        {/* Grounded Web Research Sources */}
-                        {(Boolean(msg.sources && msg.sources.length > 0) || Boolean(msg.inspectedUrl)) && (
-                          <WebResearchSources
-                            sources={msg.sources || []}
-                            researchMode={msg.researchMode}
-                            inspectedUrl={msg.inspectedUrl}
-                            isDarkTheme={isDark}
-                          />
-                        )}
-
-                        {/* Formatted Markdown Body */}
-                        <div className={`p-4 rounded-2xl border shadow-2xs ${c.cardBg} ${c.border}`}>
+                        {/* 1. Assistant Direct Answer (PART 4.1: Streamed directly into conversation with inline citations) */}
+                        <div className={`p-4 rounded-2xl border shadow-2xs mb-3 ${c.cardBg} ${c.border}`}>
                           {msg.content ? (
-                            <MarkdownBlock content={msg.content} />
+                            <MarkdownBlock content={msg.content} sources={msg.sources} />
                           ) : !msg.currentActivity && !(msg.activities && msg.activities.length > 0) ? (
                             <div className="flex items-center gap-2 text-slate-400 text-xs py-2 font-mono">
                               <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
@@ -2831,6 +2823,30 @@ export const UserChatStudio: React.FC = () => {
                             </div>
                           )}
                         </div>
+
+                        {/* 2. Grounded Web Research Sources (PART 4.2 & 4.3: Compact drawer BELOW the answer) */}
+                        {(Boolean(msg.sources && msg.sources.length > 0) || Boolean(msg.inspectedUrl)) && (
+                          <WebResearchSources
+                            sources={msg.sources || []}
+                            researchMode={msg.researchMode}
+                            inspectedUrl={msg.inspectedUrl}
+                            isDarkTheme={isDark}
+                            defaultExpanded={false}
+                          />
+                        )}
+
+                        {/* 3. Small Completed-Activity Summary (PART 4.4: Subtle timeline below answer and sources) */}
+                        {(Boolean(msg.currentActivity) || Boolean(msg.activities && msg.activities.length > 0)) && Boolean(msg.content) && (
+                          <div className="mt-1">
+                            <ContextActivityPanel
+                              activities={msg.activities}
+                              currentActivity={msg.currentActivity}
+                              isStreaming={generating && idx === activeThread.messages.length - 1}
+                              hasContent={Boolean(msg.content)}
+                              isDarkTheme={isDark}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

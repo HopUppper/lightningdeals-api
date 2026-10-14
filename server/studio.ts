@@ -1496,11 +1496,26 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       const searchRes = await searchWeb(prompt.trim(), { maxResults: 5 });
       if (searchRes.results.length > 0) {
         researchSources.push(...searchRes.results);
-        activityTracker.startStep('evaluating_sources', 'Evaluating retrieved sources', `Found ${searchRes.results.length} verified web sources. Extracting citations...`);
+        activityTracker.startStep('evaluating_sources', 'Evaluating retrieved sources', `Found ${searchRes.results.length} verified web sources. Extracting factual evidence...`);
+
+        // Low-latency factual ground truth retrieval (top primary source)
+        let primaryPageExcerpt = '';
+        const topResult = searchRes.results[0];
+        if (topResult?.url) {
+          try {
+            const pageRes = await fetchPublicUrl(topResult.url, { timeoutMs: 2500, maxBytes: 1.5 * 1024 * 1024 });
+            if (pageRes.ok && pageRes.text) {
+              primaryPageExcerpt = `\n\n--- [PRIMARY SOURCE CONTENT: ${topResult.title} (${topResult.url})] ---\n${pageRes.text.substring(0, 3500)}\n`;
+            }
+          } catch {
+            // Non-blocking fallback to snippets
+          }
+        }
+
         const evidenceSnippets = searchRes.results
           .map((r) => `[SOURCE ${r.citationIndex}] ${r.title} (${r.url})\nRETRIEVED AT: ${r.timestamp}\nSNIPPET: ${r.snippet}`)
-          .join('\n\n');
-        effectiveSystemPrompt += '\n\n' + buildWebResearchPromptDirective(searchRes.results, evidenceSnippets);
+          .join('\n\n') + primaryPageExcerpt;
+        effectiveSystemPrompt += '\n\n' + buildWebResearchPromptDirective(searchRes.results, evidenceSnippets, prompt.trim());
       } else {
         activityTracker.startStep('evaluating_sources', 'Search completed', searchRes.error || 'No relevant sources found.');
       }
@@ -1513,7 +1528,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       if (deepReport.sources.length > 0) {
         researchSources.push(...deepReport.sources);
         activityTracker.startStep('evaluating_sources', 'Evidence synthesis', `Examined ${deepReport.totalSourcesExamined} sources across ${deepReport.rounds.length} research rounds.`);
-        effectiveSystemPrompt += '\n\n' + buildWebResearchPromptDirective(deepReport.sources, deepReport.structuredEvidence);
+        effectiveSystemPrompt += '\n\n' + buildWebResearchPromptDirective(deepReport.sources, deepReport.structuredEvidence, prompt.trim());
       }
     }
 
@@ -1528,60 +1543,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     // 7. Format Outbound Messages Array (with attachments)
     const outboundMessages: any[] = [];
 
-    // History from client
-    if (Array.isArray(clientMessages) && clientMessages.length > 0) {
-      // In Token-Saver mode, keep the last 6 turns to avoid bloated token context
-      const turnsToKeep = tokenSaverEnabled ? clientMessages.slice(-6) : clientMessages;
-      if (tokenSaverEnabled && clientMessages.length > 6) {
-        const omittedMessages = clientMessages.slice(0, -6);
-        const omittedChars = omittedMessages.reduce((sum: number, m: any) => {
-          const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
-          return sum + contentStr.length;
-        }, 0);
-        // Estimate token count based on standard 4 chars per token ratio
-        estimatedSavingsTokens += Math.ceil(omittedChars / 4);
-      }
-
-      for (const m of turnsToKeep) {
-        if (m.attachments && Array.isArray(m.attachments) && m.attachments.length > 0) {
-          const parts: any[] = [];
-          for (const att of m.attachments) {
-            if (att.type === 'image' && att.dataBase64) {
-              parts.push({
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: att.mimeType,
-                  data: att.dataBase64,
-                },
-              });
-            } else if (att.type === 'document' && att.dataBase64) {
-              parts.push({
-                type: 'document',
-                source: {
-                  type: 'base64',
-                  media_type: 'application/pdf',
-                  data: att.dataBase64,
-                },
-              });
-            } else if (att.textSnippet) {
-              parts.push({
-                type: 'text',
-                text: `--- ATTACHED FILE: ${att.name} ---\n\`\`\`\n${att.textSnippet}\n\`\`\`\n`,
-              });
-            }
-          }
-          if (m.content) parts.push({ type: 'text', text: m.content });
-          outboundMessages.push({ role: m.role, content: parts });
-        } else {
-          outboundMessages.push({ role: m.role, content: m.content });
-        }
-      }
-    } else if (prompt) {
-      // New prompt with optional attachments
-      if (Array.isArray(attachments) && attachments.length > 0) {
+    // Helper to format a message with multimodal/document attachments
+    const formatTurnContent = (content: any, atts?: any[]) => {
+      if (Array.isArray(atts) && atts.length > 0) {
         const parts: any[] = [];
-        for (const att of attachments) {
+        for (const att of atts) {
           if (att.type === 'image' && att.dataBase64) {
             parts.push({
               type: 'image',
@@ -1607,10 +1573,72 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
             });
           }
         }
-        if (prompt.trim()) parts.push({ type: 'text', text: prompt.trim() });
-        outboundMessages.push({ role: 'user', content: parts });
+        if (typeof content === 'string' && content.trim()) {
+          parts.push({ type: 'text', text: content.trim() });
+        } else if (Array.isArray(content)) {
+          parts.push(...content);
+        }
+        return parts;
+      }
+      return typeof content === 'string' ? content : JSON.stringify(content || '');
+    };
+
+    // Ingest prior history from client
+    if (Array.isArray(clientMessages) && clientMessages.length > 0) {
+      const turnsToKeep = tokenSaverEnabled ? clientMessages.slice(-6) : clientMessages;
+      if (tokenSaverEnabled && clientMessages.length > 6) {
+        const omittedMessages = clientMessages.slice(0, -6);
+        const omittedChars = omittedMessages.reduce((sum: number, m: any) => {
+          const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
+          return sum + contentStr.length;
+        }, 0);
+        estimatedSavingsTokens += Math.ceil(omittedChars / 4);
+      }
+
+      for (const m of turnsToKeep) {
+        outboundMessages.push({
+          role: m.role,
+          content: formatTurnContent(m.content, m.attachments),
+        });
+      }
+    }
+
+    // Crucial Bugfix (Part 1.2): Always ensure active user prompt is the concluding turn
+    const lastTurn = outboundMessages[outboundMessages.length - 1];
+    const lastTurnText = typeof lastTurn?.content === 'string'
+      ? lastTurn.content
+      : Array.isArray(lastTurn?.content)
+      ? lastTurn.content.find((p: any) => p.type === 'text')?.text || ''
+      : '';
+    const isPromptAlreadyLast = lastTurn?.role === 'user' && lastTurnText.trim() === (prompt || '').trim();
+
+    if (!isPromptAlreadyLast && (prompt?.trim() || (Array.isArray(attachments) && attachments.length > 0))) {
+      outboundMessages.push({
+        role: 'user',
+        content: formatTurnContent(prompt?.trim() || '', attachments),
+      });
+    }
+
+    // Strict turn-alternation normalization for Anthropic & OpenAI compliance
+    const normalizedMessages: any[] = [];
+    for (let i = 0; i < outboundMessages.length; i++) {
+      const current = outboundMessages[i];
+      if (normalizedMessages.length === 0) {
+        if (current.role === 'user') {
+          normalizedMessages.push(current);
+        } else {
+          normalizedMessages.push({ role: 'user', content: 'Continuing previous conversation:' });
+          normalizedMessages.push(current);
+        }
       } else {
-        outboundMessages.push({ role: 'user', content: prompt.trim() });
+        const prev = normalizedMessages[normalizedMessages.length - 1];
+        if (prev.role === current.role) {
+          const prevText = typeof prev.content === 'string' ? prev.content : JSON.stringify(prev.content);
+          const currText = typeof current.content === 'string' ? current.content : JSON.stringify(current.content);
+          prev.content = `${prevText}\n\n${currText}`;
+        } else {
+          normalizedMessages.push(current);
+        }
       }
     }
 
@@ -1618,7 +1646,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     // Context Window Check: validate estimated prompt tokens against model limit
     const estimatedPromptTokens = Math.max(
       1,
-      Math.ceil(JSON.stringify(outboundMessages).length / 4) + Math.ceil(effectiveSystemPrompt.length / 4)
+      Math.ceil(JSON.stringify(normalizedMessages).length / 4) + Math.ceil(effectiveSystemPrompt.length / 4)
     );
     if (modelMeta && estimatedPromptTokens > modelMeta.contextWindow) {
       sendSse('error', {
@@ -1630,7 +1658,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
 
     const maxOutputLimit = modelMeta?.maxOutputTokens || 4096;
     const payload: any = {
-      messages: outboundMessages,
+      messages: normalizedMessages,
       max_tokens: maxOutputLimit,
       stream: true,
       injectPersona: true,

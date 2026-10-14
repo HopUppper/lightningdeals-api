@@ -67,6 +67,12 @@ import { ArtifactCanvas, ArtifactData } from '../../components/chat/ArtifactCanv
 import { ContextManagerDrawer, ProjectMemoryItem } from '../../components/chat/ContextManagerDrawer';
 import { WorkspaceSkillsModal } from '../../components/chat/WorkspaceSkillsModal';
 import { CommandPaletteModal } from '../../components/chat/CommandPaletteModal';
+import { WebResearchSources, WebSourceItem } from '../../components/chat/WebResearchSources';
+import {
+  BrowserTaskModal,
+  BrowserSessionData,
+  BrowserCapabilityData,
+} from '../../components/chat/BrowserTaskModal';
 
 export interface ChatAttachment {
   name: string;
@@ -124,6 +130,9 @@ export interface ChatMessage {
   latencyMs?: number;
   modelUsed?: string;
   isError?: boolean;
+  sources?: WebSourceItem[];
+  researchMode?: 'standard' | 'web_search' | 'deep_research' | 'open_link' | 'browser_task';
+  inspectedUrl?: string;
 }
 
 export interface ChatThread {
@@ -569,6 +578,144 @@ export const UserChatStudio: React.FC = () => {
 
   // Attachment Menu Popover
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+
+  // Web Research & Controlled Browser State
+  const [researchMode, setResearchMode] = useState<
+    'standard' | 'web_search' | 'deep_research' | 'open_link' | 'browser_task'
+  >('standard');
+  const [showResearchMenu, setShowResearchMenu] = useState(false);
+  const [targetUrlToAnalyze, setTargetUrlToAnalyze] = useState<string | null>(null);
+
+  // Browser Automation Modal & Session
+  const [browserModalOpen, setBrowserModalOpen] = useState(false);
+  const [browserSession, setBrowserSession] = useState<BrowserSessionData | null>(null);
+  const [browserCapability, setBrowserCapability] = useState<BrowserCapabilityData | null>(null);
+
+  // Fetch browser capability
+  useEffect(() => {
+    userFetch('/api/user/studio/browser/status')
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data.capability) {
+            setBrowserCapability(data.capability);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Detect URLs in input message for auto-link suggestions
+  const detectedUrlsInInput = useMemo(() => {
+    if (!inputMessage) return [];
+    const matches = inputMessage.match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
+    return Array.from(new Set(matches.map((u) => u.replace(/[.,;:!?]+$/, ''))));
+  }, [inputMessage]);
+
+  const handleOpenBrowserWorkspace = async () => {
+    setBrowserModalOpen(true);
+    if (!browserSession) {
+      try {
+        const res = await userFetch('/api/user/studio/browser/session', {
+          method: 'POST',
+          body: JSON.stringify({ conversationId: activeThreadId }),
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data.session) {
+            setBrowserSession(data.session);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to initialize browser session:', e);
+      }
+    }
+  };
+
+  const handleBrowserNavigate = async (url: string) => {
+    if (!browserSession) return;
+    const res = await userFetch('/api/user/studio/browser/step', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: browserSession.sessionId,
+        action: 'navigate',
+        target: url,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data.session) {
+        setBrowserSession(data.session);
+      }
+    }
+  };
+
+  const handleBrowserInspect = async () => {
+    if (!browserSession) return;
+    const res = await userFetch('/api/user/studio/browser/step', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: browserSession.sessionId,
+        action: 'inspect',
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data.session) {
+        setBrowserSession(data.session);
+      }
+    }
+  };
+
+  const handleBrowserScreenshot = async () => {
+    if (!browserSession) return;
+    const res = await userFetch('/api/user/studio/browser/step', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: browserSession.sessionId,
+        action: 'screenshot',
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data.session) {
+        setBrowserSession(data.session);
+      }
+    }
+  };
+
+  const handleBrowserConfirmAction = async (confirmationId: string, approved: boolean) => {
+    if (!browserSession) return;
+    const res = await userFetch('/api/user/studio/browser/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: browserSession.sessionId,
+        confirmationId,
+        approved,
+      }),
+    });
+    if (res.ok) {
+      setBrowserSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              pendingConfirmation: undefined,
+              status: approved ? 'idle' : 'cancelled',
+            }
+          : null
+      );
+    }
+  };
+
+  const handleBrowserCancelSession = async () => {
+    if (!browserSession) return;
+    await userFetch('/api/user/studio/browser/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: browserSession.sessionId }),
+    }).catch(() => {});
+    setBrowserSession(null);
+    setBrowserModalOpen(false);
+  };
 
   // Branch selection in model comparison
   const handleSelectComparisonBranch = (msgId: string, branch: 'modelA' | 'modelB') => {
@@ -1361,6 +1508,8 @@ export const UserChatStudio: React.FC = () => {
           activeSkills: activeSkillIds,
           temperature: activeThread.temperature,
           attachments: userMessage.attachments || [],
+          researchMode,
+          targetUrl: targetUrlToAnalyze || undefined,
         }),
         signal: ctrl.signal,
       });
@@ -1618,6 +1767,28 @@ export const UserChatStudio: React.FC = () => {
                       : t
                   )
                 );
+              } else if (eventType === 'sources') {
+                const receivedSources = parsed.sources || [];
+                const inspectedUrl = parsed.inspectedUrl;
+                setThreads((prev) =>
+                  prev.map((t) =>
+                    t.id === boundThreadId
+                      ? {
+                          ...t,
+                          messages: t.messages.map((m) =>
+                            m.id === assistantMsgId
+                              ? {
+                                  ...m,
+                                  sources: receivedSources,
+                                  inspectedUrl: inspectedUrl || m.inspectedUrl,
+                                  researchMode: parsed.researchMode || m.researchMode,
+                                }
+                              : m
+                          ),
+                        }
+                      : t
+                  )
+                );
               } else if (eventType === 'done') {
                 if (parsed.activeKey) {
                   setKeys((prev) =>
@@ -1638,6 +1809,7 @@ export const UserChatStudio: React.FC = () => {
                               ? m.comparison
                                 ? {
                                     ...m,
+                                    sources: parsed.sources || m.sources,
                                     comparison: {
                                       ...m.comparison,
                                       modelA: {
@@ -1653,6 +1825,7 @@ export const UserChatStudio: React.FC = () => {
                                     ...m,
                                     content: parsed.result || accumulatedContent,
                                     thinking: parsed.thinking || accumulatedThinking || undefined,
+                                    sources: parsed.sources || m.sources,
                                     usage: parsed.usage,
                                     latencyMs: parsed.latencyMs,
                                     multiplier: parsed.multiplier,
@@ -2568,6 +2741,16 @@ export const UserChatStudio: React.FC = () => {
                           </details>
                         ) : null}
 
+                        {/* Grounded Web Research Sources */}
+                        {(Boolean(msg.sources && msg.sources.length > 0) || Boolean(msg.inspectedUrl)) && (
+                          <WebResearchSources
+                            sources={msg.sources || []}
+                            researchMode={msg.researchMode}
+                            inspectedUrl={msg.inspectedUrl}
+                            isDarkTheme={isDark}
+                          />
+                        )}
+
                         {/* Formatted Markdown Body */}
                         <div className={`p-4 rounded-2xl border shadow-2xs ${c.cardBg} ${c.border}`}>
                           {msg.content ? (
@@ -2659,6 +2842,35 @@ export const UserChatStudio: React.FC = () => {
                 </div>
               )}
 
+              {/* Detected URL Suggestion Banner */}
+              {detectedUrlsInInput.length > 0 && (
+                <div className="mx-3 mt-2 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-between text-xs animate-in fade-in slide-in-from-top-1">
+                  <div className="flex items-center gap-2 truncate">
+                    <Globe className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                    <span className="font-semibold text-violet-700 dark:text-violet-300">Detected Link:</span>
+                    <span className="truncate font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                      {detectedUrlsInInput[0]}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResearchMode('open_link');
+                      setTargetUrlToAnalyze(detectedUrlsInInput[0]);
+                    }}
+                    className={`shrink-0 ml-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer shadow-2xs ${
+                      researchMode === 'open_link' && targetUrlToAnalyze === detectedUrlsInInput[0]
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-violet-600 hover:bg-violet-700 text-white'
+                    }`}
+                  >
+                    {researchMode === 'open_link' && targetUrlToAnalyze === detectedUrlsInInput[0]
+                      ? '✓ Link Active'
+                      : 'Inspect & Analyze (1-Click)'}
+                  </button>
+                </div>
+              )}
+
               {/* Textarea */}
               <div className="px-4 pt-3 pb-2">
                 <textarea
@@ -2679,7 +2891,15 @@ export const UserChatStudio: React.FC = () => {
                       handleSendMessage();
                     }
                   }}
-                  placeholder="Ask Claude to code, debug an error, or drop files/images (Enter to send, Shift+Enter for newline, / for commands)..."
+                  placeholder={
+                    researchMode === 'web_search'
+                      ? 'Enter research query to search real-time web & cite sources...'
+                      : researchMode === 'deep_research'
+                      ? 'Enter deep research topic for multi-round web investigation...'
+                      : researchMode === 'open_link'
+                      ? 'Paste URL to inspect and analyze page content...'
+                      : 'Ask Claude to code, debug an error, or drop files/images (Enter to send, / for commands)...'
+                  }
                   className={`w-full bg-transparent resize-none text-xs sm:text-sm focus:outline-none leading-relaxed ${c.text}`}
                 />
               </div>
@@ -2745,6 +2965,159 @@ export const UserChatStudio: React.FC = () => {
                       <ChevronDown className="w-2.5 h-2.5 opacity-60" />
                     </button>
                   )}
+
+                  {/* Web Research & Automation Tools Dropdown */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowResearchMenu(!showResearchMenu)}
+                      className={`border font-semibold rounded-xl px-2 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                        researchMode !== 'standard'
+                          ? 'bg-violet-600 text-white border-violet-500 shadow-2xs'
+                          : isDark
+                          ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
+                          : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200/80'
+                      }`}
+                      title="Web Research & Automation Tools"
+                    >
+                      {researchMode === 'web_search' ? (
+                        <>
+                          <Globe className="w-3 h-3 text-white" />
+                          <span className="text-[11px]">Web Search</span>
+                        </>
+                      ) : researchMode === 'deep_research' ? (
+                        <>
+                          <Sparkles className="w-3 h-3 text-white" />
+                          <span className="text-[11px]">Deep Research</span>
+                        </>
+                      ) : researchMode === 'open_link' ? (
+                        <>
+                          <ExternalLink className="w-3 h-3 text-white" />
+                          <span className="text-[11px]">Open Link</span>
+                        </>
+                      ) : researchMode === 'browser_task' ? (
+                        <>
+                          <Terminal className="w-3 h-3 text-white" />
+                          <span className="text-[11px]">Browser</span>
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="w-3 h-3 opacity-60 text-slate-400" />
+                          <span className="text-[11px]">Web Tools</span>
+                        </>
+                      )}
+                      <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                    </button>
+
+                    {showResearchMenu && (
+                      <div className={`absolute bottom-full left-0 mb-2 w-64 rounded-2xl border shadow-2xl p-1.5 space-y-1 z-30 ${c.cardBg} ${c.border} animate-in fade-in slide-in-from-bottom-2 duration-150`}>
+                        <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Web Research & Automation
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResearchMode('standard');
+                            setTargetUrlToAnalyze(null);
+                            setShowResearchMenu(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                            researchMode === 'standard' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold' : 'hover:bg-violet-500/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Bot className="w-4 h-4 text-violet-500 shrink-0" />
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">Standard Chat</p>
+                              <p className={`text-[10px] ${c.textMuted}`}>Fast multi-model inference</p>
+                            </div>
+                          </div>
+                          {researchMode === 'standard' && <Check className="w-3.5 h-3.5 text-violet-500" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResearchMode('web_search');
+                            setShowResearchMenu(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                            researchMode === 'web_search' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold' : 'hover:bg-violet-500/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-blue-500 shrink-0" />
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">Web Search</p>
+                              <p className={`text-[10px] ${c.textMuted}`}>Live internet search with citations</p>
+                            </div>
+                          </div>
+                          {researchMode === 'web_search' && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResearchMode('deep_research');
+                            setShowResearchMenu(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                            researchMode === 'deep_research' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold' : 'hover:bg-violet-500/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">Deep Research</p>
+                              <p className={`text-[10px] ${c.textMuted}`}>Multi-round search & report</p>
+                            </div>
+                          </div>
+                          {researchMode === 'deep_research' && <Check className="w-3.5 h-3.5 text-purple-500" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResearchMode('open_link');
+                            setShowResearchMenu(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                            researchMode === 'open_link' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold' : 'hover:bg-violet-500/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <ExternalLink className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">Open Link</p>
+                              <p className={`text-[10px] ${c.textMuted}`}>Extract & analyze page</p>
+                            </div>
+                          </div>
+                          {researchMode === 'open_link' && <Check className="w-3.5 h-3.5 text-emerald-500" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowResearchMenu(false);
+                            handleOpenBrowserWorkspace();
+                          }}
+                          className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Terminal className="w-4 h-4 text-amber-500 shrink-0" />
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">Browser Workspace</p>
+                              <p className={`text-[10px] ${c.textMuted}`}>Controlled web actions & timeline</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                            Interactive
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   <input
                     ref={fileInputRef}
@@ -3357,6 +3730,20 @@ export const UserChatStudio: React.FC = () => {
         }
         tokenSaverEnabled={Boolean(activeThread.tokenSaverEnabled)}
         onToggleTheme={toggleTheme}
+        isDarkTheme={isDark}
+      />
+
+      {/* Browser Tasks & Interactive Automation Modal */}
+      <BrowserTaskModal
+        isOpen={browserModalOpen}
+        onClose={() => setBrowserModalOpen(false)}
+        session={browserSession}
+        capability={browserCapability}
+        onNavigate={handleBrowserNavigate}
+        onInspect={handleBrowserInspect}
+        onScreenshot={handleBrowserScreenshot}
+        onConfirmAction={handleBrowserConfirmAction}
+        onCancelSession={handleBrowserCancelSession}
         isDarkTheme={isDark}
       />
     </div>

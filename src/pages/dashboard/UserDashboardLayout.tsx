@@ -32,10 +32,23 @@ export const UserDashboardLayout: React.FC = () => {
   ];
 
   const location = useLocation();
-  const isStudio = location.pathname.startsWith('/dashboard/studio');
+  const isStudio = location.pathname.startsWith('/dashboard/studio') || location.pathname.startsWith('/dashboard/chat');
+
+  React.useEffect(() => {
+    if (isStudio) {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
+      };
+    }
+  }, [isStudio]);
 
   return (
-    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
+    <div className={`bg-[#fbfbfa] text-[#111827] flex flex-col font-sans ${isStudio ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen'}`}>
       {/* Top Header */}
       <header className="h-14 sm:h-16 border-b border-[#e5e7eb] bg-white sticky top-0 z-40 px-3 sm:px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3.5">
@@ -90,7 +103,7 @@ export const UserDashboardLayout: React.FC = () => {
 
       {/* Main Container */}
       {isStudio ? (
-        <div className="flex-1 w-full flex overflow-hidden h-[calc(100vh-56px)] sm:h-[calc(100vh-64px)]">
+        <div className="flex-1 w-full min-h-0 flex overflow-hidden">
           <Outlet />
         </div>
       ) : (

@@ -1198,7 +1198,7 @@ export const UserChatStudio: React.FC = () => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative w-full h-full flex flex-col overflow-hidden font-sans ${c.bg} ${c.text}`}
+      className={`relative w-full h-full min-h-0 flex flex-col overflow-hidden font-sans ${c.bg} ${c.text}`}
     >
       {/* Drag & Drop Visual Overlay */}
       {isDragging && (
@@ -1214,7 +1214,7 @@ export const UserChatStudio: React.FC = () => {
       )}
 
       {/* Main Studio Header */}
-      <header className={`h-14 px-4 ${c.headerBg} flex items-center justify-between shrink-0 text-xs z-20 backdrop-blur-md`}>
+      <header className={`h-14 px-4 ${c.headerBg} flex items-center justify-between shrink-0 text-xs z-20 backdrop-blur-md sticky top-0`}>
         {/* Left: Back to Dashboard, Sidebar Toggle, Active Model Badge, Token Balance */}
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
@@ -1357,12 +1357,12 @@ export const UserChatStudio: React.FC = () => {
       </header>
 
       {/* Main Studio Body: Sessions Sidebar + Chat Canvas + Artifact Canvas */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 min-h-0 flex overflow-hidden relative w-full">
         {/* Left: Collapsible Sessions Sidebar */}
         {sidebarOpen && (
-          <aside className={`w-64 sm:w-72 border-r ${c.sidebarBorder} ${c.sidebarBg} flex flex-col shrink-0 text-xs`}>
+          <aside className={`w-64 sm:w-72 border-r ${c.sidebarBorder} ${c.sidebarBg} flex flex-col shrink-0 h-full overflow-hidden text-xs`}>
             {/* New Session Button */}
-            <div className="p-3 border-b border-black/5 dark:border-white/5">
+            <div className="p-3 border-b border-black/5 dark:border-white/5 shrink-0">
               <button
                 type="button"
                 onClick={handleCreateNewThread}
@@ -1374,7 +1374,7 @@ export const UserChatStudio: React.FC = () => {
             </div>
 
             {/* Session Search */}
-            <div className="p-2.5 border-b border-black/5 dark:border-white/5">
+            <div className="p-2.5 border-b border-black/5 dark:border-white/5 shrink-0">
               <div className="relative">
                 <Search className={`w-3.5 h-3.5 absolute left-2.5 top-2.5 ${c.textMuted}`} />
                 <input
@@ -1390,7 +1390,7 @@ export const UserChatStudio: React.FC = () => {
             </div>
 
             {/* Thread List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1 overscroll-contain">
               {threads
                 .filter((t) => t.title.toLowerCase().includes(threadSearch.toLowerCase()))
                 .map((t) => {
@@ -1434,7 +1434,7 @@ export const UserChatStudio: React.FC = () => {
             </div>
 
             {/* Sidebar Footer with Token Context Meter */}
-            <div className={`p-3 border-t ${c.sidebarBorder} text-[11px]`}>
+            <div className={`p-3 border-t ${c.sidebarBorder} text-[11px] shrink-0`}>
               <div className="flex items-center justify-between font-mono mb-1">
                 <span className={c.textMuted}>Context Tokens</span>
                 <span className="font-semibold">{totalContextTokens.toLocaleString()} / 200k</span>
@@ -1450,9 +1450,9 @@ export const UserChatStudio: React.FC = () => {
         )}
 
         {/* Center: Main Conversational Column */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
+        <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden relative min-w-0">
           {/* Scrollable Message Area */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 overscroll-contain">
             <div className="max-w-4xl mx-auto w-full space-y-6">
               {/* Empty State Hero */}
               {activeThread.messages.length === 0 && (
@@ -1871,7 +1871,7 @@ export const UserChatStudio: React.FC = () => {
 
         {/* Right: Split-Pane Artifact Canvas */}
         {activeArtifact && (
-          <div className={`w-full md:w-[480px] lg:w-[540px] xl:w-[600px] shrink-0 border-l ${c.border} flex flex-col h-full bg-white dark:bg-[#0E131F] z-10 shadow-xl`}>
+          <div className={`w-full md:w-[480px] lg:w-[540px] xl:w-[600px] shrink-0 border-l ${c.border} flex flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-[#0E131F] z-10 shadow-xl`}>
             <ArtifactCanvas
               artifact={activeArtifact}
               onClose={() => setActiveArtifact(null)}

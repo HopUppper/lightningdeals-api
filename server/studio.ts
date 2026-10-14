@@ -913,7 +913,6 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     const totalTokens = inputTokens + outputTokens;
 
     // Resolve model multiplier
-    const modelMeta = VERIFIED_STUDIO_MODELS.find((m) => m.id === selectedModel);
     const multiplier = modelMeta?.tokenMultiplier || 1.0;
     const billedTokens = BigInt(Math.ceil(totalTokens * multiplier));
 

@@ -73,6 +73,10 @@ import {
   BrowserSessionData,
   BrowserCapabilityData,
 } from '../../components/chat/BrowserTaskModal';
+import {
+  ContextActivityPanel,
+  StudioActivityEvent,
+} from '../../components/chat/ContextActivityPanel';
 
 export interface ChatAttachment {
   name: string;
@@ -133,6 +137,8 @@ export interface ChatMessage {
   sources?: WebSourceItem[];
   researchMode?: 'standard' | 'web_search' | 'deep_research' | 'open_link' | 'browser_task';
   inspectedUrl?: string;
+  activities?: StudioActivityEvent[];
+  currentActivity?: StudioActivityEvent;
 }
 
 export interface ChatThread {
@@ -1789,6 +1795,29 @@ export const UserChatStudio: React.FC = () => {
                       : t
                   )
                 );
+              } else if (eventType === 'activity') {
+                const act: StudioActivityEvent = parsed;
+                setThreads((prev) =>
+                  prev.map((t) =>
+                    t.id === boundThreadId
+                      ? {
+                          ...t,
+                          messages: t.messages.map((m) =>
+                            m.id === assistantMsgId
+                              ? {
+                                  ...m,
+                                  currentActivity: act,
+                                  activities: [
+                                    ...(m.activities || []).filter((a) => a.id !== act.id),
+                                    act,
+                                  ],
+                                }
+                              : m
+                          ),
+                        }
+                      : t
+                  )
+                );
               } else if (eventType === 'done') {
                 if (parsed.activeKey) {
                   setKeys((prev) =>
@@ -1810,6 +1839,7 @@ export const UserChatStudio: React.FC = () => {
                                 ? {
                                     ...m,
                                     sources: parsed.sources || m.sources,
+                                    activities: parsed.activities || m.activities,
                                     comparison: {
                                       ...m.comparison,
                                       modelA: {
@@ -1826,6 +1856,7 @@ export const UserChatStudio: React.FC = () => {
                                     content: parsed.result || accumulatedContent,
                                     thinking: parsed.thinking || accumulatedThinking || undefined,
                                     sources: parsed.sources || m.sources,
+                                    activities: parsed.activities || m.activities,
                                     usage: parsed.usage,
                                     latencyMs: parsed.latencyMs,
                                     multiplier: parsed.multiplier,
@@ -2741,6 +2772,17 @@ export const UserChatStudio: React.FC = () => {
                           </details>
                         ) : null}
 
+                        {/* Context-Aware Live Activity & Thinking Panel */}
+                        {(Boolean(msg.currentActivity) || Boolean(msg.activities && msg.activities.length > 0) || (generating && idx === activeThread.messages.length - 1)) && (
+                          <ContextActivityPanel
+                            activities={msg.activities}
+                            currentActivity={msg.currentActivity}
+                            isStreaming={generating && idx === activeThread.messages.length - 1}
+                            hasContent={Boolean(msg.content)}
+                            isDarkTheme={isDark}
+                          />
+                        )}
+
                         {/* Grounded Web Research Sources */}
                         {(Boolean(msg.sources && msg.sources.length > 0) || Boolean(msg.inspectedUrl)) && (
                           <WebResearchSources
@@ -2755,14 +2797,14 @@ export const UserChatStudio: React.FC = () => {
                         <div className={`p-4 rounded-2xl border shadow-2xs ${c.cardBg} ${c.border}`}>
                           {msg.content ? (
                             <MarkdownBlock content={msg.content} />
-                          ) : (
+                          ) : !msg.currentActivity && !(msg.activities && msg.activities.length > 0) ? (
                             <div className="flex items-center gap-2 text-slate-400 text-xs py-2 font-mono">
                               <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
                               <span>
-                                {msg.thinking ? 'Thinking through solution...' : `Streaming response from ${getModelDisplayName(activeThread.model)}...`}
+                                {msg.thinking ? 'Thinking through solution...' : 'Preparing response...'}
                               </span>
                             </div>
-                          )}
+                          ) : null}
 
                           {msg.isError && (
                             <div className="mt-3 pt-2 border-t border-rose-500/20 flex items-center justify-between gap-2 flex-wrap">

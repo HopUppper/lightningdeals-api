@@ -4,7 +4,9 @@
  * and deep research synthesis with strict SSRF defense and untrusted prompt injection boundaries.
  */
 
-import { validatePublicWebUrl } from './ssrf';
+import http from 'http';
+import https from 'https';
+import { validatePublicWebUrl, safeHttpAgent, safeHttpsAgent } from './ssrf';
 
 export interface WebSearchResult {
   citationIndex: number;
@@ -176,6 +178,94 @@ export function extractReadableContentFromHtml(
  * 4. Request timeout
  * 5. Prompt injection defense wrapper
  */
+interface SafeHttpResponse {
+  statusCode: number;
+  statusText: string;
+  headers: Record<string, string>;
+  buffer: Buffer;
+}
+
+/**
+ * Safely executes an HTTP/HTTPS GET request using connection-time safeLookup agents.
+ * Sockets resolving to private, link-local, or cloud metadata IPs are refused before creation,
+ * completely neutralizing DNS rebinding attacks.
+ */
+function safeHttpGet(targetUrl: string, timeoutMs: number, maxBytes: number): Promise<SafeHttpResponse> {
+  return new Promise((resolve, reject) => {
+    let parsed: URL;
+    try {
+      parsed = new URL(targetUrl);
+    } catch {
+      return reject(new Error('Invalid URL format'));
+    }
+
+    const isHttps = parsed.protocol === 'https:';
+    const client = isHttps ? https : http;
+    const agent = isHttps ? safeHttpsAgent : safeHttpAgent;
+
+    const req = client.request(
+      targetUrl,
+      {
+        method: 'GET',
+        agent,
+        timeout: timeoutMs,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 LightningAPI-ResearchBot/4.0',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,application/pdf;q=0.5,*/*;q=0.1',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      },
+      (res) => {
+        const headers: Record<string, string> = {};
+        for (const [k, v] of Object.entries(res.headers)) {
+          if (typeof v === 'string') headers[k.toLowerCase()] = v;
+          else if (Array.isArray(v)) headers[k.toLowerCase()] = v.join(', ');
+        }
+
+        const chunks: Buffer[] = [];
+        let totalBytes = 0;
+
+        res.on('data', (chunk: Buffer) => {
+          totalBytes += chunk.length;
+          if (totalBytes > maxBytes) {
+            req.destroy(new Error(`Payload exceeded max limit of ${(maxBytes / (1024 * 1024)).toFixed(1)}MB`));
+            return;
+          }
+          chunks.push(chunk);
+        });
+
+        res.on('end', () => {
+          resolve({
+            statusCode: res.statusCode || 200,
+            statusText: res.statusMessage || 'OK',
+            headers,
+            buffer: Buffer.concat(chunks),
+          });
+        });
+
+        res.on('error', (err) => reject(err));
+      }
+    );
+
+    req.on('timeout', () => {
+      req.destroy(new Error(`Request timed out after ${timeoutMs}ms.`));
+    });
+
+    req.on('error', (err) => reject(err));
+    req.end();
+  });
+}
+
+/**
+ * Safely fetches a public URL with:
+ * 1. Strict SSRF pre-validation
+ * 2. Connection-time DNS rebinding defense via socket-level safeLookup agent
+ * 3. Redirect boundary re-validation on every hop
+ * 4. Max bytes restriction
+ * 5. Request timeout
+ * 6. Prompt injection defense wrapper
+ */
 export async function fetchPublicUrl(
   rawUrl: string,
   options?: { timeoutMs?: number; maxBytes?: number; maxRedirects?: number }
@@ -204,38 +294,23 @@ export async function fetchPublicUrl(
       };
     }
 
-    const abortController = new AbortController();
-    const timer = setTimeout(() => abortController.abort(), timeoutMs);
-
     try {
-      const response = await fetch(currentUrl, {
-        method: 'GET',
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 LightningAPI-ResearchBot/4.0',
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,application/pdf;q=0.5,*/*;q=0.1',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        redirect: 'manual', // Manually inspect redirects for SSRF
-        signal: abortController.signal,
-      });
-
-      clearTimeout(timer);
+      const response = await safeHttpGet(currentUrl, timeoutMs, maxBytes);
 
       // Handle Redirects
-      if ([301, 302, 303, 307, 308].includes(response.status)) {
-        const location = response.headers.get('location');
+      if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
+        const location = response.headers['location'];
         if (!location) {
           return {
             ok: false,
-            statusCode: response.status,
+            statusCode: response.statusCode,
             url: rawUrl,
             finalUrl: currentUrl,
             contentType: '',
             title: '',
             text: '',
             timestamp,
-            error: `Redirect status ${response.status} returned without Location header.`,
+            error: `Redirect status ${response.statusCode} returned without Location header.`,
           };
         }
 
@@ -245,53 +320,22 @@ export async function fetchPublicUrl(
         continue;
       }
 
-      if (!response.ok) {
+      if (response.statusCode >= 400) {
         return {
           ok: false,
-          statusCode: response.status,
+          statusCode: response.statusCode,
           url: rawUrl,
           finalUrl: currentUrl,
-          contentType: response.headers.get('content-type') || '',
+          contentType: response.headers['content-type'] || '',
           title: '',
           text: '',
           timestamp,
-          error: `HTTP ${response.status} ${response.statusText}`,
+          error: `HTTP ${response.statusCode} ${response.statusText}`,
         };
       }
 
-      const contentType = (response.headers.get('content-type') || '').toLowerCase();
-
-      // Check Content-Length if reported
-      const reportedLen = Number(response.headers.get('content-length') || 0);
-      if (reportedLen > maxBytes) {
-        return {
-          ok: false,
-          statusCode: 413,
-          url: rawUrl,
-          finalUrl: currentUrl,
-          contentType,
-          title: '',
-          text: '',
-          timestamp,
-          error: `Page payload (${(reportedLen / (1024 * 1024)).toFixed(1)}MB) exceeds maximum permitted limit (${maxBytes / (1024 * 1024)}MB).`,
-        };
-      }
-
-      // Stream / Read body with size bounds
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > maxBytes) {
-        return {
-          ok: false,
-          statusCode: 413,
-          url: rawUrl,
-          finalUrl: currentUrl,
-          contentType,
-          title: '',
-          text: '',
-          timestamp,
-          error: `Downloaded page exceeded max buffer limit of ${maxBytes / (1024 * 1024)}MB.`,
-        };
-      }
+      const contentType = (response.headers['content-type'] || '').toLowerCase();
+      const buffer = response.buffer;
 
       // PDF Content Handling
       if (contentType.includes('application/pdf')) {
@@ -325,8 +369,7 @@ export async function fetchPublicUrl(
         timestamp,
       };
     } catch (err: any) {
-      clearTimeout(timer);
-      if (err.name === 'AbortError') {
+      if (err.message && err.message.includes('timed out')) {
         return {
           ok: false,
           statusCode: 408,

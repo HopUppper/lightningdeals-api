@@ -1,6 +1,8 @@
 import { URL } from 'url';
 import dns from 'dns';
 import net from 'net';
+import http from 'http';
+import https from 'https';
 
 /**
  * Checks whether an IPv4 or IPv6 address is private, loopback, link-local,
@@ -61,6 +63,31 @@ export function isIpPrivateOrRestricted(ip: string): boolean {
 
   return false;
 }
+
+/**
+ * Custom DNS lookup function that checks resolved IPs against SSRF restrictions
+ * on EVERY socket connection attempt, defeating DNS rebinding (TOCTOU) attacks.
+ */
+export const safeLookup: dns.LookupFunction = (hostname, options, callback) => {
+  dns.lookup(hostname, options, (err, address, family) => {
+    if (err) return callback(err, address as any, family as any);
+
+    const addresses = Array.isArray(address) ? address : [{ address, family }];
+    for (const record of addresses) {
+      if (isIpPrivateOrRestricted(record.address)) {
+        return callback(
+          new Error(`SSRF / DNS Rebinding blocked: Hostname "${hostname}" resolved to restricted IP ${record.address}`),
+          '' as any,
+          4
+        );
+      }
+    }
+    return callback(null, address as any, family as any);
+  });
+};
+
+export const safeHttpAgent = new http.Agent({ lookup: safeLookup, keepAlive: false });
+export const safeHttpsAgent = new https.Agent({ lookup: safeLookup, keepAlive: false });
 
 /**
  * Validates a public web URL requested for web research, link understanding,

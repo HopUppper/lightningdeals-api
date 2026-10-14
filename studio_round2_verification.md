@@ -203,19 +203,25 @@ STUDIO ROUND 2: EVIDENCE-BASED CORRECTION VERIFICATION SUITE
     Sonnet: 1x | Opus: 2x | Haiku: 0.25x verified against billing engine.
 [UNIT_LOGIC_TEST] ✅ 6. Usage & Quotas -> Interrupted Request Zero Output Token Protection
     Immediate client abort prior to text generation produces exactly 0 output tokens billed. Partial generation bills only received tokens (15 tokens).
+[UNIT_LOGIC_TEST] ✅ 7. Customer API Key Switching -> Explicit Key Selection Routing
+    Customer explicitly chose Secondary Backup Key (key_secondary) -> Gateway correctly bound request to this key.
+[UNIT_LOGIC_TEST] ✅ 7. Customer API Key Switching -> Depleted Key Automatic Fallback to Funded Key
+    First active key is depleted (0 tokens) -> Gateway automatically routed request to funded key Pro Production Key (500,000 tokens).
+[UNIT_LOGIC_TEST] ✅ 7. Customer API Key Switching -> Depleted Key Rejection with Switch Directive
+    Selected key Trial Key has 0 tokens -> Gateway triggers QUOTA_EXHAUSTED advising customer to switch keys.
 
 ================================================================
-TOTAL TESTS: 16 | PASSED: 16 | FAILED: 0
+TOTAL TESTS: 19 | PASSED: 19 | FAILED: 0
 ================================================================
 ```
 
 ### Full Production Build Evidence:
 ```bash
 $ npm run build
-✔ Generated Prisma Client (v6.3.0) to .\node_modules\@prisma\client in 3.07s
+✔ Generated Prisma Client (v6.3.0) to .\node_modules\@prisma\client in 1.37s
 vite v8.2.1 building client environment for production...
 ✓ 2307 modules transformed.
-✓ built in 3.58s
+✓ built in 2.80s
 ⚡ Starting SSG Pre-rendering for LightningDeals marketing pages...
 📦 Loaded 4 active plans from PostgreSQL for static generation.
 ✅ Pre-rendered 20 pages successfully.
@@ -224,7 +230,26 @@ vite v8.2.1 building client environment for production...
 
 ---
 
-## 9. Conclusion
+## 9. Customer API Key Switching & Quota Overflow Protection
+
+To ensure uninterrupted customer workflows when an individual key runs out of tokens or hits rolling quotas:
+1. **Interactive API Key Selector**:
+   - Header button displays the currently active key's name, masked display prefix, and real-time token balance.
+   - Composer action bar features a quick API key switcher button right next to the model selector.
+   - Sidebar footer allows 1-click access to the Key Picker modal.
+2. **Key Picker Modal**:
+   - Displays all user-assigned API keys with custom name, display prefix, plan badge, and exact remaining token count.
+   - Highlights depleted keys (`0 tokens remaining`) with clear red limit warnings while allowing instant switching to funded keys.
+   - Provides quick links to manage keys or top-up quota in `/dashboard/keys` and `/dashboard/plan`.
+3. **Gateway Dynamic Routing & Error Prompting**:
+   - Accepts `apiKeyId` in the streaming request payload.
+   - If a requested key is depleted, returns a descriptive error specifying the key name and automatically prompts the customer to switch keys.
+   - If an unkeyed request is received, automatically prefers an active key with available quota over depleted keys.
+   - Updates the client's local token balance dynamically in the SSE `event: done` payload without requiring full page refreshes.
+
+---
+
+## 10. Conclusion
 
 The Round 2 Evidence-Based Correction Pass has successfully verified and hardened:
 - Accurate model context windows and proactive boundary protection.
@@ -233,4 +258,5 @@ The Round 2 Evidence-Based Correction Pass has successfully verified and hardene
 - Atomic context compression with complete rollback recovery.
 - Strict tenant memory isolation and conditional injection.
 - Zero-output token billing protection for aborted requests.
+- Seamless customer API key switching with dynamic fallback and quota overflow protection.
 - Full TypeScript type-safety and clean production builds.

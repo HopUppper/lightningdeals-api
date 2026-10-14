@@ -755,6 +755,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
   const userId = req.user!.id;
   const {
     conversationId: requestedConvId,
+    apiKeyId,
     model: requestedModel = 'claude-sonnet-5.5',
     prompt,
     messages: clientMessages,
@@ -780,24 +781,47 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     });
     const isPaidCustomer = Boolean(paidOrder || paidSub || userRecord?.hasStudioAccess);
 
-    // 2. Resolve Active API Key for User
-    const keyRecord = await prisma.apiKey.findFirst({
-      where: { userId, status: 'active' },
-      include: { provider: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    // 2. Resolve Active API Key for User (honors customer-selected key or falls back to key with quota)
+    let keyRecord: any = null;
+    if (apiKeyId && typeof apiKeyId === 'string') {
+      keyRecord = await prisma.apiKey.findFirst({
+        where: { id: apiKeyId, userId, status: 'active' },
+        include: { provider: true },
+      });
+    }
+
+    // If no specific key requested or not found, prefer an active key with available token quota
+    if (!keyRecord) {
+      keyRecord = await prisma.apiKey.findFirst({
+        where: { userId, status: 'active', tokensRemaining: { gt: 0n } },
+        include: { provider: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    // Fallback to latest active key if all are depleted, to provide informative key-specific messaging
+    if (!keyRecord) {
+      keyRecord = await prisma.apiKey.findFirst({
+        where: { userId, status: 'active' },
+        include: { provider: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
 
     if (!keyRecord) {
       return res.status(404).json({
         success: false,
-        error: { message: 'No active API key found for this account. Claim a free trial or activate a plan.' },
+        error: { message: 'No active API key found for this account. Claim a free trial or generate a key in your dashboard.' },
       });
     }
 
     if (keyRecord.tokensRemaining <= 0n) {
       return res.status(403).json({
         success: false,
-        error: { code: 'QUOTA_EXHAUSTED', message: 'Your API token balance is depleted. Please recharge or upgrade your plan.' },
+        error: {
+          code: 'QUOTA_EXHAUSTED',
+          message: `The API key "${keyRecord.name || keyRecord.displayKey || 'API Key'}" has depleted its token balance (0 tokens remaining). Please switch to another key with available quota or recharge.`,
+        },
       });
     }
 
@@ -1241,6 +1265,12 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       multiplier,
       latencyMs,
       tokensRemaining: remainingAfter.toString(),
+      activeKey: {
+        id: keyRecord.id,
+        name: keyRecord.name,
+        displayKey: keyRecord.displayKey,
+        tokensRemaining: remainingAfter.toString(),
+      },
       isPaidCustomer,
     })}\n\n`);
 

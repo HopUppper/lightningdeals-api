@@ -54,6 +54,7 @@ import {
   Scale,
   Bug,
   BookOpen,
+  Key,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { adminFetch, userFetch, getAuthHeaders } from '../../utils/api';
@@ -383,9 +384,10 @@ export const UserChatStudio: React.FC = () => {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
-  // Model Picker Modal / Drawer
+  // Model & Key Picker Modals
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState('');
+  const [keyPickerOpen, setKeyPickerOpen] = useState(false);
 
   // Advanced Drawers & Canvas
   const [contextManagerOpen, setContextManagerOpen] = useState(false);
@@ -441,8 +443,18 @@ export const UserChatStudio: React.FC = () => {
           const keyList = keysData.keys || [];
           setKeys(keyList);
           setIsPaidCustomer(Boolean(keysData.isPaidCustomer));
-          if (keyList.length > 0 && !selectedKeyId) {
-            setSelectedKeyId(keyList[0].id);
+
+          const savedKeyId = localStorage.getItem('lightning_studio_key_id');
+          if (savedKeyId && keyList.some((k: any) => k.id === savedKeyId)) {
+            setSelectedKeyId(savedKeyId);
+          } else {
+            // Prefer an active key that has available tokens (> 0)
+            const positiveKey = keyList.find((k: any) => BigInt(k.tokensRemaining || 0) > 0n);
+            const initialKey = positiveKey || keyList[0];
+            if (initialKey) {
+              setSelectedKeyId(initialKey.id);
+              localStorage.setItem('lightning_studio_key_id', initialKey.id);
+            }
           }
         }
 
@@ -673,6 +685,13 @@ export const UserChatStudio: React.FC = () => {
     } catch (err: any) {
       alert(`Failed to restore original context: ${err.message || 'Unknown error'}`);
     }
+  };
+
+  // API Key Switching Action
+  const handleSelectKey = (keyId: string) => {
+    setSelectedKeyId(keyId);
+    localStorage.setItem('lightning_studio_key_id', keyId);
+    setKeyPickerOpen(false);
   };
 
   // Fetch full messages for a conversation
@@ -1140,6 +1159,7 @@ export const UserChatStudio: React.FC = () => {
         },
         body: JSON.stringify({
           conversationId: targetThreadId.startsWith('thread_') ? undefined : targetThreadId,
+          apiKeyId: selectedKeyId || undefined,
           model: activeThread.model,
           prompt: promptToSend.trim(),
           messages: baseMessages,
@@ -1158,6 +1178,9 @@ export const UserChatStudio: React.FC = () => {
         if (errorJson.error?.code === 'PRO_TIER_REQUIRED') {
           setUpgradeReason(errorJson.error.message);
           setShowUpgradeModal(true);
+        }
+        if (errorJson.error?.code === 'QUOTA_EXHAUSTED') {
+          setKeyPickerOpen(true);
         }
         throw new Error(errorJson.error?.message || `Gateway error (${response.status})`);
       }
@@ -1241,6 +1264,15 @@ export const UserChatStudio: React.FC = () => {
                   )
                 );
               } else if (eventType === 'done') {
+                if (parsed.activeKey) {
+                  setKeys((prev) =>
+                    prev.map((k) =>
+                      k.id === parsed.activeKey.id
+                        ? { ...k, tokensRemaining: parsed.activeKey.tokensRemaining }
+                        : k
+                    )
+                  );
+                }
                 setThreads((prev) =>
                   prev.map((t) =>
                     t.id === boundThreadId
@@ -1291,6 +1323,9 @@ export const UserChatStudio: React.FC = () => {
         );
       } else {
         const errorMsg = err.message || 'Network stream error.';
+        if (errorMsg.includes('QUOTA_EXHAUSTED') || errorMsg.includes('depleted')) {
+          setKeyPickerOpen(true);
+        }
         setThreads((prev) =>
           prev.map((t) =>
             t.id === boundThreadId
@@ -1415,14 +1450,29 @@ export const UserChatStudio: React.FC = () => {
             <ChevronDown className="w-3 h-3 opacity-60" />
           </button>
 
-          {/* Key Balance Pill */}
-          <div className="hidden md:flex items-center gap-1.5">
-            <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium border ${
-              isDark ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/30' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-            }`}>
-              {remainingTokensM}M tokens
+          {/* Key Selector & Balance Button in Header */}
+          <button
+            type="button"
+            onClick={() => setKeyPickerOpen(true)}
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono transition-all cursor-pointer ${
+              Number(remainingTokens) <= 0
+                ? 'bg-rose-500/10 border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20'
+                : isDark
+                ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/30 hover:bg-emerald-950/60'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/70'
+            }`}
+            title="Switch active API Key or view token balance"
+          >
+            <Key className="w-3 h-3 opacity-80" />
+            <span className="font-sans font-semibold max-w-[110px] truncate text-[11px]">
+              {activeKey?.name || activeKey?.displayKey || 'API Key'}
             </span>
-          </div>
+            <span className="opacity-40">|</span>
+            <span className="font-bold text-[11px]">
+              {Number(remainingTokens) <= 0 ? '0 (Depleted)' : `${remainingTokensM}M`}
+            </span>
+            <ChevronDown className="w-2.5 h-2.5 opacity-60 ml-0.5" />
+          </button>
         </div>
 
         {/* Right: Theme Toggle, Thinking, Token-Saver, Memory, Canvas, Export */}
@@ -1636,16 +1686,45 @@ export const UserChatStudio: React.FC = () => {
               )}
             </div>
 
-            {/* Sidebar Footer with Token Context Meter */}
-            <div className={`p-3 border-t ${c.sidebarBorder} text-[11px] shrink-0`}>
-              <div className="flex items-center justify-between font-mono mb-1">
-                <span className={c.textMuted}>Remaining Tokens</span>
-                <span className="font-semibold">{remainingTokensM}M</span>
+            {/* Sidebar Footer with Token Context Meter & API Key Switcher */}
+            <div className={`p-3 border-t ${c.sidebarBorder} text-[11px] shrink-0 space-y-2`}>
+              <div className="flex items-center justify-between font-mono">
+                <button
+                  type="button"
+                  onClick={() => setKeyPickerOpen(true)}
+                  className="flex items-center gap-1.5 hover:text-violet-500 transition-colors cursor-pointer text-left truncate max-w-[140px]"
+                  title="Switch API Key"
+                >
+                  <Key className="w-3 h-3 text-violet-500 shrink-0" />
+                  <span className="font-sans font-semibold truncate text-[11px]">
+                    {activeKey?.name || activeKey?.displayKey || 'API Key'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKeyPickerOpen(true)}
+                  className={`font-semibold cursor-pointer px-1.5 py-0.5 rounded text-[10px] ${
+                    Number(remainingTokens) <= 0
+                      ? 'bg-rose-500/20 text-rose-500 font-bold'
+                      : 'text-violet-500 hover:underline'
+                  }`}
+                  title="Switch API Key"
+                >
+                  {Number(remainingTokens) <= 0 ? 'Switch Key' : `${remainingTokensM}M`}
+                </button>
               </div>
-              <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+              <div
+                className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden cursor-pointer"
+                onClick={() => setKeyPickerOpen(true)}
+                title="Click to switch API key"
+              >
                 <div
-                  className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all"
-                  style={{ width: `${Math.min(100, (Number(remainingTokens) / 5000000) * 100)}%` }}
+                  className={`h-full transition-all ${
+                    Number(remainingTokens) <= 0
+                      ? 'bg-rose-500'
+                      : 'bg-gradient-to-r from-violet-500 to-indigo-500'
+                  }`}
+                  style={{ width: `${Math.max(4, Math.min(100, (Number(remainingTokens) / 5000000) * 100))}%` }}
                 />
               </div>
             </div>
@@ -1908,16 +1987,27 @@ export const UserChatStudio: React.FC = () => {
                           )}
 
                           {msg.isError && (
-                            <div className="mt-3 pt-2 border-t border-rose-500/20 flex items-center justify-between">
-                              <span className="text-xs text-rose-500">Request failed.</span>
-                              <button
-                                type="button"
-                                onClick={handleRetry}
-                                className="px-3 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold text-xs flex items-center gap-1 cursor-pointer"
-                              >
-                                <RotateCcw className="w-3 h-3" />
-                                <span>Retry</span>
-                              </button>
+                            <div className="mt-3 pt-2 border-t border-rose-500/20 flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-xs text-rose-500">Request failed or limit reached.</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setKeyPickerOpen(true)}
+                                  className="px-2.5 py-1 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 font-semibold text-xs flex items-center gap-1 cursor-pointer"
+                                  title="Switch to another active API key"
+                                >
+                                  <Key className="w-3 h-3" />
+                                  <span>Switch Key</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleRetry}
+                                  className="px-3 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>Retry</span>
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -2026,6 +2116,28 @@ export const UserChatStudio: React.FC = () => {
                     <span>{getModelDisplayName(activeThread.model)}</span>
                     <ChevronDown className="w-3 h-3 opacity-60" />
                   </button>
+
+                  {/* API Key Quick Switcher Button */}
+                  {keys.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setKeyPickerOpen(true)}
+                      className={`border font-semibold rounded-xl px-2 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                        Number(remainingTokens) <= 0
+                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
+                          : isDark
+                          ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750 hover:text-white'
+                          : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 shadow-2xs'
+                      }`}
+                      title="Switch active API Key for billing"
+                    >
+                      <Key className="w-3 h-3 text-violet-500" />
+                      <span className="truncate max-w-[85px] sm:max-w-[120px] font-sans text-[11px]">
+                        {activeKey?.name || activeKey?.displayKey || 'API Key'}
+                      </span>
+                      <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                    </button>
+                  )}
 
                   <input
                     ref={fileInputRef}
@@ -2217,6 +2329,131 @@ export const UserChatStudio: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* API Key Selector Modal */}
+      {keyPickerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className={`max-w-lg w-full rounded-2xl border shadow-2xl flex flex-col max-h-[85vh] ${c.cardBg} ${c.border}`}>
+            {/* Header */}
+            <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  <Key className="w-4 h-4 text-violet-500" />
+                  <span>Choose Active API Key</span>
+                </h3>
+                <p className={`text-xs ${c.textMuted}`}>Select which API key will be charged. Switch freely whenever a key quota is depleted.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setKeyPickerOpen(false)}
+                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Key List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+              {keys.length === 0 ? (
+                <div className="p-6 text-center space-y-3">
+                  <Key className="w-8 h-8 mx-auto text-slate-400 opacity-50" />
+                  <p className="text-sm font-semibold">No API Keys Found</p>
+                  <p className={`text-xs ${c.textMuted}`}>You need an active API key to interact with models in the AI Chat Studio.</p>
+                  <Link
+                    to="/dashboard/keys"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 transition-colors"
+                  >
+                    Generate an API Key →
+                  </Link>
+                </div>
+              ) : (
+                keys.map((k) => {
+                  const isSelected = selectedKeyId === k.id;
+                  const keyRemaining = BigInt(k.tokensRemaining || 0);
+                  const isDepleted = keyRemaining <= 0n;
+                  const remainingMillions = (Number(keyRemaining) / 1000000).toFixed(2);
+
+                  return (
+                    <div
+                      key={k.id}
+                      onClick={() => handleSelectKey(k.id)}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? 'bg-violet-500/10 border-violet-500 text-violet-700 dark:text-violet-300 shadow-2xs'
+                          : isDark
+                          ? 'bg-slate-800/40 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
+                          : 'bg-slate-50/70 border-slate-200 hover:bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs truncate max-w-[160px]">
+                            {k.name || 'API Key'}
+                          </span>
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-slate-400">
+                            {k.displayKey || k.keyPrefix || k.id.slice(0, 8)}
+                          </span>
+                          {k.plan && (
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-500">
+                              {k.plan}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs">
+                          {isDepleted ? (
+                            <span className="text-[11px] font-mono font-bold text-rose-500 flex items-center gap-1">
+                              ● Depleted (0 tokens remaining)
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              ● {remainingMillions}M tokens remaining ({Number(keyRemaining).toLocaleString()})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isSelected && (
+                          <CheckCircle2 className="w-4 h-4 text-violet-500 shrink-0" />
+                        )}
+                        {!isSelected && !isDepleted && (
+                          <span className="text-[11px] font-medium text-slate-400 hover:text-slate-200">
+                            Use this key
+                          </span>
+                        )}
+                        {isDepleted && (
+                          <span className="text-[10px] font-semibold text-rose-500/80 bg-rose-500/10 px-2 py-0.5 rounded">
+                            Limit reached
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer with quick navigation actions */}
+            <div className="p-3 border-t border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5 flex items-center justify-between text-xs">
+              <Link
+                to="/dashboard/keys"
+                className="text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1 text-[11px] font-medium"
+              >
+                <span>Manage API Keys in Dashboard</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+              <Link
+                to="/dashboard/plan"
+                className="text-slate-500 dark:text-slate-400 hover:text-violet-500 flex items-center gap-1 text-[11px]"
+              >
+                <span>Recharge Quota</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
             </div>
           </div>
         </div>

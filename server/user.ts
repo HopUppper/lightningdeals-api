@@ -1448,6 +1448,20 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       responseText = JSON.stringify(responseJson, null, 2);
     }
     responseText = sanitizeModelResponse(responseText, getFriendlyModelName(selectedModel));
+    if (thinkingText) {
+      thinkingText = sanitizeModelResponse(thinkingText, getFriendlyModelName(selectedModel));
+    }
+    if (Array.isArray(responseJson.content)) {
+      responseJson.content = responseJson.content.map((c: any) => {
+        if (c.type === 'text') {
+          return { ...c, text: sanitizeModelResponse(c.text || '', getFriendlyModelName(selectedModel)) };
+        }
+        if (c.type === 'thinking') {
+          return { ...c, thinking: sanitizeModelResponse(c.thinking || '', getFriendlyModelName(selectedModel)) };
+        }
+        return c;
+      });
+    }
 
     // Check if upstream returned an auth error or capacity limit
     if (typeof responseText === 'string') {

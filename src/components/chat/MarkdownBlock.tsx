@@ -227,7 +227,14 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
         const trimmed = p.trim();
         if (!trimmed) return null;
 
-        // Header check
+        // Header checks
+        if (trimmed.startsWith('#### ')) {
+          return (
+            <h5 key={pIdx} className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mt-3 mb-1">
+              {formatInline(trimmed.replace('#### ', ''))}
+            </h5>
+          );
+        }
         if (trimmed.startsWith('### ')) {
           return (
             <h4 key={pIdx} className="text-sm font-bold text-slate-900 dark:text-white mt-4 mb-1">
@@ -262,30 +269,55 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
           );
         }
 
-        // Bullet list check
+        // Check if paragraph contains bullet or numbered lists
         const lines = trimmed.split('\n');
-        if (lines.every((l) => l.trim().startsWith('- ') || l.trim().startsWith('* '))) {
-          return (
-            <ul key={pIdx} className="my-2 list-disc list-inside space-y-1.5 pl-1 text-[13px] text-slate-800 dark:text-slate-200">
-              {lines.map((l, lIdx) => (
-                <li key={lIdx} className="leading-relaxed">
-                  {formatInline(l.trim().replace(/^[-*]\s+/, ''))}
-                </li>
-              ))}
-            </ul>
-          );
-        }
+        const hasListItems = lines.some((l) => /^[-*]\s+/.test(l.trim()) || /^\d+\.\s+/.test(l.trim()));
 
-        // Numbered list check
-        if (lines.every((l) => /^\d+\.\s+/.test(l.trim()))) {
+        if (hasListItems) {
           return (
-            <ol key={pIdx} className="my-2 list-decimal list-inside space-y-1.5 pl-1 text-[13px] text-slate-800 dark:text-slate-200">
-              {lines.map((l, lIdx) => (
-                <li key={lIdx} className="leading-relaxed">
-                  {formatInline(l.trim().replace(/^\d+\.\s+/, ''))}
-                </li>
-              ))}
-            </ol>
+            <div key={pIdx} className="space-y-1.5 my-2">
+              {lines.map((l, lIdx) => {
+                const trimmedLine = l.trim();
+                if (trimmedLine.startsWith('#### ')) {
+                  return (
+                    <h5 key={lIdx} className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mt-3 mb-1">
+                      {formatInline(trimmedLine.replace('#### ', ''))}
+                    </h5>
+                  );
+                }
+                if (trimmedLine.startsWith('### ')) {
+                  return (
+                    <h4 key={lIdx} className="text-sm font-bold text-slate-900 dark:text-white mt-3 mb-1">
+                      {formatInline(trimmedLine.replace('### ', ''))}
+                    </h4>
+                  );
+                }
+                if (/^[-*]\s+/.test(trimmedLine)) {
+                  return (
+                    <div key={lIdx} className="flex items-start gap-2 text-[13.5px] text-slate-800 dark:text-slate-200 pl-1 leading-relaxed">
+                      <span className="text-violet-600 dark:text-violet-400 font-bold shrink-0 mt-0.5">•</span>
+                      <span>{formatInline(trimmedLine.replace(/^[-*]\s+/, ''))}</span>
+                    </div>
+                  );
+                }
+                if (/^\d+\.\s+/.test(trimmedLine)) {
+                  const numMatch = trimmedLine.match(/^(\d+)\.\s+(.*)/);
+                  return (
+                    <div key={lIdx} className="flex items-start gap-2 text-[13.5px] text-slate-800 dark:text-slate-200 pl-1 leading-relaxed">
+                      <span className="text-violet-600 dark:text-violet-400 font-semibold font-mono text-xs shrink-0 mt-0.5">
+                        {numMatch ? `${numMatch[1]}.` : '1.'}
+                      </span>
+                      <span>{formatInline(numMatch ? numMatch[2] : trimmedLine)}</span>
+                    </div>
+                  );
+                }
+                return (
+                  <p key={lIdx} className="leading-relaxed text-slate-800 dark:text-slate-200 text-[13.5px]">
+                    {formatInline(trimmedLine)}
+                  </p>
+                );
+              })}
+            </div>
           );
         }
 

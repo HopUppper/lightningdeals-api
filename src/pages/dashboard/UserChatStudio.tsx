@@ -82,6 +82,8 @@ export interface ChatMessage {
     output_tokens: number;
     total_tokens: number;
     savings_tokens?: number;
+    estimated_savings_tokens?: number;
+    is_savings_estimated?: boolean;
   };
   multiplier?: number;
   latencyMs?: number;
@@ -102,6 +104,7 @@ export interface ChatThread {
   createdAt: number;
   updatedAt: number;
   messagesLoaded?: boolean;
+  uncompressedBackup?: ChatMessage[];
 }
 
 export interface StudioModelMeta {
@@ -112,10 +115,13 @@ export interface StudioModelMeta {
   description: string;
   tokenMultiplier: number;
   contextWindow: number;
+  maxOutputTokens?: number;
   supportsThinking: boolean;
   supportsVision: boolean;
   supportsTools: boolean;
   isAvailable: boolean;
+  upstreamModelId?: string;
+  providerRoute?: string;
 }
 
 export const VERIFIED_MODELS: StudioModelMeta[] = [
@@ -126,11 +132,14 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Recommended',
     description: 'Premier agentic model for fullstack coding, multi-file synthesis, and autonomous engineering.',
     tokenMultiplier: 1.0,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-sonnet-5',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-opus-5.5',
@@ -139,11 +148,14 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Frontier Intelligence',
     description: 'Pinnacle frontier reasoning for complex system architectures, formal proofs, and cognitive depth.',
     tokenMultiplier: 2.0,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-opus-5-5',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-3-7-sonnet-20250219',
@@ -153,10 +165,13 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     description: 'Hybrid reasoning architecture with inspectable deliberative thought buffers for zero-hallucination analysis.',
     tokenMultiplier: 1.25,
     contextWindow: 200000,
+    maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-3-7-sonnet-20250219',
+    providerRoute: 'anthropic / custom_http',
   },
   {
     id: 'claude-opus-5',
@@ -165,11 +180,14 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Deep Logic',
     description: 'Enterprise architecture design, distributed consensus, and deep formal code auditing.',
     tokenMultiplier: 1.75,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-opus-5',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-fable-5',
@@ -178,11 +196,14 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Sub-30ms TTFT',
     description: 'Ultra-fast developer completions tuned for IDE code completion, inline refactoring, and instant responses.',
     tokenMultiplier: 0.5,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-fable-5',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-fable-5.1',
@@ -191,11 +212,14 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'IDE Autopilot',
     description: 'Specialized model for rapid git diff generation, automated test suites, and CI/CD triage.',
     tokenMultiplier: 0.6,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-fable-5-1',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-haiku-5.5',
@@ -204,11 +228,14 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Lowest Latency',
     description: 'High-velocity streaming model with minimal token overhead for high-concurrency bot loops and summaries.',
     tokenMultiplier: 0.25,
-    contextWindow: 200000,
+    contextWindow: 500000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-haiku-4-5-20251001',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-3-5-sonnet-20241022',
@@ -218,10 +245,13 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     description: 'Anthropic standard enterprise model for production coding and technical documentation.',
     tokenMultiplier: 1.0,
     contextWindow: 200000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-3-5-sonnet-20241022',
+    providerRoute: 'anthropic / custom_http',
   },
   {
     id: 'claude-3-5-haiku-20241022',
@@ -231,10 +261,29 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     description: 'Economical high-speed completion model for lightweight tasks and quick Q&A.',
     tokenMultiplier: 0.25,
     contextWindow: 200000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-3-5-haiku-20241022',
+    providerRoute: 'anthropic / custom_http',
+  },
+  {
+    id: 'claude-3-opus-20240229',
+    name: 'Claude 3 Opus',
+    category: 'Standard Anthropic Series',
+    badge: 'Deep Reasoning',
+    description: 'Anthropic deep reasoning model for complex nuanced analysis and multi-step domain expertise.',
+    tokenMultiplier: 2.0,
+    contextWindow: 200000,
+    maxOutputTokens: 4096,
+    supportsThinking: false,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
+    upstreamModelId: 'claude-3-opus-20240229',
+    providerRoute: 'anthropic / custom_http',
   },
 ];
 
@@ -532,55 +581,97 @@ export const UserChatStudio: React.FC = () => {
     }
   };
 
-  // Real Context Compression Action
+  // Safe Context Compression with Rollback Recovery
   const handleCompressContext = async () => {
     if (activeThread.messages.length < 3 || isCompressing) return;
     setIsCompressing(true);
 
+    // Save full original messages as uncompressed backup before any mutation
+    const originalBackup = [...activeThread.messages];
+
     try {
-      const rawTextBefore = activeThread.messages.map((m) => m.content).join('\n');
-      const tokensBefore = Math.ceil(rawTextBefore.length / 4);
+      if (!activeThread.id.startsWith('thread_')) {
+        // Call authoritative server compression endpoint
+        const res = await userFetch(`/api/user/studio/conversations/${activeThread.id}/compress`, {
+          method: 'POST',
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error?.message || 'Context compression failed on server.');
+        }
 
-      // Keep the most recent 2 messages, compact older messages
-      const olderMessages = activeThread.messages.slice(0, -2);
-      const recentMessages = activeThread.messages.slice(-2);
+        const recentMessages = activeThread.messages.slice(-2);
+        const compactedMessages = [data.compactedMessage, ...recentMessages];
 
-      const summaryLines: string[] = [];
-      for (const m of olderMessages) {
-        if (m.role === 'user') {
-          summaryLines.push(`- Goal/Instruction: "${m.content.slice(0, 160).trim()}${m.content.length > 160 ? '...' : ''}"`);
-        } else if (m.role === 'assistant') {
-          summaryLines.push(`- Output Summary: "${m.content.slice(0, 200).trim()}${m.content.length > 200 ? '...' : ''}"`);
+        updateActiveThread({
+          messages: compactedMessages,
+          tokenSaverEnabled: true,
+          uncompressedBackup: originalBackup,
+        });
+      } else {
+        // Client-side local session compression with uncompressed backup preserved
+        const olderMessages = activeThread.messages.slice(0, -2);
+        const recentMessages = activeThread.messages.slice(-2);
+
+        const summaryLines: string[] = [];
+        for (const m of olderMessages) {
+          if (m.role === 'user') {
+            summaryLines.push(`- Goal/Instruction: "${m.content.slice(0, 160).trim()}${m.content.length > 160 ? '...' : ''}"`);
+          } else if (m.role === 'assistant') {
+            summaryLines.push(`- Output Summary: "${m.content.slice(0, 200).trim()}${m.content.length > 200 ? '...' : ''}"`);
+          }
+        }
+
+        const summaryContent = `[COMPACTED CONTEXT SUMMARY]:\n${summaryLines.join('\n')}\n[End of historical compacted context]`;
+        const summaryMsg: ChatMessage = {
+          id: `msg_comp_${Date.now()}`,
+          role: 'system',
+          content: summaryContent,
+          timestamp: Date.now(),
+        };
+
+        const compactedMessages = [summaryMsg, ...recentMessages];
+        updateActiveThread({
+          messages: compactedMessages,
+          tokenSaverEnabled: true,
+          uncompressedBackup: originalBackup,
+        });
+      }
+    } catch (err: any) {
+      alert(`Compression error: ${err.message || 'Could not compress context'}. Original conversation history is preserved intact.`);
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
+  // Safe Context Restoration / Undo Compression
+  const handleRestoreContext = async () => {
+    if (!activeThread.uncompressedBackup || activeThread.uncompressedBackup.length === 0) {
+      alert('No previous uncompressed message backup found to restore.');
+      return;
+    }
+
+    const backup = activeThread.uncompressedBackup;
+    try {
+      if (!activeThread.id.startsWith('thread_')) {
+        const res = await userFetch(`/api/user/studio/conversations/${activeThread.id}/restore-context`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ backupMessages: backup }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error?.message || 'Server restore failed.');
         }
       }
 
-      const summaryContent = `[COMPACTED CONTEXT SUMMARY]:\n${summaryLines.join('\n')}\n[End of historical compacted context]`;
-      const summaryMsg: ChatMessage = {
-        id: `msg_comp_${Date.now()}`,
-        role: 'system',
-        content: summaryContent,
-        timestamp: Date.now(),
-      };
-
-      const compactedMessages = [summaryMsg, ...recentMessages];
-      const rawTextAfter = compactedMessages.map((m) => m.content).join('\n');
-      const tokensAfter = Math.ceil(rawTextAfter.length / 4);
-      const tokensSaved = Math.max(0, tokensBefore - tokensAfter);
-
       updateActiveThread({
-        messages: compactedMessages,
-        tokenSaverEnabled: true,
+        messages: backup,
+        tokenSaverEnabled: false,
+        uncompressedBackup: undefined,
       });
-
-      if (!activeThread.id.startsWith('thread_')) {
-        await userFetch(`/api/user/studio/conversations/${activeThread.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tokenSaverEnabled: true }),
-        }).catch(() => {});
-      }
-    } finally {
-      setIsCompressing(false);
+    } catch (err: any) {
+      alert(`Failed to restore original context: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -1629,6 +1720,17 @@ export const UserChatStudio: React.FC = () => {
                       <div className="flex-1 whitespace-pre-wrap leading-relaxed text-[11px]">
                         {msg.content}
                       </div>
+                      {activeThread.uncompressedBackup && activeThread.uncompressedBackup.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleRestoreContext}
+                          className="px-2.5 py-1 text-[10px] font-sans font-semibold rounded-lg bg-violet-600/10 hover:bg-violet-600/20 text-violet-600 dark:text-violet-400 border border-violet-500/30 transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+                          title="Restore original uncompressed conversation history"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Undo Compression</span>
+                        </button>
+                      )}
                     </div>
                   );
                 }
@@ -1725,16 +1827,19 @@ export const UserChatStudio: React.FC = () => {
                                 {msg.latencyMs}ms
                               </span>
                             ) : null}
-                            {msg.usage ? (
-                              <span
-                                className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 cursor-help"
-                                title={`Input: ${msg.usage.input_tokens?.toLocaleString() || 0} tokens | Output: ${msg.usage.output_tokens?.toLocaleString() || 0} tokens${msg.multiplier && msg.multiplier !== 1 ? ` | Multiplier: ${msg.multiplier}x` : ''} | Billed: ${Math.round(msg.usage.total_tokens * (msg.multiplier || 1)).toLocaleString()} units${msg.usage.savings_tokens ? ` | Context Saved: ${msg.usage.savings_tokens} tokens` : ''}`}
-                              >
-                                ✓ {msg.usage.total_tokens.toLocaleString()} tokens
-                                {msg.multiplier && msg.multiplier !== 1 ? ` (${msg.multiplier}x)` : ''}
-                                {msg.usage.savings_tokens ? ` · ${msg.usage.savings_tokens} saved` : ''}
-                              </span>
-                            ) : null}
+                            {msg.usage ? (() => {
+                              const savings = msg.usage.estimated_savings_tokens ?? msg.usage.savings_tokens ?? 0;
+                              return (
+                                <span
+                                  className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 cursor-help"
+                                  title={`Input: ${msg.usage.input_tokens?.toLocaleString() || 0} tokens | Output: ${msg.usage.output_tokens?.toLocaleString() || 0} tokens${msg.multiplier && msg.multiplier !== 1 ? ` | Multiplier: ${msg.multiplier}x` : ''} | Billed: ${Math.round(msg.usage.total_tokens * (msg.multiplier || 1)).toLocaleString()} units${savings > 0 ? ` | Context Saved: ~${savings.toLocaleString()} est. tokens (character-ratio estimate)` : ''}`}
+                                >
+                                  ✓ {msg.usage.total_tokens.toLocaleString()} tokens
+                                  {msg.multiplier && msg.multiplier !== 1 ? ` (${msg.multiplier}x)` : ''}
+                                  {savings > 0 ? ` · ~${savings.toLocaleString()} est. saved` : ''}
+                                </span>
+                              );
+                            })() : null}
                           </div>
 
                           <div className="flex items-center gap-1 text-xs">
@@ -1774,14 +1879,14 @@ export const UserChatStudio: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Collapsible Deliberative Reasoning Trace */}
+                        {/* Collapsible Deliberative Reasoning Trace (collapsed by default) */}
                         {msg.thinking ? (
                           <details className={`rounded-xl border p-3 text-xs ${
                             isDark ? 'bg-amber-950/20 border-amber-500/30' : 'bg-amber-50/60 border-amber-200'
                           }`}>
                             <summary className="font-semibold text-amber-700 dark:text-amber-400 cursor-pointer flex items-center gap-1.5 select-none">
                               <Brain className="w-3.5 h-3.5" />
-                              <span>Deliberative Reasoning Trace ({Math.ceil(msg.thinking.length / 4)} tokens)</span>
+                              <span>Deliberative Reasoning Summary (~{Math.ceil(msg.thinking.length / 4).toLocaleString()} est. tokens)</span>
                             </summary>
                             <div className="mt-2 text-[11.5px] font-mono leading-relaxed whitespace-pre-wrap opacity-90 border-t border-amber-500/20 pt-2">
                               {msg.thinking}
@@ -1796,7 +1901,9 @@ export const UserChatStudio: React.FC = () => {
                           ) : (
                             <div className="flex items-center gap-2 text-slate-400 text-xs py-2 font-mono">
                               <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
-                              <span>Streaming response from {getModelDisplayName(activeThread.model)}...</span>
+                              <span>
+                                {msg.thinking ? 'Thinking through solution...' : `Streaming response from ${getModelDisplayName(activeThread.model)}...`}
+                              </span>
                             </div>
                           )}
 
@@ -2080,7 +2187,10 @@ export const UserChatStudio: React.FC = () => {
                                   {m.tokenMultiplier}x Tokens
                                 </span>
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-500/15 text-slate-400">
-                                  {(m.contextWindow / 1000).toFixed(0)}k Context
+                                  {m.contextWindow >= 1000000
+                                    ? `${(m.contextWindow / 1000000).toFixed(0)}M`
+                                    : `${(m.contextWindow / 1000).toFixed(0)}k`}{' '}
+                                  Context
                                 </span>
                                 {m.supportsThinking && (
                                   <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-500">

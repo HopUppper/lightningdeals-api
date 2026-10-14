@@ -9,20 +9,23 @@ export const studioRouter = Router();
 // Apply JWT authentication to all studio routes
 studioRouter.use(authenticateJwt);
 
-// Verified Real Model Catalog backed by Gateway capabilities
+// Verified Real Model Catalog backed by Gateway capabilities & Upstream Specs
 export const VERIFIED_STUDIO_MODELS = [
   {
     id: 'claude-sonnet-5.5',
     name: 'Claude Sonnet 5.5',
     category: 'Flagship Models',
     badge: 'Recommended',
-    description: 'Benchmark flagship model for fullstack coding, multi-file synthesis, and agentic workflows.',
+    description: 'Premier flagship model for fullstack engineering, multi-file synthesis, and agentic workflows.',
     tokenMultiplier: 1.0,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-sonnet-5',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-opus-5.5',
@@ -31,11 +34,14 @@ export const VERIFIED_STUDIO_MODELS = [
     badge: 'Frontier Intelligence',
     description: 'Pinnacle frontier intelligence for complex systems architecture, mathematical proofs, and deep reasoning.',
     tokenMultiplier: 2.0,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-opus-5-5',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-3-7-sonnet-20250219',
@@ -45,10 +51,13 @@ export const VERIFIED_STUDIO_MODELS = [
     description: 'Hybrid reasoning architecture with inspectable deliberative thinking tokens for zero-hallucination analysis.',
     tokenMultiplier: 1.25,
     contextWindow: 200000,
+    maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-3-7-sonnet-20250219',
+    providerRoute: 'anthropic / custom_http',
   },
   {
     id: 'claude-opus-5',
@@ -57,11 +66,14 @@ export const VERIFIED_STUDIO_MODELS = [
     badge: 'Deep Reasoning',
     description: 'Deep cognitive model engineered for formal logic verification, compiler debugging, and algorithmic analysis.',
     tokenMultiplier: 1.75,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-opus-5',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-fable-5',
@@ -70,11 +82,14 @@ export const VERIFIED_STUDIO_MODELS = [
     badge: 'Sub-30ms TTFT',
     description: 'Rapid developer completion model tuned for IDE code completion, inline refactoring, and instant answers.',
     tokenMultiplier: 0.5,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-fable-5',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-fable-5.1',
@@ -83,11 +98,14 @@ export const VERIFIED_STUDIO_MODELS = [
     badge: 'IDE Autopilot',
     description: 'Enhanced developer model for git diff reviews, automated test suite generation, and CI/CD triage.',
     tokenMultiplier: 0.6,
-    contextWindow: 200000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-fable-5-1',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-haiku-5.5',
@@ -96,11 +114,14 @@ export const VERIFIED_STUDIO_MODELS = [
     badge: 'Lowest Latency',
     description: 'Ultra-low latency streaming model with minimal token overhead for high-concurrency loops and quick lookups.',
     tokenMultiplier: 0.25,
-    contextWindow: 200000,
+    contextWindow: 500000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-haiku-4-5-20251001',
+    providerRoute: 'custom_http (OpusMax proxy)',
   },
   {
     id: 'claude-3-5-sonnet-20241022',
@@ -110,10 +131,13 @@ export const VERIFIED_STUDIO_MODELS = [
     description: 'Anthropic standard enterprise model for production coding and technical documentation.',
     tokenMultiplier: 1.0,
     contextWindow: 200000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-3-5-sonnet-20241022',
+    providerRoute: 'anthropic / custom_http',
   },
   {
     id: 'claude-3-5-haiku-20241022',
@@ -123,10 +147,29 @@ export const VERIFIED_STUDIO_MODELS = [
     description: 'Economical high-speed completion model for everyday Q&A and text transformations.',
     tokenMultiplier: 0.25,
     contextWindow: 200000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
+    upstreamModelId: 'claude-3-5-haiku-20241022',
+    providerRoute: 'anthropic / custom_http',
+  },
+  {
+    id: 'claude-3-opus-20240229',
+    name: 'Claude 3 Opus',
+    category: 'Standard Anthropic Series',
+    badge: 'Deep Reasoning',
+    description: 'Anthropic deep reasoning model for complex nuanced analysis and multi-step domain expertise.',
+    tokenMultiplier: 2.0,
+    contextWindow: 200000,
+    maxOutputTokens: 4096,
+    supportsThinking: false,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
+    upstreamModelId: 'claude-3-opus-20240229',
+    providerRoute: 'anthropic / custom_http',
   },
 ];
 
@@ -365,6 +408,164 @@ studioRouter.delete('/conversations/:id/messages/:msgId', async (req: AuthReques
   } catch (err: any) {
     console.error('[STUDIO MESSAGE DELETE ERROR]', err);
     return res.status(500).json({ success: false, error: { message: err.message || 'Failed to delete message.' } });
+  }
+});
+
+// POST /api/user/studio/conversations/:id/compress - Safe Context Compression with Rollback Support
+studioRouter.post('/conversations/:id/compress', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const conversation = await prisma.studioConversation.findFirst({
+      where: { id, userId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: { message: 'Conversation not found.' } });
+    }
+
+    if (conversation.messages.length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'At least 3 messages are required to perform context compression.' },
+      });
+    }
+
+    const messages = conversation.messages;
+    const olderMessages = messages.slice(0, -2);
+    const recentMessages = messages.slice(-2);
+
+    // Calculate estimated tokens before
+    const rawCharsBefore = messages.reduce((acc, m) => acc + (m.content || '').length, 0);
+    const estimatedTokensBefore = Math.ceil(rawCharsBefore / 4);
+
+    // Build structured compacted summary
+    const summaryLines: string[] = [];
+    for (const m of olderMessages) {
+      if (m.role === 'user') {
+        const snippet = m.content.slice(0, 160).trim();
+        summaryLines.push(`- Goal/Instruction: "${snippet}${m.content.length > 160 ? '...' : ''}"`);
+      } else if (m.role === 'assistant') {
+        const snippet = m.content.slice(0, 200).trim();
+        summaryLines.push(`- Output Summary: "${snippet}${m.content.length > 200 ? '...' : ''}"`);
+      }
+    }
+
+    const summaryContent = `[COMPACTED CONTEXT SUMMARY]:\n${summaryLines.join('\n')}\n[End of historical compacted context]`;
+    const rawCharsAfter = summaryContent.length + recentMessages.reduce((acc, m) => acc + (m.content || '').length, 0);
+    const estimatedTokensAfter = Math.ceil(rawCharsAfter / 4);
+    const estimatedTokensSaved = Math.max(0, estimatedTokensBefore - estimatedTokensAfter);
+
+    // Prepare backup of original messages
+    const backupMessages = olderMessages.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      modelUsed: m.modelUsed,
+      createdAt: m.createdAt.toISOString(),
+      attachmentsJson: m.attachmentsJson,
+    }));
+
+    // Atomic transaction: remove older messages and insert the compacted summary
+    const olderIds = olderMessages.map((m) => m.id);
+    const compactedSystemMsg = await prisma.$transaction(async (tx) => {
+      await tx.studioMessage.deleteMany({
+        where: { id: { in: olderIds } },
+      });
+
+      const newMsg = await tx.studioMessage.create({
+        data: {
+          conversationId: id,
+          role: 'system',
+          content: summaryContent,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: Math.ceil(summaryContent.length / 4),
+          multiplier: 1.0,
+        },
+      });
+
+      await tx.studioConversation.update({
+        where: { id },
+        data: { tokenSaverEnabled: true },
+      });
+
+      return newMsg;
+    });
+
+    return res.json({
+      success: true,
+      compactedMessage: {
+        id: compactedSystemMsg.id,
+        role: 'system',
+        content: summaryContent,
+        timestamp: compactedSystemMsg.createdAt.getTime(),
+      },
+      estimatedTokensBefore,
+      estimatedTokensAfter,
+      estimatedTokensSaved,
+      is_savings_estimated: true,
+      backupMessages,
+    });
+  } catch (err: any) {
+    console.error('[STUDIO CONTEXT COMPRESSION ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Context compression failed.' } });
+  }
+});
+
+// POST /api/user/studio/conversations/:id/restore-context - Restore uncompressed messages from backup
+studioRouter.post('/conversations/:id/restore-context', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const { backupMessages } = req.body;
+
+    const conversation = await prisma.studioConversation.findFirst({
+      where: { id, userId },
+    });
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: { message: 'Conversation not found.' } });
+    }
+
+    if (!Array.isArray(backupMessages) || backupMessages.length === 0) {
+      return res.status(400).json({ success: false, error: { message: 'Valid backup messages required for restore.' } });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Delete existing system summary messages in this conversation
+      await tx.studioMessage.deleteMany({
+        where: {
+          conversationId: id,
+          role: 'system',
+          content: { startsWith: '[COMPACTED CONTEXT SUMMARY]' },
+        },
+      });
+
+      // Re-create the backed up messages
+      for (const m of backupMessages) {
+        await tx.studioMessage.create({
+          data: {
+            conversationId: id,
+            role: m.role || 'user',
+            content: m.content || '',
+            modelUsed: m.modelUsed || conversation.model,
+            attachmentsJson: m.attachmentsJson || null,
+            createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
+          },
+        });
+      }
+    });
+
+    return res.json({ success: true, message: 'Context restored successfully.' });
+  } catch (err: any) {
+    console.error('[STUDIO RESTORE CONTEXT ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to restore context.' } });
   }
 });
 
@@ -681,12 +882,12 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       effectiveSystemPrompt += `\n\n[USER PROJECT CONTEXT & PREFERENCES]:\n${memoryDirectives}`;
     }
 
-    // Token-Saver Compaction: Calculate real character & token savings
-    let tokenSavingsEstimate = 0;
+    // Token-Saver Compaction: Calculate estimated character & token savings
+    let estimatedSavingsTokens = 0;
     if (tokenSaverEnabled) {
       effectiveSystemPrompt +=
         '\n\n[TOKEN-SAVER ACTIVE]: Return concise, surgical code or unified diffs. Omit all conversational greetings and repetitive boilerplate.';
-      tokenSavingsEstimate += 120; // instruction optimization
+      estimatedSavingsTokens += 120; // estimated instruction optimization
     }
 
     // 7. Format Outbound Messages Array (with attachments)
@@ -702,7 +903,8 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
           const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
           return sum + contentStr.length;
         }, 0);
-        tokenSavingsEstimate += Math.ceil(omittedChars / 4);
+        // Estimate token count based on standard 4 chars per token ratio
+        estimatedSavingsTokens += Math.ceil(omittedChars / 4);
       }
 
       for (const m of turnsToKeep) {
@@ -777,21 +979,44 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // 8. Prepare Upstream Request
+    // 8. Prepare Upstream Request & Context Window Verification
     const selectedModel = requestedModel || 'claude-sonnet-5.5';
     const friendlyModel = getFriendlyModelName(selectedModel);
     const modelMeta = VERIFIED_STUDIO_MODELS.find((m) => m.id === selectedModel);
 
+    // Context Window Check: validate estimated prompt tokens against model limit
+    const estimatedPromptTokens = Math.max(
+      1,
+      Math.ceil(JSON.stringify(outboundMessages).length / 4) + Math.ceil(effectiveSystemPrompt.length / 4)
+    );
+    if (modelMeta && estimatedPromptTokens > modelMeta.contextWindow) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'CONTEXT_LIMIT_EXCEEDED',
+          message: `The prompt and conversation history (~${estimatedPromptTokens.toLocaleString()} tokens) exceed the verified context window limit of ${modelMeta.contextWindow.toLocaleString()} tokens for ${modelMeta.name}. Please compress context or reduce prompt length.`,
+        },
+      });
+    }
+
+    const maxOutputLimit = modelMeta?.maxOutputTokens || 4096;
     const payload: any = {
       messages: outboundMessages,
-      max_tokens: 4096,
+      max_tokens: maxOutputLimit,
       stream: true,
       injectPersona: true,
     };
     if (effectiveSystemPrompt.trim()) payload.system = effectiveSystemPrompt.trim();
+
+    // Anthropic Extended Thinking protocol requirements:
+    // 1. Model must support thinking (claude-3-7-sonnet, claude-sonnet-5.5, claude-opus-5.5)
+    // 2. Temperature MUST be 1.0 (or omitted)
+    // 3. max_tokens must be strictly greater than budget_tokens
     if (thinkingEnabled && modelMeta?.supportsThinking) {
-      payload.thinking = { type: 'enabled', budget_tokens: 2048 };
-      payload.temperature = 1.0; // Anthropic spec requires temperature 1.0 when thinking is enabled
+      const thinkingBudget = 2048;
+      payload.thinking = { type: 'enabled', budget_tokens: thinkingBudget };
+      payload.temperature = 1.0;
+      payload.max_tokens = Math.max(8192, thinkingBudget + 4096);
     } else if (temperature !== undefined) {
       payload.temperature = Math.max(0, Math.min(1, temperature));
     }
@@ -907,9 +1132,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
 
     const latencyMs = Date.now() - startTime;
 
-    // Calculate actual tokens
+    // Calculate actual tokens (distinguishing provider-reported from estimates)
     const inputTokens = reportedInputTokens || Math.max(1, Math.ceil(JSON.stringify(outboundMessages).length / 4));
-    const outputTokens = reportedOutputTokens || Math.max(1, Math.ceil(accumulatedText.length / 4));
+    // If request was interrupted before generating text, do not bill output tokens
+    const actualOutput = reportedOutputTokens || (accumulatedText.length > 0 ? Math.ceil(accumulatedText.length / 4) : 0);
+    const outputTokens = clientDisconnected && accumulatedText.length === 0 ? 0 : actualOutput;
     const totalTokens = inputTokens + outputTokens;
 
     // Resolve model multiplier
@@ -1007,7 +1234,9 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         total_tokens: totalTokens,
-        savings_tokens: tokenSavingsEstimate,
+        estimated_savings_tokens: estimatedSavingsTokens,
+        is_savings_estimated: true,
+        savings_tokens: estimatedSavingsTokens,
       },
       multiplier,
       latencyMs,

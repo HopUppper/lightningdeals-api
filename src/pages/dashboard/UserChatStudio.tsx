@@ -72,7 +72,7 @@ export interface ChatAttachment {
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   attachments?: ChatAttachment[];
   timestamp: number;
@@ -126,7 +126,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Recommended',
     description: 'Premier agentic model for fullstack coding, multi-file synthesis, and autonomous engineering.',
     tokenMultiplier: 1.0,
-    contextWindow: 1000000,
+    contextWindow: 200000,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
@@ -139,7 +139,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Frontier Intelligence',
     description: 'Pinnacle frontier reasoning for complex system architectures, formal proofs, and cognitive depth.',
     tokenMultiplier: 2.0,
-    contextWindow: 1000000,
+    contextWindow: 200000,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
@@ -165,7 +165,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Deep Logic',
     description: 'Enterprise architecture design, distributed consensus, and deep formal code auditing.',
     tokenMultiplier: 1.75,
-    contextWindow: 1000000,
+    contextWindow: 200000,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
@@ -178,7 +178,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'Sub-30ms TTFT',
     description: 'Ultra-fast developer completions tuned for IDE code completion, inline refactoring, and instant responses.',
     tokenMultiplier: 0.5,
-    contextWindow: 500000,
+    contextWindow: 200000,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
@@ -191,7 +191,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     badge: 'IDE Autopilot',
     description: 'Specialized model for rapid git diff generation, automated test suites, and CI/CD triage.',
     tokenMultiplier: 0.6,
-    contextWindow: 500000,
+    contextWindow: 200000,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
@@ -369,10 +369,22 @@ export const UserChatStudio: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Initial Load: User Keys & Server Conversations
+  const [availableModels, setAvailableModels] = useState<StudioModelMeta[]>(VERIFIED_MODELS);
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+
+  // 1. Initial Load: User Keys & Server Conversations & Authoritative Models
   useEffect(() => {
     async function loadData() {
       try {
+        // Load Authoritative Model Catalog from Server
+        const modelsRes = await userFetch('/api/user/studio/models');
+        if (modelsRes.ok) {
+          const modelsData = await modelsRes.json();
+          if (Array.isArray(modelsData.models) && modelsData.models.length > 0) {
+            setAvailableModels(modelsData.models);
+          }
+        }
+
         // Load API Keys
         const keysRes = await userFetch('/api/user/keys');
         if (keysRes.ok) {
@@ -480,6 +492,24 @@ export const UserChatStudio: React.FC = () => {
     }
   };
 
+  const handleEditMemory = async (id: string, category: string, fact: string) => {
+    try {
+      const res = await userFetch(`/api/user/studio/memories/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, fact }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.memory) {
+          setUserMemories((prev) => prev.map((m) => (m.id === id ? data.memory : m)));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update memory:', err);
+    }
+  };
+
   const handleRemoveMemory = async (id: string) => {
     try {
       await userFetch(`/api/user/studio/memories/${id}`, {
@@ -488,6 +518,69 @@ export const UserChatStudio: React.FC = () => {
       setUserMemories((prev) => prev.filter((m) => m.id !== id));
     } catch (err) {
       console.error('Failed to remove memory:', err);
+    }
+  };
+
+  const handleClearAllMemories = async () => {
+    try {
+      await userFetch('/api/user/studio/memories', {
+        method: 'DELETE',
+      });
+      setUserMemories([]);
+    } catch (err) {
+      console.error('Failed to clear memories:', err);
+    }
+  };
+
+  // Real Context Compression Action
+  const handleCompressContext = async () => {
+    if (activeThread.messages.length < 3 || isCompressing) return;
+    setIsCompressing(true);
+
+    try {
+      const rawTextBefore = activeThread.messages.map((m) => m.content).join('\n');
+      const tokensBefore = Math.ceil(rawTextBefore.length / 4);
+
+      // Keep the most recent 2 messages, compact older messages
+      const olderMessages = activeThread.messages.slice(0, -2);
+      const recentMessages = activeThread.messages.slice(-2);
+
+      const summaryLines: string[] = [];
+      for (const m of olderMessages) {
+        if (m.role === 'user') {
+          summaryLines.push(`- Goal/Instruction: "${m.content.slice(0, 160).trim()}${m.content.length > 160 ? '...' : ''}"`);
+        } else if (m.role === 'assistant') {
+          summaryLines.push(`- Output Summary: "${m.content.slice(0, 200).trim()}${m.content.length > 200 ? '...' : ''}"`);
+        }
+      }
+
+      const summaryContent = `[COMPACTED CONTEXT SUMMARY]:\n${summaryLines.join('\n')}\n[End of historical compacted context]`;
+      const summaryMsg: ChatMessage = {
+        id: `msg_comp_${Date.now()}`,
+        role: 'system',
+        content: summaryContent,
+        timestamp: Date.now(),
+      };
+
+      const compactedMessages = [summaryMsg, ...recentMessages];
+      const rawTextAfter = compactedMessages.map((m) => m.content).join('\n');
+      const tokensAfter = Math.ceil(rawTextAfter.length / 4);
+      const tokensSaved = Math.max(0, tokensBefore - tokensAfter);
+
+      updateActiveThread({
+        messages: compactedMessages,
+        tokenSaverEnabled: true,
+      });
+
+      if (!activeThread.id.startsWith('thread_')) {
+        await userFetch(`/api/user/studio/conversations/${activeThread.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokenSaverEnabled: true }),
+        }).catch(() => {});
+      }
+    } finally {
+      setIsCompressing(false);
     }
   };
 
@@ -555,6 +648,14 @@ export const UserChatStudio: React.FC = () => {
       }
     );
   }, [threads, activeThreadId]);
+
+  const activeModelMeta = useMemo(() => {
+    return (
+      availableModels.find((m) => m.id === activeThread.model) ||
+      VERIFIED_MODELS.find((m) => m.id === activeThread.model) ||
+      VERIFIED_MODELS[0]
+    );
+  }, [availableModels, activeThread.model]);
 
   // When switching conversations, load messages if not already loaded
   useEffect(() => {
@@ -954,6 +1055,7 @@ export const UserChatStudio: React.FC = () => {
           systemPrompt: activeThread.systemPrompt,
           thinkingEnabled: activeThread.thinkingEnabled,
           tokenSaverEnabled: activeThread.tokenSaverEnabled,
+          memoryEnabled: memoryEnabled,
           temperature: activeThread.temperature,
           attachments: userMessage.attachments || [],
         }),
@@ -1247,17 +1349,33 @@ export const UserChatStudio: React.FC = () => {
           {/* Thinking Mode Toggle Pill */}
           <button
             type="button"
-            onClick={() => updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled })}
+            onClick={() => {
+              if (!activeModelMeta?.supportsThinking) {
+                alert(`Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}. Select Claude 3.7 Sonnet or Claude Sonnet 5.5 to enable Thinking.`);
+                return;
+              }
+              updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled });
+            }}
             className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
-              activeThread.thinkingEnabled
+              !activeModelMeta?.supportsThinking
+                ? `${c.pillBg} opacity-40 cursor-not-allowed`
+                : activeThread.thinkingEnabled
                 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40'
                 : `${c.pillBg} opacity-75 hover:opacity-100`
             }`}
-            title="Enable Extended Reasoning Process"
+            title={
+              !activeModelMeta?.supportsThinking
+                ? `Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}`
+                : activeThread.thinkingEnabled
+                ? 'Extended Reasoning Process is Active (temperature: 1.0)'
+                : 'Enable Extended Reasoning Process'
+            }
           >
             <Brain className="w-3 h-3" />
             <span className="hidden sm:inline">Thinking</span>
-            {activeThread.thinkingEnabled && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
+            {activeModelMeta?.supportsThinking && activeThread.thinkingEnabled && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            )}
           </button>
 
           {/* Token-Saver Diff Mode Pill */}
@@ -1269,7 +1387,7 @@ export const UserChatStudio: React.FC = () => {
                 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
                 : `${c.pillBg} opacity-75 hover:opacity-100`
             }`}
-            title="Forces AI to generate only code diffs, saving ~40% tokens"
+            title="Token-Saver: Optimizes context window and generates concise code diffs"
           >
             <Zap className="w-3 h-3" />
             <span className="hidden sm:inline">Token-Saver</span>
@@ -1501,6 +1619,19 @@ export const UserChatStudio: React.FC = () => {
 
               {/* Message List */}
               {activeThread.messages.map((msg, idx) => {
+                if (msg.role === 'system') {
+                  return (
+                    <div
+                      key={msg.id || idx}
+                      className="my-3 p-3 rounded-xl border border-violet-500/20 bg-violet-500/5 text-xs text-violet-700 dark:text-violet-300 font-mono flex items-start gap-2.5"
+                    >
+                      <Zap className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+                      <div className="flex-1 whitespace-pre-wrap leading-relaxed text-[11px]">
+                        {msg.content}
+                      </div>
+                    </div>
+                  );
+                }
                 const isUser = msg.role === 'user';
                 return (
                   <div key={msg.id || idx} className="space-y-2">
@@ -1595,9 +1726,13 @@ export const UserChatStudio: React.FC = () => {
                               </span>
                             ) : null}
                             {msg.usage ? (
-                              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                              <span
+                                className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 cursor-help"
+                                title={`Input: ${msg.usage.input_tokens?.toLocaleString() || 0} tokens | Output: ${msg.usage.output_tokens?.toLocaleString() || 0} tokens${msg.multiplier && msg.multiplier !== 1 ? ` | Multiplier: ${msg.multiplier}x` : ''} | Billed: ${Math.round(msg.usage.total_tokens * (msg.multiplier || 1)).toLocaleString()} units${msg.usage.savings_tokens ? ` | Context Saved: ${msg.usage.savings_tokens} tokens` : ''}`}
+                              >
                                 ✓ {msg.usage.total_tokens.toLocaleString()} tokens
-                                {msg.usage.savings_tokens ? ` (${msg.usage.savings_tokens} saved)` : ''}
+                                {msg.multiplier && msg.multiplier !== 1 ? ` (${msg.multiplier}x)` : ''}
+                                {msg.usage.savings_tokens ? ` · ${msg.usage.savings_tokens} saved` : ''}
                               </span>
                             ) : null}
                           </div>
@@ -1639,14 +1774,14 @@ export const UserChatStudio: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Collapsible Reasoning Process Drawer */}
+                        {/* Collapsible Deliberative Reasoning Trace */}
                         {msg.thinking ? (
                           <details className={`rounded-xl border p-3 text-xs ${
                             isDark ? 'bg-amber-950/20 border-amber-500/30' : 'bg-amber-50/60 border-amber-200'
                           }`}>
                             <summary className="font-semibold text-amber-700 dark:text-amber-400 cursor-pointer flex items-center gap-1.5 select-none">
                               <Brain className="w-3.5 h-3.5" />
-                              <span>Reasoning Process ({Math.ceil(msg.thinking.length / 4)} tokens)</span>
+                              <span>Deliberative Reasoning Trace ({Math.ceil(msg.thinking.length / 4)} tokens)</span>
                             </summary>
                             <div className="mt-2 text-[11.5px] font-mono leading-relaxed whitespace-pre-wrap opacity-90 border-t border-amber-500/20 pt-2">
                               {msg.thinking}
@@ -1906,7 +2041,7 @@ export const UserChatStudio: React.FC = () => {
             {/* Model List */}
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
               {['Flagship Models', 'Reasoning & Deep Thinking', 'High-Velocity & Coding', 'Fast & Economical', 'Standard Anthropic Series'].map((cat) => {
-                const catModels = VERIFIED_MODELS.filter(
+                const catModels = availableModels.filter(
                   (m) =>
                     m.category === cat &&
                     (m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
@@ -1939,7 +2074,7 @@ export const UserChatStudio: React.FC = () => {
                             }`}
                           >
                             <div className="space-y-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-xs">{m.name}</span>
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-violet-500/20 text-violet-500">
                                   {m.tokenMultiplier}x Tokens
@@ -1947,6 +2082,16 @@ export const UserChatStudio: React.FC = () => {
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-500/15 text-slate-400">
                                   {(m.contextWindow / 1000).toFixed(0)}k Context
                                 </span>
+                                {m.supportsThinking && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-500">
+                                    Thinking
+                                  </span>
+                                )}
+                                {m.supportsVision && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-blue-500/20 text-blue-500">
+                                    Vision
+                                  </span>
+                                )}
                               </div>
                               <p className={`text-[11px] leading-relaxed ${c.textMuted}`}>
                                 {m.description}
@@ -1981,22 +2126,22 @@ export const UserChatStudio: React.FC = () => {
         thinkingEnabled={activeThread.thinkingEnabled ?? false}
         thinkingBudget={2048}
         memoryItems={userMemories}
+        memoryEnabled={memoryEnabled}
         totalContextTokens={activeThread.messages.length * 150}
         messagesCount={activeThread.messages.length}
         isPaidCustomer={isPaidCustomer}
+        onToggleMemoryEnabled={setMemoryEnabled}
         onAddMemory={handleAddMemory}
+        onEditMemory={handleEditMemory}
         onRemoveMemory={handleRemoveMemory}
+        onClearAllMemories={handleClearAllMemories}
         onUpdateSettings={(updates) => {
           updateActiveThread(updates);
           if (updates.memoryItems) {
             setUserMemories(updates.memoryItems);
           }
         }}
-        onCompressContext={async () => {
-          setIsCompressing(true);
-          updateActiveThread({ tokenSaverEnabled: true });
-          setIsCompressing(false);
-        }}
+        onCompressContext={handleCompressContext}
         isCompressing={isCompressing}
       />
 

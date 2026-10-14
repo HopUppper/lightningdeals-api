@@ -14,6 +14,7 @@ import {
   Info,
   ShieldCheck,
   Code,
+  Edit2,
 } from 'lucide-react';
 
 export interface ProjectMemoryItem {
@@ -32,11 +33,15 @@ interface ContextManagerDrawerProps {
   thinkingEnabled: boolean;
   thinkingBudget: number;
   memoryItems: ProjectMemoryItem[];
+  memoryEnabled?: boolean;
   totalContextTokens: number;
   messagesCount: number;
   isPaidCustomer: boolean;
+  onToggleMemoryEnabled?: (enabled: boolean) => void;
   onAddMemory?: (category: string, fact: string) => Promise<void>;
+  onEditMemory?: (id: string, category: string, fact: string) => Promise<void>;
   onRemoveMemory?: (id: string) => Promise<void>;
+  onClearAllMemories?: () => Promise<void>;
   onUpdateSettings: (updates: {
     persona?: string;
     systemPrompt?: string;
@@ -97,11 +102,15 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   thinkingEnabled,
   thinkingBudget,
   memoryItems,
+  memoryEnabled = true,
   totalContextTokens,
   messagesCount,
   isPaidCustomer,
+  onToggleMemoryEnabled,
   onAddMemory,
+  onEditMemory,
   onRemoveMemory,
+  onClearAllMemories,
   onUpdateSettings,
   onCompressContext,
   isCompressing,
@@ -110,6 +119,10 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   const [newCategory, setNewCategory] = useState('Tech Stack');
   const [newFact, setNewFact] = useState('');
   const [isSavingMemory, setIsSavingMemory] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editCategory, setEditCategory] = useState('');
+  const [editFact, setEditFact] = useState('');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   if (!open) return null;
 
@@ -139,12 +152,41 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
     }
   };
 
+  const handleStartEdit = (item: ProjectMemoryItem) => {
+    setEditingId(item.id);
+    setEditCategory(item.category);
+    setEditFact(item.fact);
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    if (!editFact.trim()) return;
+    if (onEditMemory) {
+      await onEditMemory(id, editCategory.trim() || 'General', editFact.trim());
+    } else {
+      onUpdateSettings({
+        memoryItems: memoryItems.map((m) =>
+          m.id === id ? { ...m, category: editCategory.trim() || 'General', fact: editFact.trim() } : m
+        ),
+      });
+    }
+    setEditingId(null);
+  };
+
   const handleRemoveMemory = async (id: string) => {
     if (onRemoveMemory) {
       await onRemoveMemory(id);
     } else {
       onUpdateSettings({ memoryItems: memoryItems.filter((m) => m.id !== id) });
     }
+  };
+
+  const handleClearAll = async () => {
+    if (onClearAllMemories) {
+      await onClearAllMemories();
+    } else {
+      onUpdateSettings({ memoryItems: [] });
+    }
+    setShowClearConfirm(false);
   };
 
   const handleSelectPreset = (p: (typeof PERSONA_PRESETS)[0]) => {
@@ -264,6 +306,32 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
           {activeTab === 'memory' && (
             <div className="space-y-4">
+              {/* Memory Active Toggle Banner */}
+              <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
+                    <Brain className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Project Memory System</span>
+                  </span>
+                  <p className="text-[11px] text-slate-400">
+                    {memoryEnabled
+                      ? 'Active: Stored facts below are referenced in conversations'
+                      : 'Paused: Facts preserved in DB but excluded from prompts'}
+                  </p>
+                </div>
+                {onToggleMemoryEnabled && (
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={memoryEnabled}
+                      onChange={(e) => onToggleMemoryEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                  </label>
+                )}
+              </div>
+
               <div className="p-3 bg-violet-950/20 border border-violet-500/20 rounded-xl space-y-1">
                 <p className="font-bold text-violet-300 flex items-center gap-1.5 text-xs">
                   <Sparkles className="w-3.5 h-3.5" />
@@ -299,19 +367,56 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                 </div>
                 <button
                   type="submit"
-                  disabled={!newFact.trim()}
+                  disabled={!newFact.trim() || isSavingMemory}
                   className="w-full py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Save to Chat Memory</span>
+                  <span>{isSavingMemory ? 'Saving...' : 'Save to Chat Memory'}</span>
                 </button>
               </form>
 
               {/* Memory Items List */}
               <div className="space-y-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                  Stored Facts ({memoryItems.length})
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                    Stored Facts ({memoryItems.length})
+                  </span>
+                  {memoryItems.length > 0 && !showClearConfirm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowClearConfirm(true)}
+                      className="text-[10px] text-rose-400 hover:underline cursor-pointer"
+                    >
+                      Clear All Facts
+                    </button>
+                  )}
+                </div>
+
+                {/* Clear All Confirmation Modal */}
+                {showClearConfirm && (
+                  <div className="p-3 bg-rose-950/30 border border-rose-500/40 rounded-xl space-y-2">
+                    <p className="text-xs text-rose-200 font-semibold">
+                      Are you sure you want to delete all stored memory facts?
+                    </p>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowClearConfirm(false)}
+                        className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-[11px]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearAll}
+                        className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px]"
+                      >
+                        Confirm Delete All
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {memoryItems.length === 0 ? (
                   <div className="p-6 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl font-mono text-[11px]">
                     No memory facts defined yet. Add facts above to guide the AI across all turns.
@@ -320,22 +425,71 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                   memoryItems.map((item) => (
                     <div
                       key={item.id}
-                      className="p-3 bg-slate-900/80 border border-slate-800/80 rounded-xl flex items-center justify-between gap-3 group"
+                      className="p-3 bg-slate-900/80 border border-slate-800/80 rounded-xl space-y-2 group"
                     >
-                      <div className="min-w-0">
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-300 uppercase">
-                          {item.category}
-                        </span>
-                        <p className="text-xs text-slate-200 mt-1 font-mono break-all">{item.fact}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMemory(item.id)}
-                        className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
-                        title="Delete fact"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {editingId === item.id ? (
+                        /* Inline Edit Form */
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              type="text"
+                              value={editCategory}
+                              onChange={(e) => setEditCategory(e.target.value)}
+                              className="p-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                            />
+                            <input
+                              type="text"
+                              value={editFact}
+                              onChange={(e) => setEditFact(e.target.value)}
+                              className="col-span-2 p-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                            />
+                          </div>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200 text-[10px]"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEdit(item.id)}
+                              className="px-2 py-0.5 rounded bg-violet-600 hover:bg-violet-700 text-white font-bold text-[10px]"
+                            >
+                              Save Changes
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Display Fact Item */
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-300 uppercase">
+                              {item.category}
+                            </span>
+                            <p className="text-xs text-slate-200 mt-1 font-mono break-all">{item.fact}</p>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(item)}
+                              className="p-1 rounded text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+                              title="Edit fact"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMemory(item.id)}
+                              className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                              title="Delete fact"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

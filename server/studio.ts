@@ -12,26 +12,26 @@ studioRouter.use(authenticateJwt);
 // Verified Real Model Catalog backed by Gateway capabilities
 export const VERIFIED_STUDIO_MODELS = [
   {
-    id: 'claude-opus-5.5',
-    name: 'Claude Opus 5.5',
-    category: 'Flagship Models',
-    badge: 'Frontier Intelligence',
-    description: 'Pinnacle frontier intelligence for complex systems architecture, mathematical proofs, and deep reasoning.',
-    tokenMultiplier: 2.0,
-    contextWindow: 1000000,
-    supportsThinking: true,
-    supportsVision: true,
-    supportsTools: true,
-    isAvailable: true,
-  },
-  {
     id: 'claude-sonnet-5.5',
     name: 'Claude Sonnet 5.5',
     category: 'Flagship Models',
     badge: 'Recommended',
     description: 'Benchmark flagship model for fullstack coding, multi-file synthesis, and agentic workflows.',
     tokenMultiplier: 1.0,
-    contextWindow: 1000000,
+    contextWindow: 200000,
+    supportsThinking: true,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
+  },
+  {
+    id: 'claude-opus-5.5',
+    name: 'Claude Opus 5.5',
+    category: 'Flagship Models',
+    badge: 'Frontier Intelligence',
+    description: 'Pinnacle frontier intelligence for complex systems architecture, mathematical proofs, and deep reasoning.',
+    tokenMultiplier: 2.0,
+    contextWindow: 200000,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
@@ -57,7 +57,7 @@ export const VERIFIED_STUDIO_MODELS = [
     badge: 'Deep Reasoning',
     description: 'Deep cognitive model engineered for formal logic verification, compiler debugging, and algorithmic analysis.',
     tokenMultiplier: 1.75,
-    contextWindow: 1000000,
+    contextWindow: 200000,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
@@ -70,7 +70,7 @@ export const VERIFIED_STUDIO_MODELS = [
     badge: 'Sub-30ms TTFT',
     description: 'Rapid developer completion model tuned for IDE code completion, inline refactoring, and instant answers.',
     tokenMultiplier: 0.5,
-    contextWindow: 500000,
+    contextWindow: 200000,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
@@ -83,7 +83,7 @@ export const VERIFIED_STUDIO_MODELS = [
     badge: 'IDE Autopilot',
     description: 'Enhanced developer model for git diff reviews, automated test suite generation, and CI/CD triage.',
     tokenMultiplier: 0.6,
-    contextWindow: 500000,
+    contextWindow: 200000,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
@@ -408,6 +408,35 @@ studioRouter.post('/memories', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// PATCH /api/user/studio/memories/:id - Edit existing memory fact
+studioRouter.patch('/memories/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const { category, fact } = req.body;
+
+    const existing = await prisma.studioMemory.findFirst({
+      where: { id, userId },
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, error: { message: 'Memory not found.' } });
+    }
+
+    const updated = await prisma.studioMemory.update({
+      where: { id },
+      data: {
+        category: (typeof category === 'string' && category.trim()) ? category.trim() : existing.category,
+        fact: (typeof fact === 'string' && fact.trim()) ? fact.trim().slice(0, 1000) : existing.fact,
+      },
+    });
+
+    return res.json({ success: true, memory: updated });
+  } catch (err: any) {
+    console.error('[STUDIO MEMORY UPDATE ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to update memory.' } });
+  }
+});
+
 // DELETE /api/user/studio/memories/:id - Delete single memory
 studioRouter.delete('/memories/:id', async (req: AuthRequest, res: Response) => {
   try {
@@ -531,6 +560,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     systemPrompt: customSystemPrompt,
     thinkingEnabled = false,
     tokenSaverEnabled = false,
+    memoryEnabled = true,
     temperature = 0.2,
     attachments = [],
   } = req.body;
@@ -646,17 +676,17 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     });
 
     let effectiveSystemPrompt = customSystemPrompt || conversation.systemPrompt || '';
-    if (userMemories.length > 0) {
+    if (memoryEnabled !== false && userMemories.length > 0) {
       const memoryDirectives = userMemories.map((m) => `- [${m.category}]: ${m.fact}`).join('\n');
       effectiveSystemPrompt += `\n\n[USER PROJECT CONTEXT & PREFERENCES]:\n${memoryDirectives}`;
     }
 
-    // Token-Saver Compaction
+    // Token-Saver Compaction: Calculate real character & token savings
     let tokenSavingsEstimate = 0;
     if (tokenSaverEnabled) {
       effectiveSystemPrompt +=
         '\n\n[TOKEN-SAVER ACTIVE]: Return concise, surgical code or unified diffs. Omit all conversational greetings and repetitive boilerplate.';
-      tokenSavingsEstimate = 320; // baseline prompt compression savings
+      tokenSavingsEstimate += 120; // instruction optimization
     }
 
     // 7. Format Outbound Messages Array (with attachments)
@@ -667,7 +697,12 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       // In Token-Saver mode, keep the last 6 turns to avoid bloated token context
       const turnsToKeep = tokenSaverEnabled ? clientMessages.slice(-6) : clientMessages;
       if (tokenSaverEnabled && clientMessages.length > 6) {
-        tokenSavingsEstimate += (clientMessages.length - 6) * 180;
+        const omittedMessages = clientMessages.slice(0, -6);
+        const omittedChars = omittedMessages.reduce((sum: number, m: any) => {
+          const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
+          return sum + contentStr.length;
+        }, 0);
+        tokenSavingsEstimate += Math.ceil(omittedChars / 4);
       }
 
       for (const m of turnsToKeep) {
@@ -745,6 +780,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     // 8. Prepare Upstream Request
     const selectedModel = requestedModel || 'claude-sonnet-5.5';
     const friendlyModel = getFriendlyModelName(selectedModel);
+    const modelMeta = VERIFIED_STUDIO_MODELS.find((m) => m.id === selectedModel);
 
     const payload: any = {
       messages: outboundMessages,
@@ -753,9 +789,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       injectPersona: true,
     };
     if (effectiveSystemPrompt.trim()) payload.system = effectiveSystemPrompt.trim();
-    if (temperature !== undefined) payload.temperature = Math.max(0, Math.min(1, temperature));
-    if (thinkingEnabled) {
+    if (thinkingEnabled && modelMeta?.supportsThinking) {
       payload.thinking = { type: 'enabled', budget_tokens: 2048 };
+      payload.temperature = 1.0; // Anthropic spec requires temperature 1.0 when thinking is enabled
+    } else if (temperature !== undefined) {
+      payload.temperature = Math.max(0, Math.min(1, temperature));
     }
 
     const prep = buildProviderRequest(vendor, masterKey, selectedModel, payload);

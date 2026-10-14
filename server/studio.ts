@@ -3,6 +3,138 @@ import { prisma, decryptText } from './db';
 import { authenticateJwt, AuthRequest } from './auth';
 import { buildProviderRequest } from './providerAdapter';
 import { mapToUpstreamModel, getFriendlyModelName, sanitizeModelResponse, sanitizeErrorMessage } from './gateway';
+// @ts-ignore
+import yauzl from 'yauzl';
+
+export function extractTextFromDocx(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // @ts-ignore
+    yauzl.fromBuffer(buffer, { lazyEntries: true }, (err: any, zipfile: any) => {
+      if (err || !zipfile) {
+        return reject(err || new Error('Invalid DOCX archive or corrupted file.'));
+      }
+      let foundDocumentXml = false;
+
+      zipfile.readEntry();
+      zipfile.on('entry', (entry: any) => {
+        if (entry.fileName === 'word/document.xml') {
+          foundDocumentXml = true;
+          zipfile.openReadStream(entry, (streamErr: any, readStream: any) => {
+            if (streamErr || !readStream) {
+              return reject(streamErr || new Error('Failed to read document.xml inside DOCX.'));
+            }
+            const chunks: Buffer[] = [];
+            readStream.on('data', (c: any) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+            readStream.on('end', () => {
+              try {
+                const xml = Buffer.concat(chunks).toString('utf-8');
+                const formatted = xml
+                  .replace(/<w:br\s*\/?>/gi, '\n')
+                  .replace(/<w:cr\s*\/?>/gi, '\n')
+                  .replace(/<w:tab\s*\/?>/gi, '\t')
+                  .replace(/<\/w:p>/gi, '\n');
+                const textNodes: string[] = [];
+                const regex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/gi;
+                let match;
+                while ((match = regex.exec(formatted)) !== null) {
+                  textNodes.push(match[1]);
+                }
+                const rawText = textNodes.join('')
+                  .replace(/&lt;/g, '<')
+                  .replace(/&gt;/g, '>')
+                  .replace(/&amp;/g, '&')
+                  .replace(/&quot;/g, '"')
+                  .replace(/&apos;/g, "'");
+                const cleanText = rawText.replace(/\n{3,}/g, '\n\n').trim();
+                resolve(cleanText);
+              } catch (e) {
+                reject(e);
+              }
+            });
+            readStream.on('error', reject);
+          });
+        } else {
+          zipfile.readEntry();
+        }
+      });
+
+      zipfile.on('end', () => {
+        if (!foundDocumentXml) {
+          resolve('');
+        }
+      });
+      zipfile.on('error', reject);
+    });
+  });
+}
+
+export interface StudioSkill {
+  id: string;
+  name: string;
+  category: 'Engineering' | 'Testing & QA' | 'Security' | 'Documentation' | 'Frontend & Design' | 'Custom';
+  badge: string;
+  description: string;
+  instructions: string;
+  icon?: string;
+  isCustom?: boolean;
+}
+
+export const PREBUILT_STUDIO_SKILLS: StudioSkill[] = [
+  {
+    id: 'skill_senior_architect',
+    name: 'Senior Code Architect',
+    category: 'Engineering',
+    badge: 'Core Architecture',
+    description: 'Principal software engineering directives: modularity, clean architecture, SOLID principles, type safety, and maintainable systems.',
+    instructions: 'Act as a Principal Software Architect. Always structure solutions with clean separation of concerns, strict type safety, idiomatic conventions, defensive programming, and optimal performance. Avoid monolithic functions and antipatterns. Provide production-ready, complete code.',
+    icon: 'Cpu',
+  },
+  {
+    id: 'skill_test_specialist',
+    name: 'Test Suite Specialist',
+    category: 'Testing & QA',
+    badge: '100% Coverage',
+    description: 'Automated test generation with rigorous edge-case coverage, integration flows, boundary conditions, and mock invariants.',
+    instructions: 'Act as a Lead Quality & Verification Engineer. Identify edge cases, boundary conditions, race conditions, failure modes, and concurrency issues. Provide idiomatic test suites (Jest/Vitest/Playwright/PyTest) with deterministic mocking and unambiguous assertions.',
+    icon: 'ShieldCheck',
+  },
+  {
+    id: 'skill_security_auditor',
+    name: 'Security Auditor',
+    category: 'Security',
+    badge: 'OWASP / Threat Model',
+    description: 'Deep security inspection for injection risks, authentication bypasses, broken authorization, unvalidated inputs, and secret leakage.',
+    instructions: 'Act as a Senior Application Security Engineer. Audit all architectures and code snippets for OWASP Top 10 vulnerabilities, authentication bypass, BOLA, SQL/command injection, secret exposure, and insecure dependencies. Provide threat modeling and concrete mitigation diffs.',
+    icon: 'Lock',
+  },
+  {
+    id: 'skill_diff_engineer',
+    name: 'Surgical Diff Engineer',
+    category: 'Engineering',
+    badge: 'Minimal Footprint',
+    description: 'High-precision refactoring engine producing minimal-footprint diffs while preserving existing comments, contracts, and style.',
+    instructions: 'Act as a Surgical Refactoring Specialist. When modifying existing code, produce minimal, targeted, and high-precision changes that preserve existing public contracts, comments, docstrings, and styling. Never regenerate untouched files or make gratuitous stylistic churn.',
+    icon: 'Code',
+  },
+  {
+    id: 'skill_docs_writer',
+    name: 'Documentation Writer',
+    category: 'Documentation',
+    badge: 'Technical Docs',
+    description: 'Principal documentation generator for developer portals, OpenAPI specifications, architecture decision records, and markdown guides.',
+    instructions: 'Act as a Principal Technical Writer. Produce clear, developer-friendly documentation with accurate code snippets, step-by-step setup guides, schema descriptions, request/response payloads, and troubleshooting instructions.',
+    icon: 'BookOpen',
+  },
+  {
+    id: 'skill_ui_engineer',
+    name: 'UI/UX & Design Systems',
+    category: 'Frontend & Design',
+    badge: 'Tailwind & Framer',
+    description: 'Senior frontend specialist for accessible UI components, Tailwind CSS composition, micro-interactions, and responsive layouts.',
+    instructions: 'Act as a Senior Frontend & Design Systems Engineer. Design sleek, responsive, and accessible UI interfaces with modern Tailwind CSS, smooth Framer Motion micro-interactions, keyboard accessibility (a11y), and consistent dark/light mode theming.',
+    icon: 'Sparkles',
+  },
+];
 
 export const studioRouter = Router();
 
@@ -574,7 +706,7 @@ studioRouter.get('/memories', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
     const memories = await prisma.studioMemory.findMany({
-      where: { userId },
+      where: { userId, category: { not: 'Skill' } },
       orderBy: { updatedAt: 'desc' },
     });
     return res.json({ success: true, memories });
@@ -660,12 +792,182 @@ studioRouter.delete('/memories', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
     await prisma.studioMemory.deleteMany({
-      where: { userId },
+      where: { userId, category: { not: 'Skill' } },
     });
     return res.json({ success: true, message: 'All memories cleared.' });
   } catch (err: any) {
     console.error('[STUDIO MEMORIES CLEAR ERROR]', err);
     return res.status(500).json({ success: false, error: { message: err.message || 'Failed to clear memories.' } });
+  }
+});
+
+// GET /api/user/studio/skills - List prebuilt and custom skills
+studioRouter.get('/skills', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const dbSkills = await prisma.studioMemory.findMany({
+      where: { userId, category: 'Skill' },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const custom = dbSkills.map((s) => {
+      try {
+        const parsed = JSON.parse(s.fact);
+        return {
+          id: s.id,
+          name: parsed.name || 'Custom Skill',
+          category: parsed.category || 'Custom',
+          badge: parsed.badge || 'Custom',
+          description: parsed.description || '',
+          instructions: parsed.instructions || '',
+          icon: parsed.icon || 'Code',
+          isCustom: true,
+          createdAt: s.createdAt.toISOString(),
+          updatedAt: s.updatedAt.toISOString(),
+        };
+      } catch {
+        return {
+          id: s.id,
+          name: 'Custom Skill',
+          category: 'Custom',
+          badge: 'Custom',
+          description: s.fact.slice(0, 80),
+          instructions: s.fact,
+          icon: 'Code',
+          isCustom: true,
+          createdAt: s.createdAt.toISOString(),
+          updatedAt: s.updatedAt.toISOString(),
+        };
+      }
+    });
+
+    return res.json({
+      success: true,
+      prebuilt: PREBUILT_STUDIO_SKILLS,
+      custom,
+    });
+  } catch (err: any) {
+    console.error('[STUDIO SKILLS GET ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to load skills.' } });
+  }
+});
+
+// POST /api/user/studio/skills - Create custom workspace skill
+studioRouter.post('/skills', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { name, category, badge, description, instructions, icon } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ success: false, error: { message: 'Skill name is required.' } });
+    }
+    if (!instructions || typeof instructions !== 'string' || !instructions.trim()) {
+      return res.status(400).json({ success: false, error: { message: 'Skill instructions/prompt directive is required.' } });
+    }
+
+    const payload = JSON.stringify({
+      name: name.trim().slice(0, 100),
+      category: (category && typeof category === 'string') ? category.trim() : 'Custom',
+      badge: (badge && typeof badge === 'string') ? badge.trim() : 'Custom',
+      description: (description && typeof description === 'string') ? description.trim().slice(0, 300) : '',
+      instructions: instructions.trim().slice(0, 8000),
+      icon: (icon && typeof icon === 'string') ? icon.trim() : 'Code',
+    });
+
+    const memory = await prisma.studioMemory.create({
+      data: {
+        userId,
+        category: 'Skill',
+        fact: payload,
+      },
+    });
+
+    return res.json({
+      success: true,
+      skill: {
+        id: memory.id,
+        name: name.trim(),
+        category: category || 'Custom',
+        badge: badge || 'Custom',
+        description: description || '',
+        instructions: instructions.trim(),
+        icon: icon || 'Code',
+        isCustom: true,
+        createdAt: memory.createdAt.toISOString(),
+        updatedAt: memory.updatedAt.toISOString(),
+      },
+    });
+  } catch (err: any) {
+    console.error('[STUDIO SKILL CREATE ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to create skill.' } });
+  }
+});
+
+// PATCH /api/user/studio/skills/:id - Update custom skill
+studioRouter.patch('/skills/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const { name, category, badge, description, instructions, icon } = req.body;
+
+    const existing = await prisma.studioMemory.findFirst({
+      where: { id, userId, category: 'Skill' },
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, error: { message: 'Custom skill not found.' } });
+    }
+
+    let currentData: any = {};
+    try { currentData = JSON.parse(existing.fact); } catch {}
+
+    const payload = JSON.stringify({
+      name: (name && typeof name === 'string') ? name.trim().slice(0, 100) : (currentData.name || 'Custom Skill'),
+      category: (category && typeof category === 'string') ? category.trim() : (currentData.category || 'Custom'),
+      badge: (badge && typeof badge === 'string') ? badge.trim() : (currentData.badge || 'Custom'),
+      description: (description !== undefined && typeof description === 'string') ? description.trim().slice(0, 300) : (currentData.description || ''),
+      instructions: (instructions && typeof instructions === 'string') ? instructions.trim().slice(0, 8000) : (currentData.instructions || ''),
+      icon: (icon && typeof icon === 'string') ? icon.trim() : (currentData.icon || 'Code'),
+    });
+
+    const updated = await prisma.studioMemory.update({
+      where: { id },
+      data: { fact: payload },
+    });
+
+    return res.json({
+      success: true,
+      skill: {
+        id: updated.id,
+        name: (name && typeof name === 'string') ? name.trim() : currentData.name,
+        category: (category && typeof category === 'string') ? category.trim() : currentData.category,
+        badge: (badge && typeof badge === 'string') ? badge.trim() : currentData.badge,
+        description: (description !== undefined && typeof description === 'string') ? description.trim() : currentData.description,
+        instructions: (instructions && typeof instructions === 'string') ? instructions.trim() : currentData.instructions,
+        icon: (icon && typeof icon === 'string') ? icon.trim() : currentData.icon,
+        isCustom: true,
+        updatedAt: updated.updatedAt.toISOString(),
+      },
+    });
+  } catch (err: any) {
+    console.error('[STUDIO SKILL UPDATE ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to update skill.' } });
+  }
+});
+
+// DELETE /api/user/studio/skills/:id - Delete custom skill
+studioRouter.delete('/skills/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    await prisma.studioMemory.deleteMany({
+      where: { id, userId, category: 'Skill' },
+    });
+
+    return res.json({ success: true, message: 'Skill deleted successfully.' });
+  } catch (err: any) {
+    console.error('[STUDIO SKILL DELETE ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to delete skill.' } });
   }
 });
 
@@ -707,7 +1009,25 @@ studioRouter.post('/upload', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 2. Vision Images
+    // 2. Word (.docx) Documents
+    if (lowerExt === 'docx' || cleanMime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const buffer = Buffer.from(base64Data, 'base64');
+      const docxText = await extractTextFromDocx(buffer);
+      const textSnippet = docxText.slice(0, 150000);
+
+      return res.json({
+        success: true,
+        attachment: {
+          name: sanitizedFileName,
+          type: 'file',
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          size: byteSize,
+          textSnippet,
+        },
+      });
+    }
+
+    // 3. Vision Images
     const imageExtensions = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
     if (imageExtensions.includes(lowerExt) || cleanMime.startsWith('image/')) {
       const supportedImageMime = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(cleanMime)
@@ -726,7 +1046,7 @@ studioRouter.post('/upload', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 3. PDF Documents
+    // 4. PDF Documents
     if (lowerExt === 'pdf' || cleanMime === 'application/pdf') {
       return res.json({
         success: true,
@@ -742,7 +1062,7 @@ studioRouter.post('/upload', async (req: AuthRequest, res: Response) => {
 
     return res.status(415).json({
       success: false,
-      error: { message: `Unsupported file format (.${lowerExt}). Supported formats: PDF, Images (PNG, JPG, WEBP), and Code/Text (TXT, MD, TS, JS, PY, JSON, CSV).` },
+      error: { message: `Unsupported file format (.${lowerExt}). Supported formats: Word (.docx), PDF, Images (PNG, JPG, WEBP), and Code/Text (TXT, MD, TS, JS, PY, JSON, CSV).` },
     });
   } catch (err: any) {
     console.error('[STUDIO FILE UPLOAD ERROR]', err);
@@ -763,6 +1083,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     thinkingEnabled = false,
     tokenSaverEnabled = false,
     memoryEnabled = true,
+    activeSkills = [],
     temperature = 0.2,
     attachments = [],
   } = req.body;
@@ -893,9 +1214,9 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 6. Build Context & Ingest User Persistent Memories
+    // 6. Build Context & Ingest User Persistent Memories & Workspace Skills
     const userMemories = await prisma.studioMemory.findMany({
-      where: { userId },
+      where: { userId, category: { not: 'Skill' } },
       take: 15,
       orderBy: { updatedAt: 'desc' },
     });
@@ -904,6 +1225,28 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     if (memoryEnabled !== false && userMemories.length > 0) {
       const memoryDirectives = userMemories.map((m) => `- [${m.category}]: ${m.fact}`).join('\n');
       effectiveSystemPrompt += `\n\n[USER PROJECT CONTEXT & PREFERENCES]:\n${memoryDirectives}`;
+    }
+
+    if (Array.isArray(activeSkills) && activeSkills.length > 0) {
+      const activePrebuilt = PREBUILT_STUDIO_SKILLS.filter((s) => activeSkills.includes(s.id));
+      const activeCustom = await prisma.studioMemory.findMany({
+        where: { userId, category: 'Skill', id: { in: activeSkills } },
+      });
+      const skillDirectives: string[] = [];
+      activePrebuilt.forEach((s) => {
+        skillDirectives.push(`--- SKILL: ${s.name} (${s.category}) ---\n${s.instructions}`);
+      });
+      activeCustom.forEach((s) => {
+        try {
+          const parsed = JSON.parse(s.fact);
+          skillDirectives.push(`--- CUSTOM SKILL: ${parsed.name} ---\n${parsed.instructions}`);
+        } catch {
+          skillDirectives.push(`--- CUSTOM SKILL ---\n${s.fact}`);
+        }
+      });
+      if (skillDirectives.length > 0) {
+        effectiveSystemPrompt += `\n\n[ACTIVE WORKSPACE SKILLS]:\n${skillDirectives.join('\n\n')}`;
+      }
     }
 
     // Token-Saver Compaction: Calculate estimated character & token savings

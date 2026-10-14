@@ -49,57 +49,59 @@ export const UserDashboardLayout: React.FC = () => {
 
   return (
     <div className={`bg-[#fbfbfa] text-[#111827] flex flex-col font-sans ${isStudio ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen'}`}>
-      {/* Top Header */}
-      <header className="h-14 sm:h-16 border-b border-[#e5e7eb] bg-white sticky top-0 z-40 px-3 sm:px-6 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3.5">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(!mobileNavOpen)}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 md:hidden border border-[#e5e7eb] bg-[#fbfbfa]"
-            aria-label="Toggle Navigation"
-          >
-            {mobileNavOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-          </button>
-
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0f172a] text-white">
-              <Zap className="w-3.5 h-3.5 fill-current text-white" />
-            </div>
-            <div className="flex items-baseline">
-              <span className="text-sm sm:text-base font-bold text-[#111827] tracking-tight">
-                LightningAPI
-              </span>
-              <span className="text-xs text-gray-400 ml-0.5 hidden sm:inline">
-                Console
-              </span>
-            </div>
-          </Link>
-
-          <span className="text-[11px] font-medium text-emerald-800 bg-[#f0fdf4] border border-emerald-200 px-2 py-0.5 rounded hidden sm:inline-flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-            <span>Operational</span>
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <NotificationCenter />
-          <div className="flex items-center gap-2.5 border-l border-[#e5e7eb] pl-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold text-[#111827]">{user?.name || 'Account'}</p>
-              <p className="text-[11px] text-[#6b7280] font-mono">{user?.email}</p>
-            </div>
+      {/* Top Header (omitted in Studio workspace for dedicated full-height experience) */}
+      {!isStudio && (
+        <header className="h-14 sm:h-16 border-b border-[#e5e7eb] bg-white sticky top-0 z-40 px-3 sm:px-6 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3.5">
             <button
               type="button"
-              onClick={handleLogout}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
-              title="Sign Out"
-              aria-label="Sign out"
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 md:hidden border border-[#e5e7eb] bg-[#fbfbfa]"
+              aria-label="Toggle Navigation"
             >
-              <LogOut className="w-4 h-4" />
+              {mobileNavOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
+
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0f172a] text-white">
+                <Zap className="w-3.5 h-3.5 fill-current text-white" />
+              </div>
+              <div className="flex items-baseline">
+                <span className="text-sm sm:text-base font-bold text-[#111827] tracking-tight">
+                  LightningAPI
+                </span>
+                <span className="text-xs text-gray-400 ml-0.5 hidden sm:inline">
+                  Console
+                </span>
+              </div>
+            </Link>
+
+            <span className="text-[11px] font-medium text-emerald-800 bg-[#f0fdf4] border border-emerald-200 px-2 py-0.5 rounded hidden sm:inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+              <span>Operational</span>
+            </span>
           </div>
-        </div>
-      </header>
+
+          <div className="flex items-center gap-3">
+            <NotificationCenter />
+            <div className="flex items-center gap-2.5 border-l border-[#e5e7eb] pl-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-semibold text-[#111827]">{user?.name || 'Account'}</p>
+                <p className="text-[11px] text-[#6b7280] font-mono">{user?.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
+                title="Sign Out"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </header>
+      )}
 
       {/* Main Container */}
       {isStudio ? (

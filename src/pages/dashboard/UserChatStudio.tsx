@@ -55,12 +55,18 @@ import {
   Bug,
   BookOpen,
   Key,
+  Mic,
+  ArrowDown,
+  Command,
+  Info,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { adminFetch, userFetch, getAuthHeaders } from '../../utils/api';
 import { MarkdownBlock } from '../../components/chat/MarkdownBlock';
 import { ArtifactCanvas, ArtifactData } from '../../components/chat/ArtifactCanvas';
 import { ContextManagerDrawer, ProjectMemoryItem } from '../../components/chat/ContextManagerDrawer';
+import { WorkspaceSkillsModal } from '../../components/chat/WorkspaceSkillsModal';
+import { CommandPaletteModal } from '../../components/chat/CommandPaletteModal';
 
 export interface ChatAttachment {
   name: string;
@@ -71,6 +77,33 @@ export interface ChatAttachment {
   textSnippet?: string;
 }
 
+export interface ComparisonResult {
+  modelA: {
+    modelId: string;
+    modelName: string;
+    content: string;
+    thinking?: string;
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+      total_tokens: number;
+    };
+    latencyMs?: number;
+  };
+  modelB: {
+    modelId: string;
+    modelName: string;
+    content: string;
+    thinking?: string;
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+      total_tokens: number;
+    };
+    latencyMs?: number;
+  };
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -78,6 +111,7 @@ export interface ChatMessage {
   attachments?: ChatAttachment[];
   timestamp: number;
   thinking?: string;
+  comparison?: ComparisonResult;
   usage?: {
     input_tokens: number;
     output_tokens: number;
@@ -422,6 +456,147 @@ export const UserChatStudio: React.FC = () => {
 
   const [availableModels, setAvailableModels] = useState<StudioModelMeta[]>(VERIFIED_MODELS);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
+
+  // Workspace Skills Modal State
+  const [isSkillsModalOpen, setIsSkillsModalOpen] = useState(false);
+  const [activeSkillIds, setActiveSkillIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('lightning_studio_active_skills');
+      return saved ? JSON.parse(saved) : ['skill_senior_architect'];
+    } catch {
+      return ['skill_senior_architect'];
+    }
+  });
+
+  const handleToggleSkill = (skillId: string) => {
+    setActiveSkillIds((prev) => {
+      const next = prev.includes(skillId) ? prev.filter((id) => id !== skillId) : [...prev, skillId];
+      localStorage.setItem('lightning_studio_active_skills', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleSetActiveSkillIds = (skillIds: string[]) => {
+    setActiveSkillIds(skillIds);
+    localStorage.setItem('lightning_studio_active_skills', JSON.stringify(skillIds));
+  };
+
+  // Command Palette State (⌘K / Ctrl+K)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Model Comparison Mode
+  const [isComparingModels, setIsComparingModels] = useState(false);
+  const [secondaryModelId, setSecondaryModelId] = useState('claude-3-5-sonnet-20241022');
+
+  // Jump to latest button
+  const [showJumpButton, setShowJumpButton] = useState(false);
+
+  const handleChatScroll = () => {
+    const el = chatScrollContainerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowJumpButton(distFromBottom > 140);
+  };
+
+  // Voice speech dictation (Mic)
+  const [isListening, setIsListening] = useState(false);
+  const speechRecognitionRef = useRef<any>(null);
+
+  const toggleVoiceDictation = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Voice dictation is not supported in this browser. Please use Google Chrome, Edge, or Safari.');
+      return;
+    }
+
+    if (isListening) {
+      speechRecognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            transcript += event.results[i][0].transcript;
+          }
+        }
+        if (transcript) {
+          setPrompt((prev) => (prev ? `${prev} ${transcript.trim()}` : transcript.trim()));
+        }
+      };
+
+      recognition.onerror = (err: any) => {
+        console.warn('[VOICE RECOGNITION ERROR]', err);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      speechRecognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      setIsListening(false);
+    }
+  };
+
+  // Attachment Menu Popover
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+
+  // Branch selection in model comparison
+  const handleSelectComparisonBranch = (msgId: string, branch: 'modelA' | 'modelB') => {
+    setThreads((prev) =>
+      prev.map((t) =>
+        t.id === activeThread.id
+          ? {
+              ...t,
+              messages: t.messages.map((m) => {
+                if (m.id === msgId && m.comparison) {
+                  const chosen = m.comparison[branch];
+                  return {
+                    ...m,
+                    content: chosen.content,
+                    thinking: chosen.thinking,
+                    modelUsed: chosen.modelId,
+                    usage: chosen.usage,
+                    latencyMs: chosen.latencyMs,
+                    comparison: undefined,
+                  };
+                }
+                return m;
+              }),
+            }
+          : t
+      )
+    );
+  };
 
   // 1. Initial Load: User Keys & Server Conversations & Authoritative Models
   useEffect(() => {
@@ -1110,6 +1285,22 @@ export const UserChatStudio: React.FC = () => {
       thinking: '',
       timestamp: Date.now(),
       modelUsed: activeThread.model,
+      comparison: isComparingModels
+        ? {
+            modelA: {
+              modelId: activeThread.model,
+              modelName: getModelDisplayName(activeThread.model),
+              content: '',
+              thinking: '',
+            },
+            modelB: {
+              modelId: secondaryModelId,
+              modelName: getModelDisplayName(secondaryModelId),
+              content: '',
+              thinking: '',
+            },
+          }
+        : undefined,
     };
 
     setThreads((prev) => {
@@ -1167,11 +1358,149 @@ export const UserChatStudio: React.FC = () => {
           thinkingEnabled: activeThread.thinkingEnabled,
           tokenSaverEnabled: activeThread.tokenSaverEnabled,
           memoryEnabled: memoryEnabled,
+          activeSkills: activeSkillIds,
           temperature: activeThread.temperature,
           attachments: userMessage.attachments || [],
         }),
         signal: ctrl.signal,
       });
+
+      let secondaryPromise: Promise<void> | null = null;
+      if (isComparingModels) {
+        secondaryPromise = (async () => {
+          try {
+            const secResponse = await fetch('/api/user/studio/chat/stream', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders },
+              body: JSON.stringify({
+                conversationId: targetThreadId.startsWith('thread_') ? undefined : targetThreadId,
+                apiKeyId: selectedKeyId || undefined,
+                model: secondaryModelId,
+                prompt: promptToSend.trim(),
+                messages: baseMessages,
+                systemPrompt: activeThread.systemPrompt,
+                thinkingEnabled: activeThread.thinkingEnabled,
+                tokenSaverEnabled: activeThread.tokenSaverEnabled,
+                memoryEnabled: memoryEnabled,
+                activeSkills: activeSkillIds,
+                temperature: activeThread.temperature,
+                attachments: userMessage.attachments || [],
+              }),
+              signal: ctrl.signal,
+            });
+
+            if (secResponse.ok && secResponse.body) {
+              const secReader = secResponse.body.getReader();
+              const secDecoder = new TextDecoder();
+              let secBuffer = '';
+              let secContent = '';
+              let secThinking = '';
+
+              while (true) {
+                const { done, value } = await secReader.read();
+                if (done) break;
+                secBuffer += secDecoder.decode(value, { stream: true });
+                const parts = secBuffer.split('\n\n');
+                secBuffer = parts.pop() || '';
+
+                for (const part of parts) {
+                  const lines = part.split('\n');
+                  let eventType = '';
+                  let eventData = '';
+                  for (const l of lines) {
+                    if (l.startsWith('event:')) eventType = l.slice(6).trim();
+                    if (l.startsWith('data:')) eventData = l.slice(5).trim();
+                  }
+                  if (!eventData) continue;
+                  try {
+                    const parsed = JSON.parse(eventData);
+                    if (eventType === 'thinking_delta') {
+                      secThinking += parsed.thinking || '';
+                      setThreads((prev) =>
+                        prev.map((t) =>
+                          t.id === boundThreadId
+                            ? {
+                                ...t,
+                                messages: t.messages.map((m) =>
+                                  m.id === assistantMsgId && m.comparison
+                                    ? {
+                                        ...m,
+                                        comparison: {
+                                          ...m.comparison,
+                                          modelB: {
+                                            ...m.comparison.modelB,
+                                            thinking: secThinking,
+                                          },
+                                        },
+                                      }
+                                    : m
+                                ),
+                              }
+                            : t
+                        )
+                      );
+                    } else if (eventType === 'content_delta') {
+                      secContent += parsed.text || '';
+                      setThreads((prev) =>
+                        prev.map((t) =>
+                          t.id === boundThreadId
+                            ? {
+                                ...t,
+                                messages: t.messages.map((m) =>
+                                  m.id === assistantMsgId && m.comparison
+                                    ? {
+                                        ...m,
+                                        comparison: {
+                                          ...m.comparison,
+                                          modelB: {
+                                            ...m.comparison.modelB,
+                                            content: secContent,
+                                          },
+                                        },
+                                      }
+                                    : m
+                                ),
+                              }
+                            : t
+                        )
+                      );
+                    } else if (eventType === 'done') {
+                      setThreads((prev) =>
+                        prev.map((t) =>
+                          t.id === boundThreadId
+                            ? {
+                                ...t,
+                                messages: t.messages.map((m) =>
+                                  m.id === assistantMsgId && m.comparison
+                                    ? {
+                                        ...m,
+                                        comparison: {
+                                          ...m.comparison,
+                                          modelB: {
+                                            ...m.comparison.modelB,
+                                            content: parsed.result || secContent,
+                                            thinking: parsed.thinking || secThinking || undefined,
+                                            usage: parsed.usage,
+                                            latencyMs: parsed.latencyMs,
+                                          },
+                                        },
+                                      }
+                                    : m
+                                ),
+                              }
+                            : t
+                        )
+                      );
+                    }
+                  } catch {}
+                }
+              }
+            }
+          } catch (secErr) {
+            console.warn('[SECONDARY STREAM ERROR]', secErr);
+          }
+        })();
+      }
 
       if (!response.ok) {
         const errorJson = await response.json().catch(() => ({}));
@@ -1243,7 +1572,20 @@ export const UserChatStudio: React.FC = () => {
                       ? {
                           ...t,
                           messages: t.messages.map((m) =>
-                            m.id === assistantMsgId ? { ...m, thinking: accumulatedThinking } : m
+                            m.id === assistantMsgId
+                              ? m.comparison
+                                ? {
+                                    ...m,
+                                    comparison: {
+                                      ...m.comparison,
+                                      modelA: {
+                                        ...m.comparison.modelA,
+                                        thinking: accumulatedThinking,
+                                      },
+                                    },
+                                  }
+                                : { ...m, thinking: accumulatedThinking }
+                              : m
                           ),
                         }
                       : t
@@ -1257,7 +1599,20 @@ export const UserChatStudio: React.FC = () => {
                       ? {
                           ...t,
                           messages: t.messages.map((m) =>
-                            m.id === assistantMsgId ? { ...m, content: accumulatedContent } : m
+                            m.id === assistantMsgId
+                              ? m.comparison
+                                ? {
+                                    ...m,
+                                    comparison: {
+                                      ...m.comparison,
+                                      modelA: {
+                                        ...m.comparison.modelA,
+                                        content: accumulatedContent,
+                                      },
+                                    },
+                                  }
+                                : { ...m, content: accumulatedContent }
+                              : m
                           ),
                         }
                       : t
@@ -1280,14 +1635,28 @@ export const UserChatStudio: React.FC = () => {
                           ...t,
                           messages: t.messages.map((m) =>
                             m.id === assistantMsgId
-                              ? {
-                                  ...m,
-                                  content: parsed.result || accumulatedContent,
-                                  thinking: parsed.thinking || accumulatedThinking || undefined,
-                                  usage: parsed.usage,
-                                  latencyMs: parsed.latencyMs,
-                                  multiplier: parsed.multiplier,
-                                }
+                              ? m.comparison
+                                ? {
+                                    ...m,
+                                    comparison: {
+                                      ...m.comparison,
+                                      modelA: {
+                                        ...m.comparison.modelA,
+                                        content: parsed.result || accumulatedContent,
+                                        thinking: parsed.thinking || accumulatedThinking || undefined,
+                                        usage: parsed.usage,
+                                        latencyMs: parsed.latencyMs,
+                                      },
+                                    },
+                                  }
+                                : {
+                                    ...m,
+                                    content: parsed.result || accumulatedContent,
+                                    thinking: parsed.thinking || accumulatedThinking || undefined,
+                                    usage: parsed.usage,
+                                    latencyMs: parsed.latencyMs,
+                                    multiplier: parsed.multiplier,
+                                  }
                               : m
                           ),
                         }
@@ -1303,6 +1672,9 @@ export const UserChatStudio: React.FC = () => {
               }
             }
           }
+        }
+        if (secondaryPromise) {
+          await secondaryPromise;
         }
       }
     } catch (err: any) {
@@ -1378,6 +1750,36 @@ export const UserChatStudio: React.FC = () => {
   const remainingTokens = activeKey ? BigInt(activeKey.tokensRemaining || 0) : 0n;
   const remainingTokensM = (Number(remainingTokens) / 1000000).toFixed(2);
 
+  // Token Intelligence metrics for active thread & draft input
+  const threadTokenStats = useMemo(() => {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let savingsTokens = 0;
+
+    for (const msg of activeThread.messages) {
+      if (msg.usage) {
+        inputTokens += msg.usage.input_tokens || 0;
+        outputTokens += msg.usage.output_tokens || 0;
+        savingsTokens += msg.usage.savings_tokens || msg.usage.estimated_savings_tokens || 0;
+      }
+    }
+
+    const estimatedDraftTokens = Math.ceil((inputMessage.trim().length || 0) / 4);
+    const totalContextTokens = inputTokens + outputTokens + estimatedDraftTokens;
+    const contextLimit = activeModelMeta?.contextWindow || 200000;
+    const contextPercent = Math.min(100, Number(((totalContextTokens / contextLimit) * 100).toFixed(1)));
+
+    return {
+      inputTokens,
+      outputTokens,
+      totalContextTokens,
+      savingsTokens,
+      contextLimit,
+      contextPercent,
+      estimatedDraftTokens,
+    };
+  }, [activeThread.messages, inputMessage, activeModelMeta]);
+
   // Style Tokens & Palettes
   const c = {
     bg: isDark ? 'bg-[#0B0F19]' : 'bg-[#F8FAFC]',
@@ -1413,44 +1815,107 @@ export const UserChatStudio: React.FC = () => {
         </div>
       )}
 
-      {/* Main Studio Header */}
-      <header className={`h-14 px-4 ${c.headerBg} flex items-center justify-between shrink-0 text-xs z-20 backdrop-blur-md sticky top-0`}>
-        {/* Left: Back to Dashboard, Sidebar Toggle, Active Model Badge, Token Balance */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Link
-            to="/dashboard"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-              isDark
-                ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700 hover:text-white'
-                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 hover:text-slate-900 shadow-2xs'
-            }`}
-            title="Return to Customer Dashboard"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Link>
-
+      {/* Main Studio 3.0 Workspace Header */}
+      <header className={`h-14 px-3 sm:px-4 ${c.headerBg} flex items-center justify-between shrink-0 text-xs z-20 backdrop-blur-md sticky top-0 gap-2`}>
+        {/* Left: Sidebar Toggle, Workspace Brand/Selector, Command Bar, Navigation Tabs */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${c.pillBg} hover:opacity-100`}
+            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${c.pillBg} hover:opacity-100 shrink-0`}
             title={sidebarOpen ? 'Hide Sessions Sidebar' : 'Show Sessions Sidebar'}
           >
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
           </button>
 
-          {/* Model Selector Trigger Button in Header */}
+          {/* Workspace Selector Dropdown Pill */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-100/80 dark:bg-gray-800/60 font-semibold text-xs text-gray-700 dark:text-gray-300">
+            <span className="w-2 h-2 rounded-full bg-violet-600" />
+            <span>My Workspace</span>
+          </div>
+
+          {/* Quick Search Command Bar (⌘K) */}
+          <button
+            type="button"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className="flex items-center gap-2 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1a1a1e] text-gray-500 dark:text-gray-400 hover:border-violet-500/50 hover:text-gray-900 dark:hover:text-gray-100 transition-all text-xs cursor-pointer shadow-2xs"
+            title="Quick Command Bar (Ctrl+K or ⌘K)"
+          >
+            <Search className="w-3.5 h-3.5 text-violet-500" />
+            <span className="hidden sm:inline">Search commands...</span>
+            <kbd className="hidden sm:inline px-1.5 py-0.2 rounded text-[10px] font-mono bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400">
+              ⌘K
+            </kbd>
+          </button>
+
+          {/* Navigation Pills: Chat, Skills, Canvas */}
+          <div className="flex items-center gap-1 border-l border-gray-200 dark:border-gray-800 pl-2">
+            <button
+              type="button"
+              className="px-2.5 py-1 rounded-lg font-semibold text-xs bg-violet-600 text-white shadow-2xs cursor-pointer"
+            >
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSkillsModalOpen(true)}
+              className="px-2.5 py-1 rounded-lg font-medium text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Sparkles className="w-3 h-3 text-violet-500" />
+              <span>Skills</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300">
+                {activeSkillIds.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (activeArtifact) {
+                  setActiveArtifact(null);
+                } else {
+                  setActiveArtifact({
+                    id: 'studio_canvas',
+                    title: 'Interactive Studio Canvas',
+                    language: 'html',
+                    code: `<div style="font-family:system-ui;padding:24px;text-align:center;">
+  <h2 style="color:#7c3aed;margin-bottom:8px;">Live Sandboxed Preview</h2>
+  <p style="color:#64748b;font-size:14px;">Any code generated by Claude can be rendered live here in real time.</p>
+</div>`,
+                    type: 'html',
+                  });
+                }
+              }}
+              className={`px-2.5 py-1 rounded-lg font-medium text-xs transition-colors hidden md:flex items-center gap-1 cursor-pointer ${
+                activeArtifact
+                  ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/30'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <Layers className="w-3 h-3" />
+              <span>Canvas</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Right: Model Selector, API Key Switcher, Thinking, Token-Saver, Theme, Dashboard */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Model Selector Trigger Button */}
           <button
             type="button"
             onClick={() => setModelPickerOpen(true)}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300 font-semibold text-xs hover:bg-violet-500/20 transition-all cursor-pointer"
           >
             <Sparkles className="w-3 h-3 text-violet-500" />
-            <span className="truncate max-w-[130px] sm:max-w-none">{getModelDisplayName(activeThread.model)}</span>
+            <span className="truncate max-w-[110px] sm:max-w-none">{getModelDisplayName(activeThread.model)}</span>
+            {isComparingModels && (
+              <span className="hidden lg:inline text-[9px] font-mono px-1 py-0.2 bg-violet-500/20 rounded text-violet-500 font-bold">
+                vs {getModelDisplayName(secondaryModelId).split(' ')[1] || 'Model B'}
+              </span>
+            )}
             <ChevronDown className="w-3 h-3 opacity-60" />
           </button>
 
-          {/* Key Selector & Balance Button in Header */}
+          {/* Key Selector & Balance Button */}
           <button
             type="button"
             onClick={() => setKeyPickerOpen(true)}
@@ -1464,12 +1929,12 @@ export const UserChatStudio: React.FC = () => {
             title="Switch active API Key or view token balance"
           >
             <Key className="w-3 h-3 opacity-80" />
-            <span className="font-sans font-semibold max-w-[110px] truncate text-[11px]">
+            <span className="font-sans font-semibold max-w-[90px] truncate text-[11px]">
               {activeKey?.name || activeKey?.displayKey || 'API Key'}
             </span>
             <span className="opacity-40">|</span>
             <span className="font-bold text-[11px]">
-              {Number(remainingTokens) <= 0 ? '0 (Depleted)' : `${remainingTokensM}M`}
+              {Number(remainingTokens) <= 0 ? '0' : `${remainingTokensM}M`}
             </span>
             <ChevronDown className="w-2.5 h-2.5 opacity-60 ml-0.5" />
           </button>
@@ -1736,6 +2201,7 @@ export const UserChatStudio: React.FC = () => {
           {/* Scrollable Message Area */}
           <div
             ref={chatScrollContainerRef}
+            onScroll={handleChatScroll}
             className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 overscroll-contain"
           >
             <div className="max-w-4xl mx-auto w-full space-y-6">
@@ -1889,6 +2355,135 @@ export const UserChatStudio: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                    ) : msg.comparison ? (
+                      /* Side-by-Side Model Comparison Dual Column View */
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs px-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Model Comparison Mode</span>
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300">
+                              {msg.comparison.modelA.modelName} vs {msg.comparison.modelB.modelName}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Column A: Primary Model */}
+                          <div className={`p-4 rounded-2xl border shadow-2xs flex flex-col justify-between ${c.cardBg} ${c.border}`}>
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between pb-2 border-b border-black/5 dark:border-white/5">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-md bg-violet-600/20 text-violet-600 dark:text-violet-400 flex items-center justify-center font-bold text-[10px]">
+                                    A
+                                  </div>
+                                  <span className="font-bold text-xs">{msg.comparison.modelA.modelName}</span>
+                                </div>
+                                {msg.comparison.modelA.latencyMs ? (
+                                  <span className={`text-[10px] font-mono ${c.textMuted}`}>
+                                    {msg.comparison.modelA.latencyMs}ms
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              {msg.comparison.modelA.thinking && (
+                                <details className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+                                  <summary className="font-semibold text-amber-600 dark:text-amber-400 cursor-pointer select-none text-[11px]">
+                                    Reasoning Process
+                                  </summary>
+                                  <div className="mt-1 text-[11px] font-mono whitespace-pre-wrap">
+                                    {msg.comparison.modelA.thinking}
+                                  </div>
+                                </details>
+                              )}
+
+                              <div>
+                                {msg.comparison.modelA.content ? (
+                                  <MarkdownBlock content={msg.comparison.modelA.content} />
+                                ) : (
+                                  <div className="flex items-center gap-2 text-slate-400 text-xs py-2 font-mono">
+                                    <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+                                    <span>Generating {msg.comparison.modelA.modelName}...</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
+                              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                                {msg.comparison.modelA.usage?.total_tokens
+                                  ? `${msg.comparison.modelA.usage.total_tokens.toLocaleString()} tokens`
+                                  : ''}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectComparisonBranch(msg.id, 'modelA')}
+                                className="px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-2xs"
+                              >
+                                Select this answer
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Column B: Secondary Model */}
+                          <div className={`p-4 rounded-2xl border shadow-2xs flex flex-col justify-between ${c.cardBg} ${c.border}`}>
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between pb-2 border-b border-black/5 dark:border-white/5">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-md bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-[10px]">
+                                    B
+                                  </div>
+                                  <span className="font-bold text-xs">{msg.comparison.modelB.modelName}</span>
+                                </div>
+                                {msg.comparison.modelB.latencyMs ? (
+                                  <span className={`text-[10px] font-mono ${c.textMuted}`}>
+                                    {msg.comparison.modelB.latencyMs}ms
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              {msg.comparison.modelB.thinking && (
+                                <details className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+                                  <summary className="font-semibold text-amber-600 dark:text-amber-400 cursor-pointer select-none text-[11px]">
+                                    Reasoning Process
+                                  </summary>
+                                  <div className="mt-1 text-[11px] font-mono whitespace-pre-wrap">
+                                    {msg.comparison.modelB.thinking}
+                                  </div>
+                                </details>
+                              )}
+
+                              <div>
+                                {msg.comparison.modelB.content ? (
+                                  <MarkdownBlock content={msg.comparison.modelB.content} />
+                                ) : (
+                                  <div className="flex items-center gap-2 text-slate-400 text-xs py-2 font-mono">
+                                    <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                                    <span>Generating {msg.comparison.modelB.modelName}...</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
+                              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                                {msg.comparison.modelB.usage?.total_tokens
+                                  ? `${msg.comparison.modelB.usage.total_tokens.toLocaleString()} tokens`
+                                  : ''}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectComparisonBranch(msg.id, 'modelB')}
+                                className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-2xs"
+                              >
+                                Select this answer
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       /* Assistant Message Bubble */
                       <div className="space-y-2">
@@ -2021,6 +2616,18 @@ export const UserChatStudio: React.FC = () => {
             </div>
           </div>
 
+          {/* Floating Jump to Latest Button */}
+          {showJumpButton && (
+            <button
+              type="button"
+              onClick={() => scrollToBottom('smooth')}
+              className="absolute bottom-28 right-8 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1f1f23] border border-gray-300 dark:border-gray-700 shadow-xl text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
+            >
+              <ArrowDown className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+              <span>Jump to latest</span>
+            </button>
+          )}
+
           {/* Floating Pill Composer (Claude.ai 3.5 & ChatGPT Standard) */}
           <div className="p-4 shrink-0 bg-gradient-to-t from-current/5 to-transparent">
             <div className={`max-w-4xl mx-auto rounded-3xl border shadow-lg transition-all ${c.inputBg} ${c.border} ${
@@ -2143,19 +2750,113 @@ export const UserChatStudio: React.FC = () => {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.ts,.tsx,.js,.py,.json,.md,.csv,.sql"
+                    accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.txt,.ts,.tsx,.js,.py,.json,.md,.csv,.sql"
                     className="hidden"
                     onChange={(e) => handleFilesSelected(e.target.files)}
                   />
 
-                  {/* Attach Button */}
+                  {/* Attachment '+' Popover Menu */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                      className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                        showAttachmentMenu
+                          ? 'bg-violet-600 text-white border-violet-500 shadow-2xs'
+                          : `${c.pillBg} hover:opacity-100`
+                      }`}
+                      title="Add document, image, or open tools"
+                    >
+                      <Plus className={`w-4 h-4 transition-transform duration-200 ${showAttachmentMenu ? 'rotate-45' : ''}`} />
+                    </button>
+
+                    {showAttachmentMenu && (
+                      <div className={`absolute bottom-full left-0 mb-2 w-56 rounded-2xl border shadow-2xl p-1.5 space-y-1 z-30 ${c.cardBg} ${c.border} animate-in fade-in slide-in-from-bottom-2 duration-150`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachmentMenu(false);
+                            fileInputRef.current?.click();
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <FileText className="w-4 h-4 text-violet-500 shrink-0" />
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">Upload Document</p>
+                            <p className={`text-[10px] ${c.textMuted}`}>Word .docx, PDF, Code, CSV, TXT</p>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachmentMenu(false);
+                            fileInputRef.current?.click();
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <ImageIcon className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">Upload Photos / Vision</p>
+                            <p className={`text-[10px] ${c.textMuted}`}>PNG, JPG, WEBP screenshots</p>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachmentMenu(false);
+                            if (!activeArtifact) {
+                              setActiveArtifact({
+                                id: 'canvas_quick',
+                                title: 'Scratchpad Canvas',
+                                language: 'typescript',
+                                code: '// Interactive coding & document canvas\n',
+                                type: 'code',
+                              });
+                            } else {
+                              setActiveArtifact(null);
+                            }
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">Toggle Canvas</p>
+                            <p className={`text-[10px] ${c.textMuted}`}>Split code & doc preview</p>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttachmentMenu(false);
+                            setContextManagerOpen(true);
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <SlidersHorizontal className="w-4 h-4 text-amber-500 shrink-0" />
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">Token & Cost Inspector</p>
+                            <p className={`text-[10px] ${c.textMuted}`}>View usage, savings & memory</p>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Voice Dictation (Mic) */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${c.pillBg} hover:opacity-100`}
-                    title="Attach PDF, code, or image (Max 25MB)"
+                    onClick={toggleVoiceDictation}
+                    className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                      isListening
+                        ? 'bg-rose-500/20 border-rose-500 text-rose-500 animate-pulse'
+                        : `${c.pillBg} hover:opacity-100`
+                    }`}
+                    title={isListening ? 'Listening... click to stop' : 'Voice Dictation (Speech-to-Text)'}
                   >
-                    <Paperclip className="w-4 h-4" />
+                    <Mic className={`w-4 h-4 ${isListening ? 'fill-current text-rose-500' : ''}`} />
                   </button>
 
                   {/* Prompt Enhancer (✨) */}
@@ -2204,6 +2905,42 @@ export const UserChatStudio: React.FC = () => {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Live Token Intelligence Bar */}
+            <div className="mt-2 px-2 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                  <span>~{threadTokenStats.inputTokens.toLocaleString()} in</span>
+                </span>
+                <span>·</span>
+                <span>{threadTokenStats.outputTokens.toLocaleString()} out</span>
+                <span>·</span>
+                <span className={Number(remainingTokens) <= 0 ? 'text-rose-500 font-bold' : ''}>
+                  {Number(remainingTokens) <= 0 ? '0 remaining' : `${remainingTokensM}M remaining`}
+                </span>
+                <span>·</span>
+                <span>~{threadTokenStats.contextPercent}% of context ({Math.round(threadTokenStats.contextLimit / 1000)}k)</span>
+                <span>·</span>
+                <span className="text-violet-600 dark:text-violet-400 font-semibold">{activeModelMeta?.tokenMultiplier || 1.0}x rate</span>
+                {threadTokenStats.savingsTokens > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">⚡ ~{threadTokenStats.savingsTokens.toLocaleString()} saved</span>
+                  </>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setContextManagerOpen(true)}
+                className="hover:text-violet-500 flex items-center gap-1 text-[10px] cursor-pointer transition-colors"
+                title="View full token & quota inspector"
+              >
+                <span>Details</span>
+                <Info className="w-3 h-3" />
+              </button>
             </div>
           </div>
         </div>
@@ -2329,6 +3066,47 @@ export const UserChatStudio: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Model Comparison Toggle Footer */}
+            <div className="p-3 border-t border-black/5 dark:border-white/5 bg-violet-500/5 dark:bg-violet-950/20 flex flex-col gap-2.5 shrink-0">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-900 dark:text-gray-100">
+                  <input
+                    type="checkbox"
+                    checked={isComparingModels}
+                    onChange={(e) => setIsComparingModels(e.target.checked)}
+                    className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 accent-violet-600 cursor-pointer"
+                  />
+                  <span>Compare with a second model side-by-side</span>
+                </label>
+                {isComparingModels && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-600 text-white font-bold">
+                    Split Mode Active
+                  </span>
+                )}
+              </div>
+
+              {isComparingModels && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1 border-t border-violet-500/10 text-xs">
+                  <span className="text-gray-500 dark:text-gray-400 font-medium text-[11px]">Secondary Model:</span>
+                  <select
+                    value={secondaryModelId}
+                    onChange={(e) => setSecondaryModelId(e.target.value)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-violet-500 ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  >
+                    {availableModels
+                      .filter((m) => m.id !== activeThread.model)
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.contextWindow >= 1000000 ? '1M' : '200k'} · {m.tokenMultiplier}x)
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2535,6 +3313,52 @@ export const UserChatStudio: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Workspace Skills Modal */}
+      <WorkspaceSkillsModal
+        isOpen={isSkillsModalOpen}
+        onClose={() => setIsSkillsModalOpen(false)}
+        activeSkillIds={activeSkillIds}
+        onToggleSkill={handleToggleSkill}
+        onSetActiveSkillIds={handleSetActiveSkillIds}
+      />
+
+      {/* Command Palette Modal (⌘K / Ctrl+K) */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        threads={threads}
+        activeThreadId={activeThreadId}
+        onSelectThread={(id) => {
+          setActiveThreadId(id);
+          loadConversationMessages(id);
+        }}
+        onNewChat={handleCreateNewThread}
+        models={availableModels}
+        currentModelId={activeThread.model}
+        onSelectModel={(id) => updateActiveThread({ model: id })}
+        onOpenSkills={() => setIsSkillsModalOpen(true)}
+        onOpenCanvas={() =>
+          setActiveArtifact({
+            id: 'canvas_quick',
+            title: 'Interactive Studio Canvas',
+            language: 'html',
+            code: '',
+            type: 'html',
+          })
+        }
+        onOpenKeySwitcher={() => setKeyPickerOpen(true)}
+        onToggleThinking={() =>
+          updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled })
+        }
+        thinkingEnabled={Boolean(activeThread.thinkingEnabled)}
+        onToggleTokenSaver={() =>
+          updateActiveThread({ tokenSaverEnabled: !activeThread.tokenSaverEnabled })
+        }
+        tokenSaverEnabled={Boolean(activeThread.tokenSaverEnabled)}
+        onToggleTheme={toggleTheme}
+        isDarkTheme={isDark}
+      />
     </div>
   );
 

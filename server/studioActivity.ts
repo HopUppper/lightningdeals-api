@@ -14,6 +14,7 @@ export interface StudioActivityEvent {
     | 'understanding_request'
     | 'preparing_operation'
     | 'opening_url'
+    | 'extracting_content'
     | 'inspecting_navigation'
     | 'checking_registration'
     | 'analyzing_form'

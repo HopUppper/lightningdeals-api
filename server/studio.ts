@@ -1689,8 +1689,6 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       sendSse('error', { message: safeErrMsg });
       return res.end();
     }
-      return res.end();
-    }
 
     // 10. Stream Chunks to Client & Buffer for DB Persistence
     const reader = upstreamRes.body?.getReader();

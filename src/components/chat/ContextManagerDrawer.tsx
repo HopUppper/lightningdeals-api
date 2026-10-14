@@ -35,6 +35,8 @@ interface ContextManagerDrawerProps {
   totalContextTokens: number;
   messagesCount: number;
   isPaidCustomer: boolean;
+  onAddMemory?: (category: string, fact: string) => Promise<void>;
+  onRemoveMemory?: (id: string) => Promise<void>;
   onUpdateSettings: (updates: {
     persona?: string;
     systemPrompt?: string;
@@ -98,6 +100,8 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   totalContextTokens,
   messagesCount,
   isPaidCustomer,
+  onAddMemory,
+  onRemoveMemory,
   onUpdateSettings,
   onCompressContext,
   isCompressing,
@@ -105,28 +109,42 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   const [activeTab, setActiveTab] = useState<'memory' | 'persona' | 'parameters'>('memory');
   const [newCategory, setNewCategory] = useState('Tech Stack');
   const [newFact, setNewFact] = useState('');
+  const [isSavingMemory, setIsSavingMemory] = useState(false);
 
   if (!open) return null;
 
   const contextLimit = 200000;
   const contextPercent = Math.min(100, Math.round((totalContextTokens / contextLimit) * 100));
 
-  const handleAddMemory = (e: React.FormEvent) => {
+  const handleAddMemory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFact.trim()) return;
 
-    const newItem: ProjectMemoryItem = {
-      id: `mem_${Date.now()}`,
-      category: newCategory.trim() || 'General',
-      fact: newFact.trim(),
-    };
-
-    onUpdateSettings({ memoryItems: [...memoryItems, newItem] });
-    setNewFact('');
+    if (onAddMemory) {
+      try {
+        setIsSavingMemory(true);
+        await onAddMemory(newCategory.trim() || 'General', newFact.trim());
+        setNewFact('');
+      } finally {
+        setIsSavingMemory(false);
+      }
+    } else {
+      const newItem: ProjectMemoryItem = {
+        id: `mem_${Date.now()}`,
+        category: newCategory.trim() || 'General',
+        fact: newFact.trim(),
+      };
+      onUpdateSettings({ memoryItems: [...memoryItems, newItem] });
+      setNewFact('');
+    }
   };
 
-  const handleRemoveMemory = (id: string) => {
-    onUpdateSettings({ memoryItems: memoryItems.filter((m) => m.id !== id) });
+  const handleRemoveMemory = async (id: string) => {
+    if (onRemoveMemory) {
+      await onRemoveMemory(id);
+    } else {
+      onUpdateSettings({ memoryItems: memoryItems.filter((m) => m.id !== id) });
+    }
   };
 
   const handleSelectPreset = (p: (typeof PERSONA_PRESETS)[0]) => {

@@ -10,6 +10,7 @@ import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountT
 import adminRouter from './admin';
 import adminAuthRouter from './adminAuth';
 import userRouter from './user';
+import { studioRouter } from './studio';
 import { prisma } from './db';
 import { globalErrorHandler, NotFoundError } from './errors';
 import { recordPageview, handleAnalyticsBeacon } from './analyticsTracker';
@@ -228,6 +229,7 @@ app.post('/api/webhooks/payment', handlePaymentWebhook);
 app.post('/api/webhooks/payu', handlePaymentWebhook);
 app.post('/api/webhooks/cashfree', handlePaymentWebhook);
 
+app.use('/api/user/studio', studioRouter);
 app.use('/api/user', userRouter);
 app.use('/api', userRouter);
 app.use('/api/admin', adminRouter);

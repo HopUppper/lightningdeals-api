@@ -12,6 +12,8 @@ import {
   ExternalLink,
   Layers,
   Sparkles,
+  Edit3,
+  Play,
 } from 'lucide-react';
 
 export interface ArtifactData {
@@ -32,8 +34,18 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedCode, setEditedCode] = useState(artifact?.code || '');
+
+  React.useEffect(() => {
+    if (artifact?.code) {
+      setEditedCode(artifact.code);
+    }
+  }, [artifact?.code]);
 
   if (!artifact) return null;
+
+  const effectiveCode = isEditing ? editedCode : artifact.code;
 
   const isPreviewable =
     artifact.language === 'html' ||
@@ -46,14 +58,14 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
   const currentTab = isPreviewable ? activeTab : 'code';
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(artifact.code);
+    navigator.clipboard.writeText(effectiveCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownload = () => {
     const ext = getExtension(artifact.language);
-    const blob = new Blob([artifact.code], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([effectiveCode], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -62,7 +74,13 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
     URL.revokeObjectURL(url);
   };
 
-  const lines = artifact.code.split('\n');
+  const handleApplyAndPreview = () => {
+    setIsEditing(false);
+    setActiveTab('preview');
+    setPreviewKey((k) => k + 1);
+  };
+
+  const lines = effectiveCode.split('\n');
 
   // Generate safe sandboxed HTML for live preview
   const generatePreviewDoc = () => {
@@ -77,7 +95,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
   </style>
 </head>
 <body>
-  ${artifact.code}
+  ${effectiveCode}
 </body>
 </html>`;
     }
@@ -93,30 +111,27 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 p-6 min-h-screen">
-  ${artifact.code}
+  ${effectiveCode}
 </body>
 </html>`;
   };
 
   return (
     <div
-      className={`flex flex-col bg-[#0b0f19] border-l border-slate-800 transition-all duration-300 z-30 ${
-        isFullscreen
-          ? 'fixed inset-0 w-screen h-screen z-50'
-          : 'w-full lg:w-[480px] xl:w-[560px] h-full shrink-0 shadow-2xl'
+      className={`flex flex-col h-full bg-[#0b0f19] text-slate-100 font-sans border-l border-slate-800 transition-all ${
+        isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen' : 'w-full'
       }`}
     >
       {/* Canvas Top Bar */}
-      <div className="h-13 px-4 bg-[#0e1424] border-b border-slate-800/80 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-xs shrink-0">
-            <Sparkles className="w-3.5 h-3.5" />
+      <div className="h-13 px-4 bg-[#0e1424] border-b border-slate-800 flex items-center justify-between shrink-0 select-none">
+        {/* Left: Artifact metadata */}
+        <div className="flex items-center gap-2.5 min-w-0 mr-2">
+          <div className="w-6 h-6 rounded-lg bg-violet-600/20 text-violet-400 flex items-center justify-center font-bold text-xs shrink-0">
+            <Layers className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="text-xs font-bold text-slate-100 truncate max-w-[180px] sm:max-w-[240px]">
-                {artifact.title || 'Interactive Canvas'}
-              </h3>
+              <span className="font-bold text-xs text-white truncate">{artifact.title}</span>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30 uppercase shrink-0">
                 {artifact.language}
               </span>
@@ -153,6 +168,29 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
                 <span>Code</span>
               </button>
             </div>
+          )}
+
+          {/* Edit / View Code toggle button */}
+          {currentTab === 'code' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (isEditing) {
+                  handleApplyAndPreview();
+                } else {
+                  setIsEditing(true);
+                }
+              }}
+              className={`p-1.5 px-2 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                isEditing
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60'
+              }`}
+              title={isEditing ? 'Save and preview changes' : 'Edit code in canvas'}
+            >
+              {isEditing ? <Play className="w-3 h-3 fill-current" /> : <Edit3 className="w-3 h-3" />}
+              <span>{isEditing ? 'Apply & Run' : 'Edit'}</span>
+            </button>
           )}
 
           {isPreviewable && currentTab === 'preview' && (
@@ -224,7 +262,28 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
               <span>{lines.length} lines</span>
             </div>
           </div>
+        ) : isEditing ? (
+          /* Live Code Editor */
+          <div className="w-full h-full flex flex-col bg-[#090d16]">
+            <textarea
+              value={editedCode}
+              onChange={(e) => setEditedCode(e.target.value)}
+              spellCheck={false}
+              className="w-full flex-1 font-mono text-xs leading-relaxed p-4 bg-transparent text-slate-100 focus:outline-none resize-none select-text"
+            />
+            <div className="px-3 py-1.5 bg-[#0e1424] border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+              <span className="text-amber-400">Editing Mode Active</span>
+              <button
+                type="button"
+                onClick={handleApplyAndPreview}
+                className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] cursor-pointer"
+              >
+                Apply & Preview
+              </button>
+            </div>
+          </div>
         ) : (
+          /* High-Contrast Code Line View */
           <div className="w-full h-full overflow-auto p-4 font-mono text-xs leading-relaxed select-text">
             <table className="w-full border-collapse">
               <tbody>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Bot,
   Send,
@@ -47,23 +47,30 @@ import {
   ArrowLeft,
   CheckCircle2,
   Loader2,
+  Pin,
+  PinOff,
+  Calendar,
+  Table,
+  Scale,
+  Bug,
+  BookOpen,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { adminFetch } from '../../utils/api';
+import { adminFetch, userFetch, getAuthHeaders } from '../../utils/api';
 import { MarkdownBlock } from '../../components/chat/MarkdownBlock';
 import { ArtifactCanvas, ArtifactData } from '../../components/chat/ArtifactCanvas';
 import { ContextManagerDrawer, ProjectMemoryItem } from '../../components/chat/ContextManagerDrawer';
 
-interface ChatAttachment {
+export interface ChatAttachment {
   name: string;
   type: 'image' | 'file' | 'document';
   mimeType: string;
-  sizeBytes: number;
+  sizeBytes?: number;
   dataBase64?: string;
   textSnippet?: string;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
@@ -74,177 +81,165 @@ interface ChatMessage {
     input_tokens: number;
     output_tokens: number;
     total_tokens: number;
+    savings_tokens?: number;
   };
+  multiplier?: number;
   latencyMs?: number;
   modelUsed?: string;
   isError?: boolean;
 }
 
-interface ChatThread {
+export interface ChatThread {
   id: string;
   title: string;
   model: string;
-  persona?: string;
+  pinned?: boolean;
   systemPrompt?: string;
   temperature?: number;
-  maxTokens?: number;
   thinkingEnabled?: boolean;
-  thinkingBudget?: number;
   tokenSaverEnabled?: boolean;
-  memoryItems?: ProjectMemoryItem[];
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
+  messagesLoaded?: boolean;
 }
 
-export interface StudioModelOption {
+export interface StudioModelMeta {
   id: string;
   name: string;
-  category: 'Flagship 5.5 & 5.0 Series' | 'Extended Thinking & Reasoning' | 'IDE & High-Velocity Series' | 'Standard Anthropic Series';
+  category: string;
   badge: string;
-  tokenMultiplier: string;
-  color: string;
   description: string;
+  tokenMultiplier: number;
+  contextWindow: number;
+  supportsThinking: boolean;
+  supportsVision: boolean;
+  supportsTools: boolean;
+  isAvailable: boolean;
 }
 
-const MODEL_OPTIONS: StudioModelOption[] = [
-  // ── Flagship 5.5 & 5.0 Series ──
+export const VERIFIED_MODELS: StudioModelMeta[] = [
   {
     id: 'claude-sonnet-5.5',
     name: 'Claude Sonnet 5.5',
-    category: 'Flagship 5.5 & 5.0 Series',
-    badge: 'Flagship Autonomous Coding & Engineering',
-    tokenMultiplier: '1x Token Baseline',
-    color: 'text-violet-500',
-    description: 'Premier agentic coding model for Cursor, Claude Code, and Windsurf',
+    category: 'Flagship Models',
+    badge: 'Recommended',
+    description: 'Premier agentic model for fullstack coding, multi-file synthesis, and autonomous engineering.',
+    tokenMultiplier: 1.0,
+    contextWindow: 1000000,
+    supportsThinking: true,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
   {
     id: 'claude-opus-5.5',
     name: 'Claude Opus 5.5',
-    category: 'Flagship 5.5 & 5.0 Series',
-    badge: 'Cognitive Frontier Intelligence',
-    tokenMultiplier: '2.5x Tokens',
-    color: 'text-amber-500',
-    description: 'Pinnacle frontier reasoning for complex system architectures',
+    category: 'Flagship Models',
+    badge: 'Frontier Intelligence',
+    description: 'Pinnacle frontier reasoning for complex system architectures, formal proofs, and cognitive depth.',
+    tokenMultiplier: 2.0,
+    contextWindow: 1000000,
+    supportsThinking: true,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
   {
-    id: 'claude-sonnet-5',
-    name: 'Claude Sonnet 5',
-    category: 'Flagship 5.5 & 5.0 Series',
-    badge: 'Production Engineering Workhorse',
-    tokenMultiplier: '1x Token Baseline',
-    color: 'text-indigo-500',
-    description: 'High-velocity production code synthesis and full-stack refactoring',
+    id: 'claude-3-7-sonnet-20250219',
+    name: 'Claude 3.7 Sonnet',
+    category: 'Reasoning & Deep Thinking',
+    badge: 'Extended Thinking',
+    description: 'Hybrid reasoning architecture with inspectable deliberative thought buffers for zero-hallucination analysis.',
+    tokenMultiplier: 1.25,
+    contextWindow: 200000,
+    supportsThinking: true,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
   {
     id: 'claude-opus-5',
     name: 'Claude Opus 5',
-    category: 'Flagship 5.5 & 5.0 Series',
-    badge: 'Cognitive Heavyweight Architecture',
-    tokenMultiplier: '2x Tokens',
-    color: 'text-orange-500',
-    description: 'Enterprise architecture design, distributed consensus, and deep auditing',
+    category: 'Reasoning & Deep Thinking',
+    badge: 'Deep Logic',
+    description: 'Enterprise architecture design, distributed consensus, and deep formal code auditing.',
+    tokenMultiplier: 1.75,
+    contextWindow: 1000000,
+    supportsThinking: true,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
-
-  // ── Extended Thinking & Frontier Reasoning ──
-  {
-    id: 'claude-3-7-sonnet-20250219',
-    name: 'Claude 3.7 Sonnet',
-    category: 'Extended Thinking & Reasoning',
-    badge: 'Frontier Hybrid Reasoning (Thinking Mode)',
-    tokenMultiplier: '1x Token Baseline',
-    color: 'text-emerald-500',
-    description: 'Hybrid reasoning model with controllable thought budgets and instant output',
-  },
-  {
-    id: 'claude-opus-5-thinking',
-    name: 'Claude Opus 5 Extended Thinking',
-    category: 'Extended Thinking & Reasoning',
-    badge: 'Hybrid Deliberative Logic',
-    tokenMultiplier: '2.5x Tokens (Deep Reasoning)',
-    color: 'text-yellow-500',
-    description: 'Explicit internal thought buffers for auditing intricate edge-case bugs',
-  },
-  {
-    id: 'claude-sonnet-5-thinking',
-    name: 'Claude Sonnet 5 Extended Thinking',
-    category: 'Extended Thinking & Reasoning',
-    badge: 'Controllable Verification Reasoning',
-    tokenMultiplier: '1x Token Baseline',
-    color: 'text-teal-500',
-    description: 'Reflective deliberation for zero-hallucination verification',
-  },
-
-  // ── IDE & High-Velocity Series ──
   {
     id: 'claude-fable-5',
     name: 'Claude Fable 5',
-    category: 'IDE & High-Velocity Series',
-    badge: 'Ultra-Fast IDE Specialist',
-    tokenMultiplier: '0.8x Tokens',
-    color: 'text-blue-500',
-    description: 'Optimized for sub-50ms tab completions, quick diffs, and rapid edits',
+    category: 'High-Velocity & Coding',
+    badge: 'Sub-30ms TTFT',
+    description: 'Ultra-fast developer completions tuned for IDE code completion, inline refactoring, and instant responses.',
+    tokenMultiplier: 0.5,
+    contextWindow: 500000,
+    supportsThinking: false,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
   {
-    id: 'claude-fable-5-flash',
-    name: 'Claude Fable 5 Flash',
-    category: 'IDE & High-Velocity Series',
-    badge: 'Sub-Second Autopilot',
-    tokenMultiplier: '0.5x Tokens',
-    color: 'text-sky-500',
-    description: 'Ultra-lightweight execution model for high-concurrency bot loops',
+    id: 'claude-fable-5.1',
+    name: 'Claude Fable 5.1',
+    category: 'High-Velocity & Coding',
+    badge: 'IDE Autopilot',
+    description: 'Specialized model for rapid git diff generation, automated test suites, and CI/CD triage.',
+    tokenMultiplier: 0.6,
+    contextWindow: 500000,
+    supportsThinking: false,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
   {
     id: 'claude-haiku-5.5',
     name: 'Claude Haiku 5.5',
-    category: 'IDE & High-Velocity Series',
-    badge: 'High-Throughput Streaming',
-    tokenMultiplier: '0.2x Tokens (Lowest Cost)',
-    color: 'text-emerald-500',
-    description: 'Next-gen high-velocity streaming model at 5x lower token burn',
+    category: 'Fast & Economical',
+    badge: 'Lowest Latency',
+    description: 'High-velocity streaming model with minimal token overhead for high-concurrency bot loops and summaries.',
+    tokenMultiplier: 0.25,
+    contextWindow: 200000,
+    supportsThinking: false,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
-  {
-    id: 'claude-haiku-5',
-    name: 'Claude Haiku 5',
-    category: 'IDE & High-Velocity Series',
-    badge: 'Rapid Code Completions',
-    tokenMultiplier: '0.2x Tokens',
-    color: 'text-green-500',
-    description: 'Lightweight triage and fast utility execution',
-  },
-
-  // ── Standard Anthropic Series ──
   {
     id: 'claude-3-5-sonnet-20241022',
     name: 'Claude 3.5 Sonnet',
     category: 'Standard Anthropic Series',
-    badge: 'Vision & Multimodal Standard',
-    tokenMultiplier: '1x Token Baseline',
-    color: 'text-cyan-500',
-    description: 'Proven multi-modal coding model with broad tool execution compatibility',
+    badge: 'Standard',
+    description: 'Anthropic standard enterprise model for production coding and technical documentation.',
+    tokenMultiplier: 1.0,
+    contextWindow: 200000,
+    supportsThinking: false,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
   {
     id: 'claude-3-5-haiku-20241022',
     name: 'Claude 3.5 Haiku',
-    category: 'Standard Anthropic Series',
-    badge: 'Rapid Micro-Tasks',
-    tokenMultiplier: '0.2x Tokens',
-    color: 'text-lime-500',
-    description: 'Official Anthropic 3.5 Haiku model for lightweight tasks',
-  },
-  {
-    id: 'claude-3-opus-20240229',
-    name: 'Claude 3 Opus',
-    category: 'Standard Anthropic Series',
-    badge: 'Legacy Cognitive Logic',
-    tokenMultiplier: '2.5x Tokens',
-    color: 'text-amber-600',
-    description: 'Original Anthropic Claude 3 Opus model',
+    category: 'Fast & Economical',
+    badge: 'Fast',
+    description: 'Economical high-speed completion model for lightweight tasks and quick Q&A.',
+    tokenMultiplier: 0.25,
+    contextWindow: 200000,
+    supportsThinking: false,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
   },
 ];
 
-const getModelDisplayName = (modelId: string): string => {
-  const found = MODEL_OPTIONS.find((m) => m.id === modelId);
+export const getModelDisplayName = (modelId: string): string => {
+  const found = VERIFIED_MODELS.find((m) => m.id === modelId);
   if (found) return found.name;
   if (modelId.includes('3-7') || modelId.includes('3.7')) return 'Claude 3.7 Sonnet';
   if (modelId.includes('opus-5.5') || modelId.includes('opus-5-5')) return 'Claude Opus 5.5';
@@ -258,6 +253,40 @@ const getModelDisplayName = (modelId: string): string => {
   return modelId;
 };
 
+// Phase 2.3 Starting Prompt Cards
+const STARTING_WORKFLOW_CARDS = [
+  {
+    icon: FileText,
+    title: 'Explain or summarize a document',
+    prompt: 'Please analyze this technical document or text: extract the key takeaways, structural architecture, important data points, and actionable next steps.',
+    category: 'Document Analysis',
+  },
+  {
+    icon: Bug,
+    title: 'Debug a piece of code',
+    prompt: 'Review this code for bugs, race conditions, edge-case failures, or performance bottlenecks. Provide the root-cause diagnosis and a clean minimal fix.',
+    category: 'Debugging & Fixes',
+  },
+  {
+    icon: Scale,
+    title: 'Compare two approaches',
+    prompt: 'Compare two architectural approaches for solving this problem: evaluate performance, scalability, development velocity, and operational trade-offs.',
+    category: 'Architecture',
+  },
+  {
+    icon: BookOpen,
+    title: 'Help draft or improve writing',
+    prompt: 'Help draft and refine this technical explanation or executive summary with high clarity, concise structure, and professional tone.',
+    category: 'Writing & Docs',
+  },
+  {
+    icon: Table,
+    title: 'Analyse spreadsheet or CSV data',
+    prompt: 'Analyze this tabular CSV data or dataset: summarize core statistical trends, highlight anomalies, and generate key actionable insights.',
+    category: 'Data & Analytics',
+  },
+];
+
 const SLASH_COMMANDS = [
   { cmd: '/code', desc: 'Generate complete, production-grade implementation' },
   { cmd: '/debug', desc: 'Diagnose root cause and output minimal diff fix' },
@@ -266,279 +295,6 @@ const SLASH_COMMANDS = [
   { cmd: '/explain', desc: 'Provide step-by-step technical breakdown' },
   { cmd: '/compress', desc: 'Summarize conversation history to save tokens' },
 ];
-
-const QUICK_PROMPT_CARDS = [
-  {
-    icon: Code,
-    title: 'Full-Stack Feature',
-    prompt: 'Implement a high-concurrency rate limiter in TypeScript using a token bucket algorithm with Redis backend and clean unit tests.',
-    tag: 'TypeScript / Architecture',
-  },
-  {
-    icon: FileText,
-    title: 'Document & PDF Intelligence',
-    prompt: 'Please analyze this technical document and extract an executive summary, architectural diagrams, API contracts, and edge cases.',
-    tag: 'Multimodal / PDF',
-  },
-  {
-    icon: Sparkles,
-    title: 'Code Audit & Debugging',
-    prompt: 'Analyze this code for race conditions, memory leaks, security vulnerabilities, and provide unified diff fixes with zero fluff.',
-    tag: 'Security & Quality',
-  },
-  {
-    icon: Terminal,
-    title: 'API Client & Integration',
-    prompt: 'Write an asynchronous client library for our Anthropic-compatible /v1/messages API with streaming SSE support and exponential backoff.',
-    tag: 'SDK Engineering',
-  },
-];
-
-interface LiveThinkingCardProps {
-  modelName: string;
-  elapsedMs: number;
-  userPrompt: string;
-  isDark: boolean;
-  onCancel?: () => void;
-}
-
-const LiveThinkingCard: React.FC<LiveThinkingCardProps> = ({
-  modelName,
-  elapsedMs,
-  userPrompt,
-  isDark,
-  onCancel,
-}) => {
-  const seconds = Math.floor(elapsedMs / 1000);
-  const promptLower = (userPrompt || '').toLowerCase();
-
-  const isCoding =
-    promptLower.includes('code') ||
-    promptLower.includes('build') ||
-    promptLower.includes('create') ||
-    promptLower.includes('calculator') ||
-    promptLower.includes('function') ||
-    promptLower.includes('react') ||
-    promptLower.includes('typescript') ||
-    promptLower.includes('javascript') ||
-    promptLower.includes('html') ||
-    promptLower.includes('app') ||
-    promptLower.includes('api') ||
-    promptLower.includes('debug');
-
-  const isDoc =
-    promptLower.includes('summarize') ||
-    promptLower.includes('summary') ||
-    promptLower.includes('pdf') ||
-    promptLower.includes('document') ||
-    promptLower.includes('report') ||
-    promptLower.includes('analyze') ||
-    promptLower.includes('analysis');
-
-  const stages = isCoding
-    ? [
-        { label: 'Deconstruct prompt intent & requirements', minSec: 0 },
-        { label: 'Model state machine, operand memory & operator logic', minSec: 3 },
-        { label: 'Synthesize responsive UI layout, keyboard bindings & tactile styling', minSec: 8 },
-        { label: 'Audit boundary edge cases, division guards & typing', minSec: 16 },
-        { label: 'Synthesize clean, production-grade components & output buffer', minSec: 24 },
-      ]
-    : isDoc
-    ? [
-        { label: 'Parse multimodal document structure & layout elements', minSec: 0 },
-        { label: 'Extract domain methodologies, tables & empirical findings', minSec: 3 },
-        { label: 'Synthesize executive conclusions & structural breakdown', minSec: 9 },
-        { label: 'Verify contextual alignment against primary source sections', minSec: 16 },
-        { label: 'Format comprehensive executive brief with structured insights', minSec: 24 },
-      ]
-    : [
-        { label: 'Analyze query semantics, constraints & contextual memory anchors', minSec: 0 },
-        { label: 'Evaluate domain principles & architectural tradeoffs', minSec: 3 },
-        { label: 'Formulate comprehensive, structured technical guidance', minSec: 8 },
-        { label: 'Verify accuracy, zero-hallucination bounds & formatting polish', minSec: 16 },
-        { label: 'Assemble finalized response payload', minSec: 24 },
-      ];
-
-  let currentStageIndex = 0;
-  for (let i = 0; i < stages.length; i++) {
-    if (seconds >= stages[i].minSec) {
-      currentStageIndex = i;
-    }
-  }
-
-  const estimatedTokens = Math.max(18, Math.round(elapsedMs / 55));
-
-  const getThoughtSnippet = () => {
-    if (isCoding) {
-      if (seconds < 4) return `Examining prompt intent: "${userPrompt.slice(0, 48)}..." Identifying core component requirements and interactive state flow.`;
-      if (seconds < 10) return `Designing state machine: tracking input registers, pending operator, clear/backspace safety, and floating-point precision guards.`;
-      if (seconds < 18) return `Structuring modern layout with Tailwind CSS grid: tactile button feedback, keyboard shortcut listeners (0-9, +, -, *, /, Enter, Escape).`;
-      if (seconds < 26) return `Auditing division-by-zero protection, sequential operator overrides, and ensuring self-contained zero-dependency execution.`;
-      return `Finalizing full-stack implementation with TypeScript interfaces and verified responsive layout.`;
-    }
-    if (isDoc) {
-      if (seconds < 4) return `Analyzing document structure and headers. Identifying scope, methodology, and primary data tables.`;
-      if (seconds < 12) return `Cross-referencing core findings across sections. Isolating operational conclusions and performance metrics.`;
-      if (seconds < 20) return `Drafting executive breakdown with structured bulleted insights, key takeaways, and action items.`;
-      return `Verifying factual fidelity against source text. Synthesizing final formatted report.`;
-    }
-    if (seconds < 4) return `Analyzing user query in context of active conversation memory bank and project parameters.`;
-    if (seconds < 12) return `Evaluating optimal technical approaches. Weighing architectural tradeoffs and best practices.`;
-    if (seconds < 20) return `Structuring detailed, actionable response with concrete specifications and clean formatting.`;
-    return `Finalizing comprehensive response stream with verified technical rigor.`;
-  };
-
-  return (
-    <div className="space-y-3">
-      {/* Top Header Pill */}
-      <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-500 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-xs animate-pulse">
-            <Brain className="w-3.5 h-3.5" />
-          </div>
-          <span className="font-bold text-slate-900 dark:text-slate-100">{modelName}</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-semibold flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-            Reasoning Engine Active
-          </span>
-          <span className="text-[10px] text-violet-600 dark:text-violet-400 font-mono font-semibold hidden sm:inline">
-            ~{estimatedTokens.toLocaleString()} thought tokens
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 font-mono">
-            {(elapsedMs / 1000).toFixed(1)}s
-          </span>
-          {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="text-[10px] px-2 py-0.5 rounded-md border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer font-semibold"
-            >
-              Stop
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Live Reasoning Process Box */}
-      <div
-        className={`rounded-2xl border p-4 space-y-3.5 transition-all ${
-          isDark
-            ? 'bg-gradient-to-b from-amber-950/25 to-slate-900/60 border-amber-500/30 shadow-lg shadow-black/20'
-            : 'bg-gradient-to-b from-amber-50/80 to-white border-amber-300/80 shadow-md shadow-amber-900/5'
-        }`}
-      >
-        <div className="flex items-center justify-between text-xs pb-2 border-b border-amber-500/20">
-          <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4 text-amber-500 animate-pulse" />
-            <span className="font-bold text-amber-900 dark:text-amber-200">
-              Deliberative Reasoning Stream
-            </span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-800 dark:text-amber-300 font-mono font-semibold">
-              Step {currentStageIndex + 1} of {stages.length}
-            </span>
-          </div>
-          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-mono hidden sm:inline">
-            Cognitive Logic Chain
-          </span>
-        </div>
-
-        {/* Reasoning Milestones */}
-        <div className="space-y-2 text-xs">
-          {stages.map((stage, idx) => {
-            const isCompleted = idx < currentStageIndex;
-            const isCurrent = idx === currentStageIndex;
-            return (
-              <div
-                key={idx}
-                className={`flex items-start gap-2.5 transition-all duration-300 ${
-                  isCurrent
-                    ? 'opacity-100 font-medium scale-[1.01]'
-                    : isCompleted
-                    ? 'opacity-85'
-                    : 'opacity-40'
-                }`}
-              >
-                <div className="mt-0.5 shrink-0">
-                  {isCompleted ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  ) : isCurrent ? (
-                    <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
-                  ) : (
-                    <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 flex items-center justify-center text-[8px] text-slate-400 font-mono">
-                      {idx + 1}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 flex items-center justify-between gap-2">
-                  <span
-                    className={
-                      isCurrent
-                        ? 'text-amber-900 dark:text-amber-100 font-semibold'
-                        : isCompleted
-                        ? 'text-emerald-800 dark:text-emerald-300'
-                        : 'text-slate-500 dark:text-slate-400'
-                    }
-                  >
-                    {stage.label}
-                  </span>
-                  {isCompleted && (
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-semibold shrink-0">
-                      ✓ DONE
-                    </span>
-                  )}
-                  {isCurrent && (
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-800 dark:text-amber-300 font-mono font-semibold shrink-0 animate-pulse">
-                      PROCESSING...
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Live Terminal Thought Snippet */}
-        <div
-          className={`p-3 rounded-xl font-mono text-[11px] leading-relaxed select-none border ${
-            isDark
-              ? 'bg-black/60 border-white/5 text-amber-200/90'
-              : 'bg-slate-900 text-amber-300 border-slate-800'
-          }`}
-        >
-          <div className="flex items-center gap-1.5 text-[10px] text-amber-400/80 mb-1.5 font-bold">
-            <Terminal className="w-3 h-3" />
-            <span>LIVE THOUGHT TRACE</span>
-          </div>
-          <p className="whitespace-pre-wrap">
-            &gt; {getThoughtSnippet()}
-            <span className="inline-block w-1.5 h-3 bg-amber-400 ml-1 animate-pulse align-middle" />
-          </p>
-        </div>
-
-        {/* Generating Progress Shimmer Bar */}
-        <div className="space-y-1.5 pt-1">
-          <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-            <span>Synthesizing output buffer</span>
-            <span className="animate-pulse text-amber-600 dark:text-amber-400 font-semibold">
-              Compiling...
-            </span>
-          </div>
-          <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-amber-500 via-violet-500 to-indigo-500 rounded-full transition-all duration-300 animate-pulse"
-              style={{
-                width: `${Math.min(95, Math.max(12, (seconds / 30) * 100))}%`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export const UserChatStudio: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
@@ -557,6 +313,8 @@ export const UserChatStudio: React.FC = () => {
     localStorage.setItem('lightning_studio_theme', next);
   };
 
+  const isDark = theme === 'dark';
+
   // Sidebar toggle
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -565,6 +323,10 @@ export const UserChatStudio: React.FC = () => {
   const [activeThreadId, setActiveThreadId] = useState<string>('');
   const [threadSearch, setThreadSearch] = useState('');
 
+  // Conversation Renaming state
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState('');
+
   // Prompt input state
   const [inputMessage, setPrompt] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -572,10 +334,17 @@ export const UserChatStudio: React.FC = () => {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
+  // Model Picker Modal / Drawer
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [modelSearch, setModelSearch] = useState('');
+
   // Advanced Drawers & Canvas
   const [contextManagerOpen, setContextManagerOpen] = useState(false);
   const [activeArtifact, setActiveArtifact] = useState<ArtifactData | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+
+  // Persistent Memories
+  const [userMemories, setUserMemories] = useState<ProjectMemoryItem[]>([]);
 
   // Upgrade Modal
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -594,116 +363,212 @@ export const UserChatStudio: React.FC = () => {
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
 
-  // Web search toggle
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-
-  // Prompt Enhancer state
-  const [isEnhancing, setIsEnhancing] = useState(false);
-
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load User Keys and Paid Status
+  // 1. Initial Load: User Keys & Server Conversations
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await adminFetch('/api/user/keys');
-        if (res.ok) {
-          const data = await res.json();
-          const keyList = data.keys || [];
+        // Load API Keys
+        const keysRes = await userFetch('/api/user/keys');
+        if (keysRes.ok) {
+          const keysData = await keysRes.json();
+          const keyList = keysData.keys || [];
           setKeys(keyList);
-          setIsPaidCustomer(Boolean(data.isPaidCustomer));
-
+          setIsPaidCustomer(Boolean(keysData.isPaidCustomer));
           if (keyList.length > 0 && !selectedKeyId) {
             setSelectedKeyId(keyList[0].id);
           }
         }
+
+        // Load Server-Backed Conversations
+        const convsRes = await userFetch('/api/user/studio/conversations');
+        if (convsRes.ok) {
+          const convsData = await convsRes.json();
+          if (Array.isArray(convsData.conversations) && convsData.conversations.length > 0) {
+            const serverThreads: ChatThread[] = convsData.conversations.map((c: any) => ({
+              id: c.id,
+              title: c.title,
+              model: c.model,
+              pinned: Boolean(c.pinned),
+              systemPrompt: c.systemPrompt || '',
+              thinkingEnabled: Boolean(c.thinkingEnabled),
+              tokenSaverEnabled: Boolean(c.tokenSaverEnabled),
+              temperature: c.temperature ?? 0.2,
+              messages: [],
+              createdAt: new Date(c.createdAt).getTime(),
+              updatedAt: new Date(c.updatedAt).getTime(),
+              messagesLoaded: false,
+            }));
+            setThreads(serverThreads);
+            const firstId = serverThreads[0].id;
+            setActiveThreadId(firstId);
+            loadConversationMessages(firstId);
+            return;
+          }
+        }
+
+        // Fallback to localStorage cache if server had 0 conversations
+        const saved = localStorage.getItem('lightning_chat_threads_v3');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setThreads(parsed);
+            setActiveThreadId(parsed[0].id);
+            return;
+          }
+        }
+
+        // Default Thread
+        const defaultThread: ChatThread = {
+          id: `thread_${Date.now()}`,
+          title: 'New Session',
+          model: 'claude-sonnet-5.5',
+          systemPrompt: 'You are an elite principal software architect. Provide clean, robust, production-grade code with TypeScript typings, error handling, and structured explanations.',
+          temperature: 0.2,
+          thinkingEnabled: true,
+          tokenSaverEnabled: false,
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messagesLoaded: true,
+        };
+        setThreads([defaultThread]);
+        setActiveThreadId(defaultThread.id);
       } catch (err) {
-        console.error('Failed to load user keys:', err);
+        console.error('Failed to load initial studio data:', err);
       } finally {
         setLoadingInitial(false);
       }
     }
     loadData();
+    loadMemories();
   }, []);
 
-  // Load Threads from localStorage
-  useEffect(() => {
+  // Load Memories from server
+  const loadMemories = async () => {
     try {
-      const saved = localStorage.getItem('lightning_chat_threads_v3') || localStorage.getItem('lightning_chat_threads_v2');
-      if (saved) {
-        const parsed: ChatThread[] = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setThreads(parsed);
-          setActiveThreadId(parsed[0].id);
-          return;
+      const res = await userFetch('/api/user/studio/memories');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.memories)) {
+          setUserMemories(data.memories);
+        }
+      }
+    } catch {}
+  };
+
+  const handleAddMemory = async (category: string, fact: string) => {
+    try {
+      const res = await userFetch('/api/user/studio/memories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, fact }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.memory) {
+          setUserMemories((prev) => [...prev, data.memory]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save memory:', err);
+    }
+  };
+
+  const handleRemoveMemory = async (id: string) => {
+    try {
+      await userFetch(`/api/user/studio/memories/${id}`, {
+        method: 'DELETE',
+      });
+      setUserMemories((prev) => prev.filter((m) => m.id !== id));
+    } catch (err) {
+      console.error('Failed to remove memory:', err);
+    }
+  };
+
+  // Fetch full messages for a conversation
+  const loadConversationMessages = async (convId: string) => {
+    if (convId.startsWith('thread_')) return; // local-only draft
+    try {
+      const res = await userFetch(`/api/user/studio/conversations/${convId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.conversation?.messages) {
+          setThreads((prev) =>
+            prev.map((t) =>
+              t.id === convId
+                ? {
+                    ...t,
+                    title: data.conversation.title,
+                    model: data.conversation.model,
+                    pinned: Boolean(data.conversation.pinned),
+                    systemPrompt: data.conversation.systemPrompt || '',
+                    thinkingEnabled: Boolean(data.conversation.thinkingEnabled),
+                    tokenSaverEnabled: Boolean(data.conversation.tokenSaverEnabled),
+                    temperature: data.conversation.temperature ?? 0.2,
+                    messages: data.conversation.messages,
+                    messagesLoaded: true,
+                  }
+                : t
+            )
+          );
         }
       }
     } catch (e) {
-      console.warn('Failed to parse saved threads:', e);
+      console.warn('Failed to fetch conversation messages:', e);
     }
+  };
 
-    // Default Thread
-    const defaultThread: ChatThread = {
-      id: `thread_${Date.now()}`,
-      title: 'New Session',
-      model: 'claude-sonnet-5.5',
-      persona: 'fullstack',
-      systemPrompt: 'You are an elite principal software architect. Provide clean, robust, production-grade code with TypeScript typings, error handling, and structured explanations.',
-      temperature: 0.2,
-      maxTokens: 4096,
-      thinkingEnabled: true,
-      thinkingBudget: 2048,
-      tokenSaverEnabled: false,
-      memoryItems: [],
-      messages: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    setThreads([defaultThread]);
-    setActiveThreadId(defaultThread.id);
-  }, []);
-
-  // Save Threads to localStorage
+  // Sync threads to localStorage as backup
   useEffect(() => {
     if (threads.length > 0) {
       try {
-        localStorage.setItem('lightning_chat_threads_v3', JSON.stringify(threads));
-      } catch (e) {
-        console.warn('Failed to save threads:', e);
-      }
+        localStorage.setItem('lightning_chat_threads_v3', JSON.stringify(threads.slice(0, 20)));
+      } catch {}
     }
   }, [threads]);
 
   // Active thread helper
-  const activeThread =
-    threads.find((t) => t.id === activeThreadId) ||
-    threads[0] || {
-      id: 'fallback',
-      title: 'Coding Task',
-      model: 'claude-sonnet-5.5',
-      persona: 'fullstack',
-      temperature: 0.2,
-      maxTokens: 4096,
-      thinkingEnabled: true,
-      thinkingBudget: 2048,
-      tokenSaverEnabled: false,
-      memoryItems: [],
-      messages: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
+  const activeThread = useMemo(() => {
+    return (
+      threads.find((t) => t.id === activeThreadId) ||
+      threads[0] || {
+        id: 'draft',
+        title: 'New Session',
+        model: 'claude-sonnet-5.5',
+        temperature: 0.2,
+        thinkingEnabled: true,
+        tokenSaverEnabled: false,
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+    );
+  }, [threads, activeThreadId]);
+
+  // When switching conversations, load messages if not already loaded
+  useEffect(() => {
+    if (activeThread && !activeThread.messagesLoaded && !activeThread.id.startsWith('thread_')) {
+      loadConversationMessages(activeThread.id);
+    }
+  }, [activeThreadId]);
 
   // Auto-scroll chat to bottom
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+    if (chatScrollContainerRef.current) {
+      const { scrollHeight, clientHeight } = chatScrollContainerRef.current;
+      chatScrollContainerRef.current.scrollTo({ top: scrollHeight - clientHeight, behavior });
+    }
   };
 
   useEffect(() => {
     scrollToBottom('smooth');
-  }, [activeThread.messages, generating]);
+  }, [activeThread?.messages?.length, generating]);
 
   // Elapsed time tracker during generation
   useEffect(() => {
@@ -719,38 +584,51 @@ export const UserChatStudio: React.FC = () => {
     return () => clearInterval(interval);
   }, [generating]);
 
-  // Calculate total tokens in active thread
-  const totalContextTokens = activeThread.messages.reduce(
-    (acc, m) => acc + (m.usage?.total_tokens || Math.ceil(m.content.length / 4)),
-    0
-  );
-
-  // Thread management
+  // Thread management helpers
   const updateActiveThread = (updates: Partial<ChatThread>) => {
     setThreads((prev) =>
       prev.map((t) => (t.id === activeThread.id ? { ...t, ...updates, updatedAt: Date.now() } : t))
     );
   };
 
-  const handleCreateNewThread = () => {
+  const handleCreateNewThread = async () => {
+    const defaultModel = activeThread.model || 'claude-sonnet-5.5';
+    let newId = `thread_${Date.now()}`;
+
+    try {
+      const res = await userFetch('/api/user/studio/conversations', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: 'New Session',
+          model: defaultModel,
+          thinkingEnabled: activeThread.thinkingEnabled ?? true,
+          tokenSaverEnabled: activeThread.tokenSaverEnabled ?? false,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.conversation?.id) {
+          newId = data.conversation.id;
+        }
+      }
+    } catch {}
+
     const newThread: ChatThread = {
-      id: `thread_${Date.now()}`,
+      id: newId,
       title: 'New Session',
-      model: activeThread.model || 'claude-sonnet-5.5',
-      persona: activeThread.persona || 'fullstack',
+      model: defaultModel,
       systemPrompt: activeThread.systemPrompt,
       temperature: activeThread.temperature ?? 0.2,
-      maxTokens: activeThread.maxTokens ?? 4096,
       thinkingEnabled: activeThread.thinkingEnabled ?? true,
-      thinkingBudget: activeThread.thinkingBudget ?? 2048,
       tokenSaverEnabled: activeThread.tokenSaverEnabled ?? false,
-      memoryItems: activeThread.memoryItems ? [...activeThread.memoryItems] : [],
       messages: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      messagesLoaded: true,
     };
+
     setThreads((prev) => [newThread, ...prev]);
-    setActiveThreadId(newThread.id);
+    setActiveThreadId(newId);
     setActiveArtifact(null);
     setPrompt('');
     setAttachments([]);
@@ -758,18 +636,104 @@ export const UserChatStudio: React.FC = () => {
     setSpeakingMsgId(null);
   };
 
-  const handleDeleteThread = (id: string, e: React.MouseEvent) => {
+  const handleDeleteThread = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (threads.length <= 1) {
-      handleCreateNewThread();
+    if (!confirm('Are you sure you want to delete this conversation? This will remove all messages.')) {
       return;
     }
+
+    try {
+      if (!id.startsWith('thread_')) {
+        await userFetch(`/api/user/studio/conversations/${id}`, { method: 'DELETE' });
+      }
+    } catch {}
+
     const nextThreads = threads.filter((t) => t.id !== id);
-    setThreads(nextThreads);
-    if (activeThreadId === id) {
-      setActiveThreadId(nextThreads[0].id);
+    if (nextThreads.length === 0) {
+      handleCreateNewThread();
+    } else {
+      setThreads(nextThreads);
+      if (activeThreadId === id) {
+        setActiveThreadId(nextThreads[0].id);
+        loadConversationMessages(nextThreads[0].id);
+      }
     }
   };
+
+  const handleTogglePin = async (id: string, currentPinned: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextPinned = !currentPinned;
+    setThreads((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, pinned: nextPinned } : t))
+    );
+
+    if (!id.startsWith('thread_')) {
+      try {
+        await userFetch(`/api/user/studio/conversations/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ pinned: nextPinned }),
+        });
+      } catch {}
+    }
+  };
+
+  const handleSaveRename = async (id: string) => {
+    if (!renameText.trim()) {
+      setRenamingId(null);
+      return;
+    }
+    const clean = renameText.trim();
+    setThreads((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, title: clean } : t))
+    );
+    setRenamingId(null);
+
+    if (!id.startsWith('thread_')) {
+      try {
+        await userFetch(`/api/user/studio/conversations/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ title: clean }),
+        });
+      } catch {}
+    }
+  };
+
+  // Group threads by date & pinned
+  const groupedThreads = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterdayStart = todayStart - 86400000;
+    const sevenDaysStart = todayStart - 6 * 86400000;
+
+    const filtered = threads.filter((t) =>
+      t.title.toLowerCase().includes(threadSearch.toLowerCase())
+    );
+
+    const pinned: ChatThread[] = [];
+    const today: ChatThread[] = [];
+    const yesterday: ChatThread[] = [];
+    const previous7Days: ChatThread[] = [];
+    const older: ChatThread[] = [];
+
+    for (const t of filtered) {
+      if (t.pinned) {
+        pinned.push(t);
+        continue;
+      }
+      const time = t.updatedAt || t.createdAt || Date.now();
+      if (time >= todayStart) {
+        today.push(t);
+      } else if (time >= yesterdayStart) {
+        yesterday.push(t);
+      } else if (time >= sevenDaysStart) {
+        previous7Days.push(t);
+      } else {
+        older.push(t);
+      }
+    }
+
+    return { pinned, today, yesterday, previous7Days, older };
+  }, [threads, threadSearch]);
 
   // Text to Speech
   const handleToggleSpeak = (msgId: string, text: string) => {
@@ -790,148 +754,100 @@ export const UserChatStudio: React.FC = () => {
 
   // Prompt Enhancer
   const handleEnhancePrompt = () => {
-    if (!inputMessage.trim() || isEnhancing) return;
-    setIsEnhancing(true);
+    if (!inputMessage.trim()) return;
     const raw = inputMessage.trim();
     const enhanced = `Act as an elite principal software engineer and system architect. ${raw}. Ensure the solution is modular, includes robust TypeScript/Python typings, comprehensive error boundaries, and adheres to high-performance production standards with zero fluff.`;
     setPrompt(enhanced);
-    setIsEnhancing(false);
   };
 
-  // File Upload Handlers (with safe 25MB check & base64 document parsing)
+  // File Upload Handlers (with server-side validation via /api/user/studio/upload)
   const handleFilesSelected = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     if (!isPaidCustomer) {
-      setUpgradeReason('Uploading images for Vision inspection and code/PDF files requires an active paid plan.');
+      setUpgradeReason('Uploading images for Vision inspection and code/PDF documents requires an active paid capacity plan.');
       setShowUpgradeModal(true);
       return;
     }
 
     Array.from(files).forEach((file) => {
       if (file.size > 25 * 1024 * 1024) {
-        alert(`"${file.name}" is too large (${Math.round(file.size / 1024 / 1024)}MB). The maximum file upload size for documents is 25MB.`);
+        alert(`"${file.name}" exceeds the maximum 25MB file upload limit.`);
         return;
       }
 
-      const isImg = file.type.startsWith('image/');
-      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
       const reader = new FileReader();
+      reader.onload = async () => {
+        const rawResult = reader.result as string;
+        const base64Data = rawResult.split(',')[1] || '';
 
-      if (isImg) {
-        reader.onload = () => {
-          const base64Data = (reader.result as string).split(',')[1];
-          setAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              type: 'image',
-              mimeType: file.type || 'image/png',
-              sizeBytes: file.size,
-              dataBase64: base64Data,
-            },
-          ]);
-        };
-        reader.readAsDataURL(file);
-      } else if (isPdf) {
-        reader.onload = () => {
-          const base64Data = (reader.result as string).split(',')[1];
-          setAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              type: 'document',
-              mimeType: 'application/pdf',
-              sizeBytes: file.size,
-              dataBase64: base64Data,
-            },
-          ]);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        reader.onload = () => {
-          const content = reader.result as string;
-          setAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              type: 'file',
+        try {
+          const res = await userFetch('/api/user/studio/upload', {
+            method: 'POST',
+            body: JSON.stringify({
+              fileName: file.name,
               mimeType: file.type || 'text/plain',
-              sizeBytes: file.size,
-              textSnippet: content,
-            },
-          ]);
-        };
-        reader.readAsText(file);
-      }
+              base64Data,
+              size: file.size,
+            }),
+          });
+          const data = await res.json();
+          if (data.success && data.attachment) {
+            setAttachments((prev) => [...prev, data.attachment]);
+          } else {
+            alert(data.error?.message || 'Failed to process attachment.');
+          }
+        } catch (e: any) {
+          alert('Upload failed: ' + (e.message || 'Network error'));
+        }
+      };
+      reader.readAsDataURL(file);
     });
   };
 
-  // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
   };
+
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
   };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    handleFilesSelected(e.dataTransfer.files);
-  };
-
-  // Smart Context Compaction (Save Tokens)
-  const handleCompressContext = async () => {
-    if (activeThread.messages.length < 2 || isCompressing) return;
-    setIsCompressing(true);
-
-    try {
-      const summaryPrompt =
-        'Produce an ultra-concise executive technical summary of our conversation so far. Include all established architecture decisions, project requirements, identified bugs, and code specifications. Output ONLY the summary in bullet points under "## Conversation Memory Anchor". Do NOT include pleasantries.';
-
-      const res = await adminFetch('/api/user/keys/test', {
-        method: 'POST',
-        body: JSON.stringify({
-          apiKeyId: selectedKeyId || undefined,
-          model: 'claude-haiku-5.5',
-          messages: [
-            ...activeThread.messages.map((m) => ({ role: m.role, content: m.content })),
-            { role: 'user', content: summaryPrompt },
-          ],
-          max_tokens: 1000,
-          clientPlatform: 'Lightning AI Studio Compactor',
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.result) {
-        const memoryAnchorMessage: ChatMessage = {
-          id: `msg_compact_${Date.now()}`,
-          role: 'assistant',
-          content: `⚡ **Context Compressed (Saved ~${Math.round(totalContextTokens * 0.7)} tokens)**\n\n${data.result}`,
-          timestamp: Date.now(),
-          usage: data.usage,
-          modelUsed: 'Context Compactor (0.2x)',
-        };
-
-        const lastUserMsg = [...activeThread.messages].reverse().find((m) => m.role === 'user');
-        const newMessages = lastUserMsg ? [memoryAnchorMessage, lastUserMsg] : [memoryAnchorMessage];
-
-        updateActiveThread({ messages: newMessages });
-        alert('Context compressed! Previous conversation turns condensed into an active memory anchor, saving ~70% tokens on future queries.');
-      } else {
-        alert(data.error?.message || 'Failed to compress context.');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Network error compressing context.');
-    } finally {
-      setIsCompressing(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
     }
   };
 
-  // Send Message
+  // Stop Active Streaming Generation
+  const handleStopGeneration = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setGenerating(false);
+    }
+  };
+
+  // Export Thread to Markdown
+  const handleExportThread = () => {
+    if (!activeThread.messages.length) return;
+    const md = activeThread.messages
+      .map((m) => `### ${m.role === 'user' ? 'User' : 'Assistant'}\n\n${m.content}\n`)
+      .join('\n---\n\n');
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeThread.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'thread'}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── CORE REAL-TIME SSE STREAMING HANDLER ──
   const handleSendMessage = async (customPrompt?: string, overrideMessages?: ChatMessage[]) => {
     const promptToSend = customPrompt !== undefined ? customPrompt : inputMessage;
     if ((!promptToSend.trim() && attachments.length === 0) || generating) return;
@@ -966,8 +882,19 @@ export const UserChatStudio: React.FC = () => {
     const baseMessages = overrideMessages || activeThread.messages;
     const updatedMessages = [...baseMessages, userMessage];
 
+    // Placeholder assistant message for live token streaming
+    const assistantMsgId = `msg_asst_${Date.now()}`;
+    const initialAssistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      content: '',
+      thinking: '',
+      timestamp: Date.now(),
+      modelUsed: activeThread.model,
+    };
+
     updateActiveThread({
-      messages: updatedMessages,
+      messages: [...updatedMessages, initialAssistantMsg],
       title: newTitle,
     });
 
@@ -976,162 +903,168 @@ export const UserChatStudio: React.FC = () => {
     setShowSlashMenu(false);
     setGenerating(true);
 
-    const apiMessages = updatedMessages.map((m) => {
-      if (m.attachments && m.attachments.length > 0) {
-        const contentParts: any[] = [];
-
-        m.attachments.forEach((att) => {
-          if (att.type === 'image' && att.dataBase64) {
-            contentParts.push({
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: att.mimeType,
-                data: att.dataBase64,
-              },
-            });
-          } else if ((att.type === 'document' || att.mimeType === 'application/pdf') && att.dataBase64) {
-            contentParts.push({
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: att.dataBase64,
-              },
-            });
-          } else if (att.type === 'file' && att.textSnippet) {
-            contentParts.push({
-              type: 'text',
-              text: `--- ATTACHED FILE: ${att.name} ---\n\`\`\`\n${att.textSnippet}\n\`\`\`\n`,
-            });
-          }
-        });
-
-        if (m.content) {
-          contentParts.push({ type: 'text', text: m.content });
-        }
-
-        return { role: m.role, content: contentParts };
-      }
-
-      return { role: m.role, content: m.content };
-    });
-
-    let effectiveSystemPrompt = activeThread.systemPrompt || '';
-
-    if (activeThread.tokenSaverEnabled) {
-      effectiveSystemPrompt +=
-        '\n\n[TOKEN-SAVER ACTIVE]: Return only minimal surgical code or unified diffs. Omit all greetings, conversational filler, and unchanged boilerplate code.';
-    }
-
-    if (activeThread.memoryItems && activeThread.memoryItems.length > 0) {
-      const memoryText = activeThread.memoryItems
-        .map((item) => `- [${item.category}]: ${item.fact}`)
-        .join('\n');
-      effectiveSystemPrompt += `\n\n[PROJECT MEMORY BANK]:\n${memoryText}`;
-    }
-
     const ctrl = new AbortController();
     setAbortController(ctrl);
 
+    const authHeaders = getAuthHeaders(false);
+
     try {
-      const res = await adminFetch(
-        '/api/user/keys/test',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            apiKeyId: selectedKeyId || undefined,
-            model: activeThread.model,
-            messages: apiMessages,
-            system: effectiveSystemPrompt || undefined,
-            temperature: activeThread.temperature,
-            max_tokens: activeThread.maxTokens,
-            thinking: activeThread.thinkingEnabled
-              ? { type: 'enabled', budget_tokens: activeThread.thinkingBudget || 2048 }
-              : undefined,
-            clientPlatform: 'Lightning AI Chat Studio',
-          }),
-        }
-      );
+      const response = await fetch('/api/user/studio/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+        },
+        body: JSON.stringify({
+          conversationId: activeThread.id.startsWith('thread_') ? undefined : activeThread.id,
+          model: activeThread.model,
+          prompt: promptToSend.trim(),
+          messages: baseMessages,
+          systemPrompt: activeThread.systemPrompt,
+          thinkingEnabled: activeThread.thinkingEnabled,
+          tokenSaverEnabled: activeThread.tokenSaverEnabled,
+          temperature: activeThread.temperature,
+          attachments: userMessage.attachments || [],
+        }),
+        signal: ctrl.signal,
+      });
 
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        if (data.error?.code === 'PRO_TIER_REQUIRED') {
-          setUpgradeReason(data.error.message);
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => ({}));
+        if (errorJson.error?.code === 'PRO_TIER_REQUIRED') {
+          setUpgradeReason(errorJson.error.message);
           setShowUpgradeModal(true);
-          return;
         }
-
-        const errorMessage: ChatMessage = {
-          id: `msg_err_${Date.now()}`,
-          role: 'assistant',
-          content: `⚠️ ${data.error?.message || 'Upstream gateway returned an unexpected response. Please retry in a moment.'}`,
-          timestamp: Date.now(),
-          isError: true,
-          modelUsed: activeThread.model,
-        };
-        updateActiveThread({ messages: [...updatedMessages, errorMessage] });
-        return;
+        throw new Error(errorJson.error?.message || `Gateway error (${response.status})`);
       }
 
-      let finalThinking = data.thinking;
-      if (!finalThinking) {
-        const promptLower = (promptToSend || '').toLowerCase();
-        if (
-          promptLower.includes('code') ||
-          promptLower.includes('build') ||
-          promptLower.includes('calculator') ||
-          promptLower.includes('function') ||
-          promptLower.includes('react') ||
-          promptLower.includes('typescript') ||
-          promptLower.includes('app')
-        ) {
-          finalThinking = `1. Functional Scope: Analyzed instruction for "${(promptToSend || '').slice(0, 50)}...". Extracted interface requirements, user interaction events, and operational bounds.\n2. Architecture & State Logic: Modeled reactive state machine (operand stack, active operator, memory clear/backspace safety, and floating-point precision).\n3. Component Engineering: Synthesized modular, high-contrast UI with keyboard shortcut listeners (Enter, Escape, 0-9, arithmetic keys) and Tailwind layout.\n4. Verification & Auditing: Verified division-by-zero guards, sequential operator overrides, and clean production syntax.`;
-        } else if (
-          promptLower.includes('pdf') ||
-          promptLower.includes('document') ||
-          promptLower.includes('report') ||
-          promptLower.includes('summarize')
-        ) {
-          finalThinking = `1. Multimodal Parsing: Ingested document layout, structural sections, and tabular data from context.\n2. Cross-Verification: Correlated empirical takeaways, operational principles, and domain methodologies.\n3. Executive Synthesis: Formulated structured technical insights, priority conclusions, and architectural highlights.\n4. Bounds Verification: Validated zero hallucination and strict adherence to provided source text.`;
-        } else {
-          finalThinking = `1. Prompt Analysis: Parsed core intent, constraints, and project memory anchors.\n2. Domain Exploration: Evaluated technical paradigms, trade-offs, and implementation patterns.\n3. Synthesis: Formulated comprehensive, production-grade guidance with clear structural hierarchy and verification steps.`;
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let streamBuffer = '';
+      let accumulatedContent = '';
+      let accumulatedThinking = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          streamBuffer += decoder.decode(value, { stream: true });
+          const parts = streamBuffer.split('\n\n');
+          streamBuffer = parts.pop() || '';
+
+          for (const part of parts) {
+            const lines = part.split('\n');
+            let eventType = '';
+            let eventData = '';
+
+            for (const l of lines) {
+              if (l.startsWith('event:')) eventType = l.slice(6).trim();
+              if (l.startsWith('data:')) eventData = l.slice(5).trim();
+            }
+
+            if (!eventData) continue;
+            try {
+              const parsed = JSON.parse(eventData);
+
+              if (eventType === 'session') {
+                if (parsed.conversationId && activeThread.id !== parsed.conversationId) {
+                  updateActiveThread({ id: parsed.conversationId, title: parsed.title || activeThread.title });
+                  setActiveThreadId(parsed.conversationId);
+                }
+              } else if (eventType === 'thinking_delta') {
+                accumulatedThinking += parsed.thinking || '';
+                setThreads((prev) =>
+                  prev.map((t) =>
+                    t.id === activeThread.id
+                      ? {
+                          ...t,
+                          messages: t.messages.map((m) =>
+                            m.id === assistantMsgId ? { ...m, thinking: accumulatedThinking } : m
+                          ),
+                        }
+                      : t
+                  )
+                );
+              } else if (eventType === 'content_delta') {
+                accumulatedContent += parsed.text || '';
+                setThreads((prev) =>
+                  prev.map((t) =>
+                    t.id === activeThread.id
+                      ? {
+                          ...t,
+                          messages: t.messages.map((m) =>
+                            m.id === assistantMsgId ? { ...m, content: accumulatedContent } : m
+                          ),
+                        }
+                      : t
+                  )
+                );
+              } else if (eventType === 'done') {
+                setThreads((prev) =>
+                  prev.map((t) =>
+                    t.id === activeThread.id
+                      ? {
+                          ...t,
+                          messages: t.messages.map((m) =>
+                            m.id === assistantMsgId
+                              ? {
+                                  ...m,
+                                  content: parsed.result || accumulatedContent,
+                                  thinking: parsed.thinking || accumulatedThinking || undefined,
+                                  usage: parsed.usage,
+                                  latencyMs: parsed.latencyMs,
+                                  multiplier: parsed.multiplier,
+                                }
+                              : m
+                          ),
+                        }
+                      : t
+                  )
+                );
+              } else if (eventType === 'error') {
+                throw new Error(parsed.message || 'Stream processing error.');
+              }
+            } catch (jsonErr: any) {
+              if (jsonErr.message && !jsonErr.message.includes('JSON')) {
+                throw jsonErr;
+              }
+            }
+          }
         }
       }
-
-      const assistantMessage: ChatMessage = {
-        id: `msg_asst_${Date.now()}`,
-        role: 'assistant',
-        content: data.result || 'No response content returned.',
-        thinking: finalThinking || undefined,
-        timestamp: Date.now(),
-        usage: data.usage,
-        latencyMs: data.latencyMs,
-        modelUsed: activeThread.model,
-      };
-
-      updateActiveThread({ messages: [...updatedMessages, assistantMessage] });
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        const abortMessage: ChatMessage = {
-          id: `msg_abort_${Date.now()}`,
-          role: 'assistant',
-          content: '⏹️ Generation stopped by user.',
-          timestamp: Date.now(),
-          modelUsed: activeThread.model,
-        };
-        updateActiveThread({ messages: [...updatedMessages, abortMessage] });
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === activeThread.id
+              ? {
+                  ...t,
+                  messages: t.messages.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, content: m.content ? `${m.content}\n\n[⏹️ Generation stopped by user]` : '⏹️ Generation stopped by user.' }
+                      : m
+                  ),
+                }
+              : t
+          )
+        );
       } else {
-        const errorMsg: ChatMessage = {
-          id: `msg_err_${Date.now()}`,
-          role: 'assistant',
-          content: `⚠️ Connection notice: ${err.message || 'Unable to communicate with API gateway.'}`,
-          timestamp: Date.now(),
-          isError: true,
-          modelUsed: activeThread.model,
-        };
-        updateActiveThread({ messages: [...updatedMessages, errorMsg] });
+        const errorMsg = err.message || 'Network stream error.';
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === activeThread.id
+              ? {
+                  ...t,
+                  messages: t.messages.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, content: `⚠️ ${errorMsg}`, isError: true }
+                      : m
+                  ),
+                }
+              : t
+          )
+        );
       }
     } finally {
       setGenerating(false);
@@ -1139,58 +1072,50 @@ export const UserChatStudio: React.FC = () => {
     }
   };
 
-  const handleStopGeneration = () => {
-    if (abortController) {
-      abortController.abort();
-    }
+  // Regenerate last assistant response
+  const handleRegenerate = () => {
+    if (activeThread.messages.length === 0 || generating) return;
+    const lastUserIdx = [...activeThread.messages].reverse().findIndex((m) => m.role === 'user');
+    if (lastUserIdx === -1) return;
+    const actualIdx = activeThread.messages.length - 1 - lastUserIdx;
+    const lastUserMsg = activeThread.messages[actualIdx];
+    const previousMessages = activeThread.messages.slice(0, actualIdx);
+    handleSendMessage(lastUserMsg.content, previousMessages);
   };
 
-  // Branch / Edit previous user message
-  const handleSaveEditAndBranch = (msgIndex: number) => {
-    if (!editContent.trim()) return;
-    const previousMessages = activeThread.messages.slice(0, msgIndex);
-    handleSendMessage(editContent.trim(), previousMessages);
+  // Retry after error
+  const handleRetry = () => {
+    handleRegenerate();
+  };
+
+  // Edit and resubmit previous prompt
+  const handleEditSubmit = (msgId: string) => {
+    if (!editContent.trim() || generating) return;
+    const msgIdx = activeThread.messages.findIndex((m) => m.id === msgId);
+    if (msgIdx === -1) return;
+    const previousMessages = activeThread.messages.slice(0, msgIdx);
     setEditingMsgId(null);
-    setEditContent('');
+    handleSendMessage(editContent.trim(), previousMessages);
   };
 
-  // Export thread
-  const handleExportThread = () => {
-    const formatted = activeThread.messages
-      .map((m) => {
-        const role = m.role === 'user' ? '👤 User' : `⚡ Claude (${getModelDisplayName(m.modelUsed || activeThread.model)})`;
-        const time = new Date(m.timestamp).toLocaleTimeString();
-        return `### ${role} [${time}]\n\n${m.content}\n\n---\n`;
-      })
-      .join('\n');
+  // Calculate remaining tokens from active key
+  const activeKey = keys.find((k) => k.id === selectedKeyId) || keys[0];
+  const remainingTokens = activeKey ? BigInt(activeKey.tokensRemaining || 0) : 0n;
+  const remainingTokensM = (Number(remainingTokens) / 1000000).toFixed(2);
 
-    const blob = new Blob([`# ${activeThread.title}\n\n${formatted}`], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${activeThread.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const selectedKey = keys.find((k) => k.id === selectedKeyId) || keys[0];
-  const remainingTokensM = selectedKey ? (Number(selectedKey.tokensRemaining) / 1_000_000).toFixed(2) : '0.00';
-
-  // Palette classes based on theme - Clean Modern High-Contrast Studio
-  const isDark = theme === 'dark';
+  // Style Tokens & Palettes
   const c = {
-    bg: isDark ? 'bg-[#090D16]' : 'bg-[#F8FAFC]',
-    sidebarBg: isDark ? 'bg-[#0D121F]' : 'bg-[#FFFFFF]',
-    sidebarBorder: isDark ? 'border-slate-800/80' : 'border-slate-200',
-    border: isDark ? 'border-slate-800/80' : 'border-slate-200',
+    bg: isDark ? 'bg-[#0B0F19]' : 'bg-[#F8FAFC]',
     text: isDark ? 'text-slate-100' : 'text-slate-900',
-    textMuted: isDark ? 'text-slate-400' : 'text-slate-500',
-    cardBg: isDark ? 'bg-[#111726]' : 'bg-white',
-    inputBg: isDark ? 'bg-[#111726]' : 'bg-white',
-    userBubble: 'bg-violet-600 text-white shadow-sm',
-    pillBg: isDark ? 'bg-slate-800/70 hover:bg-slate-800 text-slate-200 border-slate-700/80' : 'bg-slate-100 hover:bg-slate-200/80 text-slate-800 border-slate-200',
-    pillActive: isDark ? 'bg-violet-950/70 text-violet-300 border-violet-500/50' : 'bg-violet-50 text-violet-700 border-violet-300',
-    headerBg: isDark ? 'bg-[#090D16]/95 border-b border-slate-800/80' : 'bg-white/95 border-b border-slate-200',
+    textMuted: isDark ? 'text-slate-400' : 'text-slate-600',
+    headerBg: isDark ? 'bg-[#0E1424]/90 border-b border-slate-800' : 'bg-white/95 border-b border-slate-200/90 shadow-2xs',
+    sidebarBg: isDark ? 'bg-[#0E1424]' : 'bg-[#FFFFFF]',
+    sidebarBorder: isDark ? 'border-slate-800' : 'border-slate-200',
+    cardBg: isDark ? 'bg-[#131A2B]' : 'bg-[#FFFFFF]',
+    border: isDark ? 'border-slate-800' : 'border-slate-200/90',
+    inputBg: isDark ? 'bg-[#131A2B]' : 'bg-[#FFFFFF]',
+    pillBg: isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700',
+    userBubble: isDark ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white shadow-xs',
   };
 
   return (
@@ -1202,13 +1127,13 @@ export const UserChatStudio: React.FC = () => {
     >
       {/* Drag & Drop Visual Overlay */}
       {isDragging && (
-        <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center text-white border-2 border-dashed border-violet-500 p-8">
+        <div className="absolute inset-0 z-50 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center text-white border-2 border-dashed border-violet-500 p-8">
           <div className="w-16 h-16 rounded-2xl bg-violet-600/30 border border-violet-500/50 flex items-center justify-center mb-4 animate-bounce">
             <Paperclip className="w-8 h-8 text-violet-300" />
           </div>
           <h3 className="text-lg font-bold mb-1">Drop Documents or Images Here</h3>
           <p className="text-xs text-slate-300 font-mono">
-            Claude will inspect PDFs, code, screenshots, or design assets.
+            Claude will inspect PDFs, code, screenshots, spreadsheets, or design assets.
           </p>
         </div>
       )}
@@ -1239,11 +1164,16 @@ export const UserChatStudio: React.FC = () => {
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
           </button>
 
-          {/* Active Model Pill in Header */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300 font-semibold text-xs">
+          {/* Model Selector Trigger Button in Header */}
+          <button
+            type="button"
+            onClick={() => setModelPickerOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300 font-semibold text-xs hover:bg-violet-500/20 transition-all cursor-pointer"
+          >
             <Sparkles className="w-3 h-3 text-violet-500" />
             <span className="truncate max-w-[130px] sm:max-w-none">{getModelDisplayName(activeThread.model)}</span>
-          </div>
+            <ChevronDown className="w-3 h-3 opacity-60" />
+          </button>
 
           {/* Key Balance Pill */}
           <div className="hidden md:flex items-center gap-1.5">
@@ -1257,14 +1187,14 @@ export const UserChatStudio: React.FC = () => {
 
         {/* Right: Theme Toggle, Thinking, Token-Saver, Memory, Canvas, Export */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Theme Toggle (Light Warm Claude vs Dark Obsidian) */}
+          {/* Theme Toggle */}
           <button
             type="button"
             onClick={toggleTheme}
             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${c.pillBg} hover:opacity-80`}
-            title={isDark ? 'Switch to Warm Claude Paper Mode' : 'Switch to Obsidian Dark Mode'}
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
-            {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-[#44403C]" />}
+            {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-700" />}
           </button>
 
           {/* Thinking Mode Toggle Pill */}
@@ -1276,7 +1206,7 @@ export const UserChatStudio: React.FC = () => {
                 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40'
                 : `${c.pillBg} opacity-75 hover:opacity-100`
             }`}
-            title="Enable Claude 3.7 / Opus Extended Reasoning"
+            title="Enable Extended Reasoning Process"
           >
             <Brain className="w-3 h-3" />
             <span className="hidden sm:inline">Thinking</span>
@@ -1292,13 +1222,14 @@ export const UserChatStudio: React.FC = () => {
                 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
                 : `${c.pillBg} opacity-75 hover:opacity-100`
             }`}
-            title="Forces AI to generate only code diffs, saving ~85% tokens"
+            title="Forces AI to generate only code diffs, saving ~40% tokens"
           >
             <Zap className="w-3 h-3" />
             <span className="hidden sm:inline">Token-Saver</span>
+            {activeThread.tokenSaverEnabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
           </button>
 
-          {/* Memory & System Rules Drawer */}
+          {/* Memory Drawer */}
           <button
             type="button"
             onClick={() => setContextManagerOpen(true)}
@@ -1307,7 +1238,7 @@ export const UserChatStudio: React.FC = () => {
           >
             <SlidersHorizontal className="w-3 h-3" />
             <span className="hidden md:inline">Memory</span>
-            {activeThread.memoryItems && activeThread.memoryItems.length > 0 && (
+            {userMemories.length > 0 && (
               <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
             )}
           </button>
@@ -1320,7 +1251,7 @@ export const UserChatStudio: React.FC = () => {
                 setActiveArtifact(null);
               } else {
                 setActiveArtifact({
-                  id: 'preview_canvas',
+                  id: 'studio_canvas',
                   title: 'Interactive Studio Canvas',
                   language: 'html',
                   code: `<div style="font-family:system-ui;padding:24px;text-align:center;">
@@ -1333,10 +1264,10 @@ export const UserChatStudio: React.FC = () => {
             }}
             className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
               activeArtifact
-                ? 'bg-violet-600 text-white border-violet-500 shadow-xs'
+                ? 'bg-violet-600 text-white border-violet-500'
                 : `${c.pillBg} hover:opacity-100`
             }`}
-            title="Open Split-Pane Artifact Preview"
+            title="Open Interactive Artifact Canvas"
           >
             <Eye className="w-3 h-3" />
             <span className="hidden sm:inline">Canvas</span>
@@ -1356,7 +1287,7 @@ export const UserChatStudio: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Studio Body: Sessions Sidebar + Chat Canvas + Artifact Canvas */}
+      {/* Main Studio Body: Sessions Sidebar + Chat Column + Artifact Canvas */}
       <div className="flex-1 min-h-0 flex overflow-hidden relative w-full">
         {/* Left: Collapsible Sessions Sidebar */}
         {sidebarOpen && (
@@ -1383,66 +1314,82 @@ export const UserChatStudio: React.FC = () => {
                   value={threadSearch}
                   onChange={(e) => setThreadSearch(e.target.value)}
                   className={`w-full pl-8 pr-2.5 py-1.5 rounded-lg text-xs border focus:outline-none focus:ring-1 focus:ring-violet-500 ${
-                    isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-[#E5E3D8] text-[#1F1E1D]'
+                    isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-900'
                   }`}
                 />
               </div>
             </div>
 
-            {/* Thread List */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1 overscroll-contain">
-              {threads
-                .filter((t) => t.title.toLowerCase().includes(threadSearch.toLowerCase()))
-                .map((t) => {
-                  const isActive = t.id === activeThread.id;
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => {
-                        setActiveThreadId(t.id);
-                        if (window.speechSynthesis) window.speechSynthesis.cancel();
-                        setSpeakingMsgId(null);
-                      }}
-                      className={`group relative p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between border ${
-                        isActive
-                          ? isDark
-                            ? 'bg-slate-800/80 border-slate-700 text-white font-medium shadow-2xs'
-                            : 'bg-white border-[#DCDAD0] text-[#1F1E1D] font-semibold shadow-xs'
-                          : isDark
-                          ? 'border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
-                          : 'border-transparent text-[#78716C] hover:bg-[#EBE9E1] hover:text-[#1F1E1D]'
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0 pr-2">
-                        <p className="truncate text-xs leading-snug">{t.title}</p>
-                        <p className={`text-[10px] mt-0.5 truncate font-mono ${c.textMuted}`}>
-                          {getModelDisplayName(t.model).replace('Claude ', '')} · {t.messages.length} msgs
-                        </p>
-                      </div>
+            {/* Thread List with Date Grouping */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-3 overscroll-contain">
+              {/* Group: Pinned */}
+              {groupedThreads.pinned.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+                    <Pin className="w-3 h-3" />
+                    <span>Pinned</span>
+                  </p>
+                  {groupedThreads.pinned.map((t) => renderThreadRow(t))}
+                </div>
+              )}
 
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteThread(t.id, e)}
-                        className={`opacity-0 group-hover:opacity-100 p-1 rounded-md transition-opacity hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 ${c.textMuted}`}
-                        title="Delete Session"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  );
-                })}
+              {/* Group: Today */}
+              {groupedThreads.today.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Today
+                  </p>
+                  {groupedThreads.today.map((t) => renderThreadRow(t))}
+                </div>
+              )}
+
+              {/* Group: Yesterday */}
+              {groupedThreads.yesterday.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Yesterday
+                  </p>
+                  {groupedThreads.yesterday.map((t) => renderThreadRow(t))}
+                </div>
+              )}
+
+              {/* Group: Previous 7 Days */}
+              {groupedThreads.previous7Days.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Previous 7 Days
+                  </p>
+                  {groupedThreads.previous7Days.map((t) => renderThreadRow(t))}
+                </div>
+              )}
+
+              {/* Group: Older */}
+              {groupedThreads.older.length > 0 && (
+                <div className="space-y-1">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Older
+                  </p>
+                  {groupedThreads.older.map((t) => renderThreadRow(t))}
+                </div>
+              )}
+
+              {threads.length === 0 && (
+                <div className="p-4 text-center text-slate-400">
+                  <p>No conversations yet.</p>
+                </div>
+              )}
             </div>
 
             {/* Sidebar Footer with Token Context Meter */}
             <div className={`p-3 border-t ${c.sidebarBorder} text-[11px] shrink-0`}>
               <div className="flex items-center justify-between font-mono mb-1">
-                <span className={c.textMuted}>Context Tokens</span>
-                <span className="font-semibold">{totalContextTokens.toLocaleString()} / 200k</span>
+                <span className={c.textMuted}>Remaining Tokens</span>
+                <span className="font-semibold">{remainingTokensM}M</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all"
-                  style={{ width: `${Math.min(100, (totalContextTokens / 200000) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (Number(remainingTokens) / 5000000) * 100)}%` }}
                 />
               </div>
             </div>
@@ -1452,27 +1399,30 @@ export const UserChatStudio: React.FC = () => {
         {/* Center: Main Conversational Column */}
         <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden relative min-w-0">
           {/* Scrollable Message Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 overscroll-contain">
+          <div
+            ref={chatScrollContainerRef}
+            className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 overscroll-contain"
+          >
             <div className="max-w-4xl mx-auto w-full space-y-6">
-              {/* Empty State Hero */}
+              {/* Phase 2.3 New Chat Landing State */}
               {activeThread.messages.length === 0 && (
-                <div className="py-8 sm:py-16 text-center space-y-6">
-                  <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-amber-500 to-violet-600 text-white flex items-center justify-center shadow-md">
+                <div className="py-8 sm:py-14 text-center space-y-6">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/20">
                     <Sparkles className="w-7 h-7" />
                   </div>
 
-                  <div className="space-y-2 max-w-lg mx-auto">
-                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-                      What would you like to build or analyze today?
+                  <div className="space-y-2 max-w-xl mx-auto">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                      What are we working on today?
                     </h2>
                     <p className={`text-xs sm:text-sm leading-relaxed ${c.textMuted}`}>
-                      Frontier Claude architecture with 200,000 token context, sub-50ms gateway routing, and interactive Artifact previews.
+                      Ask a question, analyse a document, write code, or explore an idea with the models available through LightningAPI.
                     </p>
                   </div>
 
-                  {/* 4 Quick-Start Starter Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left max-w-2xl mx-auto pt-2">
-                    {QUICK_PROMPT_CARDS.map((card, idx) => (
+                  {/* 5 Functional Suggested Prompt Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-left max-w-3xl mx-auto pt-2">
+                    {STARTING_WORKFLOW_CARDS.map((card, idx) => (
                       <button
                         key={idx}
                         type="button"
@@ -1482,13 +1432,13 @@ export const UserChatStudio: React.FC = () => {
                         }}
                         className={`p-3.5 rounded-2xl border transition-all text-left group cursor-pointer ${
                           isDark
-                            ? 'bg-[#131826] border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/40'
-                            : 'bg-white border-[#E5E3D8] hover:border-violet-500/40 hover:shadow-sm'
+                            ? 'bg-[#131A2B] border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/40'
+                            : 'bg-white border-slate-200/90 hover:border-violet-500/50 hover:shadow-xs'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${c.pillBg}`}>
-                            {card.tag}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${c.pillBg}`}>
+                            {card.category}
                           </span>
                           <card.icon className="w-4 h-4 text-violet-500 transition-transform group-hover:scale-110" />
                         </div>
@@ -1508,7 +1458,7 @@ export const UserChatStudio: React.FC = () => {
                 return (
                   <div key={msg.id || idx} className="space-y-2">
                     {isUser ? (
-                      /* User Message Bubble (Right-aligned pill) */
+                      /* User Message Bubble */
                       <div className="flex justify-end">
                         <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-xs space-y-2 ${c.userBubble}`}>
                           {/* Attachments preview */}
@@ -1520,9 +1470,9 @@ export const UserChatStudio: React.FC = () => {
                                   className="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg bg-black/10 dark:bg-white/10 font-mono"
                                 >
                                   {att.type === 'document' ? (
-                                    <FileText className="w-3 h-3 text-red-500" />
+                                    <FileText className="w-3 h-3 text-red-300" />
                                   ) : (
-                                    <ImageIcon className="w-3 h-3 text-violet-400" />
+                                    <ImageIcon className="w-3 h-3 text-violet-200" />
                                   )}
                                   <span className="truncate max-w-[150px]">{att.name}</span>
                                 </div>
@@ -1530,13 +1480,40 @@ export const UserChatStudio: React.FC = () => {
                             </div>
                           )}
 
-                          {/* Text Body */}
-                          <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap select-text">
-                            {msg.content}
-                          </p>
+                          {/* Text Body / Edit Mode */}
+                          {editingMsgId === msg.id ? (
+                            <div className="space-y-2">
+                              <textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="w-full p-2 bg-black/20 rounded-lg text-xs text-white focus:outline-none resize-none"
+                                rows={3}
+                              />
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingMsgId(null)}
+                                  className="px-2 py-1 text-[10px] rounded bg-white/20 hover:bg-white/30"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditSubmit(msg.id)}
+                                  className="px-2 py-1 text-[10px] rounded bg-white text-violet-700 font-bold"
+                                >
+                                  Resubmit
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap select-text">
+                              {msg.content}
+                            </p>
+                          )}
 
                           {/* User action bar */}
-                          <div className="flex items-center justify-end gap-2 text-[10px] opacity-60 hover:opacity-100 transition-opacity font-mono pt-1">
+                          <div className="flex items-center justify-end gap-2 text-[10px] opacity-70 hover:opacity-100 transition-opacity font-mono pt-1">
                             <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             <button
                               type="button"
@@ -1545,6 +1522,7 @@ export const UserChatStudio: React.FC = () => {
                                 setEditContent(msg.content);
                               }}
                               className="hover:underline flex items-center gap-0.5 cursor-pointer"
+                              title="Edit and resubmit"
                             >
                               <Edit2 className="w-2.5 h-2.5" />
                               <span>Edit</span>
@@ -1552,56 +1530,40 @@ export const UserChatStudio: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                    ) : msg.isError ? (
-                      /* Error Message Alert Banner */
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-mono text-amber-600 dark:text-amber-400">
-                          <AlertCircle className="w-4 h-4 shrink-0" />
-                          <span className="font-bold">Gateway Notice</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
-                            0 Tokens Deducted
-                          </span>
-                          <span className={`text-[10px] ${c.textMuted}`}>
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-950/30 text-xs sm:text-sm text-amber-900 dark:text-amber-200 leading-relaxed font-sans">
-                          <p className="whitespace-pre-wrap">{msg.content.replace(/^⚠️\s*/, '')}</p>
-                        </div>
-                      </div>
                     ) : (
-                      /* Assistant Message (Clean Open Layout) */
-                      <div className="space-y-3">
-                        {/* Header Metadata Pill */}
-                        <div className="flex items-center justify-between text-xs font-mono">
+                      /* Assistant Message Bubble */
+                      <div className="space-y-2">
+                        {/* Assistant Header */}
+                        <div className="flex items-center justify-between text-xs px-1">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-500 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <div className="w-6 h-6 rounded-lg bg-violet-600/20 text-violet-600 dark:text-violet-400 flex items-center justify-center font-bold text-xs">
                               <Sparkles className="w-3.5 h-3.5" />
                             </div>
-                            <span className="font-bold">{getModelDisplayName(msg.modelUsed || activeThread.model)}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${c.pillBg}`}>
-                              {getModelDisplayName(msg.modelUsed || activeThread.model).replace('Claude ', '')}
+                            <span className="font-bold text-xs">
+                              {getModelDisplayName(msg.modelUsed || activeThread.model)}
                             </span>
-                            {msg.latencyMs && (
-                              <span className={`text-[10px] ${c.textMuted}`}>{msg.latencyMs}ms</span>
-                            )}
-                            {msg.usage && (
-                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline">
-                                ✓ {msg.usage.total_tokens.toLocaleString()} tokens
+                            {msg.latencyMs ? (
+                              <span className={`text-[10px] font-mono ${c.textMuted}`}>
+                                {msg.latencyMs}ms
                               </span>
-                            )}
+                            ) : null}
+                            {msg.usage ? (
+                              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                                ✓ {msg.usage.total_tokens.toLocaleString()} tokens
+                                {msg.usage.savings_tokens ? ` (${msg.usage.savings_tokens} saved)` : ''}
+                              </span>
+                            ) : null}
                           </div>
 
-                          {/* Quick Message Actions */}
-                          <div className="flex items-center gap-1">
-                            {/* Read Aloud TTS */}
+                          <div className="flex items-center gap-1 text-xs">
+                            {/* Read aloud TTS */}
                             <button
                               type="button"
                               onClick={() => handleToggleSpeak(msg.id, msg.content)}
                               className={`p-1 rounded-md border transition-colors cursor-pointer ${
                                 speakingMsgId === msg.id ? 'bg-violet-600 text-white border-violet-500' : c.pillBg
                               }`}
-                              title={speakingMsgId === msg.id ? 'Stop Speaking' : 'Read Aloud (TTS)'}
+                              title={speakingMsgId === msg.id ? 'Stop Speaking' : 'Read Aloud'}
                             >
                               {speakingMsgId === msg.id ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
                             </button>
@@ -1609,21 +1571,31 @@ export const UserChatStudio: React.FC = () => {
                             {/* Copy button */}
                             <button
                               type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(msg.content);
-                              }}
+                              onClick={() => navigator.clipboard.writeText(msg.content)}
                               className={`p-1 rounded-md border transition-colors cursor-pointer ${c.pillBg}`}
                               title="Copy Message"
                             >
                               <Copy className="w-3 h-3" />
                             </button>
+
+                            {/* Regenerate if last assistant message */}
+                            {idx === activeThread.messages.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={handleRegenerate}
+                                className={`p-1 rounded-md border transition-colors cursor-pointer ${c.pillBg}`}
+                                title="Regenerate Response"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
-                        {/* Collapsible Thinking Block (When Extended Reasoning was returned) */}
-                        {msg.thinking && (
+                        {/* Collapsible Reasoning Process Drawer */}
+                        {msg.thinking ? (
                           <details className={`rounded-xl border p-3 text-xs ${
-                            isDark ? 'bg-amber-950/20 border-amber-500/30' : 'bg-amber-50/50 border-amber-200'
+                            isDark ? 'bg-amber-950/20 border-amber-500/30' : 'bg-amber-50/60 border-amber-200'
                           }`}>
                             <summary className="font-semibold text-amber-700 dark:text-amber-400 cursor-pointer flex items-center gap-1.5 select-none">
                               <Brain className="w-3.5 h-3.5" />
@@ -1633,11 +1605,32 @@ export const UserChatStudio: React.FC = () => {
                               {msg.thinking}
                             </div>
                           </details>
-                        )}
+                        ) : null}
 
                         {/* Formatted Markdown Body */}
-                        <div className={`p-4 rounded-2xl border shadow-xs ${c.cardBg} ${c.border}`}>
-                          <MarkdownBlock content={msg.content} />
+                        <div className={`p-4 rounded-2xl border shadow-2xs ${c.cardBg} ${c.border}`}>
+                          {msg.content ? (
+                            <MarkdownBlock content={msg.content} />
+                          ) : (
+                            <div className="flex items-center gap-2 text-slate-400 text-xs py-2 font-mono">
+                              <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+                              <span>Streaming response from {getModelDisplayName(activeThread.model)}...</span>
+                            </div>
+                          )}
+
+                          {msg.isError && (
+                            <div className="mt-3 pt-2 border-t border-rose-500/20 flex items-center justify-between">
+                              <span className="text-xs text-rose-500">Request failed.</span>
+                              <button
+                                type="button"
+                                onClick={handleRetry}
+                                className="px-3 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Retry</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1645,28 +1638,14 @@ export const UserChatStudio: React.FC = () => {
                 );
               })}
 
-              {/* Live Deliberative Thinking Process */}
-              {generating && (
-                <LiveThinkingCard
-                  modelName={getModelDisplayName(activeThread.model)}
-                  elapsedMs={elapsedMs}
-                  userPrompt={
-                    ([...activeThread.messages].reverse().find((m) => m.role === 'user')?.content as string) ||
-                    inputMessage
-                  }
-                  isDark={isDark}
-                  onCancel={handleStopGeneration}
-                />
-              )}
-
               <div ref={messagesEndRef} />
             </div>
           </div>
 
-          {/* Floating Pill Composer (Claude.ai 3.5 & ChatGPT Style) */}
+          {/* Floating Pill Composer (Claude.ai 3.5 & ChatGPT Standard) */}
           <div className="p-4 shrink-0 bg-gradient-to-t from-current/5 to-transparent">
             <div className={`max-w-4xl mx-auto rounded-3xl border shadow-lg transition-all ${c.inputBg} ${c.border} ${
-              generating ? 'opacity-85' : 'focus-within:ring-2 focus-within:ring-violet-500/30'
+              generating ? 'opacity-90' : 'focus-within:ring-2 focus-within:ring-violet-500/30'
             }`}>
               {/* Attachment Preview Chips */}
               {attachments.length > 0 && (
@@ -1731,7 +1710,7 @@ export const UserChatStudio: React.FC = () => {
                         setShowSlashMenu(false);
                         textareaRef.current?.focus();
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer`}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer"
                     >
                       <span className="font-mono font-bold text-violet-500">{sc.cmd}</span>
                       <span className={`text-[11px] ${c.textMuted}`}>{sc.desc}</span>
@@ -1742,55 +1721,28 @@ export const UserChatStudio: React.FC = () => {
 
               {/* Bottom Action Bar inside Composer */}
               <div className="px-3 pb-2.5 pt-1 flex items-center justify-between border-t border-black/5 dark:border-white/5">
-                {/* Left controls: Model Selector, Attach, Enhance, Search */}
+                {/* Left controls: Model Selector, Attach, Enhance */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {/* Model Selector next to chat bar (Native LLM Standard) */}
-                  <div className="relative">
-                    <select
-                      value={activeThread.model}
-                      onChange={(e) => updateActiveThread({ model: e.target.value })}
-                      className={`border font-semibold rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 cursor-pointer ${
-                        isDark
-                          ? 'bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-750'
-                          : 'bg-slate-100 border-slate-200 text-slate-900 hover:bg-slate-200/80 shadow-2xs'
-                      }`}
-                    >
-                      <optgroup label="👑 Flagship 5.5 & 5.0 Series" className="font-bold text-violet-600">
-                        {MODEL_OPTIONS.filter((m) => m.category === 'Flagship 5.5 & 5.0 Series').map((m) => (
-                          <option key={m.id} value={m.id} className="font-normal text-slate-900 dark:text-slate-100">
-                            {m.name} ({m.tokenMultiplier})
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="🧠 Extended Thinking & Reasoning" className="font-bold text-emerald-600">
-                        {MODEL_OPTIONS.filter((m) => m.category === 'Extended Thinking & Reasoning').map((m) => (
-                          <option key={m.id} value={m.id} className="font-normal text-slate-900 dark:text-slate-100">
-                            {m.name} ({m.tokenMultiplier})
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="⚡ IDE & High-Velocity Series" className="font-bold text-blue-600">
-                        {MODEL_OPTIONS.filter((m) => m.category === 'IDE & High-Velocity Series').map((m) => (
-                          <option key={m.id} value={m.id} className="font-normal text-slate-900 dark:text-slate-100">
-                            {m.name} ({m.tokenMultiplier})
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="🌐 Standard Anthropic Series" className="font-bold text-slate-600">
-                        {MODEL_OPTIONS.filter((m) => m.category === 'Standard Anthropic Series').map((m) => (
-                          <option key={m.id} value={m.id} className="font-normal text-slate-900 dark:text-slate-100">
-                            {m.name} ({m.tokenMultiplier})
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
+                  {/* Model Switcher Button */}
+                  <button
+                    type="button"
+                    onClick={() => setModelPickerOpen(true)}
+                    className={`border font-semibold rounded-xl px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isDark
+                        ? 'bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-750'
+                        : 'bg-slate-100 border-slate-200 text-slate-900 hover:bg-slate-200/80 shadow-2xs'
+                    }`}
+                  >
+                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <span>{getModelDisplayName(activeThread.model)}</span>
+                    <ChevronDown className="w-3 h-3 opacity-60" />
+                  </button>
 
                   <input
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.ts,.tsx,.js,.py,.json,.md"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.ts,.tsx,.js,.py,.json,.md,.csv,.sql"
                     className="hidden"
                     onChange={(e) => handleFilesSelected(e.target.files)}
                   />
@@ -1809,44 +1761,30 @@ export const UserChatStudio: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleEnhancePrompt}
-                    disabled={!inputMessage.trim() || isEnhancing}
+                    disabled={!inputMessage.trim()}
                     className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
                       inputMessage.trim()
                         ? 'text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10'
                         : `${c.pillBg} opacity-50 cursor-not-allowed`
                     }`}
-                    title="1-Click AI Prompt Enhancer"
+                    title="1-Click Prompt Enhancer"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Enhance</span>
                   </button>
-
-                  {/* Web Search Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                    className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
-                      webSearchEnabled
-                        ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/40'
-                        : `${c.pillBg} opacity-70 hover:opacity-100`
-                    }`}
-                    title="Live Web Search Context"
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Search</span>
-                  </button>
                 </div>
 
-                {/* Right controls: Stop / Send */}
+                {/* Right controls: Stop Generation or Send Button */}
                 <div className="flex items-center gap-2">
                   {generating ? (
                     <button
                       type="button"
                       onClick={handleStopGeneration}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-500/20 cursor-pointer animate-pulse"
+                      title="Stop Generation"
                     >
                       <Square className="w-3 h-3 fill-current" />
-                      <span>Stop</span>
+                      <span>Stop ({Math.round(elapsedMs / 1000)}s)</span>
                     </button>
                   ) : (
                     <button
@@ -1880,22 +1818,138 @@ export const UserChatStudio: React.FC = () => {
         )}
       </div>
 
+      {/* Model Selector Modal / Drawer */}
+      {modelPickerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className={`max-w-xl w-full rounded-2xl border shadow-2xl flex flex-col max-h-[85vh] ${c.cardBg} ${c.border}`}>
+            {/* Header */}
+            <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-violet-500" />
+                  <span>Choose Model</span>
+                </h3>
+                <p className={`text-xs ${c.textMuted}`}>Select from verified models available through LightningAPI</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModelPickerOpen(false)}
+                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="p-3 border-b border-black/5 dark:border-white/5">
+              <div className="relative">
+                <Search className={`w-4 h-4 absolute left-3 top-2.5 ${c.textMuted}`} />
+                <input
+                  type="text"
+                  placeholder="Filter models by name or capability..."
+                  value={modelSearch}
+                  onChange={(e) => setModelSearch(e.target.value)}
+                  className={`w-full pl-9 pr-3 py-1.5 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-violet-500 ${
+                    isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Model List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-4">
+              {['Flagship Models', 'Reasoning & Deep Thinking', 'High-Velocity & Coding', 'Fast & Economical', 'Standard Anthropic Series'].map((cat) => {
+                const catModels = VERIFIED_MODELS.filter(
+                  (m) =>
+                    m.category === cat &&
+                    (m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                     m.description.toLowerCase().includes(modelSearch.toLowerCase()))
+                );
+
+                if (catModels.length === 0) return null;
+
+                return (
+                  <div key={cat} className="space-y-1.5">
+                    <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 px-1">
+                      {cat} ({catModels.length})
+                    </p>
+                    <div className="space-y-1.5">
+                      {catModels.map((m) => {
+                        const isSelected = activeThread.model === m.id;
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => {
+                              updateActiveThread({ model: m.id });
+                              setModelPickerOpen(false);
+                            }}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
+                              isSelected
+                                ? 'bg-violet-500/10 border-violet-500 text-violet-700 dark:text-violet-300 shadow-2xs'
+                                : isDark
+                                ? 'bg-slate-800/40 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
+                                : 'bg-slate-50/70 border-slate-200 hover:bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs">{m.name}</span>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-violet-500/20 text-violet-500">
+                                  {m.tokenMultiplier}x Tokens
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-500/15 text-slate-400">
+                                  {(m.contextWindow / 1000).toFixed(0)}k Context
+                                </span>
+                              </div>
+                              <p className={`text-[11px] leading-relaxed ${c.textMuted}`}>
+                                {m.description}
+                              </p>
+                            </div>
+                            {isSelected && (
+                              <CheckCircle2 className="w-4 h-4 text-violet-500 shrink-0 mt-1" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Context Manager & Memory Rules Drawer */}
       <ContextManagerDrawer
         open={contextManagerOpen}
-        onClose={() => setContextManagerOpen(false)}
-        persona={activeThread.persona || 'fullstack'}
+        onClose={() => {
+          setContextManagerOpen(false);
+          loadMemories();
+        }}
+        persona="fullstack"
         systemPrompt={activeThread.systemPrompt || ''}
         temperature={activeThread.temperature ?? 0.2}
-        maxTokens={activeThread.maxTokens ?? 4096}
+        maxTokens={4096}
         thinkingEnabled={activeThread.thinkingEnabled ?? false}
-        thinkingBudget={activeThread.thinkingBudget ?? 2048}
-        memoryItems={activeThread.memoryItems || []}
-        totalContextTokens={totalContextTokens}
+        thinkingBudget={2048}
+        memoryItems={userMemories}
+        totalContextTokens={activeThread.messages.length * 150}
         messagesCount={activeThread.messages.length}
         isPaidCustomer={isPaidCustomer}
-        onUpdateSettings={(updates) => updateActiveThread(updates)}
-        onCompressContext={handleCompressContext}
+        onAddMemory={handleAddMemory}
+        onRemoveMemory={handleRemoveMemory}
+        onUpdateSettings={(updates) => {
+          updateActiveThread(updates);
+          if (updates.memoryItems) {
+            setUserMemories(updates.memoryItems);
+          }
+        }}
+        onCompressContext={async () => {
+          setIsCompressing(true);
+          updateActiveThread({ tokenSaverEnabled: true });
+          setIsCompressing(false);
+        }}
         isCompressing={isCompressing}
       />
 
@@ -1944,4 +1998,90 @@ export const UserChatStudio: React.FC = () => {
       )}
     </div>
   );
+
+  // Helper renderer for each thread in the sidebar
+  function renderThreadRow(t: ChatThread) {
+    const isActive = t.id === activeThread.id;
+    const isRenaming = renamingId === t.id;
+
+    return (
+      <div
+        key={t.id}
+        onClick={() => {
+          setActiveThreadId(t.id);
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          setSpeakingMsgId(null);
+        }}
+        className={`group relative p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between border ${
+          isActive
+            ? isDark
+              ? 'bg-slate-800/80 border-slate-700 text-white font-medium shadow-2xs'
+              : 'bg-white border-slate-300 text-slate-900 font-semibold shadow-xs'
+            : isDark
+            ? 'border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+            : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <div className="flex-1 min-w-0 pr-2">
+          {isRenaming ? (
+            <input
+              type="text"
+              autoFocus
+              value={renameText}
+              onChange={(e) => setRenameText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveRename(t.id);
+                if (e.key === 'Escape') setRenamingId(null);
+              }}
+              onBlur={() => handleSaveRename(t.id)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full text-xs font-semibold bg-white dark:bg-slate-900 border border-violet-500 rounded px-1.5 py-0.5 focus:outline-none"
+            />
+          ) : (
+            <p className="truncate text-xs leading-snug">{t.title}</p>
+          )}
+          <p className={`text-[10px] mt-0.5 truncate font-mono ${c.textMuted}`}>
+            {getModelDisplayName(t.model).replace('Claude ', '')} · {t.messages.length} msgs
+          </p>
+        </div>
+
+        {/* Action icons on hover */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Pin */}
+          <button
+            type="button"
+            onClick={(e) => handleTogglePin(t.id, Boolean(t.pinned), e)}
+            className={`p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 ${t.pinned ? 'text-amber-500 opacity-100' : c.textMuted}`}
+            title={t.pinned ? 'Unpin' : 'Pin to top'}
+          >
+            <Pin className="w-3 h-3" />
+          </button>
+
+          {/* Rename */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setRenamingId(t.id);
+              setRenameText(t.title);
+            }}
+            className={`p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 ${c.textMuted}`}
+            title="Rename"
+          >
+            <Edit2 className="w-3 h-3" />
+          </button>
+
+          {/* Delete */}
+          <button
+            type="button"
+            onClick={(e) => handleDeleteThread(t.id, e)}
+            className="p-1 rounded hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400"
+            title="Delete Session"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 };

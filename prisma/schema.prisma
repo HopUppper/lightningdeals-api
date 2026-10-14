@@ -68,6 +68,8 @@ model User {
   negotiatedPrices        NegotiatedPrice[]
   customerFeedbacks       CustomerFeedback[]
   publicReviews           PublicReview[]
+  studioConversations     StudioConversation[]
+  studioMemories          StudioMemory[]
 }
 
 
@@ -1099,3 +1101,52 @@ model PublicReview {
   @@index([createdAt])
 }
 
+model StudioConversation {
+  id                 String          @id @default(uuid())
+  userId             String
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String          @default("New Session")
+  model              String          @default("claude-sonnet-5.5")
+  systemPrompt       String?         @db.Text
+  thinkingEnabled    Boolean         @default(false)
+  tokenSaverEnabled  Boolean         @default(false)
+  temperature        Float           @default(0.2)
+  pinned             Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  messages           StudioMessage[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, pinned])
+}
+
+model StudioMessage {
+  id              String             @id @default(uuid())
+  conversationId  String
+  conversation    StudioConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role            String             // "user" | "assistant" | "system"
+  content         String             @db.Text
+  thinking        String?            @db.Text
+  modelUsed       String?
+  inputTokens     Int                @default(0)
+  outputTokens    Int                @default(0)
+  totalTokens     Int                @default(0)
+  multiplier      Float              @default(1.0)
+  latencyMs       Int                @default(0)
+  attachmentsJson String?            @db.Text
+  createdAt       DateTime           @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model StudioMemory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  String   @default("General") // "General" | "Coding" | "Preferences" | "Context"
+  fact      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+}

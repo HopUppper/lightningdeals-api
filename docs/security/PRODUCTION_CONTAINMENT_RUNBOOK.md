@@ -6,7 +6,7 @@
 **Repository:** `HopUppper/lightningdeals-api`  
 **Target Remediation Branch:** `incident/phase1-containment`  
 **Hosting Topology:** Cloudflare WAF/CDN -> Render Web Service -> Supabase Managed PostgreSQL  
-**Version:** 1.0.0  
+**Version:** 1.1.0 (Safety Hardened)  
 **Effective Date:** 2026-10-18  
 
 ---
@@ -35,12 +35,12 @@ It establishes:
 | Secret Category | Variable / Storage Location | Exposure Risk in Incident | Rotation Required? | Primary Dependencies | Verification Method |
 |---|---|---|---|---|---|
 | **JWT Signing Key** | Render Env: `JWT_SECRET` | **CRITICAL**: Hardcoded fallbacks (`lightningdeals_secret_jwt_key_2026`, `apexscale-jwt-secret-key-production-2026`) allowed offline admin token forgery. | **YES (MANDATORY)** | Must be applied simultaneously with code deployment in Stage 5. | Verify server starts; test legacy tokens return HTTP 401. |
-| **Security Epoch** | Render Env: `SECURITY_EPOCH` | **HIGH**: Legacy stateless tokens minted before incident could remain valid if DB session check bypassed. | **YES (MANDATORY)** | Must be set to current Unix epoch timestamp (`Date.now()`). | Old tokens with `iat * 1000 < SECURITY_EPOCH` rejected with 401. |
+| **Security Epoch** | Render Env: `SECURITY_EPOCH` | **HIGH**: Legacy stateless tokens minted before incident could remain valid if DB session check bypassed. | **YES (MANDATORY)** | Accepts numeric milliseconds string or ISO 8601 string. | Old tokens with `iat * 1000 < SECURITY_EPOCH` rejected with 401. |
 | **Admin Passwords** | PostgreSQL table `User` (`role = 'admin'`) | **CRITICAL**: Seed credentials (`sidhjain9002@gmail.com` / `love9002`, `admin@lightningdeals.com` / `admin123`) compromised. | **YES (MANDATORY)** | Code deployment in Stage 5 must be live first (Scrypt hashing enforced). | `scripts/provision-admin.ts --rotate` executed; test login. |
-| **Database Credentials** | Render Env: `DATABASE_URL`, `DIRECT_URL` / Supabase | **HIGH**: Public repo exposure or potential SQL/admin shell exfiltration makes DB credentials suspect. | **YES (HIGH PRIORITY)** | Supabase DB password reset; Render env vars updated in sync. | `node scripts/prepare-env.cjs && npx prisma db pull` succeeds. |
-| **Vault Encryption Key** | Render Env: `ENCRYPTION_KEY` | **HIGH**: Key encrypts upstream AI master keys in table `VendorProvider`. If compromised, master keys readable. | **CONDITIONAL (WITH SAFE RE-ENCRYPT)** | **CRITICAL CAUTION**: Changing key blindly destroys existing encrypted master keys. | Export or re-enter provider keys after key rotation in Admin UI. |
+| **Database Credentials** | Render Env: `DATABASE_URL`, `DIRECT_URL` / Supabase | **HIGH**: Public repo exposure or potential SQL/admin shell exfiltration makes DB credentials suspect. | **YES (STAGE 9)** | Supabase DB password reset; Render `DATABASE_URL` & `DIRECT_URL` updated in sync. | `node scripts/prepare-env.cjs && npx prisma db pull` succeeds. |
+| **Vault Encryption Key** | Render Env: `ENCRYPTION_KEY` | **HIGH**: Key encrypts upstream AI master keys in table `VendorProvider`. If compromised, master keys readable. | **STAGE 9 (CONCURRENT WITH FRESH KEYS)** | **CRITICAL CAUTION**: Changing key blindly destroys existing encrypted master keys. Must be executed concurrently with entering fresh provider keys. | Re-enter fresh provider keys after key rotation in Admin UI. |
 | **Integration API Key** | Render Env: `INTEGRATION_API_KEY` | **MEDIUM**: Localhost origin bypass fixed; static internal integration header now required. | **YES (NEW KEY)** | Generate cryptographically secure random token (min 32 chars). | Request with `X-Integration-Key` succeeds; missing/wrong fails 401. |
-| **Upstream AI Master Keys** | Encrypted in `VendorProvider` (`masterApiKeyEncrypted`) | **CRITICAL**: If admin portal or DB was accessed, OpusMax / Anthropic / OpenAI master keys are compromised. | **YES (MANDATORY)** | Admin rotates keys at upstream AI providers first, then enters in portal. | Test gateway route `POST /api/v1/chat/completions` with valid test key. |
+| **Upstream AI Master Keys** | Encrypted in `VendorProvider` (`masterApiKeyEncrypted`) | **CRITICAL**: If admin portal or DB was accessed, OpusMax / Anthropic / OpenAI master keys are compromised. | **YES (MANDATORY)** | Admin rotates keys at upstream AI providers first, then enters in portal. | Test gateway route `POST /api/v1/chat/completions` with test key. |
 | **GitHub Access Tokens & Deploy Keys** | GitHub repo secrets / Render webhook | **HIGH**: Potential CI/CD or repo compromise during public exposure period. | **YES (MANDATORY)** | GitHub Repository Settings -> Secrets and variables. | Test push & manual trigger succeeds with new token. |
 | **Cloudflare API Tokens** | Cloudflare Dashboard | **MEDIUM**: DNS and WAF configuration control tokens. | **RECOMMENDED** | Rotate tokens used for Render or CI automation. | Verify DNS resolution and SSL handshake intact. |
 
@@ -63,37 +63,38 @@ flowchart TD
         S3A["3.1 Generate Cryptographic Secrets Locally"] --> S3B["3.2 Stage Secrets in Secure Password Manager"]
     end
 
-    subgraph STAGE_4 ["Stage 4: Database & Provider Preparation"]
-        S4A["4.1 Document Active VendorProvider Master Keys"] --> S4B["4.2 Prepare Supabase Password Rotation Plan"]
+    subgraph STAGE_4 ["Stage 4: Upstream AI Provider Preparation"]
+        S4A["4.1 Issue Fresh API Keys in Anthropic / OpusMax Dashboards"] --> S4B["4.2 Keep Fresh Keys Staged for Admin Portal Entry"]
     end
 
     subgraph STAGE_5 ["Stage 5: Remediation Deployment"]
-        S5A["5.1 Merge incident/phase1-containment to Main"] --> S5B["5.2 Configure Render Environment Variables"]
-        S5B --> S5C["5.3 Trigger Render Controlled Manual Deploy"]
+        S5A["5.1 Merge incident/phase1-containment to Main"] --> S5B["5.2 Configure Render Env: JWT_SECRET, SECURITY_EPOCH, INTEGRATION_API_KEY"]
+        S5B --> S5C["5.3 Trigger Render Manual Deploy (Hold ENCRYPTION_KEY for Stage 9)"]
         S5C --> S5D["5.4 Verify Healthcheck /api/health (HTTP 200)"]
     end
 
     subgraph STAGE_6 ["Stage 6: Admin Credential Rotation"]
-        S6A["6.1 Execute scripts/provision-admin.ts --rotate"] --> S6B["6.2 Verify Banned Passwords Rejected"]
+        S6A["6.1 Execute scripts/provision-admin.ts --rotate in Render Shell"] --> S6B["6.2 Verify Banned Passwords Rejected (HTTP 401)"]
     end
 
     subgraph STAGE_7 ["Stage 7: Global Session Revocation"]
-        S7A["7.1 Execute scripts/revoke-all-sessions.ts"] --> S7B["7.2 Bump passwordChangedAt across all accounts"]
+        S7A["7.1 Execute npm run session:revoke in Render Shell"] --> S7B["7.2 Verify passwordChangedAt Updated & Active Tokens Expired"]
     end
 
     subgraph STAGE_8 ["Stage 8: Live Auth & Authorization Verification"]
-        S8A["8.1 Verify Legacy JWTs Rejected (401)"] --> S8B["8.2 Verify Backdoors Eliminated"]
-        S8B --> S8C["8.3 Verify Rate Limiting & Fail-Closed Logic"]
+        S8A["8.1 Verify Legacy JWTs Rejected (HTTP 401)"] --> S8B["8.2 Verify Backdoors Eliminated"]
+        S8B --> S8C["8.3 Verify Rate Limiting via Synthetic Test Account"]
     end
 
-    subgraph STAGE_9 ["Stage 9: Database, Integrations & AI Gateway"]
-        S9A["9.1 Rotate Supabase DB Password"] --> S9B["9.2 Update Render DATABASE_URL & DIRECT_URL"]
-        S9B --> S9C["9.3 Re-enter AI Provider Master Keys via Admin UI"]
-        S9C --> S9D["9.4 Test Gateway /api/v1/chat/completions"]
+    subgraph STAGE_9 ["Stage 9: Synchronized DB & Provider Key Rotation"]
+        S9A["9.1 Reset Supabase Database Password"] --> S9B["9.2 Update Render DATABASE_URL & DIRECT_URL"]
+        S9B --> S9C["9.3 Update ENCRYPTION_KEY on Render"]
+        S9C --> S9D["9.4 Re-enter Fresh AI Keys in /admin/providers"]
+        S9D --> S9E["9.5 Verify AI Gateway with Synthetic Prompt"]
     end
 
     subgraph STAGE_10 ["Stage 10: Operational Monitoring & Audit Review"]
-        S10A["10.1 Monitor Render & Cloudflare Live Logs"] --> S10B["10.2 Verify Provider Billing & Quotas"]
+        S10A["10.1 Monitor Render & Cloudflare Live Logs"] --> S10B["10.2 Verify Provider Billing & Quotas for 48 Hours"]
     end
 
     subgraph STAGE_11 ["Stage 11: Production Exit Gate"]
@@ -133,14 +134,15 @@ flowchart TD
    - Retain backup file in secure offline storage labeled `pre-containment-backup-20261018.sql`.
 2. **Export Render Service Logs:**
    - In Render Dashboard -> Select Web Service -> `Logs`.
-   - Filter by last 7 days. Click `Export Logs` (or download raw log stream via Render API).
+   - Filter by last 14 days. Click `Export Logs` (or download raw log stream).
    - Archive logs for forensic review of unauthorized administrator logins and potential data exfiltration.
 3. **Capture Current Audit Log State:**
-   - Run a non-destructive read of table `AdminLog` to preserve existing log hashes:
+   - Run a non-destructive read of table `AdminLog` to preserve existing log records:
      ```bash
      # Local terminal connected via read-only replica or snapshot:
      npx prisma studio --port 5555
      ```
+   - **Crucial Rule:** Do **NOT** rewrite, re-hash, or backfill historical audit records. The historical state must remain immutable forensic evidence.
 
 - **Verification:** Confirm `.sql` backup file size is non-zero and log archive exists.
 - **Rollback Procedure:** N/A (Read-only forensic operation).
@@ -169,7 +171,7 @@ flowchart TD
      - Require status checks to pass (`test:security`, `build`).
 3. **Cloudflare WAF Verification:**
    - In Cloudflare Dashboard -> `Security` -> `WAF`.
-   - Confirm WAF rules block suspicious path traversals, SQL injection payloads, and brute-force scanners targeting `/admin/auth/login`.
+   - Confirm WAF rules block suspicious path traversals, SQL injection payloads, and brute-force scanners targeting `/api/admin/auth/login`.
 
 - **Verification:** Run `curl -I https://github.com/HopUppper/lightningdeals-api` from an unauthenticated session; verify HTTP 404 (confirming private visibility).
 - **Rollback Procedure:** N/A.
@@ -198,8 +200,8 @@ node -e "console.log('ENCRYPTION_KEY=' + require('crypto').randomBytes(32).toStr
 # 3. Generate new Integration API Key (timing-safe integration token):
 node -e "console.log('INTEGRATION_API_KEY=ld_int_' + require('crypto').randomBytes(24).toString('hex'))"
 
-# 4. Generate new Security Epoch (current millisecond epoch):
-node -e "console.log('SECURITY_EPOCH=' + Date.now())"
+# 4. Generate new Security Epoch (current millisecond epoch or ISO string):
+node -e "console.log('SECURITY_EPOCH=' + new Date().toISOString())"
 ```
 
 > [!CAUTION]
@@ -210,23 +212,22 @@ node -e "console.log('SECURITY_EPOCH=' + Date.now())"
 
 ---
 
-### Stage 4: Prepare Database and Provider Credential Rotation
+### Stage 4: Prepare Upstream AI Provider Keys
 
-- **Purpose & Risk Addressed:** Mitigates the danger of rendering upstream provider master keys permanently unreadable when updating `ENCRYPTION_KEY`, and ensures database connection continuity.
-- **Service / Dashboard:** Admin Portal (`https://lightningapi.pro/admin/providers`), Upstream Provider Consoles (Anthropic, OpusMax, OpenAI).
+- **Purpose & Risk Addressed:** Mitigates the risk of gateway outages and ensures replacement keys are ready before rotating vault encryption.
+- **Service / Dashboard:** Upstream Provider Consoles (Anthropic: `console.anthropic.com`, OpusMax, OpenAI).
 - **Prerequisites & Dependencies:** Owner access to AI provider billing accounts.
 - **Downtime / Reauthentication Impact:** None yet.
 - **Potential Data-Loss / Billing Consequences:**
   > [!WARNING]
-  > **ENCRYPTION KEY ROTATION IMPACT:** Because `VendorProvider.masterApiKeyEncrypted` is encrypted with `ENCRYPTION_KEY` using AES-256-GCM, updating `ENCRYPTION_KEY` on Render will make existing encrypted master keys undecryptable.
-  > **Safe Procedure:** The owner must document the active provider account IDs and obtain fresh API keys from the providers (Anthropic, OpusMax, etc.) so they can be re-saved in the Admin UI immediately following the deployment in Stage 9.
+  > **ENCRYPTION KEY COUPLING:** Because `VendorProvider.masterApiKeyEncrypted` is encrypted with `ENCRYPTION_KEY` using AES-256-GCM, updating `ENCRYPTION_KEY` on Render will make existing encrypted master keys undecryptable. Therefore, `ENCRYPTION_KEY` must **NOT** be changed in Stage 5. It will be changed in Stage 9 concurrently with entering the fresh provider keys.
 - **Required Action & Approval:** Owner manual preparation.
 
 #### Execution Steps:
 1. Log into upstream AI provider dashboards:
    - Anthropic Console: `console.anthropic.com`
    - OpusMax / Third-Party Vendor Consoles
-2. Generate fresh replacement API keys for each provider. Do not delete old keys immediately until deployment is validated.
+2. Generate fresh replacement API keys for each provider. Do not delete old keys immediately until Stage 9 is complete.
 3. Keep the new provider keys ready to paste into the Admin UI (`/admin/providers`).
 
 - **Verification:** Confirm new provider keys are active and funded in provider dashboards.
@@ -238,7 +239,7 @@ node -e "console.log('SECURITY_EPOCH=' + Date.now())"
 
 - **Purpose & Risk Addressed:** Deploys all Phase 1 fixes to production on Render, eliminating hardcoded fallback secrets, backdoor admin creation, password bypasses, and rate-limit spoofing.
 - **Service / Dashboard:** GitHub PR -> Render Web Service Dashboard (`dashboard.render.com`).
-- **Prerequisites & Dependencies:** All 16 regression tests pass locally; build passes; secrets staged from Stage 3.
+- **Prerequisites & Dependencies:** All 18 regression tests pass locally; build passes; secrets staged from Stage 3.
 - **Downtime / Reauthentication Impact:**
   - Brief rolling restart (< 60 seconds) during Render deployment. Zero customer downtime if rolling deploys are enabled.
   - Setting new `JWT_SECRET` and `SECURITY_EPOCH` will invalidate existing user/admin session tokens. Users will be asked to log in again on their next request.
@@ -257,10 +258,10 @@ node -e "console.log('SECURITY_EPOCH=' + Date.now())"
    - Navigate to Render Dashboard -> Web Service `lightningdeals-api` -> `Environment`.
    - Update / Add the following environment variables:
      - `JWT_SECRET`: `<New 64-hex char secret from Stage 3>`
-     - `SECURITY_EPOCH`: `<New epoch timestamp from Stage 3>`
+     - `SECURITY_EPOCH`: `<New ISO timestamp or numeric ms from Stage 3>`
      - `INTEGRATION_API_KEY`: `<New integration token from Stage 3>`
      - `NODE_ENV`: `production`
-   - *Note on `ENCRYPTION_KEY`:* If rotating `ENCRYPTION_KEY` now, update it as well; be prepared to immediately re-enter provider keys in Stage 9.
+   - **CRITICAL NOTE:** Leave `ENCRYPTION_KEY` unchanged in this step to ensure existing provider keys continue working.
    - Click `Save Changes`.
 3. **Trigger Manual Deploy:**
    - In Render Dashboard, click `Manual Deploy` -> `Deploy latest commit`.
@@ -278,21 +279,21 @@ node -e "console.log('SECURITY_EPOCH=' + Date.now())"
 - **Verification:** Health check returns 200; Render logs show zero unhandled exceptions.
 - **Rollback Procedure:**
   - If deployment fails to boot, inspect Render logs for missing environment variables.
-  - In Render, click `Rollback` to previous deploy commit if fatal runtime regressions occur.
+  - Never rollback to a commit containing hardcoded secrets. Fix configuration forward.
 
 ---
 
 ### Stage 6: Rotate Production Administrator Credentials
 
 - **Purpose & Risk Addressed:** Eliminates the compromised seed credentials (`sidhjain9002@gmail.com`, `admin@lightningdeals.com`) and hashes in the production database.
-- **Service / Dashboard:** Render Shell or secure terminal connected to production `DATABASE_URL`.
-- **Prerequisites & Dependencies:** Stage 5 deployment is live; owner has decided on new administrator email.
+- **Service / Dashboard:** Render Web Shell (`dashboard.render.com` -> Service -> `Shell`).
+- **Prerequisites & Dependencies:** Stage 5 deployment is live.
 - **Downtime / Reauthentication Impact:** Zero downtime; forces existing admin sessions to terminate.
 - **Potential Data-Loss / Billing Consequences:** None.
 - **Required Action & Approval:** Owner execution.
 
 #### Execution Steps:
-Connect to the production database environment via Render Shell or an authenticated administrator terminal with production `DATABASE_URL`:
+Open the **Render Web Shell** for the web service (where production `DATABASE_URL` is already bound):
 
 ```bash
 # 1. Rotate the primary administrator password (generates secure 24-char cryptographic password):
@@ -303,7 +304,7 @@ npx tsx scripts/provision-admin.ts --email="admin@lightningdeals.com" --rotate
 ```
 
 > [!TIP]
-> The script hashes the password with Scrypt (32-byte salt, cost 16384), updates `passwordChangedAt: new Date()`, and invalidates all active sessions for that admin in `UserSession`. It prints the generated password **once**. Copy it into the password manager immediately.
+> The script hashes the password with Scrypt (32-byte salt, cost 16384), resets `failedLoginAttempts: 0, lockedUntil: null`, updates `passwordChangedAt: new Date()`, and invalidates all active sessions for that admin in `UserSession`. It prints the generated password **once**. Copy it into the password manager immediately.
 
 - **Verification:**
   1. Test authentication with old compromised password `love9002`:
@@ -320,14 +321,14 @@ npx tsx scripts/provision-admin.ts --email="admin@lightningdeals.com" --rotate
        -d '{"email":"<owner_primary_email@domain.com>","password":"<new_generated_password>"}'
      ```
      **Must return:** `HTTP/1.1 200 OK` with valid JWT token.
-- **Rollback Procedure:** Run `scripts/provision-admin.ts --rotate` again to generate a new password if misplaced.
+- **Rollback Procedure:** Run `scripts/provision-admin.ts --rotate` again to regenerate password if misplaced.
 
 ---
 
 ### Stage 7: Revoke Compromised Sessions and Tokens
 
-- **Purpose & Risk Addressed:** Guarantees that any token minted by an attacker using the old fallback keys or issued before the password rotation is permanently rejected by all API endpoints.
-- **Service / Dashboard:** Render Shell or administrative CLI.
+- **Purpose & Risk Addressed:** Guarantees that any token minted by an attacker using old fallback keys or issued before password rotation is permanently rejected by all API endpoints.
+- **Service / Dashboard:** Render Web Shell.
 - **Prerequisites & Dependencies:** Stage 5 deployed, Stage 6 admin rotated.
 - **Downtime / Reauthentication Impact:**
   - Zero application downtime.
@@ -336,7 +337,7 @@ npx tsx scripts/provision-admin.ts --email="admin@lightningdeals.com" --rotate
 - **Required Action & Approval:** Owner approval.
 
 #### Execution Steps:
-Run the emergency session invalidation script against production:
+In the **Render Web Shell**, run:
 
 ```bash
 npm run session:revoke
@@ -376,11 +377,14 @@ Run the live verification probe suite against production endpoints:
    - Craft token signed with `lightningdeals_secret_jwt_key_2026` -> Verify **401 Invalid Token**.
    - Craft token signed with `apexscale-jwt-secret-key-production-2026` -> Verify **401 Invalid Token**.
    - Craft token with non-existent UUID -> Verify **403 Forbidden** (confirms no email fallback).
+   - Craft token without `iat` claim (`noTimestamp: true`) -> Verify **401 Malformed Token**.
 3. **Verify Privilege Separation:**
    - Log in as a standard customer; use customer token against `/api/admin/dashboard/stats` -> Verify **403 Forbidden**.
 4. **Verify Unknown User 500 Defect Fixed:**
-   - Send admin login attempt with random unknown email `nonexistent-auditor@example.com` -> Verify **401 Unauthorized** (returns `error.type = "authentication_failed"`, **not** HTTP 500).
-5. **Verify Rate Limiting with Spoofed Headers:**
+   - Send admin login attempt with random unknown email `probe-unknown@example.com` -> Verify **401 Unauthorized** (returns `error.type = "authentication_failed"`, **not** HTTP 500).
+5. **Verify Rate Limiting with Spoofed Headers (SYNTHETIC ACCOUNT ONLY):**
+   > [!IMPORTANT]
+   > Do **NOT** target the real administrator email. Target `probe-rate-test-synthetic@lightningapi.pro`.
    - Send 10 rapid failed login requests with varying `X-Forwarded-For: 1.1.1.X` headers -> Verify response changes to **HTTP 429 Too Many Requests** on the 6th attempt.
 6. **Verify Backdoor 1 Eliminated:**
    - Attempt customer login at `/api/user/auth/login` with `sidhjain9002@gmail.com` / `love9002` -> Verify **401 Unauthorized** and verify no admin row created in database.
@@ -392,14 +396,14 @@ Run the live verification probe suite against production endpoints:
 
 ---
 
-### Stage 9: Database, Integrations, Encryption, and API Gateway Operation
+### Stage 9: Synchronized Database & AI Provider Key Rotation
 
-- **Purpose & Risk Addressed:** Rotates database connection strings and AI provider master keys while restoring live AI Gateway traffic.
+- **Purpose & Risk Addressed:** Rotates database connection strings and AI provider master keys while restoring live AI Gateway traffic with zero decryption failures.
 - **Service / Dashboard:** Supabase Dashboard -> Render Environment -> Admin UI (`/admin/providers`).
 - **Prerequisites & Dependencies:** Stage 8 verified; new AI provider keys prepared in Stage 4.
 - **Downtime / Reauthentication Impact:**
   - Brief database reconnect (< 10 seconds) when updating `DATABASE_URL`.
-- **Potential Data-Loss / Billing Consequences:** None if done in sequence.
+- **Potential Data-Loss / Billing Consequences:** None when executed in synchronization.
 - **Required Action & Approval:** Owner manual execution.
 
 #### Execution Steps:
@@ -411,20 +415,20 @@ Run the live verification probe suite against production endpoints:
    - In Render Dashboard -> Environment:
      - Update `DATABASE_URL` with new password:
        `postgresql://postgres:[NEW_PASSWORD]@db.[PROJECT_REF].supabase.co:6543/postgres?pgbouncer=true`
-     - If `DIRECT_URL` is configured explicitly in Render, update port 5432:
+     - **CRITICAL:** Update `DIRECT_URL` as well, OR delete `DIRECT_URL` from the Render environment so `prepare-env.cjs` derives it dynamically:
        `postgresql://postgres:[NEW_PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres`
-     - *(Note: `scripts/prepare-env.cjs` automatically derives `DIRECT_URL` if omitted from Render).*
+     - Update `ENCRYPTION_KEY` with the new 64-hex char secret from Stage 3.
    - Save changes on Render. Render automatically redeploys.
 3. **Re-enter AI Provider Master Keys:**
-   - Log into Admin UI: `https://lightningapi.pro/admin/login` using the new Scrypt admin credentials.
+   - Immediately log into Admin UI: `https://lightningapi.pro/admin/login` using the new Scrypt admin credentials.
    - Navigate to `/admin/providers`.
    - Update each provider (Anthropic, OpusMax, etc.) with the fresh replacement API keys generated in Stage 4.
-   - Click `Save Provider`. This re-encrypts the keys under the current `ENCRYPTION_KEY` using AES-256-GCM.
-4. **Test Live Gateway Route:**
-   - Send a synthetic completions request using a test customer API key:
+   - Click `Save Provider`. This re-encrypts the keys under the new `ENCRYPTION_KEY` using AES-256-GCM.
+4. **Test Live Gateway Route (SYNTHETIC CUSTOMER):**
+   - Send a synthetic completions request using a dedicated internal test customer account with `max_tokens: 5`:
      ```bash
      curl -X POST https://lightningapi.pro/api/v1/chat/completions \
-       -H "Authorization: Bearer <test_customer_api_key>" \
+       -H "Authorization: Bearer <test_synthetic_customer_api_key>" \
        -H "Content-Type: application/json" \
        -d '{
          "model": "claude-3-5-sonnet-20241022",
@@ -477,10 +481,10 @@ Run the live verification probe suite against production endpoints:
 
 | Failure Scenario | Immediate Operational Response | Rollback Action |
 |---|---|---|
-| **Render Deploy Fails to Boot** | Check Render build and deploy logs for missing environment variable validation failure. | In Render Dashboard, click `Rollback` to previous stable deploy ID. Note: Never restore hardcoded fallback keys in code. |
-| **Database Connection Refused** | Verify Supabase pooler status; ensure `prepare-env.cjs` formatted `DIRECT_URL` and `DATABASE_URL` correctly. | Re-enter known working Supabase database password in Render environment. |
+| **Render Deploy Fails to Boot** | Check Render build and deploy logs for missing environment variable validation failure. | In Render Dashboard, fix environment variable forward. Note: Never restore hardcoded fallback keys in code. |
+| **Database Connection Refused** | Verify Supabase pooler status; ensure `DIRECT_URL` and `DATABASE_URL` both match the new password. | Re-enter known working Supabase database password in Render environment. |
 | **AI Gateway Upstream Errors (502 / 500)** | Check if `VendorProvider.masterApiKeyEncrypted` decryption failed due to changed `ENCRYPTION_KEY`. | Log into Admin UI (`/admin/providers`) and re-paste the plain-text provider master keys to trigger re-encryption. |
-| **Admin Locked Out** | If admin password is forgotten or Scrypt script errored, connect to Render shell. | Run `npx tsx scripts/provision-admin.ts --email="<owner_email>" --rotate` to regenerate password. |
+| **Admin Locked Out** | If admin password is forgotten or locked out, connect to Render Web Shell. | Run `npx tsx scripts/provision-admin.ts --email="<owner_email>" --rotate` to clear lockout and regenerate password. |
 
 ---
 
@@ -492,10 +496,10 @@ Before executing live production actions in Stages 5 through 9, obtain explicit 
 - [ ] **Stage 2 (GitHub & Cloudflare Lockdown):** Owner Confirmed
 - [ ] **Stage 3 (Secret Generation):** Secrets Staged in Vault
 - [ ] **Stage 4 (Provider Key Preparation):** Fresh Provider Keys Ready
-- [ ] **Stage 5 (Render Deploy & Env Vars):** Deployment Approved
+- [ ] **Stage 5 (Render Deploy & Env Vars):** Deployment Approved (ENCRYPTION_KEY held)
 - [ ] **Stage 6 (Admin Password Rotation):** CLI Rotation Approved
 - [ ] **Stage 7 (Global Session Revocation):** Session Purge Approved
 - [ ] **Stage 8 (Live Verification Probes):** Probes Executed & Passed
 - [ ] **Stage 9 (DB & Provider Rotation):** DB & Gateway Live Verified
-- [ ] **Stage 10 (Monitoring & Audit):** 24-Hour Stabilization Started
+- [ ] **Stage 10 (Monitoring & Audit):** 48-Hour Stabilization Started
 - [ ] **Stage 11 (Exit Gate Review):** `PRODUCTION_EXIT_GATE.md` Approved

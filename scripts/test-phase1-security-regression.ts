@@ -107,6 +107,11 @@ async function main() {
     // -------------------------------------------------------------------------
     // TEST 1: Old seeded credentials (F1)
     // -------------------------------------------------------------------------
+    await prisma.user.updateMany({
+      where: { email: { in: ['sidhjain9002@gmail.com', 'sidhjain9802@gmail.com'] } },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
+
     const resSeedAdmin = await fetch(`${baseUrl}/api/admin/auth/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -249,6 +254,44 @@ async function main() {
       resMalformed.status === 401,
       `Status: ${resMalformed.status} (expected 401)`
     );
+
+    // -------------------------------------------------------------------------
+    // TEST 8B: Token Missing iat Claim Rejected (F2-07)
+    // -------------------------------------------------------------------------
+    const forgedTokenNoIat = jwt.sign(
+      { id: testAdminUser.id, email: testAdminUser.email, role: 'admin' },
+      testJwtSecret,
+      { algorithm: 'HS256', noTimestamp: true }
+    );
+    const resNoIat = await fetch(`${baseUrl}/api/admin/auth/me`, {
+      headers: { Authorization: `Bearer ${forgedTokenNoIat}` },
+    });
+    recordTest(
+      'F2-07',
+      'Token with missing or non-numeric iat claim rejected',
+      resNoIat.status === 401,
+      `Status: ${resNoIat.status} (expected 401)`
+    );
+
+    // -------------------------------------------------------------------------
+    // TEST 8C: Token Issued Prior to SECURITY_EPOCH Rejected (F2-08)
+    // -------------------------------------------------------------------------
+    process.env.SECURITY_EPOCH = new Date(Date.now() + 60000).toISOString();
+    const tokenPreEpoch = jwt.sign(
+      { id: testAdminUser.id, email: testAdminUser.email, role: 'admin' },
+      testJwtSecret,
+      { algorithm: 'HS256', expiresIn: '1h' }
+    );
+    const resPreEpoch = await fetch(`${baseUrl}/api/admin/auth/me`, {
+      headers: { Authorization: `Bearer ${tokenPreEpoch}` },
+    });
+    recordTest(
+      'F2-08',
+      'Token issued prior to SECURITY_EPOCH rejected',
+      resPreEpoch.status === 401,
+      `Status: ${resPreEpoch.status} (expected 401)`
+    );
+    delete process.env.SECURITY_EPOCH;
 
     // -------------------------------------------------------------------------
     // TEST 9: Unknown Admin Email Login (F3 - SYSTEM_UNAUTH FK bug)

@@ -53,11 +53,27 @@ export function getJwtSecret(): string {
 }
 
 /**
- * Returns security epoch timestamp. Any token issued before this epoch is rejected.
+ * Returns security epoch timestamp in milliseconds. Any token issued before this epoch is rejected.
+ * Supports:
+ * - Pure numeric digits: milliseconds (e.g. 1771437600000) or seconds (e.g. 1771437600)
+ * - ISO 8601 date strings: (e.g. '2026-10-18T00:00:00Z')
  */
 export function getSecurityEpoch(): number {
   if (process.env.SECURITY_EPOCH) {
-    const epochTime = new Date(process.env.SECURITY_EPOCH).getTime();
+    const raw = process.env.SECURITY_EPOCH.trim();
+    if (!raw) return 0;
+
+    // Check for purely numeric string
+    if (/^\d+$/.test(raw)) {
+      const num = Number(raw);
+      if (!isNaN(num) && num > 0) {
+        // If < 100 billion, it's seconds since Unix epoch; normalize to ms
+        return num < 100_000_000_000 ? num * 1000 : num;
+      }
+    }
+
+    // Try parsing as ISO 8601 or standard date string
+    const epochTime = new Date(raw).getTime();
     if (!isNaN(epochTime)) return epochTime;
   }
   return 0;

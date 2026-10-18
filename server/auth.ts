@@ -42,6 +42,10 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
     return res.status(401).json({ error: { type: 'authentication_error', message: 'Malformed token: missing subject identity.' } });
   }
 
+  if (typeof decoded.iat !== 'number' || isNaN(decoded.iat) || decoded.iat <= 0) {
+    return res.status(401).json({ error: { type: 'authentication_error', message: 'Malformed token: missing or invalid issuance timestamp.' } });
+  }
+
   try {
     const tokenHash = hashSecret(token);
 

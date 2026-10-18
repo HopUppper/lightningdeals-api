@@ -268,6 +268,15 @@ router.get('/me', async (req: Request, res: Response) => {
       });
     }
 
+    if (typeof decoded.iat !== 'number' || isNaN(decoded.iat) || decoded.iat <= 0) {
+      return res.status(401).json({
+        error: {
+          type: 'invalid_token',
+          message: 'Malformed token: missing or invalid issuance timestamp.',
+        },
+      });
+    }
+
     // Strictly lookup admin user by UUID id (never fallback to email)
     const adminUser = await prisma.user.findUnique({
       where: { id: decoded.id },
@@ -291,6 +300,20 @@ router.get('/me', async (req: Request, res: Response) => {
           error: {
             type: 'session_invalidated',
             message: 'Admin session invalidated due to password change. Please sign in again.',
+          },
+        });
+      }
+    }
+
+    // Invalidate sessions issued before incident security epoch
+    const securityEpoch = getSecurityEpoch();
+    if (securityEpoch > 0) {
+      const issuedAtMs = decoded.iat * 1000;
+      if (issuedAtMs < securityEpoch) {
+        return res.status(401).json({
+          error: {
+            type: 'session_invalidated',
+            message: 'Admin session invalidated by security epoch policy. Please sign in again.',
           },
         });
       }

@@ -1200,15 +1200,16 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
       metadata: { apiKeyId: key.id, keyPrefix: key.keyPrefix },
     });
 
+    const { keyEncrypted: _unusedKeyEnc, ...safeKeyFields } = key;
     res.status(201).json({
       key: {
-        ...key,
+        ...safeKeyFields,
         purchasedTokens: key.purchasedTokens.toString(),
         tokensUsed: key.tokensUsed.toString(),
         tokensRemaining: key.tokensRemaining.toString(),
         totalInputTokens: key.totalInputTokens.toString(),
         totalOutputTokens: key.totalOutputTokens.toString(),
-        secretKey: rawKey, // Exposed ONCE on creation
+        secretKey: rawKeySecret, // Exposed ONCE on creation
       },
     });
   } catch (err: any) {
@@ -1605,7 +1606,6 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
             quotaWindowHours: activeSub.quotaWindowHours,
             nextResetTime: activeSub.nextResetTime,
             apiKeyDisplay: activeSub.apiKey?.displayKey || null,
-            apiKeySecret: activeSub.apiKey?.keyEncrypted ? decryptText(activeSub.apiKey.keyEncrypted) : activeSub.apiKey?.displayKey || null,
             orderId: activeSub.orderId,
           }
         : null,
@@ -1671,7 +1671,6 @@ router.get('/orders', authenticateJwt, async (req: AuthRequest, res: Response) =
           gatewayPaymentId: o.gatewayPaymentId,
           fulfilledApiKeyId: o.fulfilledApiKeyId,
           displayKey: activeSub?.apiKey?.displayKey || null,
-          secretKey: activeSub?.apiKey?.keyEncrypted ? decryptText(activeSub.apiKey.keyEncrypted) : activeSub?.apiKey?.displayKey || null,
           createdAt: o.createdAt,
           paidAt: o.paidAt,
           fulfilledAt: o.fulfilledAt,
@@ -2034,12 +2033,10 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
     res.json({
       isPaidCustomer,
       keys: keys.map((k) => {
-        const decrypted = k.keyEncrypted ? decryptText(k.keyEncrypted) : null;
         return {
           id: k.id,
           name: k.name,
           displayKey: k.displayKey,
-          secretKey: decrypted || k.displayKey,
           keyPrefix: k.keyPrefix,
           type: k.type,
           status: k.status,

@@ -34,8 +34,10 @@ export interface AuditEventParams {
   req?: Request;
 }
 
-// Global In-Memory Last Tamper Hash Cache for high-speed chaining
+// Global In-Memory Last Tamper Hash Cache and Sequential Promise Queue for deterministic chaining
 let lastKnownTamperHash: string | null = null;
+let auditQueue: Promise<void> = Promise.resolve();
+let lastAuditTimestampMs: number = 0;
 
 // Sensitive keys to strictly redact
 const SENSITIVE_KEY_PATTERNS = [
@@ -151,136 +153,149 @@ export function deriveSeverity(eventType: string, result?: AuditResult): AuditSe
 }
 
 /**
- * Main Structured Audit Logging Function (Non-blocking & Tamper-Evident)
+ * Internal worker for processing audit events sequentially
  */
-export async function recordAuditEvent(params: AuditEventParams): Promise<void> {
-  // Fire and forget to not block incoming request threads
-  setImmediate(async () => {
-    try {
-      const {
-        eventType,
-        action,
-        statusCode,
-        failureReason,
-        beforeState,
-        afterState,
-        metadata,
-        req,
-      } = params;
+async function processAuditEvent(params: AuditEventParams): Promise<void> {
+  const {
+    eventType,
+    action,
+    statusCode,
+    failureReason,
+    beforeState,
+    afterState,
+    metadata,
+    req,
+  } = params;
 
-      let {
-        severity,
-        actorType = 'SYSTEM',
-        actorId,
-        actorEmail,
-        customerId,
-        adminId,
-        apiKeyId,
-        sessionId,
-        requestId,
-        endpoint,
-        httpMethod,
-        resourceType,
-        resourceId,
-        result = 'SUCCESS',
-        ipAddress,
-        userAgent,
-        country,
-      } = params;
+  let {
+    severity,
+    actorType = 'SYSTEM',
+    actorId,
+    actorEmail,
+    customerId,
+    adminId,
+    apiKeyId,
+    sessionId,
+    requestId,
+    endpoint,
+    httpMethod,
+    resourceType,
+    resourceId,
+    result = 'SUCCESS',
+    ipAddress,
+    userAgent,
+    country,
+  } = params;
 
-      // Extract client details from Express req if provided
-      if (req) {
-        if (!ipAddress) {
-          ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
-        }
-        if (!userAgent) {
-          userAgent = (req.headers['user-agent'] || 'Unknown').substring(0, 200);
-        }
-        if (!endpoint) {
-          endpoint = req.originalUrl || req.url;
-        }
-        if (!httpMethod) {
-          httpMethod = req.method;
-        }
-        if (!requestId) {
-          requestId = (req.headers['x-request-id'] as string) || `req_${crypto.randomBytes(8).toString('hex')}`;
-        }
-        if (!country) {
-          country = (req.headers['cf-ipcountry'] as string) || (req.headers['x-country-code'] as string) || null;
-        }
-      }
-
-      // Default severity if not provided
-      if (!severity) {
-        severity = deriveSeverity(eventType, result);
-      }
-
-      // Auto-detect actor type if user/admin ID is known
-      if (actorType === 'SYSTEM' || !actorType) {
-        if (adminId) actorType = 'ADMIN';
-        else if (customerId || actorId) actorType = 'CUSTOMER';
-        else if (apiKeyId) actorType = 'API_KEY';
-        else actorType = 'ANONYMOUS';
-      }
-
-      // Sanitize JSON payloads
-      const sanitizedMeta = metadata ? JSON.stringify(sanitizeLogPayload(metadata)) : null;
-      const sanitizedBefore = beforeState ? JSON.stringify(sanitizeLogPayload(beforeState)) : null;
-      const sanitizedAfter = afterState ? JSON.stringify(sanitizeLogPayload(afterState)) : null;
-
-      // Retrieve previous hash for tamper-evident blockchain-style chaining
-      if (!lastKnownTamperHash) {
-        const lastRecord = await prisma.auditEvent.findFirst({
-          orderBy: { timestamp: 'desc' },
-          select: { tamperHash: true },
-        });
-        lastKnownTamperHash = lastRecord?.tamperHash || '0000000000000000000000000000000000000000000000000000000000000000';
-      }
-
-      const previousHash = lastKnownTamperHash;
-      const timestamp = new Date();
-
-      // Compute Cryptographic SHA-256 Tamper Hash
-      const hashPayload = `${previousHash}|${timestamp.toISOString()}|${eventType}|${severity}|${actorType}|${actorId || ''}|${resourceId || ''}|${result}|${ipAddress || ''}`;
-      const tamperHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
-      lastKnownTamperHash = tamperHash;
-
-      // Persist to PostgreSQL AuditEvent table
-      await prisma.auditEvent.create({
-        data: {
-          timestamp,
-          eventType,
-          severity,
-          actorType,
-          actorId: actorId || customerId || adminId || null,
-          actorEmail: actorEmail || null,
-          customerId: customerId || (actorType === 'CUSTOMER' ? actorId : null),
-          adminId: adminId || (actorType === 'ADMIN' ? actorId : null),
-          apiKeyId: apiKeyId || null,
-          sessionId: sessionId || null,
-          requestId: requestId || null,
-          endpoint: endpoint ? endpoint.substring(0, 255) : null,
-          httpMethod: httpMethod ? httpMethod.substring(0, 10) : null,
-          resourceType: resourceType || null,
-          resourceId: resourceId || null,
-          action: action || null,
-          result,
-          statusCode: statusCode || null,
-          ipAddress: ipAddress ? ipAddress.substring(0, 64) : null,
-          userAgent: userAgent ? userAgent.substring(0, 255) : null,
-          country: country ? country.substring(0, 8) : null,
-          metadata: sanitizedMeta,
-          failureReason: failureReason ? failureReason.substring(0, 500) : null,
-          beforeState: sanitizedBefore,
-          afterState: sanitizedAfter,
-          tamperHash,
-          previousHash,
-        },
-      });
-    } catch (err) {
-      console.error('[AUDIT LOGGER DEGRADED]', err);
+  // Extract client details from Express req if provided
+  if (req) {
+    if (!ipAddress) {
+      ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
     }
+    if (!userAgent) {
+      userAgent = (req.headers['user-agent'] || 'Unknown').substring(0, 200);
+    }
+    if (!endpoint) {
+      endpoint = req.originalUrl || req.url;
+    }
+    if (!httpMethod) {
+      httpMethod = req.method;
+    }
+    if (!requestId) {
+      requestId = (req.headers['x-request-id'] as string) || `req_${crypto.randomBytes(8).toString('hex')}`;
+    }
+    if (!country) {
+      country = (req.headers['cf-ipcountry'] as string) || (req.headers['x-country-code'] as string) || null;
+    }
+  }
+
+  // Default severity if not provided
+  if (!severity) {
+    severity = deriveSeverity(eventType, result);
+  }
+
+  // Auto-detect actor type if user/admin ID is known
+  if (actorType === 'SYSTEM' || !actorType) {
+    if (adminId) actorType = 'ADMIN';
+    else if (customerId || actorId) actorType = 'CUSTOMER';
+    else if (apiKeyId) actorType = 'API_KEY';
+    else actorType = 'ANONYMOUS';
+  }
+
+  // Sanitize JSON payloads
+  const sanitizedMeta = metadata ? JSON.stringify(sanitizeLogPayload(metadata)) : null;
+  const sanitizedBefore = beforeState ? JSON.stringify(sanitizeLogPayload(beforeState)) : null;
+  const sanitizedAfter = afterState ? JSON.stringify(sanitizeLogPayload(afterState)) : null;
+
+  // Retrieve previous hash for tamper-evident blockchain-style chaining
+  if (!lastKnownTamperHash) {
+    const lastRecord = await prisma.auditEvent.findFirst({
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+      select: { tamperHash: true, timestamp: true },
+    });
+    lastKnownTamperHash = lastRecord?.tamperHash || '0000000000000000000000000000000000000000000000000000000000000000';
+    if (lastRecord?.timestamp) {
+      lastAuditTimestampMs = lastRecord.timestamp.getTime();
+    }
+  }
+
+  const previousHash = lastKnownTamperHash;
+
+  // Strictly monotonic timestamp to guarantee deterministic sequencing
+  const nowMs = Date.now();
+  const monotonicMs = Math.max(nowMs, lastAuditTimestampMs + 1);
+  lastAuditTimestampMs = monotonicMs;
+  const timestamp = new Date(monotonicMs);
+
+  // Compute Cryptographic SHA-256 Tamper Hash
+  const hashPayload = `${previousHash}|${timestamp.toISOString()}|${eventType}|${severity}|${actorType}|${actorId || ''}|${resourceId || ''}|${result}|${ipAddress || ''}`;
+  const tamperHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
+  lastKnownTamperHash = tamperHash;
+
+  // Persist to PostgreSQL AuditEvent table
+  await prisma.auditEvent.create({
+    data: {
+      timestamp,
+      eventType,
+      severity,
+      actorType,
+      actorId: actorId || customerId || adminId || null,
+      actorEmail: actorEmail || null,
+      customerId: customerId || (actorType === 'CUSTOMER' ? actorId : null),
+      adminId: adminId || (actorType === 'ADMIN' ? actorId : null),
+      apiKeyId: apiKeyId || null,
+      sessionId: sessionId || null,
+      requestId: requestId || null,
+      endpoint: endpoint ? endpoint.substring(0, 255) : null,
+      httpMethod: httpMethod ? httpMethod.substring(0, 10) : null,
+      resourceType: resourceType || null,
+      resourceId: resourceId || null,
+      action: action || null,
+      result,
+      statusCode: statusCode || null,
+      ipAddress: ipAddress ? ipAddress.substring(0, 64) : null,
+      userAgent: userAgent ? userAgent.substring(0, 255) : null,
+      country: country ? country.substring(0, 8) : null,
+      metadata: sanitizedMeta,
+      failureReason: failureReason ? failureReason.substring(0, 500) : null,
+      beforeState: sanitizedBefore,
+      afterState: sanitizedAfter,
+      tamperHash,
+      previousHash,
+    },
   });
+}
+
+/**
+ * Main Structured Audit Logging Function (Deterministic In-Order Chaining)
+ */
+export function recordAuditEvent(params: AuditEventParams): Promise<void> {
+  auditQueue = auditQueue
+    .then(() => processAuditEvent(params))
+    .catch((err) => {
+      console.error('[AUDIT LOGGER DEGRADED]', err);
+    });
+  return auditQueue;
 }
 
 /**
@@ -393,23 +408,38 @@ export async function verifyHashChainIntegrity(limit: number = 100): Promise<{
   brokenAtEventId?: string;
   verifiedAt: Date;
 }> {
-  const events = await prisma.auditEvent.findMany({
-    orderBy: { timestamp: 'desc' },
+  // Wait for any in-flight queued audit writes to settle
+  await auditQueue;
+
+  const eventsDesc = await prisma.auditEvent.findMany({
+    orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
     take: limit,
   });
 
-  if (events.length <= 1) {
-    return { isTamperFree: true, checkedCount: events.length, verifiedAt: new Date() };
+  if (eventsDesc.length <= 1) {
+    return { isTamperFree: true, checkedCount: eventsDesc.length, verifiedAt: new Date() };
   }
 
-  // Reverse to check sequentially from oldest to newest in batch
-  const sequential = [...events].reverse();
+  const events = eventsDesc.reverse();
 
-  for (let i = 1; i < sequential.length; i++) {
-    const prev = sequential[i - 1];
-    const curr = sequential[i];
+  for (let i = 1; i < events.length; i++) {
+    const prev = events[i - 1];
+    const curr = events[i];
 
+    // 1. Verify cryptographic hash chain pointer
     if (curr.previousHash && curr.previousHash !== prev.tamperHash) {
+      return {
+        isTamperFree: false,
+        checkedCount: i,
+        brokenAtEventId: curr.id,
+        verifiedAt: new Date(),
+      };
+    }
+
+    // 2. Recalculate hash of curr to detect any payload field tampering
+    const hashPayload = `${curr.previousHash}|${curr.timestamp.toISOString()}|${curr.eventType}|${curr.severity}|${curr.actorType}|${curr.actorId || ''}|${curr.resourceId || ''}|${curr.result}|${curr.ipAddress || ''}`;
+    const calculatedHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
+    if (curr.tamperHash !== calculatedHash) {
       return {
         isTamperFree: false,
         checkedCount: i,
@@ -421,7 +451,7 @@ export async function verifyHashChainIntegrity(limit: number = 100): Promise<{
 
   return {
     isTamperFree: true,
-    checkedCount: sequential.length,
+    checkedCount: events.length,
     verifiedAt: new Date(),
   };
 }

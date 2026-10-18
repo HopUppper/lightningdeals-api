@@ -773,8 +773,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   const isThinkingRequested = !!(thinking && thinking.type === 'enabled');
   const anthropicBetaHeader = (req.headers['anthropic-beta'] || req.headers['anthropic_beta'])?.toString();
 
-  if (!model) {
-    return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Missing required field: model.' } });
+  if (!model || typeof model !== 'string' || model.trim().length === 0 || model.length > 100) {
+    return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Missing or invalid required field: model.' } });
   }
 
   if (!isSupportedModel(model)) {
@@ -782,6 +782,24 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       error: {
         type: 'not_found_error',
         message: `Model '${model}' not found. Please provide a supported Claude model or model alias (e.g. claude-opus-5.5, claude-sonnet-5.5, claude-fable-5, claude-opus-5, claude-sonnet-5). See GET /v1/models for full catalog.`,
+      },
+    });
+  }
+
+  if (max_tokens !== undefined && (typeof max_tokens !== 'number' || !Number.isInteger(max_tokens) || max_tokens <= 0 || max_tokens > 128000)) {
+    return res.status(400).json({
+      error: {
+        type: 'invalid_request_error',
+        message: 'max_tokens must be a positive integer between 1 and 128,000.',
+      },
+    });
+  }
+
+  if (temperature !== undefined && (typeof temperature !== 'number' || isNaN(temperature) || temperature < 0 || temperature > 2)) {
+    return res.status(400).json({
+      error: {
+        type: 'invalid_request_error',
+        message: 'temperature must be a numeric value between 0.0 and 2.0.',
       },
     });
   }
@@ -1505,7 +1523,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
 
 // Atomic Token Deduction & Immutable Ledger Logging
-async function updateTokensAndLog({
+export async function updateTokensAndLog({
   keyRecord,
   model,
   inputTokens,
@@ -1535,36 +1553,54 @@ async function updateTokensAndLog({
   ipAddress?: string;
 }) {
   try {
-    const tokensUsedBig = BigInt(totalTokens);
-    const newUsed = keyRecord.tokensUsed + tokensUsedBig;
-    const newRemaining = keyRecord.tokensRemaining > tokensUsedBig ? keyRecord.tokensRemaining - tokensUsedBig : BigInt(0);
+    await prisma.$transaction(async (tx) => {
+      // Re-fetch current authoritative key record inside transaction to prevent concurrency lost updates
+      const currentKey = await tx.apiKey.findUnique({
+        where: { id: keyRecord.id },
+        select: {
+          id: true,
+          userId: true,
+          tokensRemaining: true,
+          tokensUsed: true,
+          lastPlatform: true,
+          firstUsedAt: true,
+        },
+      });
 
-    await prisma.$transaction([
-      prisma.apiKey.update({
+      if (!currentKey) return;
+
+      const tokensUsedBig = BigInt(totalTokens);
+
+      const updatedKey = await tx.apiKey.update({
         where: { id: keyRecord.id },
         data: {
-          tokensUsed: newUsed,
-          tokensRemaining: newRemaining,
+          tokensUsed: { increment: tokensUsedBig },
+          tokensRemaining: { decrement: tokensUsedBig },
           totalRequests: { increment: 1 },
           totalInputTokens: { increment: BigInt(inputTokens) },
           totalOutputTokens: { increment: BigInt(outputTokens) },
           lastUsedAt: new Date(),
-          lastPlatform: clientPlatform || keyRecord.lastPlatform || null,
-          ...(keyRecord.firstUsedAt ? {} : { firstUsedAt: new Date() }),
+          lastPlatform: clientPlatform || currentKey.lastPlatform || null,
+          ...(currentKey.firstUsedAt ? {} : { firstUsedAt: new Date() }),
         },
-      }),
-      prisma.tokenLedger.create({
+        select: {
+          tokensRemaining: true,
+        },
+      });
+
+      await tx.tokenLedger.create({
         data: {
           apiKeyId: keyRecord.id,
           userId: keyRecord.userId,
           amount: -tokensUsedBig,
-          balanceAfter: newRemaining,
+          balanceAfter: updatedKey.tokensRemaining,
           type: 'USAGE',
           reference: `REQ-${model}`,
           notes: `API Call (${inputTokens} in / ${outputTokens} out - ${usageSource} - ${clientPlatform || 'Client'})`,
         },
-      }),
-      prisma.apiRequest.create({
+      });
+
+      await tx.apiRequest.create({
         data: {
           apiKeyId: keyRecord.id,
           userId: keyRecord.userId,
@@ -1583,8 +1619,8 @@ async function updateTokensAndLog({
           userAgent,
           ipAddress,
         },
-      }),
-    ]);
+      });
+    });
 
     if (vendorId) {
       await settleMasterUsage({
@@ -1601,4 +1637,6 @@ async function updateTokensAndLog({
     console.error('Error recording token deduction:', err);
   }
 }
+
+export const recordApiUsage = updateTokensAndLog;
 

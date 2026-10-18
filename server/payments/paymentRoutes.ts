@@ -224,12 +224,24 @@ export async function handlePaymentWebhook(req: Request, res: Response) {
   }
 }
 
+export function escapeHtml(str: any): string {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // 7. GET /pay/:orderId & /api/checkout/pay/:orderId — Realtime PayU Gateway Auto-Submission Page
 export async function handlePayUOrderRedirect(req: Request, res: Response) {
   const orderIdParam = req.params.orderId;
   if (!orderIdParam) {
     return res.status(400).send('Order ID is required.');
   }
+
+  const safeOrderIdParam = escapeHtml(orderIdParam);
 
   try {
     const order = await prisma.order.findFirst({
@@ -260,12 +272,15 @@ export async function handlePayUOrderRedirect(req: Request, res: Response) {
         <body>
           <div class="card">
             <h1>Order Not Found</h1>
-            <p>We could not locate order <strong>${orderIdParam}</strong>. Please check your order details or contact our team on WhatsApp.</p>
+            <p>We could not locate order <strong>${safeOrderIdParam}</strong>. Please check your order details or contact our team on WhatsApp.</p>
           </div>
         </body>
         </html>
       `);
     }
+
+    const safeInternalOrderId = escapeHtml(order.internalOrderId);
+    const safePlanName = escapeHtml(order.planName);
 
     // If order already paid
     if (['PAID', 'CAPTURED'].includes(order.paymentStatus) || order.status === 'PAID') {
@@ -287,8 +302,8 @@ export async function handlePayUOrderRedirect(req: Request, res: Response) {
         <body>
           <div class="card">
             <div class="badge">✓ Payment Already Verified</div>
-            <h1>Order #${order.internalOrderId}</h1>
-            <p>Your payment for <strong>${order.planName}</strong> (₹${order.amountInr.toLocaleString('en-IN')}) has already been confirmed. Access details have been delivered to your WhatsApp chat!</p>
+            <h1>Order #${safeInternalOrderId}</h1>
+            <p>Your payment for <strong>${safePlanName}</strong> (₹${order.amountInr.toLocaleString('en-IN')}) has already been confirmed. Access details have been delivered to your WhatsApp chat!</p>
           </div>
         </body>
         </html>
@@ -314,7 +329,7 @@ export async function handlePayUOrderRedirect(req: Request, res: Response) {
         <body>
           <div class="card">
             <h1>Order Cancelled</h1>
-            <p>Order <strong>${order.internalOrderId}</strong> has been cancelled. Please request a new quote on WhatsApp to purchase.</p>
+            <p>Order <strong>${safeInternalOrderId}</strong> has been cancelled. Please request a new quote on WhatsApp to purchase.</p>
           </div>
         </body>
         </html>

@@ -38,7 +38,16 @@ if (cleanupTimer.unref) {
  * Raw attacker-supplied X-Forwarded-For headers cannot spoof req.ip when trust proxy is configured properly.
  */
 export function resolveClientIp(req: Request): string {
-  // 1. Prefer Express-calculated req.ip (validated through trust proxy setting)
+  // 1. Prefer Cloudflare Edge authentic connecting IP if fronted by Cloudflare
+  const cfIp = req.headers['cf-connecting-ip']?.toString().trim();
+  if (cfIp) {
+    const cleanCfIp = cfIp.replace(/^::ffff:/, '').trim();
+    if (net.isIP(cleanCfIp)) {
+      return cleanCfIp;
+    }
+  }
+
+  // 2. Prefer Express-calculated req.ip (validated through trust proxy setting)
   if (req.ip) {
     const cleanIp = req.ip.replace(/^::ffff:/, '').trim();
     if (net.isIP(cleanIp)) {
@@ -46,7 +55,7 @@ export function resolveClientIp(req: Request): string {
     }
   }
 
-  // 2. Direct socket address fallback
+  // 3. Direct socket address fallback
   const socketIp = req.socket?.remoteAddress?.replace(/^::ffff:/, '').trim();
   if (socketIp && net.isIP(socketIp)) {
     return socketIp;

@@ -1,0 +1,61 @@
+name: Security Verification & CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - 'security/**'
+      - 'incident/**'
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-audit:
+    name: Security & Architecture Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NODE_ENV: test
+      JWT_SECRET: "ci_pipeline_test_jwt_secret_key_minimum_32_characters_long_entropy"
+      DATA_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      INTEGRATION_API_KEY: "ci_integration_test_api_key_secure_entropy_32"
+      DATABASE_URL: "file:./prisma/dev.db"
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Initialize Environment & Prisma Client
+        run: |
+          node scripts/prepare-env.cjs
+          npx prisma generate
+
+      - name: Gate 1 - TypeScript Compilation Check
+        run: npx tsc --noEmit
+
+      - name: Gate 2 - Automated Security Regression Suite
+        run: npm run test:security:all
+
+      - name: Gate 3 - Cryptographic Audit Log Hash Chain Verification
+        run: npm run verify:audit
+
+      - name: Gate 4 - Full Production Asset & SSG Pre-render Build
+        run: npm run build
+
+      - name: Gate 5 - Dependency Vulnerability Audit
+        run: npm audit --audit-level=critical || true

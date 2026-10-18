@@ -90,7 +90,7 @@ function deriveVaultKey(secret: string): Buffer {
 let cachedEncryptionSecret: string | null = null;
 let cachedEncryptionKey: Buffer | null = null;
 function getDerivedEncryptionKey(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY || 'lightningdeals_default_vault_secret';
+  const secret = process.env.DATA_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY || 'lightningdeals_default_vault_secret';
   if (cachedEncryptionSecret !== secret) {
     cachedEncryptionSecret = secret;
     cachedEncryptionKey = deriveVaultKey(secret);
@@ -101,7 +101,7 @@ function getDerivedEncryptionKey(): Buffer {
 let cachedOldSecret: string | null = null;
 let cachedOldEncryptionKey: Buffer | null = null;
 function getDerivedOldEncryptionKey(): Buffer | null {
-  const secret = process.env.OLD_ENCRYPTION_KEY;
+  const secret = process.env.OLD_DATA_ENCRYPTION_KEY || process.env.OLD_ENCRYPTION_KEY;
   if (!secret) {
     cachedOldSecret = null;
     cachedOldEncryptionKey = null;
@@ -125,6 +125,11 @@ export function encryptText(text: string): string {
   encrypted += cipher.final('hex');
   const authTag = cipher.getAuthTag().toString('hex');
   return `gcm:${iv.toString('hex')}:${authTag}:${encrypted}`;
+}
+
+export function isEncrypted(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  return text.startsWith('gcm:') || (text.includes(':') && text.length > 32);
 }
 
 function tryDecryptWithKey(text: string, key: Buffer): string | null {
@@ -161,7 +166,7 @@ function tryDecryptWithKey(text: string, key: Buffer): string | null {
 export function decryptText(text: string): string {
   if (!text) return '';
 
-  // 1. Primary: Attempt decryption with active ENCRYPTION_KEY
+  // 1. Primary: Attempt decryption with active ENCRYPTION_KEY / DATA_ENCRYPTION_KEY
   const primaryDecrypted = tryDecryptWithKey(text, getDerivedEncryptionKey());
   if (primaryDecrypted !== null) return primaryDecrypted;
 
@@ -174,7 +179,13 @@ export function decryptText(text: string): string {
     }
   }
 
-  // 3. If unencrypted or failed, return original text
+  // 3. Fail closed if the payload was encrypted: NEVER return raw ciphertext as plaintext
+  if (isEncrypted(text)) {
+    console.error('[SECURITY ERROR] Vault decryption failed for encrypted payload (invalid key or corrupted tag). Failing closed.');
+    return '';
+  }
+
+  // 4. Return unencrypted legacy plaintext only if it was never ciphertext
   return text;
 }
 

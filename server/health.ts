@@ -14,29 +14,27 @@ interface SubsystemStatus {
 }
 
 /**
- * Public Status Check Probe (No secret keys exposed)
+ * Public Status Check Probe (Sanitized for public consumption, no latency or secret leaks)
  */
 healthRouter.get('/public/status', async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const now = new Date().toISOString();
   const subsystems: SubsystemStatus[] = [];
 
   // 1. Database Check
-  const dbStart = Date.now();
   try {
     await prisma.$queryRaw`SELECT 1`;
     subsystems.push({
       name: 'Database Cluster',
       key: 'database',
       status: 'operational',
-      latencyMs: Date.now() - dbStart,
       lastChecked: now,
     });
-  } catch (err: any) {
+  } catch {
     subsystems.push({
       name: 'Database Cluster',
       key: 'database',
       status: 'down',
-      message: 'Database query execution failed.',
       lastChecked: now,
     });
   }
@@ -46,7 +44,6 @@ healthRouter.get('/public/status', async (req: Request, res: Response) => {
     name: 'API Gateway & Proxy',
     key: 'api_gateway',
     status: 'operational',
-    latencyMs: 12,
     lastChecked: now,
   });
 
@@ -55,12 +52,10 @@ healthRouter.get('/public/status', async (req: Request, res: Response) => {
     name: 'Authentication & Session Engine',
     key: 'auth',
     status: 'operational',
-    latencyMs: 8,
     lastChecked: now,
   });
 
   // 4. Primary Supplier / Vendor Network (Opus Max)
-  const suppStart = Date.now();
   try {
     const primaryVendor = await prisma.vendorProvider.findFirst({
       where: { isPrimary: true },
@@ -71,7 +66,6 @@ healthRouter.get('/public/status', async (req: Request, res: Response) => {
         name: 'AI Model Infrastructure',
         key: 'supplier',
         status: 'degraded',
-        message: 'Secondary failover active.',
         lastChecked: now,
       });
     } else if (primaryVendor.status === 'invalid_credential' || primaryVendor.status === 'provider_error') {
@@ -79,7 +73,6 @@ healthRouter.get('/public/status', async (req: Request, res: Response) => {
         name: 'AI Model Infrastructure',
         key: 'supplier',
         status: 'degraded',
-        message: 'Vendor provider error reported.',
         lastChecked: now,
       });
     } else {
@@ -87,7 +80,6 @@ healthRouter.get('/public/status', async (req: Request, res: Response) => {
         name: 'AI Model Infrastructure',
         key: 'supplier',
         status: 'operational',
-        latencyMs: primaryVendor.lastTestedAt ? 180 : Date.now() - suppStart,
         lastChecked: now,
       });
     }
@@ -101,12 +93,11 @@ healthRouter.get('/public/status', async (req: Request, res: Response) => {
   }
 
   // 5. Email Notification Network (Resend)
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const resendConfigured = Boolean(process.env.RESEND_API_KEY || process.env.SMTP_HOST);
   subsystems.push({
     name: 'Transactional Email Service',
     key: 'email',
-    status: resendApiKey ? 'operational' : 'not_configured',
-    message: resendApiKey ? undefined : 'Resend API key not set.',
+    status: resendConfigured ? 'operational' : 'not_configured',
     lastChecked: now,
   });
 

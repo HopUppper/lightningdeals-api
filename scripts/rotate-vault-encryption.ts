@@ -97,74 +97,128 @@ async function main() {
   const oldKey = deriveKey(oldKeySecret);
   const newKey = deriveKey(newKeySecret);
 
-  // 1. Fetch all providers with non-empty credentials
+  const isDryRun = args.includes('--dry-run');
+  if (isDryRun) {
+    console.log('🔍 [DRY-RUN MODE] Pre-flight verification only. No database modifications will be committed.\n');
+  }
+
+  // 1. Fetch VendorProvider records
   const providers = await prisma.vendorProvider.findMany({
-    where: {
-      masterApiKeyEncrypted: {
-        not: '',
-      },
-    },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      masterApiKeyEncrypted: true,
-    },
+    where: { masterApiKeyEncrypted: { not: '' } },
+    select: { id: true, name: true, slug: true, masterApiKeyEncrypted: true },
   });
 
-  console.log(`Found ${providers.length} provider record(s) with encrypted credentials.\n`);
+  // 2. Fetch ApiKey records with keyEncrypted
+  const apiKeys = await prisma.apiKey.findMany({
+    where: { keyEncrypted: { not: null } },
+    select: { id: true, displayKey: true, keyEncrypted: true },
+  });
 
-  if (providers.length === 0) {
-    console.log('✅ No provider credentials found to re-encrypt.');
+  // 3. Fetch InventoryItem records
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: { dataEncrypted: { not: '' } },
+    select: { id: true, displayValue: true, dataEncrypted: true },
+  });
+
+  console.log(`Found:`);
+  console.log(`  - ${providers.length} VendorProvider credential(s)`);
+  console.log(`  - ${apiKeys.length} ApiKey encrypted secret(s)`);
+  console.log(`  - ${inventoryItems.length} InventoryItem license(s)\n`);
+
+  const totalRecords = providers.length + apiKeys.length + inventoryItems.length;
+  if (totalRecords === 0) {
+    console.log('✅ No encrypted records found across all tables to re-encrypt.');
     await prisma.$disconnect();
     process.exit(0);
   }
 
-  // 2. Prepare re-encrypted payloads and verify round-trip
-  const updates: { id: string; name: string; newCipher: string }[] = [];
-
+  // 4. Verify and prepare re-encrypted payloads
+  const providerUpdates: { id: string; name: string; newCipher: string }[] = [];
   for (const provider of providers) {
     const rawCipher = provider.masterApiKeyEncrypted;
     const decrypted = decryptTextWithKey(rawCipher, oldKey);
-
     if (decrypted === null) {
       console.error(`❌ FATAL: Failed to decrypt credentials for provider '${provider.name}' (${provider.id}) using old key.`);
       console.error('   Aborting migration to prevent data loss. Zero database writes performed.');
       process.exit(1);
     }
-
-    // Re-encrypt with new key
     const newCipher = encryptGcm(decrypted, newKey);
-
-    // Verify round-trip decryption
     const verifyDecrypted = decryptTextWithKey(newCipher, newKey);
     if (verifyDecrypted !== decrypted) {
       console.error(`❌ FATAL: Round-trip verification failed for provider '${provider.name}' (${provider.id}).`);
-      console.error('   Aborting migration. Zero database writes performed.');
       process.exit(1);
     }
-
-    updates.push({
-      id: provider.id,
-      name: provider.name,
-      newCipher,
-    });
-    console.log(`✓ Verified re-encryption for provider: ${provider.name} (${provider.slug})`);
+    providerUpdates.push({ id: provider.id, name: provider.name, newCipher });
+    console.log(`✓ Verified VendorProvider: ${provider.name} (${provider.slug})`);
   }
 
-  // 3. Execute database updates in an atomic Prisma transaction
-  console.log(`\nExecuting atomic transaction to update ${updates.length} record(s)...`);
+  const apiKeyUpdates: { id: string; displayKey: string; newCipher: string }[] = [];
+  for (const key of apiKeys) {
+    if (!key.keyEncrypted) continue;
+    const decrypted = decryptTextWithKey(key.keyEncrypted, oldKey);
+    if (decrypted === null) {
+      console.error(`❌ FATAL: Failed to decrypt secret for ApiKey '${key.displayKey}' (${key.id}) using old key.`);
+      process.exit(1);
+    }
+    const newCipher = encryptGcm(decrypted, newKey);
+    if (decryptTextWithKey(newCipher, newKey) !== decrypted) {
+      console.error(`❌ FATAL: Round-trip verification failed for ApiKey '${key.displayKey}' (${key.id}).`);
+      process.exit(1);
+    }
+    apiKeyUpdates.push({ id: key.id, displayKey: key.displayKey, newCipher });
+    console.log(`✓ Verified ApiKey: ${key.displayKey}`);
+  }
 
-  await prisma.$transaction(
-    updates.map((u) =>
+  const inventoryUpdates: { id: string; displayValue: string; newCipher: string }[] = [];
+  for (const item of inventoryItems) {
+    const decrypted = decryptTextWithKey(item.dataEncrypted, oldKey);
+    if (decrypted === null) {
+      console.error(`❌ FATAL: Failed to decrypt InventoryItem '${item.displayValue}' (${item.id}) using old key.`);
+      process.exit(1);
+    }
+    const newCipher = encryptGcm(decrypted, newKey);
+    if (decryptTextWithKey(newCipher, newKey) !== decrypted) {
+      console.error(`❌ FATAL: Round-trip verification failed for InventoryItem '${item.displayValue}' (${item.id}).`);
+      process.exit(1);
+    }
+    inventoryUpdates.push({ id: item.id, displayValue: item.displayValue, newCipher });
+    console.log(`✓ Verified InventoryItem: ${item.displayValue}`);
+  }
+
+  if (isDryRun) {
+    console.log('\n================================================================');
+    console.log(`✅ DRY-RUN COMPLETE: All ${totalRecords} record(s) successfully verified for re-encryption.`);
+    console.log('   Zero database modifications committed.');
+    console.log('================================================================');
+    await prisma.$disconnect();
+    process.exit(0);
+  }
+
+  // 5. Execute database updates in an atomic Prisma transaction
+  console.log(`\nExecuting atomic transaction to update ${totalRecords} record(s)...`);
+
+  await prisma.$transaction([
+    ...providerUpdates.map((u) =>
       prisma.vendorProvider.update({
         where: { id: u.id },
         data: { masterApiKeyEncrypted: u.newCipher },
       })
-    )
-  );
+    ),
+    ...apiKeyUpdates.map((u) =>
+      prisma.apiKey.update({
+        where: { id: u.id },
+        data: { keyEncrypted: u.newCipher },
+      })
+    ),
+    ...inventoryUpdates.map((u) =>
+      prisma.inventoryItem.update({
+        where: { id: u.id },
+        data: { dataEncrypted: u.newCipher },
+      })
+    ),
+  ]);
 
-  // 4. Record Audit Log
+  // 6. Record Cryptographic Audit Log
   await recordAuditEvent({
     eventType: 'VAULT_ENCRYPTION_KEY_ROTATED',
     severity: 'HIGH',
@@ -172,15 +226,17 @@ async function main() {
     action: 'VAULT_MIGRATION',
     result: 'SUCCESS',
     metadata: {
-      migratedProvidersCount: updates.length,
-      providerIds: updates.map((u) => u.id),
+      migratedProvidersCount: providerUpdates.length,
+      migratedApiKeysCount: apiKeyUpdates.length,
+      migratedInventoryCount: inventoryUpdates.length,
+      totalRecordsMigrated: totalRecords,
       timestamp: new Date().toISOString(),
     },
   });
 
   console.log('\n================================================================');
-  console.log(`✅ SUCCESS: ${updates.length} provider record(s) migrated to new encryption key.`);
-  console.log('   New ciphertexts successfully written and verified.');
+  console.log(`✅ SUCCESS: ${totalRecords} record(s) migrated to new encryption key.`);
+  console.log('   New ciphertexts successfully written and verified atomically.');
   console.log('================================================================');
 
   await prisma.$disconnect();

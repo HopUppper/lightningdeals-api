@@ -39,17 +39,22 @@ export function setMemoryCached<T>(key: string, data: T, ttlSeconds: number = 30
 
 import { getJwtSecret } from './jwtConfig';
 
-// 0. Startup Configuration Integrity Checks
 function validateEnvironmentOnStartup() {
   const isProd = process.env.NODE_ENV === 'production';
   console.log(`[STARTUP AUDIT] Environment: ${process.env.NODE_ENV || 'development'}`);
   
   if (!process.env.DATABASE_URL) {
-    console.warn(`[STARTUP WARNING] DATABASE_URL is not set. Database connections will fall back to local configuration.`);
+    if (isProd) {
+      console.error('[FATAL SECURITY CONFIGURATION ERROR] DATABASE_URL is missing in production environment.');
+      process.exit(1);
+    } else {
+      console.warn(`[STARTUP WARNING] DATABASE_URL is not set. Database connections will fall back to local configuration.`);
+    }
   }
 
-  if (isProd && !process.env.ENCRYPTION_KEY) {
-    console.warn(`[SECURITY WARNING] ENCRYPTION_KEY environment variable is not explicitly set in production mode.`);
+  const encryptionKey = process.env.DATA_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY;
+  if (isProd && (!encryptionKey || encryptionKey === 'lightningdeals_default_vault_secret')) {
+    console.warn(`[SECURITY WARNING] DATA_ENCRYPTION_KEY environment variable is not explicitly configured or using default secret in production mode.`);
   }
 
   try {
@@ -68,6 +73,7 @@ function validateEnvironmentOnStartup() {
 validateEnvironmentOnStartup();
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = process.env.PORT || 3001;
 
 // Global HTTP Response Compression (Gzip / Brotli for JS, CSS, HTML, JSON)
@@ -96,9 +102,31 @@ app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: https://www.google-analytics.com; frame-ancestors 'self';");
   next();
 });
+
+// Liveness probe (Lightweight, zero DB dependency, instant 200 for Render liveness)
+const handleLiveness = (req: express.Request, res: express.Response) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+};
+app.get('/health', handleLiveness);
+app.get('/api/health', handleLiveness);
+
+// Readiness probe (Verifies PostgreSQL database connectivity)
+const handleReadiness = async (req: express.Request, res: express.Response) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'ready', database: 'connected', timestamp: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(503).json({ status: 'unhealthy', database: 'disconnected', error: 'Database connectivity unavailable' });
+  }
+};
+app.get('/ready', handleReadiness);
+app.get('/api/ready', handleReadiness);
 
 // CORS Hardening
 const allowedOrigins = [
@@ -125,15 +153,15 @@ app.use(
       ) {
         return callback(null, true);
       }
-      return callback(null, true);
+      return callback(null, false);
     },
     credentials: true,
   })
 );
 
 app.use(cookieParser());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 import { securityThreatDetector } from './securityDetection';
 // Automated Security Threat Detector (SQLi, XSS, Path Traversal, Bot Scanners)

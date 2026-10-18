@@ -19,6 +19,8 @@ jobs:
     name: Security & Architecture Gates
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
 
     env:
       NODE_ENV: test

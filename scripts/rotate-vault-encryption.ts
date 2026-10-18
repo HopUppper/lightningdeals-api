@@ -63,8 +63,8 @@ function decryptTextWithKey(text: string, key: Buffer): string | null {
 
 async function main() {
   const args = process.argv.slice(2);
-  let oldKeySecret = process.env.OLD_ENCRYPTION_KEY || '';
-  let newKeySecret = process.env.ENCRYPTION_KEY || '';
+  let oldKeySecret = process.env.OLD_DATA_ENCRYPTION_KEY || process.env.OLD_ENCRYPTION_KEY || '';
+  let newKeySecret = process.env.DATA_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY || '';
 
   for (const arg of args) {
     if (arg.startsWith('--old-key=')) {

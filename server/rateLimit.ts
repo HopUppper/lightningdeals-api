@@ -38,9 +38,13 @@ if (cleanupTimer.unref) {
  * Raw attacker-supplied X-Forwarded-For headers cannot spoof req.ip when trust proxy is configured properly.
  */
 export function resolveClientIp(req: Request): string {
-  // 1. Prefer Cloudflare Edge authentic connecting IP if fronted by Cloudflare
+  // 1. Prefer Cloudflare Edge authentic connecting IP if fronted by Cloudflare (verified by CF-Ray or edge secret)
   const cfIp = req.headers['cf-connecting-ip']?.toString().trim();
-  if (cfIp) {
+  const cfRay = req.headers['cf-ray']?.toString().trim();
+  const edgeSecret = process.env.CLOUDFLARE_EDGE_SECRET;
+  const isVerifiedCf = edgeSecret ? req.headers['x-edge-secret'] === edgeSecret : Boolean(cfRay);
+
+  if (cfIp && isVerifiedCf) {
     const cleanCfIp = cfIp.replace(/^::ffff:/, '').trim();
     if (net.isIP(cleanCfIp)) {
       return cleanCfIp;

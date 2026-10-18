@@ -144,15 +144,23 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.endsWith('.lightningapi.pro') ||
-        origin.endsWith('.onrender.com') ||
-        process.env.NODE_ENV !== 'production'
-      ) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      try {
+        const parsed = new URL(origin);
+        if (
+          parsed.protocol === 'https:' &&
+          (parsed.hostname === 'lightningapi.pro' || parsed.hostname.endsWith('.lightningapi.pro'))
+        ) {
+          return callback(null, true);
+        }
+      } catch {}
+
+      if (process.env.NODE_ENV !== 'production') {
         return callback(null, true);
       }
+
       return callback(null, false);
     },
     credentials: true,

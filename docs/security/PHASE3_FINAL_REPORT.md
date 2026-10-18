@@ -66,9 +66,9 @@ Across the entire project, **47 automated security regression tests** now run se
 =============================================================================
 Phase 1 Containment Tests:           19 / 19 PASS (0 FAIL)
 Phase 2 Hardening Tests:             15 / 15 PASS (0 FAIL)
-Phase 3 Infrastructure Tests:        13 / 13 PASS (0 FAIL)
+Phase 3 Infrastructure Tests:        15 / 15 PASS (0 FAIL)
 -----------------------------------------------------------------------------
-TOTAL AUTOMATED SECURITY TESTS:      47 / 47 PASS (100% SUCCESS)
+TOTAL AUTOMATED SECURITY TESTS:      49 / 49 PASS (100% SUCCESS)
 -----------------------------------------------------------------------------
 Cryptographic Audit Chain:           50+ events verified (0 broken hashes)
 TypeScript Compilation:              0 errors (tsc --noEmit)
@@ -85,11 +85,13 @@ Vite Production Build:               PASS (client bundle & SSG verified)
 | `P3-ENV-03` | Environment | Warns on default vault key | **`PASS`** |
 | `P3-VAULT-01` | Cryptography | AES-256-GCM round-trip encrypts and decrypts with valid key | **`PASS`** |
 | `P3-VAULT-02` | Cryptography | Fails closed and never leaks ciphertext on decryption failure | **`PASS`** |
-| `P3-PROXY-01` | Edge Proxy | Prioritizes valid `CF-Connecting-IP` over other headers | **`PASS`** |
-| `P3-PROXY-02` | Edge Proxy | Falls back safely when `CF-Connecting-IP` is invalid | **`PASS`** |
+| `P3-PROXY-01` | Edge Proxy | Prioritizes valid `CF-Connecting-IP` when `CF-Ray` is verified | **`PASS`** |
+| `P3-PROXY-02` | Edge Proxy | Rejects unverified `CF-Connecting-IP` without Cloudflare Ray | **`PASS`** |
+| `P3-PROXY-03` | Edge Proxy | Falls back safely when `CF-Connecting-IP` is malformed syntax | **`PASS`** |
 | `P3-HEADERS-01` | HTTP Headers | Suppresses `X-Powered-By: Express` framework disclosure | **`PASS`** |
 | `P3-CORS-01` | CORS Security | Blocks unauthorized cross-origin requests | **`PASS`** |
-| `P3-CORS-02` | CORS Security | Permits authorized origins correctly | **`PASS`** |
+| `P3-CORS-02` | CORS Security | Blocks arbitrary third-party `.onrender.com` tenant origins | **`PASS`** |
+| `P3-CORS-03` | CORS Security | Permits legitimate production domain (`lightningapi.pro`) | **`PASS`** |
 | `P3-HEALTH-01` | Availability | Liveness endpoint (`/health`) returns HTTP 200 without DB query | **`PASS`** |
 | `P3-HEALTH-02` | Availability | Readiness endpoint (`/ready`) validates database connectivity | **`PASS`** |
 | `P3-STATUS-01` | Intelligence | Public status endpoint suppresses internal latencies and raw errors | **`PASS`** |
@@ -105,7 +107,7 @@ Vite Production Build:               PASS (client bundle & SSG verified)
 | **Cryptography** | AES-256-GCM vault, fail-closed decrypt, multi-table rotation | Verified (Phase 3) | Pending Deploy | **`PASS`** |
 | **Edge & Proxy** | `CF-Connecting-IP`, framework cloaking, CORS, body limits | Verified (Phase 3) | Pending Deploy | **`PASS`** |
 | **Database Sync** | Safe schema push, destructive push prevention | Verified (Phase 3) | Pending Deploy | **`PASS`** |
-| **CI/CD Security** | Automated security-ci workflow, 47 test gate | Verified (Phase 3) | Active in Git | **`PASS`** |
+| **CI/CD Security** | Automated security-ci workflow, 49 test gate | Verified (Phase 3) | Active in Git | **`PASS`** |
 | **Render Settings** | Production environment variables configured in dashboard | Runbook Ready | Requires Owner Action | **`BLOCKED`** |
 | **Cloudflare WAF** | Full Strict TLS, edge rate-limiting, cache bypass rules | Runbook Ready | Requires Owner Action | **`BLOCKED`** |
 | **Disaster Recovery**| Isolated staging restore drill of Supabase database | Runbook Ready | Requires Owner Action | **`BLOCKED`** |

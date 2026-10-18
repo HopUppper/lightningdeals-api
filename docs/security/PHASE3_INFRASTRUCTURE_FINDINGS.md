@@ -56,12 +56,12 @@ Every infrastructure control and finding is assigned one of four definitive stat
 
 ---
 
-### FINDING-P3-03: Permissive CORS Origin Fallback with Credentials (CWE-942)
-- **Severity:** HIGH (CVSS: 7.1)
+### FINDING-P3-03: Permissive CORS Origin Fallback & Multi-Tenant Wildcard (CWE-942)
+- **Severity:** HIGH (CVSS: 7.4)
 - **Location:** `server/index.ts`
-- **Initial Flaw:** The CORS origin handler checked an allowlist but fell back to `return callback(null, true)` for any origin not explicitly blocked, while configuring `credentials: true`. This allowed malicious third-party origins to make authenticated API requests with ambient user credentials.
-- **Remediation:** Replaced the permissive fallback with `return callback(null, false)`. Added pre-flight error rejection and origin sanitization.
-- **Verification:** Verified by automated regression tests `P3-CORS-01` (blocked origin rejected) and `P3-CORS-02` (allowed origin permitted) in `scripts/test-phase3-infrastructure-regression.ts`.
+- **Initial Flaw:** The CORS origin handler checked an allowlist but fell back to `return callback(null, true)` for any origin not explicitly blocked, and accepted all `*.onrender.com` subdomains (`origin.endsWith('.onrender.com')`) with `credentials: true`. Because Render is a multi-tenant platform, any arbitrary third-party attacker with an `.onrender.com` deployment could make credentialed cross-origin API requests.
+- **Remediation:** Replaced permissive fallback with strict denial (`return callback(null, false)`). Removed the insecure `*.onrender.com` wildcard, permitting only the exact legitimate origin (`https://lightningdeals-api.onrender.com`), and validated subdomains strictly under `lightningapi.pro`.
+- **Verification:** Verified by automated regression tests `P3-CORS-01` (attacker site rejected), `P3-CORS-02` (arbitrary Render tenant rejected), and `P3-CORS-03` (legitimate domain permitted) in `scripts/test-phase3-infrastructure-regression.ts`.
 - **Status:** **`PASS`** (Code Remediated & Tested)
 
 ---
@@ -118,12 +118,12 @@ Every infrastructure control and finding is assigned one of four definitive stat
 
 ---
 
-### FINDING-P3-09: Client-IP Resolution Behind Cloudflare Edge (CWE-345)
+### FINDING-P3-09: Client-IP Resolution Behind Cloudflare Edge & Direct Origin Spoofing (CWE-345)
 - **Severity:** MEDIUM (CVSS: 5.3)
 - **Location:** `server/rateLimit.ts` (`resolveClientIp`)
-- **Initial Flaw:** Client IP resolution inspected `X-Forwarded-For` without prioritizing Cloudflare's authentic `CF-Connecting-IP` header. In certain proxy hops, malicious clients could prepend arbitrary IPs to spoof rate-limiting buckets.
-- **Remediation:** Updated `resolveClientIp(req)` to prioritize `req.headers['cf-connecting-ip']`, validating the header format via Node's `net.isIP()` before falling back to trusted proxy hops.
-- **Verification:** Verified by automated regression tests `P3-PROXY-01` and `P3-PROXY-02` in `scripts/test-phase3-infrastructure-regression.ts`.
+- **Initial Flaw:** Client IP resolution inspected `X-Forwarded-For` without prioritizing Cloudflare's authentic `CF-Connecting-IP` header. Furthermore, directly trusting `CF-Connecting-IP` without validating that the request traversed Cloudflare allowed direct-origin attackers to spoof rate-limiting buckets.
+- **Remediation:** Updated `resolveClientIp(req)` to prioritize `req.headers['cf-connecting-ip']` only when accompanied by verified Cloudflare headers (`cf-ray` or `CLOUDFLARE_EDGE_SECRET`), and validated the header format via Node's `net.isIP()` before falling back to trusted proxy hops.
+- **Verification:** Verified by automated regression tests `P3-PROXY-01` (verified Cloudflare IP), `P3-PROXY-02` (unverified spoof rejected), and `P3-PROXY-03` (malformed syntax rejected) in `scripts/test-phase3-infrastructure-regression.ts`.
 - **Status:** **`PASS`** (Code Remediated & Tested)
 
 ---

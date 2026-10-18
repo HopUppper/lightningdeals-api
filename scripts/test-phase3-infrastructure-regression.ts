@@ -149,10 +149,11 @@ async function runPhase3Tests() {
   // 3. CLOUDFLARE EDGE & CLIENT-IP INTEGRITY
   // ===========================================================================
 
-  // [P3-PROXY-01] resolveClientIp prioritizes Cloudflare authentic CF-Connecting-IP
+  // [P3-PROXY-01] resolveClientIp prioritizes Cloudflare authentic CF-Connecting-IP when CF-Ray is present
   const mockReqWithCf = {
     headers: {
       'cf-connecting-ip': '203.0.113.195',
+      'cf-ray': '8f9e123456789abc-EWR',
       'x-forwarded-for': '198.51.100.50, 10.0.0.1',
     },
     ip: '10.0.0.1',
@@ -167,10 +168,30 @@ async function runPhase3Tests() {
     `Resolved IP: ${resolvedCfIp} (expected 203.0.113.195)`
   );
 
-  // [P3-PROXY-02] resolveClientIp validates IP syntax and rejects malformed headers
+  // [P3-PROXY-02] resolveClientIp rejects spoofed CF-Connecting-IP without CF-Ray header (direct origin bypass attempt)
+  const mockReqSpoofed = {
+    headers: {
+      'cf-connecting-ip': '203.0.113.195',
+      // No cf-ray header supplied (attacker attempting direct origin bypass)
+      'x-forwarded-for': '198.51.100.22',
+    },
+    ip: '198.51.100.22',
+    socket: { remoteAddress: '198.51.100.22' },
+  } as unknown as Request;
+
+  const resolvedSpoofed = resolveClientIp(mockReqSpoofed);
+  recordTest(
+    'P3-PROXY-02',
+    'resolveClientIp ignores unverified CF-Connecting-IP without Cloudflare ray verification',
+    resolvedSpoofed === '198.51.100.22',
+    `Resolved IP: ${resolvedSpoofed} (expected fallback 198.51.100.22)`
+  );
+
+  // [P3-PROXY-03] resolveClientIp validates IP syntax and rejects malformed headers
   const mockReqMalformed = {
     headers: {
       'cf-connecting-ip': 'not-an-ip-address; drop table',
+      'cf-ray': '8f9e123456789abc-EWR',
       'x-forwarded-for': 'invalid-ip',
     },
     ip: '198.51.100.22',
@@ -179,7 +200,7 @@ async function runPhase3Tests() {
 
   const resolvedMalformed = resolveClientIp(mockReqMalformed);
   recordTest(
-    'P3-PROXY-02',
+    'P3-PROXY-03',
     'resolveClientIp rejects malformed header strings and falls back to trusted ip',
     resolvedMalformed === '198.51.100.22',
     `Resolved IP: ${resolvedMalformed} (expected 198.51.100.22)`
@@ -203,20 +224,34 @@ async function runPhase3Tests() {
     next();
   });
 
-  // Apply Phase 3 CORS Policy
+  // Apply Phase 3 CORS Policy matching server/index.ts
   const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
     'https://lightningapi.pro',
     'https://www.lightningapi.pro',
+    'https://api.lightningapi.pro',
+    'https://lightningdeals-api.onrender.com',
   ];
 
   testApp.use(
     cors({
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.lightningapi.pro')) {
-          return callback(null, true);
-        }
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+
+        try {
+          const parsed = new URL(origin);
+          if (
+            parsed.protocol === 'https:' &&
+            (parsed.hostname === 'lightningapi.pro' || parsed.hostname.endsWith('.lightningapi.pro'))
+          ) {
+            return callback(null, true);
+          }
+        } catch {}
+
         return callback(null, false);
       },
       credentials: true,
@@ -291,14 +326,27 @@ async function runPhase3Tests() {
       `Access-Control-Allow-Origin: ${allowOriginHeader || 'None (blocked)'}`
     );
 
-    // [P3-CORS-02] CORS allows legitimate application domain
+    // [P3-CORS-02] CORS blocks other tenants on multi-tenant .onrender.com domain
+    const corsRenderAttackerRes = await fetch(`${baseUrl}/health`, {
+      method: 'GET',
+      headers: { Origin: 'https://arbitrary-attacker.onrender.com' },
+    });
+    const allowRenderAttacker = corsRenderAttackerRes.headers.get('access-control-allow-origin');
+    recordTest(
+      'P3-CORS-02',
+      'CORS policy rejects arbitrary third-party .onrender.com tenant origins',
+      allowRenderAttacker === null,
+      `Access-Control-Allow-Origin: ${allowRenderAttacker || 'None (blocked)'}`
+    );
+
+    // [P3-CORS-03] CORS allows legitimate exact application domain
     const corsAllowedRes = await fetch(`${baseUrl}/health`, {
       method: 'GET',
       headers: { Origin: 'https://lightningapi.pro' },
     });
     const allowLegitHeader = corsAllowedRes.headers.get('access-control-allow-origin');
     recordTest(
-      'P3-CORS-02',
+      'P3-CORS-03',
       'CORS policy permits legitimate production domain',
       allowLegitHeader === 'https://lightningapi.pro',
       `Access-Control-Allow-Origin: ${allowLegitHeader}`

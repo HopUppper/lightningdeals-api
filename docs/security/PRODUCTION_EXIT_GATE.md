@@ -5,15 +5,16 @@
 **System:** LightningDeals AI API Gateway (`https://lightningapi.pro`)  
 **Repository:** `HopUppper/lightningdeals-api`  
 **Remediation Branch:** `incident/phase1-containment`  
+**Target Commit:** `31a0765`  
 **Audit Standard:** Evidence-First Security Verification (No Assumed Remediations)  
-**Version:** 1.1.0 (Safety Hardened)  
+**Version:** 1.2.0 (Dual-Key Architecture & Transactional Scripts)  
 **Effective Date:** 2026-10-18  
 
 ---
 
 ## 1. Executive Summary & Final Release Recommendation
 
-This register documents the independent security verification and exit-gate assessment of the LightningDeals AI API Gateway following the security incident documented in `HACK_REPORT.md` and the subsequent operational safety review (`FINAL_OPERATIONAL_SAFETY_REVIEW.md`).
+This register documents the independent security verification and exit-gate assessment of the LightningDeals AI API Gateway following the security incident documented in `HACK_REPORT.md` and the subsequent operational safety reviews (`FINAL_OPERATIONAL_SAFETY_REVIEW.md`).
 
 In accordance with strict application security standards, **no vulnerability is marked `VERIFIED FIXED` unless verified in the live production environment**. Code remediations that have passed all automated regression tests in the codebase but await live deployment or manual owner credential rotation in the production control plane are honestly classified as `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION`.
 
@@ -27,8 +28,8 @@ FINAL PRODUCTION GATE DECISION:
 ```
 
 ### Justification:
-1. **Codebase Containment Complete (100%):** All 7 reported vulnerabilities (F1–F7), all 3 newly discovered backdoors, and all 7 operational safety findings (SR-01 through SR-07) have been remediated in branch `incident/phase1-containment`.
-2. **Automated Regression Suite Passes (18/18):** The comprehensive automated test suite `scripts/test-phase1-security-regression.ts` exercises real HTTP routers, database operations, Scrypt password checks, rate-limit buckets, missing `iat` enforcement, security epoch cutoff, and session revocation with **0 failures**. Full build (`npm run build`) compiles with zero TypeScript errors.
+1. **Codebase Containment Complete (100%):** All 7 reported vulnerabilities (F1–F7), all 3 newly discovered backdoors, dual-key vault architecture (`VAULT-01`), and transactional script boundaries have been remediated in branch `incident/phase1-containment` (commit `31a0765`).
+2. **Automated Regression Suite Passes (19/19):** The comprehensive automated test suite `scripts/test-phase1-security-regression.ts` exercises real HTTP routers, database operations, Scrypt password checks, rate-limit buckets, missing `iat` enforcement, security epoch cutoff, session revocation, and dual-key vault fallback with **0 failures**. Full build (`npm run build`) compiles with zero TypeScript errors.
 3. **Specific Production Actions Remain:** The application cannot be declared `READY FOR CONTROLLED PRODUCTION OPERATION` until the repository owner merges `incident/phase1-containment`, sets the new production environment variables on Render (`JWT_SECRET`, `SECURITY_EPOCH`, `INTEGRATION_API_KEY`), executes `scripts/provision-admin.ts --rotate` on the live database, and triggers `scripts/revoke-all-sessions.ts`.
 4. **No Absolute Security Claims:** Under no circumstances is it claimed or guaranteed that the application is invulnerable or can never be attacked. Security is an ongoing operational posture requiring constant verification and defense in depth.
 
@@ -58,7 +59,7 @@ FINAL PRODUCTION GATE DECISION:
 | **BD-3** | **Backdoor 3: Integration Origin Bypass** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | Removed `Origin: http://localhost` bypass in `server/integrations/integrationRoutes.ts`. Enforced timing-safe `INTEGRATION_API_KEY`. | Code diff verified; requires header `X-Integration-Key` matching server secret. | Active on live site until deployed. | Deploy `incident/phase1-containment` to Render; set `INTEGRATION_API_KEY` on Render. (Owner) | Yes | Yes (Owner) |
 | **F2-A** | **Hardcoded JWT Fallback Signing Secrets** (`lightningdeals_secret_jwt_key_2026`, `apexscale-jwt-secret-key-production-2026`) | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | Created `server/jwtConfig.ts`. Removed fallbacks from `server/auth.ts`, `server/adminAuth.ts`, `server/analyticsTracker.ts`, `server/gateway.ts`. Startup fails closed if missing in prod. | `npm run test:security` -> `[F2-01] Token signed with fallback 1 rejected: 401`, `[F2-02] Token signed with fallback 2 rejected: 401`. | Attacker can forge tokens against live production until Render env var and code deployed. | Deploy to Render; configure fresh 64-hex char `JWT_SECRET`. (Owner) | Yes | Yes (Owner) |
 | **F2-B** | **Unsafe Email-Based Identity Fallback** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | Removed `User.findFirst({ where: { email } })` fallback in `server/auth.ts` lines 42–49. Strictly requires matching UUID `id`. | `npm run test:security` -> `[F2-03] Forged token with non-existent id rejected: 403`. | Offline forgery with fake UUID blocked completely. | Deploy `incident/phase1-containment` to Render. (Owner) | Yes | Yes (Owner) |
-| **F2-C** | **Session Revocation & Privilege Separation** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | `server/adminAuth.ts` now creates rows in `UserSession`. `authenticateJwt` validates `UserSession.isRevoked` and `passwordChangedAt`. | `npm run test:security` -> `[AUTH-02] Session revocation invalidates token: 401`, `[AUTH-03] Password change invalidates token: 401`. | Stateless tokens minted prior to rotation valid until `SECURITY_EPOCH` deployed. | Deploy to Render; run `scripts/revoke-all-sessions.ts`. (Owner) | Yes | Yes (Owner) |
+| **F2-C** | **Session Revocation & Privilege Separation** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | `server/adminAuth.ts` now creates rows in `UserSession`. `authenticateJwt` validates `UserSession.isRevoked` and `passwordChangedAt`. Atomic update in `scripts/revoke-all-sessions.ts`. | `npm run test:security` -> `[AUTH-02] Session revocation invalidates token: 401`, `[AUTH-03] Password change invalidates token: 401`. | Stateless tokens minted prior to rotation valid until `SECURITY_EPOCH` deployed. | Deploy to Render; run `scripts/revoke-all-sessions.ts`. (Owner) | Yes | Yes (Owner) |
 | **F2-D** | **Missing `iat` Claim Token Bypass (SR-03)** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | In `server/auth.ts` line 45 & `server/adminAuth.ts` line 271, strictly require `typeof decoded.iat === 'number' && decoded.iat > 0`. | `npm run test:security` -> `[F2-07] Token with missing or non-numeric iat claim rejected: 401`. | Forged tokens omitting timestamps cannot bypass revocation. | Deploy `incident/phase1-containment` to Render. (Owner) | Yes | Yes (Owner) |
 | **F2-E** | **Security Epoch Invalidation (SR-01)** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | In `server/jwtConfig.ts` line 60, normalized numeric ms/s and ISO strings. Enforced in `server/auth.ts` and `server/adminAuth.ts`. | `npm run test:security` -> `[F2-08] Token issued prior to SECURITY_EPOCH rejected: 401`. | Tokens issued prior to incident cutoff rejected regardless of DB session state. | Deploy to Render; set `SECURITY_EPOCH`. (Owner) | Yes | Yes (Owner) |
 | **F3** | **Admin Login 500 Foreign Key Error** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | Fixed in `server/adminAuth.ts` line 74: passed `adminUserId: null` instead of `'SYSTEM_UNAUTH'` on failed login. Unified 401 oracle. | `npm run test:security` -> `[F3-01] Unknown admin email returns 401 (not 500)`, `[F3-02] Wrong password returns identical 401`. | Low (DoS on failed login logs resolved). | Deploy `incident/phase1-containment` to Render. (Owner) | Yes | Yes (Owner) |
@@ -66,6 +67,7 @@ FINAL PRODUCTION GATE DECISION:
 | **F5** | **Broken User Registration** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | Added `import { ReferralEngine } from './referrals/referralEngine';` in `server/user.ts` line 34. | `npm run test:security` -> `[F5-01] User registration does not crash on ReferralEngine: 400 (validation error handled cleanly, no 500)`. | Users cannot register on live site until deployed. | Deploy `incident/phase1-containment` to Render. (Owner) | Yes | Yes (Owner) |
 | **F6** | **Audit Log Tamper-Free Verification Failure** | `PARTIALLY FIXED` | Fixed in-memory sort order in `server/auditLogger.ts` (`timestamp: 'asc', id: 'asc'`). Deterministic sorting implemented. | Local sort verified; live database audit records have not been re-hashed or re-verified. | Existing production log table may contain legacy non-contiguous hashes. Historical records preserved as forensic evidence. | Run read-only audit log chain inspector against production database. (Security Lead) | Yes | Yes (Owner) |
 | **F7** | **Customer PII & Sensitive Secrets Exposure** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | Removed sensitive password and secret fields from API responses; hardened routes in `server/admin.ts` and `server/user.ts`. | Verified in code review; customer balances, keys, and tokens properly scoped. | Provider master keys in DB still exposed if attacker gained previous access. | Rotate upstream AI provider master keys at source. (Owner) | Yes | Yes (Owner) |
+| **VAULT-01** | **Vault Encryption Dual-Key Decryption & Migration** | `FIX IMPLEMENTED, NOT VERIFIED IN PRODUCTION` | Added dual-key transition in `server/db.ts` via `OLD_ENCRYPTION_KEY`. Added `scripts/rotate-vault-encryption.ts` with round-trip verification. | `npm run test:security` -> `[VAULT-01] Dual-key vault fallback seamlessly decrypts legacy ciphertexts during transition: true`. | Blind rotation destroys provider keys; dual-key architecture enables zero-downtime re-encryption. | Execute Stage 9 rotation with fresh keys. (Owner) | Yes | Yes (Owner) |
 
 ---
 
@@ -76,11 +78,11 @@ FINAL PRODUCTION GATE DECISION:
 | **GitHub Repository Visibility & Access** | `HopUppper/lightningdeals-api` | `NOT TESTED` | Requires owner verification in GitHub repository settings. | If repository is public, source code and commit history remain visible to scraping bots. | Verify repository visibility is set to **Private**. Audit deploy keys and collaborators. (Owner) | Yes (Owner) |
 | **Production Environment Variables** | Render Web Service (`lightningdeals-api`) | `NOT TESTED` | Mandatory variables: `JWT_SECRET`, `SECURITY_EPOCH`, `INTEGRATION_API_KEY`, `NODE_ENV`. | Server will fail closed on startup if `JWT_SECRET` is missing or insecure. | Set all mandatory variables in Render Dashboard -> Environment before deploying. (Owner) | Yes (Owner) |
 | **Database Credential Rotation** | Supabase PostgreSQL (`DATABASE_URL`, `DIRECT_URL`) | `NOT TESTED` | `prepare-env.cjs` derives `DIRECT_URL` dynamically from `DATABASE_URL`. | If database password was compromised, old connection strings could be used to connect directly. | Reset Supabase database password; update `DATABASE_URL` & `DIRECT_URL` in Render. (Owner) | Yes (Owner) |
-| **Vault Encryption Key Rotation** | Render Env: `ENCRYPTION_KEY` | `BLOCKED` (Pending Fresh Provider Key Staging) | AES-256-GCM key used in `server/db.ts` to encrypt `VendorProvider.masterApiKeyEncrypted`. | **HIGH DATA IMPACT:** Replacing key without re-encrypting renders existing provider keys unreadable. | Staged for Stage 9 concurrently with manual re-entry of fresh provider keys in `/admin/providers`. (Owner) | Yes (Owner) |
-| **Production Administrator Password Rotation** | PostgreSQL table `User` (`role = 'admin'`) | `NOT TESTED` | `scripts/provision-admin.ts --rotate` hashes via Scrypt, resets lockout, and revokes active sessions. | Compromised credentials (`love9002`) remain active in production until rotated. | Execute `npx tsx scripts/provision-admin.ts --rotate` in Render Shell. (Owner) | Yes (Owner) |
-| **Global Session & Token Invalidation** | PostgreSQL table `UserSession` & `passwordChangedAt` | `NOT TESTED` | `scripts/revoke-all-sessions.ts` sets `isRevoked: true` and bumps `passwordChangedAt`. | Previously forged tokens remain usable if not explicitly revoked via epoch or timestamp. | Execute `npm run session:revoke` in Render Shell. (Owner) | Yes (Owner) |
+| **Vault Encryption Key Rotation** | Render Env: `ENCRYPTION_KEY` & `OLD_ENCRYPTION_KEY` | `BLOCKED` (Pending Fresh Provider Key Staging) | AES-256-GCM key used in `server/db.ts` to encrypt `VendorProvider.masterApiKeyEncrypted`. | **HIGH DATA IMPACT:** Replacing key without dual-key or re-encrypting renders provider keys unreadable. | Staged for Stage 9 using `scripts/rotate-vault-encryption.ts` and fresh provider keys. (Owner) | Yes (Owner) |
+| **Production Administrator Password Rotation** | PostgreSQL table `User` (`role = 'admin'`) | `NOT TESTED` | `scripts/provision-admin.ts --rotate` hashes via Scrypt, resets lockout, and revokes active sessions in atomic transaction. | Compromised credentials (`love9002`) remain active in production until rotated. | Execute `npx tsx scripts/provision-admin.ts --rotate` in Render Shell. (Owner) | Yes (Owner) |
+| **Global Session & Token Invalidation** | PostgreSQL table `UserSession` & `passwordChangedAt` | `NOT TESTED` | `scripts/revoke-all-sessions.ts` sets `isRevoked: true` and bumps `passwordChangedAt` in atomic transaction. | Previously forged tokens remain usable if not explicitly revoked via epoch or timestamp. | Execute `npm run session:revoke` in Render Shell. (Owner) | Yes (Owner) |
 | **AI Provider Master Key Rotation** | Upstream AI Providers (Anthropic, OpusMax, OpenAI) | `NOT TESTED` | Keys entered via Admin UI (`/admin/providers`). | If master keys were exfiltrated during compromise, attacker could bill requests directly to owner. | Issue fresh keys at provider dashboards; update in Admin UI concurrently with `ENCRYPTION_KEY`. (Owner) | Yes (Owner) |
-| **Production Deployment & Health Smoke Test** | Render Production Web Service (`lightningapi.pro`) | `NOT TESTED` | PR from `incident/phase1-containment` ready for merge and deployment. | Live site runs vulnerable version until manual deploy is triggered. | Merge PR to `main` and trigger Render deploy. Verify `curl https://lightningapi.pro/api/health`. (Owner) | Yes (Owner) |
+| **Production Deployment & Health Smoke Test** | Render Production Web Service (`lightningapi.pro`) | `NOT TESTED` | PR from `incident/phase1-containment` (commit `31a0765`) ready for merge and deployment. | Live site runs vulnerable version until manual deploy is triggered. | Merge PR to `main` and trigger Render deploy. Verify `curl https://lightningapi.pro/api/health`. (Owner) | Yes (Owner) |
 | **Forensic Monitoring & Billing Review** | Cloudflare, Render Logs, AI Provider Billing | `NOT TESTED` | 48-hour stabilization window post-deployment. | Undetected unauthorized consumption if logs are not actively observed. | Monitor Render logs and AI provider billing usage curves for 48 hours. (Owner) | No |
 
 ---
@@ -89,10 +91,10 @@ FINAL PRODUCTION GATE DECISION:
 
 ### Automated Test Execution Record:
 - **Test File:** `scripts/test-phase1-security-regression.ts`
-- **Execution Date:** 2026-10-18T23:35:07+05:30
+- **Execution Date:** 2026-10-18T23:45:34+05:30
 - **Runner:** Node.js v20.x / tsx v4.19.2 / Prisma Client v6.3.0
-- **Total Tests:** 18
-- **Passed:** 18 (100%)
+- **Total Tests:** 19
+- **Passed:** 19 (100%)
 - **Failed:** 0
 - **Key Assertions Verified:**
   - Seeded passwords rejected (`[F1-01]`, `[F1-02]`: HTTP 401)
@@ -106,9 +108,10 @@ FINAL PRODUCTION GATE DECISION:
   - Unknown admin login 500 defect resolved (`[F3-01]`, `[F3-02]`: HTTP 401, error `authentication_failed`)
   - Rate limiting enforced across spoofed `X-Forwarded-For` (`[F4-01]`: HTTP 429)
   - Legitimate admin login succeeded with Scrypt (`[AUTH-01]`: HTTP 200)
-  - Server-side session revocation immediately invalidates active tokens (`[AUTH-02]`: HTTP 401)
+  - Server-side admin session revocation invalidates token immediately (`[AUTH-02]`: HTTP 401)
   - Password change invalidates pre-existing tokens (`[AUTH-03]`: HTTP 401)
   - User registration handles ReferralEngine safely (`[F5-01]`: HTTP 400 clean validation)
+  - Dual-key vault fallback seamlessly decrypts legacy ciphertexts during transition (`[VAULT-01]`: true)
 
 ### Build & TypeScript Compilation Record:
 - **Build Command:** `npm run build` (`prepare-env.cjs && prisma generate && tsc && vite build && prerender.ts`)
@@ -126,12 +129,12 @@ Prior to signing off on Phase 1 exit gate and authorizing Phase 2 architecture w
 - [ ] **Milestone 1:** `FINAL_OPERATIONAL_SAFETY_REVIEW.md` and `PRODUCTION_CONTAINMENT_RUNBOOK.md` reviewed and understood.
 - [ ] **Milestone 2:** GitHub repository verified as **Private** with authorized collaborators only.
 - [ ] **Milestone 3:** Render environment variables configured (`JWT_SECRET`, `SECURITY_EPOCH`, `INTEGRATION_API_KEY`).
-- [ ] **Milestone 4:** Branch `incident/phase1-containment` merged to `main` and successfully deployed on Render.
+- [ ] **Milestone 4:** Branch `incident/phase1-containment` (commit `31a0765`) merged to `main` and successfully deployed on Render.
 - [ ] **Milestone 5:** Production admin credentials rotated via `scripts/provision-admin.ts --rotate` inside Render Shell.
 - [ ] **Milestone 6:** Global session invalidation executed via `npm run session:revoke` inside Render Shell.
 - [ ] **Milestone 7:** Live probes confirm rejection of legacy fallback JWTs, seed credentials, and spoofed rate-limit attempts.
 - [ ] **Milestone 8:** Supabase database credentials rotated and connection re-verified.
-- [ ] **Milestone 9:** Upstream AI provider master keys rotated and updated in `/admin/providers` concurrently with `ENCRYPTION_KEY`.
+- [ ] **Milestone 9:** Upstream AI provider master keys rotated and updated in `/admin/providers` using dual-key migration or UI re-entry.
 - [ ] **Milestone 10:** 48-hour monitoring confirms stable operations and normal billing curves.
 
 **Lead Application Security Auditor:** Antigravity AI Security Lead  

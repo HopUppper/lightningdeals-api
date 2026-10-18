@@ -5,15 +5,16 @@
 **System:** LightningDeals AI API Gateway (`https://lightningapi.pro`)  
 **Repository:** `HopUppper/lightningdeals-api`  
 **Target Remediation Branch:** `incident/phase1-containment`  
+**Target Commit:** `31a0765`  
 **Hosting Topology:** Cloudflare WAF/CDN -> Render Web Service -> Supabase Managed PostgreSQL  
-**Version:** 1.1.0 (Safety Hardened)  
+**Version:** 1.2.0 (Dual-Key Architecture & Transactional Scripts)  
 **Effective Date:** 2026-10-18  
 
 ---
 
 ## 1. Objective & Operational Scope
 
-This runbook specifies the ordered, verified operational procedure for executing production containment on the LightningDeals AI API Gateway following the incident detailed in `HACK_REPORT.md`.
+This runbook specifies the ordered, verified operational procedure for executing production containment on the LightningDeals AI API Gateway following the incident detailed in `HACK_REPORT.md` and the pre-production safety audit (`FINAL_OPERATIONAL_SAFETY_REVIEW.md`).
 
 It establishes:
 1. Complete elimination of compromised credentials and authentication bypasses in production.
@@ -38,7 +39,7 @@ It establishes:
 | **Security Epoch** | Render Env: `SECURITY_EPOCH` | **HIGH**: Legacy stateless tokens minted before incident could remain valid if DB session check bypassed. | **YES (MANDATORY)** | Accepts numeric milliseconds string or ISO 8601 string. | Old tokens with `iat * 1000 < SECURITY_EPOCH` rejected with 401. |
 | **Admin Passwords** | PostgreSQL table `User` (`role = 'admin'`) | **CRITICAL**: Seed credentials (`sidhjain9002@gmail.com` / `love9002`, `admin@lightningdeals.com` / `admin123`) compromised. | **YES (MANDATORY)** | Code deployment in Stage 5 must be live first (Scrypt hashing enforced). | `scripts/provision-admin.ts --rotate` executed; test login. |
 | **Database Credentials** | Render Env: `DATABASE_URL`, `DIRECT_URL` / Supabase | **HIGH**: Public repo exposure or potential SQL/admin shell exfiltration makes DB credentials suspect. | **YES (STAGE 9)** | Supabase DB password reset; Render `DATABASE_URL` & `DIRECT_URL` updated in sync. | `node scripts/prepare-env.cjs && npx prisma db pull` succeeds. |
-| **Vault Encryption Key** | Render Env: `ENCRYPTION_KEY` | **HIGH**: Key encrypts upstream AI master keys in table `VendorProvider`. If compromised, master keys readable. | **STAGE 9 (CONCURRENT WITH FRESH KEYS)** | **CRITICAL CAUTION**: Changing key blindly destroys existing encrypted master keys. Must be executed concurrently with entering fresh provider keys. | Re-enter fresh provider keys after key rotation in Admin UI. |
+| **Vault Encryption Key** | Render Env: `ENCRYPTION_KEY` & `OLD_ENCRYPTION_KEY` | **HIGH**: Key encrypts upstream AI master keys in table `VendorProvider`. If compromised, master keys readable. | **STAGE 9 (DUAL-KEY TRANSITION)** | Dual-key fallback allows zero-downtime migration via `scripts/rotate-vault-encryption.ts`. | Verified via test `VAULT-01`; test provider connection. |
 | **Integration API Key** | Render Env: `INTEGRATION_API_KEY` | **MEDIUM**: Localhost origin bypass fixed; static internal integration header now required. | **YES (NEW KEY)** | Generate cryptographically secure random token (min 32 chars). | Request with `X-Integration-Key` succeeds; missing/wrong fails 401. |
 | **Upstream AI Master Keys** | Encrypted in `VendorProvider` (`masterApiKeyEncrypted`) | **CRITICAL**: If admin portal or DB was accessed, OpusMax / Anthropic / OpenAI master keys are compromised. | **YES (MANDATORY)** | Admin rotates keys at upstream AI providers first, then enters in portal. | Test gateway route `POST /api/v1/chat/completions` with test key. |
 | **GitHub Access Tokens & Deploy Keys** | GitHub repo secrets / Render webhook | **HIGH**: Potential CI/CD or repo compromise during public exposure period. | **YES (MANDATORY)** | GitHub Repository Settings -> Secrets and variables. | Test push & manual trigger succeeds with new token. |
@@ -68,7 +69,7 @@ flowchart TD
     end
 
     subgraph STAGE_5 ["Stage 5: Remediation Deployment"]
-        S5A["5.1 Merge incident/phase1-containment to Main"] --> S5B["5.2 Configure Render Env: JWT_SECRET, SECURITY_EPOCH, INTEGRATION_API_KEY"]
+        S5A["5.1 Merge incident/phase1-containment (commit 31a0765) to Main"] --> S5B["5.2 Configure Render Env: JWT_SECRET, SECURITY_EPOCH, INTEGRATION_API_KEY"]
         S5B --> S5C["5.3 Trigger Render Manual Deploy (Hold ENCRYPTION_KEY for Stage 9)"]
         S5C --> S5D["5.4 Verify Healthcheck /api/health (HTTP 200)"]
     end
@@ -88,7 +89,7 @@ flowchart TD
 
     subgraph STAGE_9 ["Stage 9: Synchronized DB & Provider Key Rotation"]
         S9A["9.1 Reset Supabase Database Password"] --> S9B["9.2 Update Render DATABASE_URL & DIRECT_URL"]
-        S9B --> S9C["9.3 Update ENCRYPTION_KEY on Render"]
+        S9B --> S9C["9.3 Run scripts/rotate-vault-encryption.ts OR configure OLD_ENCRYPTION_KEY"]
         S9C --> S9D["9.4 Re-enter Fresh AI Keys in /admin/providers"]
         S9D --> S9E["9.5 Verify AI Gateway with Synthetic Prompt"]
     end
@@ -220,7 +221,7 @@ node -e "console.log('SECURITY_EPOCH=' + new Date().toISOString())"
 - **Downtime / Reauthentication Impact:** None yet.
 - **Potential Data-Loss / Billing Consequences:**
   > [!WARNING]
-  > **ENCRYPTION KEY COUPLING:** Because `VendorProvider.masterApiKeyEncrypted` is encrypted with `ENCRYPTION_KEY` using AES-256-GCM, updating `ENCRYPTION_KEY` on Render will make existing encrypted master keys undecryptable. Therefore, `ENCRYPTION_KEY` must **NOT** be changed in Stage 5. It will be changed in Stage 9 concurrently with entering the fresh provider keys.
+  > **ENCRYPTION KEY COUPLING:** Because `VendorProvider.masterApiKeyEncrypted` is encrypted with `ENCRYPTION_KEY` using AES-256-GCM, updating `ENCRYPTION_KEY` on Render will make existing encrypted master keys undecryptable. Therefore, `ENCRYPTION_KEY` must **NOT** be changed in Stage 5. It will be changed in Stage 9 concurrently with the dual-key transition and entering the fresh provider keys.
 - **Required Action & Approval:** Owner manual preparation.
 
 #### Execution Steps:
@@ -239,7 +240,8 @@ node -e "console.log('SECURITY_EPOCH=' + new Date().toISOString())"
 
 - **Purpose & Risk Addressed:** Deploys all Phase 1 fixes to production on Render, eliminating hardcoded fallback secrets, backdoor admin creation, password bypasses, and rate-limit spoofing.
 - **Service / Dashboard:** GitHub PR -> Render Web Service Dashboard (`dashboard.render.com`).
-- **Prerequisites & Dependencies:** All 18 regression tests pass locally; build passes; secrets staged from Stage 3.
+- **Target Commit:** `31a0765` on branch `incident/phase1-containment`.
+- **Prerequisites & Dependencies:** All 19 regression tests pass locally; build passes; secrets staged from Stage 3.
 - **Downtime / Reauthentication Impact:**
   - Brief rolling restart (< 60 seconds) during Render deployment. Zero customer downtime if rolling deploys are enabled.
   - Setting new `JWT_SECRET` and `SECURITY_EPOCH` will invalidate existing user/admin session tokens. Users will be asked to log in again on their next request.
@@ -304,7 +306,7 @@ npx tsx scripts/provision-admin.ts --email="admin@lightningdeals.com" --rotate
 ```
 
 > [!TIP]
-> The script hashes the password with Scrypt (32-byte salt, cost 16384), resets `failedLoginAttempts: 0, lockedUntil: null`, updates `passwordChangedAt: new Date()`, and invalidates all active sessions for that admin in `UserSession`. It prints the generated password **once**. Copy it into the password manager immediately.
+> The script hashes the password with Scrypt (32-byte salt, cost 16384), resets `failedLoginAttempts: 0, lockedUntil: null`, updates `passwordChangedAt: new Date()`, and invalidates all active sessions for that admin in `UserSession` inside an atomic transaction. It prints the generated password **once**. Copy it into the password manager immediately.
 
 - **Verification:**
   1. Test authentication with old compromised password `love9002`:
@@ -343,17 +345,18 @@ In the **Render Web Shell**, run:
 npm run session:revoke
 ```
 
-**Script Actions Performed:**
-1. Executes `UPDATE "UserSession" SET "isRevoked" = true WHERE "isRevoked" = false`.
-2. Executes `UPDATE "User" SET "passwordChangedAt" = NOW()`.
-3. Records audit log event `GLOBAL_SESSION_REVOCATION_EXECUTED` (severity `CRITICAL`).
+**Script Actions Performed (Atomic Transaction):**
+1. Executes `prisma.$transaction`:
+   - `UPDATE "UserSession" SET "isRevoked" = true WHERE "isRevoked" = false`
+   - `UPDATE "User" SET "passwordChangedAt" = NOW()`
+2. Records audit log event `GLOBAL_SESSION_REVOCATION_EXECUTED` (severity `CRITICAL`).
 
-- **Verification:**
-  - Submit request using any previously captured admin or user JWT:
-    ```bash
-    curl -H "Authorization: Bearer <old_token>" https://lightningapi.pro/api/admin/dashboard/stats
-    ```
-  - **Must return:** `HTTP/1.1 401 Unauthorized` with `{"error":{"type":"session_invalidated"}}` or `{"error":{"type":"invalid_token"}}`.
+- **Verification via Synthetic Account:**
+  1. Register synthetic user: `curl -X POST https://lightningapi.pro/api/user/auth/register -H "Content-Type: application/json" -d '{"name":"Synth Verify","email":"synth-test@lightningapi.pro","password":"SafePassword123!"}'`
+  2. Login: `curl -X POST https://lightningapi.pro/api/user/auth/login -H "Content-Type: application/json" -d '{"email":"synth-test@lightningapi.pro","password":"SafePassword123!"}'` -> capture `token`.
+  3. Verify access: `curl -H "Authorization: Bearer <token>" https://lightningapi.pro/api/user/profile` -> `HTTP 200 OK`.
+  4. Run `npm run session:revoke` in Render Shell.
+  5. Repeat request: `curl -i -H "Authorization: Bearer <token>" https://lightningapi.pro/api/user/profile` -> `HTTP/1.1 401 Unauthorized` (`error.type = "session_invalidated"`).
 - **Rollback Procedure:** N/A (Revocation is intentional and permanent; users simply re-login).
 
 ---
@@ -410,21 +413,30 @@ Run the live verification probe suite against production endpoints:
 1. **Rotate Supabase Database Password:**
    - Go to Supabase Dashboard -> `Project Settings` -> `Database`.
    - Under `Database password`, click `Reset database password`.
-   - Generate a strong random password.
+   - Confirm reset with staged password. (Note: Old password becomes immediately invalid).
 2. **Update Render Database Environment Variables:**
    - In Render Dashboard -> Environment:
      - Update `DATABASE_URL` with new password:
        `postgresql://postgres:[NEW_PASSWORD]@db.[PROJECT_REF].supabase.co:6543/postgres?pgbouncer=true`
-     - **CRITICAL:** Update `DIRECT_URL` as well, OR delete `DIRECT_URL` from the Render environment so `prepare-env.cjs` derives it dynamically:
-       `postgresql://postgres:[NEW_PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres`
-     - Update `ENCRYPTION_KEY` with the new 64-hex char secret from Stage 3.
+     - Update `DIRECT_URL`:
+       `postgresql://postgres:[NEW_PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres` (or delete `DIRECT_URL` so `prepare-env.cjs` derives it).
+     - Configure Dual-Key Transition:
+       - Set `OLD_ENCRYPTION_KEY`: `<Current active vault key or lightningdeals_default_vault_secret>`
+       - Set `ENCRYPTION_KEY`: `<New 64-hex char secret from Stage 3>`
    - Save changes on Render. Render automatically redeploys.
-3. **Re-enter AI Provider Master Keys:**
-   - Immediately log into Admin UI: `https://lightningapi.pro/admin/login` using the new Scrypt admin credentials.
-   - Navigate to `/admin/providers`.
-   - Update each provider (Anthropic, OpusMax, etc.) with the fresh replacement API keys generated in Stage 4.
-   - Click `Save Provider`. This re-encrypts the keys under the new `ENCRYPTION_KEY` using AES-256-GCM.
-4. **Test Live Gateway Route (SYNTHETIC CUSTOMER):**
+3. **Execute Vault Migration Script OR Re-enter Keys via UI:**
+   - **Option A (Automated In-Place Migration via Render Shell):**
+     In Render Web Shell, run:
+     ```bash
+     npx tsx scripts/rotate-vault-encryption.ts
+     ```
+     This decrypts existing provider keys with `OLD_ENCRYPTION_KEY`, re-encrypts with `ENCRYPTION_KEY`, verifies round-trip in memory, and writes to database inside an atomic transaction.
+   - **Option B (Manual Re-entry):**
+     Log into Admin UI: `https://lightningapi.pro/admin/login` -> `/admin/providers`.
+     Re-paste fresh replacement provider keys for Anthropic and OpusMax.
+4. **Remove `OLD_ENCRYPTION_KEY`:**
+   - Once all providers are migrated/re-entered, delete `OLD_ENCRYPTION_KEY` from Render Environment Variables.
+5. **Test Live Gateway Route (SYNTHETIC CUSTOMER):**
    - Send a synthetic completions request using a dedicated internal test customer account with `max_tokens: 5`:
      ```bash
      curl -X POST https://lightningapi.pro/api/v1/chat/completions \
@@ -496,7 +508,7 @@ Before executing live production actions in Stages 5 through 9, obtain explicit 
 - [ ] **Stage 2 (GitHub & Cloudflare Lockdown):** Owner Confirmed
 - [ ] **Stage 3 (Secret Generation):** Secrets Staged in Vault
 - [ ] **Stage 4 (Provider Key Preparation):** Fresh Provider Keys Ready
-- [ ] **Stage 5 (Render Deploy & Env Vars):** Deployment Approved (ENCRYPTION_KEY held)
+- [ ] **Stage 5 (Render Deploy & Env Vars):** Deployment Approved (Commit `31a0765`)
 - [ ] **Stage 6 (Admin Password Rotation):** CLI Rotation Approved
 - [ ] **Stage 7 (Global Session Revocation):** Session Purge Approved
 - [ ] **Stage 8 (Live Verification Probes):** Probes Executed & Passed

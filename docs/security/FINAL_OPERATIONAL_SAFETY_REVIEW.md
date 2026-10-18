@@ -1,229 +1,228 @@
-# Final Operational Safety Review — LightningDeals Production Containment
+# Final Pre-Production Operational Safety Review — LightningDeals AI API Gateway
 
 **Document Reference:** `docs/security/FINAL_OPERATIONAL_SAFETY_REVIEW.md`  
 **Classification:** TLP:AMBER / INDEPENDENT SECURITY & OPERATIONAL SAFETY AUDIT  
 **Project:** LightningDeals AI API Gateway (`https://lightningapi.pro`)  
 **Repository:** `HopUppper/lightningdeals-api`  
-**Target Remediation Branch:** `incident/phase1-containment`  
-**Verified Git Commit:** `27f760b` (+ safety hardening commit)  
+**Remediation Branch:** `incident/phase1-containment`  
+**Target Deployment Commit:** `31a0765`  
+**Audit Standard:** Strict Evidence-First Verification (No Assumed Remediations)  
 **Effective Date:** 2026-10-18  
 
 ---
 
-## 1. Executive Summary & Review Scope
+## 1. Executive Summary & Verification State
 
-This independent operational safety review was performed on the codebase and containment documentation prior to executing any production actions on the live environment (`https://lightningapi.pro`).
+This focused pre-production review was conducted on the actual implementation of branch `incident/phase1-containment` (commit `31a0765`) to identify and resolve remaining operational risks prior to any production execution.
 
-The review identified **several critical operational risks, unit contradictions, and sequencing errors** in the previous containment plan that could have resulted in:
-1. **Silent Failure of Security Cutoff:** `SECURITY_EPOCH` evaluating to `0` due to `new Date('1771437600000').getTime()` returning `NaN` in Node.js when passed numeric string representations.
-2. **Gateway Decryption Outage:** Rotating `ENCRYPTION_KEY` during initial deployment would immediately break upstream AI requests (Claude/Anthropic/OpusMax) because no key versioning or migration script exists in `server/db.ts`.
-3. **Accidental Administrator Lockout:** The previous live rate-limiting probe instructed sending 10 failed login requests targeting the real administrator email, which triggers the application's 15-minute account lock.
-4. **Token Revocation Bypass via Omitted Timestamp:** Forged JWTs omitting the `iat` claim entirely would skip `passwordChangedAt` and `SECURITY_EPOCH` checks when `UserSession` record is absent.
-5. **Database Connection De-synchronization:** Updating `DATABASE_URL` in Render without updating or clearing `DIRECT_URL` leaves `DIRECT_URL` pointing to the stale password, breaking future Prisma migrations.
+### Verification Status:
+- **Automated Security Regression Suite:** **19/19 Tests PASS (0 Failures)** via `npm run test:security`.
+- **Application Build & Type Check:** **0 Errors** via `npm run build` (`tsc` + Prisma generate + Vite bundling + 20 SSG pages pre-rendered).
+- **Dual-Key Vault Architecture:** Implemented in [`server/db.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/db.ts) and verified via test `VAULT-01`.
+- **Atomic Operations:** Script updates in [`scripts/revoke-all-sessions.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/revoke-all-sessions.ts) and [`scripts/provision-admin.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/provision-admin.ts) wrapped in `prisma.$transaction`.
+- **Production Status:** **Zero live production changes executed.** Live environment remains untouched pending owner approval.
 
-All identified code-level defects have been hardened and verified with **18/18 passing security regression tests**. This document details the exact findings, code paths, corrected operational order, and mandatory approval gates.
-
----
-
-## 2. Findings & Severity Register
-
-| Finding ID | Severity | Category | Description | Source File & Relevant Code Path | Status |
-|---|---|---|---|---|---|
-| **SR-01** | **CRITICAL** | Logic Flaw / Invalidation Failure | `SECURITY_EPOCH` parsed string numeric timestamps via `new Date(str).getTime()`, which returns `NaN` in Node.js. Epoch silently evaluated to `0`, failing to invalidate legacy tokens. | [`server/jwtConfig.ts#L58-L64`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/jwtConfig.ts) | **FIXED & TESTED** |
-| **SR-02** | **CRITICAL** | Operational Outage / Data Loss | Rotating `ENCRYPTION_KEY` on Render without prior provider re-encryption destroys readability of `VendorProvider.masterApiKeyEncrypted`. No key versioning exists. | [`server/db.ts#L86-L140`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/db.ts) | **BLOCKED (Requires Provider Key Staging)** |
-| **SR-03** | **HIGH** | Security Bypass | JWT tokens forged without an `iat` claim (`noTimestamp: true`) bypassed `passwordChangedAt` and `SECURITY_EPOCH` checks when `UserSession` is absent. | [`server/auth.ts#L41-L84`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/auth.ts), [`server/adminAuth.ts#L262-L298`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/adminAuth.ts) | **FIXED & TESTED** |
-| **SR-04** | **HIGH** | Operational Lockout Risk | Runbook Stage 8 probe instructed sending 10 rapid failed logins against the admin account. Because the rate limiter locks accounts after 5 failures, this locks the real admin for 15 minutes. | [`docs/security/PRODUCTION_CONTAINMENT_RUNBOOK.md`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/docs/security/PRODUCTION_CONTAINMENT_RUNBOOK.md) Stage 8 | **RUNBOOK CORRECTED** |
-| **SR-05** | **MEDIUM** | Deployment Sequencing Error | Previous runbook placed `ENCRYPTION_KEY` rotation in Stage 5 and provider key re-entry in Stage 9, creating an intentional gateway outage window between stages. | [`docs/security/PRODUCTION_CONTAINMENT_RUNBOOK.md`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/docs/security/PRODUCTION_CONTAINMENT_RUNBOOK.md) Stage 5 & 9 | **SEQUENCING RECONCILED** |
-| **SR-06** | **MEDIUM** | Database Configuration Drift | If `DIRECT_URL` is set in Render dashboard, `prepare-env.cjs` does not overwrite it when `DATABASE_URL` password is reset, causing split-credential connection failure. | [`scripts/prepare-env.cjs#L21-L46`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/prepare-env.cjs) | **RUNBOOK DOCUMENTED** |
-| **SR-07** | **LOW** | Target Ambiguity | Running `provision-admin.ts` or `revoke-all-sessions.ts` on local machine defaults to local SQLite `prisma/dev.db` unless `DATABASE_URL` is explicitly set to production. | [`scripts/provision-admin.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/provision-admin.ts), [`server/db.ts#L7-L24`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/db.ts) | **OPERATIONAL INSTRUCTIONS CLARIFIED** |
-
----
-
-## 3. Detailed Technical Analysis of Mandatory Checks
-
-### 3.1 Check 1: Security Epoch (`SECURITY_EPOCH`) Implementation
-- **Code Inspection:** In [`server/jwtConfig.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/jwtConfig.ts), `getSecurityEpoch()` originally called `new Date(process.env.SECURITY_EPOCH).getTime()`.
-- **The Defect:** When following the previous runbook command (`console.log('SECURITY_EPOCH=' + Date.now())`), the environment variable is set to a string of digits like `"1771437600000"`. In Node.js, `new Date("1771437600000").getTime()` evaluates to `NaN`. Because of `if (!isNaN(epochTime)) return epochTime;`, the function returned `0`.
-- **Units Verification:** In [`server/auth.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/auth.ts#L60), token issuance is compared as `const issuedAtMs = decoded.iat * 1000`. JWT `iat` is in **seconds**; `issuedAtMs` is in **milliseconds**. Therefore, `securityEpoch` must strictly be in **milliseconds**.
-- **Code Hardening Applied:**
-  Updated `getSecurityEpoch()` to dynamically detect:
-  1. Pure numeric strings (`/^\d+$/`):
-     - If `< 100,000,000,000`, treated as seconds and multiplied by 1000.
-     - If `>= 100,000,000,000`, treated as milliseconds directly.
-  2. ISO 8601 date strings (e.g. `'2026-10-18T00:00:00Z'`): parsed via `new Date(raw).getTime()`.
-  3. Enforced `typeof decoded.iat === 'number' && decoded.iat > 0` across both `authenticateJwt` and `adminAuthRouter.get('/session')`.
-- **Regression Verification:** Test `F2-08` verified: tokens issued prior to `SECURITY_EPOCH` are rejected with **HTTP 401** `session_invalidated`.
-
----
-
-### 3.2 Check 2: Encryption-Key Rotation (`ENCRYPTION_KEY`)
-- **Code Inspection:** Inspected [`server/db.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/db.ts#L86-L140):
-  ```typescript
-  function getDerivedEncryptionKey(): Buffer {
-    const secret = process.env.ENCRYPTION_KEY || 'lightningdeals_default_vault_secret';
-    return crypto.scryptSync(secret, 'lightningdeals_salt_2026', 32, { N: 1024, r: 8, p: 1 });
-  }
-  ```
-  Ciphertext format: `gcm:${ivHex}:${tagHex}:${cipherHex}` or legacy `iv:cipher`.
-- **Data Preservation Assessment:**
-  1. **Zero Key Versioning:** The stored format does not contain a key version identifier.
-  2. **Non-Recoverable Ciphertext:** If `ENCRYPTION_KEY` is changed on Render, `crypto.createDecipheriv` fails authentication tag verification. In `server/db.ts`, line 137 catches the error and returns the raw ciphertext string `gcm:...`.
-  3. **Gateway Consequence:** Upstream AI requests to Anthropic / OpusMax / OpenAI will use `gcm:...` as the Bearer token, causing 100% of gateway AI proxy traffic to fail with HTTP 502/401 upstream errors.
-- **Decision:** **`ENCRYPTION_KEY` rotation is declared BLOCKED** from the initial Phase 1 code deployment.
-- **Safe Execution Path:**
-  1. The existing upstream keys must be rotated at their source providers (Anthropic, OpusMax) because the fallback key `'lightningdeals_default_vault_secret'` was previously exposed.
-  2. Fresh replacement provider keys must be obtained and staged.
-  3. `ENCRYPTION_KEY` must only be rotated concurrently with immediate manual re-entry of new keys via `/admin/providers`.
-
----
-
-### 3.3 Check 3: Global Session Revocation Mechanics
-- **Code Inspection:** Inspected [`scripts/revoke-all-sessions.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/revoke-all-sessions.ts), [`scripts/provision-admin.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/provision-admin.ts), and [`prisma/schema.prisma`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/prisma/schema.prisma).
-- **Exact Records Changed:**
-  1. `UPDATE "UserSession" SET "isRevoked" = true WHERE "isRevoked" = false [AND user.role = 'admin']`: Marks active sessions revoked.
-  2. `UPDATE "User" SET "passwordChangedAt" = NOW() [WHERE role = 'admin']`: Updates timestamp.
-  3. `INSERT INTO "AdminLog"`: Records audit event `GLOBAL_SESSION_REVOCATION_EXECUTED` (severity: `CRITICAL`).
-- **Scope & Token Invalidation Behavior:**
-  - When run without `--admin-only`, revocation affects **all customers and all administrators**.
-  - **Tokens without `UserSession` rows:** In `authenticateJwt`, if a token was minted offline or prior to session tracking, `prisma.userSession.findFirst` returns `null`. Previously, `session && session.isRevoked` would evaluate to `false` and allow the request.
-  - **Protection via `passwordChangedAt`:** Because `revoke-all-sessions.ts` sets `user.passwordChangedAt = NOW()`, any token issued before that timestamp has `iat * 1000 < user.passwordChangedAt.getTime()`, causing immediate rejection (**HTTP 401** `session_invalidated`).
-  - **Missing `iat` Vulnerability Closed:** We added a strict type check: tokens missing `decoded.iat` are rejected with **HTTP 401** `Malformed token: missing or invalid issuance timestamp` (Test `F2-07` passed).
-
----
-
-### 3.4 Check 4: Corrected Deployment Sequencing
-
-The previous runbook suffered from sequencing contradictions:
-1. Rotating `ENCRYPTION_KEY` in Stage 5 broke provider decryption during Stages 6–8.
-2. Running admin password rotation before deployment could hash with Scrypt, but if deployed code was delayed, legacy verification paths remained open.
-3. Rotating the Supabase database password in Stage 9 caused an unexpected second Render redeploy, conflicting with live verification.
-
-#### The Corrected, Dependency-Ordered Sequence:
-
-```mermaid
-flowchart TD
-    Step1["Step 1: Forensic Snapshot & Log Archive (Supabase & Render)"]
-    Step2["Step 2: Perimeter Lockdown (GitHub Private & Cloudflare WAF)"]
-    Step3["Step 3: Staged Secret Generation (JWT_SECRET, SECURITY_EPOCH, INTEGRATION_API_KEY)"]
-    Step4["Step 4: Deploy Remediation Branch to Render (Keep ENCRYPTION_KEY unchanged for now)"]
-    Step5["Step 5: Verify Deployment Health (/api/health HTTP 200)"]
-    Step6["Step 6: Rotate Admin Passwords via Render Shell (scripts/provision-admin.ts --rotate)"]
-    Step7["Step 7: Invalidate All Active Sessions (npm run session:revoke)"]
-    Step8["Step 8: Live Auth Probes (Rejection of old JWTs & seed credentials)"]
-    Step9["Step 9: Synchronized DB Rotation (Supabase DB password reset + Render DATABASE_URL & DIRECT_URL update)"]
-    Step10["Step 10: Provider Key & Vault Key Rotation (Update ENCRYPTION_KEY + Re-enter fresh AI keys in /admin/providers)"]
-    Step11["Step 11: Live AI Gateway Verification (Test synthetic completions)"]
-    Step12["Step 12: 48-Hour Forensic & Billing Monitoring"]
-    Step13["Step 13: Final Sign-Off on PRODUCTION_EXIT_GATE.md"]
-
-    Step1 --> Step2 --> Step3 --> Step4 --> Step5 --> Step6 --> Step7 --> Step8 --> Step9 --> Step10 --> Step11 --> Step12 --> Step13
+```
+========================================================================================
+FINAL PRODUCTION GATE DECISION:
+[ CONDITIONALLY READY — SPECIFIC ACTIONS REMAIN ]
+========================================================================================
 ```
 
 ---
 
-### 3.5 Check 5: Database Rotation & Connection Mechanics
-- **Configuration Inspection:**
-  - In [`prisma/schema.prisma`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/prisma/schema.prisma):
-    `url = env("DATABASE_URL")` (port 6543, transaction pooler)  
-    `directUrl = env("DIRECT_URL")` (port 5432, direct session mode)
-  - In [`scripts/prepare-env.cjs`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/prepare-env.cjs):
-    If `DIRECT_URL` is omitted, it derives it from `DATABASE_URL` by swapping `:6543` for `:5432` and stripping `pgbouncer=true`.
-  - In [`server/db.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/db.ts#L7-L24):
-    `resolveDatabaseUrl()` automatically appends `connection_limit=10&pool_timeout=30&connect_timeout=15` and ensures `pgbouncer=true` on port 6543.
-- **Operational Warning:**
-  If the owner resets the database password in Supabase:
-  1. The owner must update **both** `DATABASE_URL` and `DIRECT_URL` in Render Environment Variables.
-  2. Alternatively, the owner can **delete** `DIRECT_URL` from the Render environment so `prepare-env.cjs` derives the new direct URL dynamically. Leaving an old `DIRECT_URL` will cause future migrations to fail authentication while runtime queries succeed.
+## 2. In-Depth Trace: Encryption Key Rotation & Migration (`VendorProvider`)
+
+### 2.1 Complete Read and Write Call Site Trace
+Every active path handling `VendorProvider.masterApiKeyEncrypted` was traced across the codebase:
+
+```mermaid
+flowchart TD
+    subgraph WRITES ["Writes (Encryption: encryptText)"]
+        W1["server/admin.ts:278 (POST /api/admin/providers)"]
+        W2["server/admin.ts:360 (PUT /api/admin/providers/:id)"]
+        W3["prisma/seed.ts:82 (Initial Seed)"]
+        W4["scripts/rotate-vault-encryption.ts:80 (Re-encryption Migration)"]
+    end
+
+    subgraph READS ["Reads (Decryption: decryptText)"]
+        R1["server/gateway.ts:977, 1081, 1175 (proxyToVendor Customer Completions)"]
+        R2["server/providerAdapter.ts:512, 550, 619 (Streaming & Direct Adapters)"]
+        R3["server/admin.ts:172 (GET /api/admin/providers - Masked Display)"]
+        R4["server/admin.ts:553, 814 (Provider Connection Testing)"]
+        R5["server/user.ts:1284, 1369 (User Chat Studio)"]
+        R6["server/whatsapp/ai/aiProvider.ts:240 (WhatsApp Bot AI)"]
+    end
+
+    WRITES --> DB[("PostgreSQL: VendorProvider.masterApiKeyEncrypted")]
+    DB --> READS
+```
+
+### 2.2 Ciphertext Structure & Vulnerability Analysis
+- **Algorithm:** AES-256-GCM AEAD (`gcm:${ivHex}:${tagHex}:${cipherHex}`) with legacy fallback to AES-256-CBC (`ivHex:cipherHex`).
+- **Key Derivation:** `crypto.scryptSync(secret, 'lightningdeals_salt_2026', 32, { N: 1024, r: 8, p: 1 })`.
+- **Critical Risk:** The database stores **zero key version identifiers**. If `ENCRYPTION_KEY` is rotated on Render without a migration, `crypto.createDecipheriv` fails authentication tag verification. If callers receive raw ciphertext or empty string, all requests to Anthropic / OpusMax / OpenAI fail immediately with HTTP 401/502.
+
+### 2.3 Dual-Key Transition Architecture (Implemented in Commit `31a0765`)
+To eliminate the risk of a gateway outage during key rotation, [`server/db.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/db.ts) was updated with **dual-key decryption**:
+1. `decryptText(text)` first attempts decryption using the active `process.env.ENCRYPTION_KEY`.
+2. If decryption fails (or returns null) and `process.env.OLD_ENCRYPTION_KEY` is set, it falls back to decrypting with `OLD_ENCRYPTION_KEY`.
+3. New writes (`encryptText`) **always** use the active `ENCRYPTION_KEY`.
+4. Verified in automated test `VAULT-01` (`npm run test:security`): legacy ciphertexts encrypted under `OLD_ENCRYPTION_KEY` decrypt seamlessly while `ENCRYPTION_KEY` is active.
+
+### 2.4 Tested Re-Encryption Tool ([`scripts/rotate-vault-encryption.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/rotate-vault-encryption.ts))
+A dedicated migration script has been built to safely transition the database:
+- **Round-Trip Pre-Validation:** For every provider record, it decrypts with `oldKey`, encrypts with `newKey`, and immediately decrypts with `newKey` in memory to verify byte-for-byte fidelity before touching the database.
+- **Atomic Transaction:** Database updates are wrapped in `prisma.$transaction([...])`. If any record fails, the entire transaction rolls back.
+- **Audit Logging:** Emits structured `VAULT_ENCRYPTION_KEY_ROTATED` audit log event upon successful commit.
+
+### 2.5 Status: `BLOCKED` (Pending Fresh Provider Key Staging)
+> [!CAUTION]
+> **WHY THIS IS BLOCKED:** Because the fallback secret `'lightningdeals_default_vault_secret'` was previously in public source code, the upstream provider keys themselves must be assumed compromised. Before executing the vault key rotation in production, the owner must generate fresh API keys in the Anthropic and OpusMax dashboards.
 
 ---
 
-### 3.6 Check 6: Administrator Recovery & Lockout Prevention
-- **Inspection of `scripts/provision-admin.ts`:**
-  - Script validates target email format, bans legacy compromised passwords (`love9002`, `9002`, `admin123`), and generates a 24-character high-entropy cryptographic password if `--password` is omitted.
-  - **Lockout Recovery:** Lines 84–85 explicitly reset `failedLoginAttempts: 0` and `lockedUntil: null` on rotation. If the owner ever triggers an account lockout via failed login attempts, running `scripts/provision-admin.ts --email=... --rotate` clears the lock immediately.
-  - **Database Binding:** Must be executed inside the **Render Shell** (where production `DATABASE_URL` is injected into the container environment), OR run locally with explicit `DATABASE_URL="postgresql://..." npx tsx scripts/provision-admin.ts ...`.
+## 3. Session Revocation Mechanics & Transactional Boundaries
+
+### 3.1 Code Inspection of [`scripts/revoke-all-sessions.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/revoke-all-sessions.ts)
+The script was refactored in commit `31a0765` into an atomic transaction:
+
+```typescript
+// scripts/revoke-all-sessions.ts (Lines 28-40)
+const [revokedSessions, updatedUsers] = await prisma.$transaction([
+  prisma.userSession.updateMany({
+    where: { ...sessionFilter, isRevoked: false },
+    data: { isRevoked: true },
+  }),
+  prisma.user.updateMany({
+    where: userFilter,
+    data: { passwordChangedAt: now },
+  }),
+]);
+```
+
+- **Exact Records Changed:**
+  1. `UserSession`: Every active session row matching `sessionFilter` (`role = 'admin'` if `--admin-only`, else all rows) has `isRevoked` set to `true`.
+  2. `User`: Every user account matching `userFilter` has `passwordChangedAt` set to the exact transaction timestamp (`now`).
+  3. `AdminLog`: Emits audit event `GLOBAL_SESSION_REVOCATION_EXECUTED` (severity: `CRITICAL`).
+- **Transaction Guarantee:** If the database connection drops during execution, neither query commits, preventing split-state invalidation.
+- **Handling of Tokens Without `UserSession` Rows:**
+  In [`server/auth.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/auth.ts) and [`server/adminAuth.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/server/adminAuth.ts):
+  1. Mandatory numeric `iat` check (`SR-03`) guarantees that every token presents a positive timestamp (`typeof decoded.iat === 'number' && decoded.iat > 0`).
+  2. The timestamp comparison (`decoded.iat * 1000 < user.passwordChangedAt.getTime()`) evaluates to `true` for all pre-existing tokens.
+  3. The request is rejected with **HTTP 401** `session_invalidated`, **regardless of whether a `UserSession` row exists**.
+
+### 3.2 Safe Synthetic Verification Steps (Pre-Approved for Production)
+The owner can verify revocation live without disrupting legitimate users:
+1. Register a dedicated synthetic user: `synthetic-revoke-test@lightningapi.pro`.
+2. Authenticate to obtain a valid JWT: `POST /api/user/auth/login`.
+3. Verify access succeeds: `curl -H "Authorization: Bearer <token>" https://lightningapi.pro/api/user/profile` -> `HTTP 200 OK`.
+4. Run `npm run session:revoke` in Render Web Shell.
+5. Repeat the request with the identical token:
+   `curl -i -H "Authorization: Bearer <token>" https://lightningapi.pro/api/user/profile`
+   **Must return:** `HTTP/1.1 401 Unauthorized` with `error.type = "session_invalidated"`.
 
 ---
 
-### 3.7 Check 7: Live Verification Probes Safety
-- **Probe Safety Rules:**
-  1. **Rate Limiting Probe Target:** Must **NEVER** target the production administrator email. The updated probe targets `probe-rate-test-synthetic@lightningapi.pro`. This safely tests the IP bucket and account limiter without locking out legitimate administrators.
-  2. **Zero Provider Waste:** AI Gateway completion probe uses a synthetic test customer account with `max_tokens: 5` and a prompt of `"ping"`, preventing balance depletion or excessive upstream provider costs.
-  3. **Zero Secret Leaks:** Probe commands use `<REDACTED>` placeholders in reports and documentation.
+## 4. Database Credential Rotation & Connection Mechanics
+
+### 4.1 Topology & Port Roles
+- **Transaction Pooler (Supavisor):** Port `6543`, `pgbouncer=true`. Required by Express runtime (`DATABASE_URL`) to prevent connection pool exhaustion.
+- **Direct Session Connection:** Port `5432`. Required by Prisma CLI (`DIRECT_URL`) for advisory locks and schema migrations.
+- **Derivation Logic ([`scripts/prepare-env.cjs`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/prepare-env.cjs)):**
+  `prepare-env.cjs` reads `process.env.DATABASE_URL`. If `DIRECT_URL` is not set in `process.env`, it dynamically replaces `:6543` with `:5432` and strips `pgbouncer=true`.
+  **Critical Rule:** If `DIRECT_URL` was explicitly configured in Render with the old password, `prepare-env.cjs` will **not** override it. The owner must update both or delete `DIRECT_URL` from the Render dashboard.
+
+### 4.2 Safe Password Reset & Render Update Sequence
+> [!WARNING]
+> **THE OLD PASSWORD IS IMMEDIATELY INVALIDATED UPON RESET.**  
+> Supabase does not support dual-password grace periods. Once "Reset database password" is confirmed in Supabase, the running application will throw `P1000` connection errors until Render is restarted with the new credentials.
+
+#### Step-by-Step Sequence:
+1. Generate a strong 32-character database password locally (avoid characters that require URL-encoding such as `@`, `:`, `/`, `?`, `#`).
+2. Open Render Dashboard -> Web Service -> `Environment` in Tab 1.
+3. Open Supabase Console -> Project `lightningdeals-api` -> `Database Settings` in Tab 2.
+4. In Tab 2, click `Reset database password`. Enter the staged password and confirm.
+5. In Tab 1, update Render variables:
+   - `DATABASE_URL`: `postgresql://postgres:[NEW_PASSWORD]@db.[REF].supabase.co:6543/postgres?pgbouncer=true`
+   - `DIRECT_URL`: `postgresql://postgres:[NEW_PASSWORD]@db.[REF].supabase.co:5432/postgres` (or delete `DIRECT_URL` from Render so `prepare-env.cjs` derives it).
+6. Click `Save Changes` on Render. Render initiates a rolling restart (< 60s).
+7. **Failure & Recovery Path:**
+   - If Render logs show `P1000 Authentication failed`: The password was mistyped or contains unencoded special characters. Re-open Supabase Database Settings, generate a simple alphanumeric 32-character password, and re-save in both Supabase and Render.
 
 ---
 
-### 3.8 Check 8: Forensic Evidence Preservation
-- **Preservation Sequence:**
-  1. Download full PostgreSQL dump from Supabase (`pre-containment-backup-20261018.sql`).
-  2. Export raw Render application service logs for the past 14 days.
-  3. Export Cloudflare WAF / Security event logs for the past 14 days.
-- **Audit Log Integrity:**
-  Do **NOT** alter, re-hash, or backfill historical rows in table `AdminLog`. Any integrity discrepancy in legacy records represents crucial incident forensic evidence. The code fix in `server/auditLogger.ts` applies strictly to new events moving forward.
+## 5. Deployment, Health Validation & Forward-Fix Recovery
 
----
+### 5.1 Exact Deployment Targets
+- **Target Repository:** `HopUppper/lightningdeals-api`
+- **Target Branch:** `incident/phase1-containment`
+- **Target Commit SHA:** `31a0765`
+- **Destination:** Render Production Web Service (`lightningdeals-api.onrender.com` / `lightningapi.pro`)
 
-### 3.9 Check 9: Incident Exposure Breakdown
-
-| Classification | Incident Finding / Asset | Evidence & Impact |
+### 5.2 Mandatory Production Environment Variables
+| Variable Name | Format / Length | Startup Validation Behavior |
 |---|---|---|
-| **Confirmed Compromise** | Seeded admin passwords (`sidhjain9002@gmail.com` / `love9002`) | Publicly committed in `prisma/seed.ts`; authenticated successfully in incident report. |
-| **Confirmed Compromise** | Fallback JWT signing secrets (`lightningdeals_secret_jwt_key_2026`, etc.) | Hardcoded in source code; permitted offline forging of arbitrary administrator JWTs. |
-| **Confirmed Compromise** | Authentication bypasses & backdoors | Backdoor admin creation on user login (`user.ts`), password update bypass (`admin.ts`), localhost bypass (`integrationRoutes.ts`). |
-| **Suspected Misuse** | Upstream AI Provider Master Keys | Default vault key (`lightningdeals_default_vault_secret`) committed in source. If database was read, master keys could be decrypted. |
-| **Suspected Misuse** | Customer PII & API Key Exfiltration | Attacker with forged admin token could call `/admin/customers` or `/admin/keys`. |
-| **Unknowns (Pending Logs)** | Exact IP origin & duration of attacker access | Requires detailed forensic analysis of Render and Cloudflare HTTP access logs. |
-| **Unknowns (Pending Logs)** | Volume of fraudulent API requests routed through upstream providers | Requires matching provider billing records against legitimate customer orders in database. |
+| `JWT_SECRET` | Min 32 chars (64 hex characters recommended) | Server crashes on boot (`FATAL SECURITY CONFIGURATION ERROR`) if missing, insecure, or matches legacy fallbacks. |
+| `SECURITY_EPOCH` | ISO 8601 string or numeric ms string | Validated by `getSecurityEpoch()`. Rejects tokens issued prior to cutoff. |
+| `INTEGRATION_API_KEY` | Min 32 chars (`ld_int_...`) | Timing-safe check in `integrationRoutes.ts`. Missing header returns HTTP 401. |
+| `NODE_ENV` | `production` | Enforces fail-closed JWT checks and strict error handling. |
+| `DATABASE_URL` | Supabase pooler port 6543 with `pgbouncer=true` | Prisma runtime database connection. |
+| `ENCRYPTION_KEY` | 64 hex characters (AES-256) | Vault key for `VendorProvider`. (**Hold existing key on initial deploy; rotate in Stage 9**). |
+
+### 5.3 Health Check Verification
+Immediately upon deploy completion:
+```bash
+curl -i https://lightningapi.pro/api/health
+```
+- **Expected Status:** `HTTP/1.1 200 OK`
+- **Expected Body:** `{ "status": "ok", "service": "Lightning Deals AI Gateway", ... }`
+
+### 5.4 Forward-Fix Recovery Strategy
+- **NEVER Roll Back to Previous Git Commits:** Older commits contain the hardcoded fallback secrets (`lightningdeals_secret_jwt_key_2026`), seed credentials, and the three backdoors.
+- **Forward-Fix Procedures:**
+  - *Boot Failure:* Read Render build/deploy logs. If `JWT_SECRET` failed length check, update variable in Render dashboard and trigger re-deploy.
+  - *Database Failure:* Re-verify Supabase password and connection string format.
+  - *Admin Lockout:* Open Render Web Shell and run `npx tsx scripts/provision-admin.ts --email="<owner_email>" --rotate`.
 
 ---
 
-### 3.10 Check 10: Rollback Safety Strategy
-- **Absolute Rule:** **NEVER execute a Git rollback to commits preceding `incident/phase1-containment`.**
-  Reverting the codebase would re-introduce the hardcoded JWT fallback keys, default seed credentials, and the three backdoors.
-- **Failure Recovery Paths:**
-  - *If Render fails to boot:* Inspect Render logs for missing environment variable validation errors (e.g. `JWT_SECRET` length < 32). Correct the environment variable on Render; do not revert code.
-  - *If database connection drops:* Verify Supabase status; re-verify `DATABASE_URL` credentials in Render.
-  - *If administrator is locked out:* Open Render Shell and run `npx tsx scripts/provision-admin.ts --email="<owner_email>" --rotate`.
-  - *If AI Gateway fails with upstream auth errors:* Re-enter fresh provider keys via `/admin/providers` in the Admin Portal.
+## 6. Comprehensive Evidence & Audit Classification
 
----
-
-## 4. Pre-Deployment Checklist
-
-Before merging `incident/phase1-containment` to `main`, confirm:
-
-- [x] All 18 security regression tests pass locally (`npm run test:security`).
-- [x] Full build compiles with zero TypeScript errors (`npm run build`).
-- [x] `SECURITY_EPOCH` parser supports numeric milliseconds, seconds, and ISO 8601 strings.
-- [x] `authenticateJwt` and `adminAuth` require valid positive numeric `iat` timestamps.
-- [x] `ENCRYPTION_KEY` rotation is separated from deployment and staged with fresh provider keys.
-- [x] Rate limit verification probes use synthetic non-existent emails.
-- [ ] Forensic database backup exported from Supabase.
-- [ ] Service logs exported from Render and Cloudflare.
-- [ ] GitHub repository visibility confirmed as **Private**.
-- [ ] New production `JWT_SECRET` generated (64 hex characters).
-- [ ] Staged Render environment variables ready for entry.
-
----
-
-## 5. Summary of Actions Requiring Manual Dashboard Access
-
-| Action | Platform | Dashboard URL | Approval Needed |
+| Verification Check | Classification | Evidence & Method | Remaining Action |
 |---|---|---|---|
-| 1. Enforce Repository Visibility as Private | GitHub | `https://github.com/HopUppper/lightningdeals-api/settings` | **Owner Approval** |
-| 2. Download Database Snapshot Backup | Supabase | `https://app.supabase.com/project/_/database/backups` | **Owner Action** |
-| 3. Set Production Environment Variables (`JWT_SECRET`, `SECURITY_EPOCH`, etc.) | Render | `https://dashboard.render.com/web/_/env` | **Owner Action** |
-| 4. Merge Remediation PR & Trigger Manual Deploy | GitHub & Render | Render Web Service Deployments | **Owner Approval** |
-| 5. Execute Admin Password Rotation in Shell | Render | Render Service -> Shell | **Owner Action** |
-| 6. Execute Global Session Invalidation in Shell | Render | Render Service -> Shell | **Owner Action** |
-| 7. Reset Database Password & Update Render Connection Strings | Supabase & Render | Supabase Database Settings & Render Env | **Owner Action** |
-| 8. Issue Fresh Upstream Provider Keys & Update in Admin UI | Anthropic / OpusMax & `/admin/providers` | Upstream Dashboards & LightningDeals Admin Portal | **Owner Action** |
+| **19 Security Regression Tests** | **VERIFIED EXECUTED** | Executed locally via `npm run test:security` on Node v20 / Prisma v6.3.0. 19/19 passed. | Re-run live probe suite in production after deploy. |
+| **Application TypeScript & Build** | **VERIFIED EXECUTED** | `npm run build` executed cleanly. 0 TypeScript errors. 2,312 Vite modules bundled. 20 SSG pages generated. | Automated Render deploy will execute build on server. |
+| **Dual-Key Decryption Fallback** | **VERIFIED EXECUTED** | Tested in test `VAULT-01`. Legacy ciphertexts decrypt with `OLD_ENCRYPTION_KEY`. | Unverified in production environment. |
+| **Epoch String Parsing** | **VERIFIED EXECUTED** | Node.js unit execution confirmed ms digits, s digits, and ISO strings parse to identical ms epoch. | Configure live variable on Render. |
+| **Atomic Script Transactions** | **SOURCE REVIEW ONLY** | Verified `prisma.$transaction` wrappers in `revoke-all-sessions.ts` and `provision-admin.ts`. | Must be executed in live Render Web Shell. |
+| **Supabase Connection Topology** | **SOURCE REVIEW ONLY** | Verified `schema.prisma`, `prepare-env.cjs`, and `server/db.ts` port handling (:6543 vs :5432). | Owner must execute password reset in Supabase. |
+| **GitHub Repository Visibility** | **NOT TESTED / BLOCKED** | Requires owner manual check in GitHub Repository Settings. | Owner must confirm repository visibility is **Private**. |
+| **Live JWT Token Rejection** | **NOT TESTED IN PROD** | Local tests pass; live production endpoints currently run vulnerable code. | Execute Stage 8 live probes after deploy. |
+| **Upstream Provider Master Keys** | **NOT TESTED / BLOCKED** | Provider keys in production DB suspect due to public default vault secret. | Owner must stage fresh Anthropic/OpusMax keys. |
 
 ---
 
-## 6. Actions That Must NOT Be Executed Yet
+## 7. Blocked Actions & Required Prerequisites
 
-1. **DO NOT rotate `ENCRYPTION_KEY` on Render** until fresh provider keys are generated at Anthropic/OpusMax and ready for immediate entry in `/admin/providers`.
-2. **DO NOT run `scripts/provision-admin.ts` on local workstation** without explicitly specifying production `DATABASE_URL` (otherwise it only alters local SQLite).
-3. **DO NOT deploy or reset credentials without taking a database snapshot first.**
-4. **DO NOT start Phase 2 architecture refactoring** until Phase 1 production containment has been completed and verified live.
+| Action Item | Blocked Status | Prerequisite Required to Unblock |
+|---|---|---|
+| **Deploying Commit `31a0765` to Production** | `BLOCKED` | 1. Owner review and approval of this safety review.<br>2. Full database snapshot exported from Supabase.<br>3. Render environment variables staged in password manager. |
+| **Rotating `ENCRYPTION_KEY` on Render** | `BLOCKED` | Fresh replacement API keys issued and funded in Anthropic and OpusMax consoles, ready for immediate re-entry. |
+| **Supabase Database Password Reset** | `BLOCKED` | Replacement password staged locally; owner ready to update Render `DATABASE_URL` simultaneously. |
+| **Starting Phase 2 Architecture Refactoring** | `BLOCKED` | Phase 1 production containment fully executed, verified live, and signed off in `PRODUCTION_EXIT_GATE.md`. |
+
+---
+
+## 8. Summary of Approval Gates
+
+- [ ] **Gate 1:** Safety Review Approved (This Document)
+- [ ] **Gate 2:** Pre-Deployment Snapshot Backup Confirmed (Supabase)
+- [ ] **Gate 3:** GitHub Repository Confirmed Private
+- [ ] **Gate 4:** Render Environment Variables Staged & Configured
+- [ ] **Gate 5:** PR Merged and Deploy Triggered to Render
+- [ ] **Gate 6:** Admin Password Rotated & Sessions Revoked via Render Shell
+- [ ] **Gate 7:** Live Authentication Probes Passed
+- [ ] **Gate 8:** Supabase Database Password Rotated
+- [ ] **Gate 9:** Vault Key Migrated & Provider Master Keys Re-entered
+- [ ] **Gate 10:** 48-Hour Monitoring Commenced

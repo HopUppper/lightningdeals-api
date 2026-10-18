@@ -25,22 +25,22 @@ async function main() {
 
   const now = new Date();
 
-  // 1. Invalidate active database sessions
+  // Atomic transaction: Invalidate active database sessions AND bump passwordChangedAt
   const sessionFilter = adminOnly ? { user: { role: 'admin' } } : {};
-  const revokedSessions = await prisma.userSession.updateMany({
-    where: { ...sessionFilter, isRevoked: false },
-    data: { isRevoked: true },
-  });
+  const userFilter = adminOnly ? { role: 'admin' } : {};
+
+  const [revokedSessions, updatedUsers] = await prisma.$transaction([
+    prisma.userSession.updateMany({
+      where: { ...sessionFilter, isRevoked: false },
+      data: { isRevoked: true },
+    }),
+    prisma.user.updateMany({
+      where: userFilter,
+      data: { passwordChangedAt: now },
+    }),
+  ]);
 
   console.log(`✓ Revoked ${revokedSessions.count} active database session(s).`);
-
-  // 2. Invalidate stateless JWTs by bumping passwordChangedAt
-  const userFilter = adminOnly ? { role: 'admin' } : {};
-  const updatedUsers = await prisma.user.updateMany({
-    where: userFilter,
-    data: { passwordChangedAt: now },
-  });
-
   console.log(`✓ Updated passwordChangedAt for ${updatedUsers.count} account(s) to invalidate stateless tokens.`);
 
   // 3. Record Audit Event

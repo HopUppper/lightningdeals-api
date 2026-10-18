@@ -446,6 +446,32 @@ async function main() {
       `Status: ${resReg.status}, Response: ${JSON.stringify(regBody).substring(0, 100)}`
     );
 
+    // -------------------------------------------------------------------------
+    // TEST 16: Vault Encryption Dual-Key Decryption Fallback (VAULT-01)
+    // -------------------------------------------------------------------------
+    const { encryptText, decryptText } = await import('../server/db');
+    const secretOld = 'test_old_vault_key_12345678901234567890!';
+    const secretNew = 'test_new_vault_key_abcdefghijklmnopqrst!';
+
+    process.env.ENCRYPTION_KEY = secretOld;
+    delete process.env.OLD_ENCRYPTION_KEY;
+    const testSecretPayload = 'sk-ant-test-provider-key-123456789';
+    const encryptedOld = encryptText(testSecretPayload);
+
+    // Switch to new key and configure old key as fallback
+    process.env.ENCRYPTION_KEY = secretNew;
+    process.env.OLD_ENCRYPTION_KEY = secretOld;
+    const decryptedFallback = decryptText(encryptedOld);
+
+    recordTest(
+      'VAULT-01',
+      'Dual-key vault fallback seamlessly decrypts legacy ciphertexts during transition',
+      decryptedFallback === testSecretPayload,
+      `Decrypted matching payload: ${decryptedFallback === testSecretPayload}`
+    );
+
+    delete process.env.OLD_ENCRYPTION_KEY;
+
   } catch (err: any) {
     console.error('❌ Test execution error:', err);
   } finally {

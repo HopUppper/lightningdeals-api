@@ -73,24 +73,24 @@ async function main() {
       process.exit(1);
     }
 
-    // Rotate existing admin password
-    await prisma.user.update({
-      where: { id: existingUser.id },
-      data: {
-        passwordHash,
-        role: 'admin',
-        status: 'active',
-        passwordChangedAt: now,
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-      },
-    });
-
-    // Invalidate all active sessions for this administrator
-    const revoked = await prisma.userSession.updateMany({
-      where: { userId: existingUser.id },
-      data: { isRevoked: true },
-    });
+    // Atomic transaction: Rotate existing admin password AND invalidate all active sessions
+    const [updatedUser, revoked] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          passwordHash,
+          role: 'admin',
+          status: 'active',
+          passwordChangedAt: now,
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
+      }),
+      prisma.userSession.updateMany({
+        where: { userId: existingUser.id },
+        data: { isRevoked: true },
+      }),
+    ]);
 
     await recordAuditEvent({
       eventType: 'ADMIN_PASSWORD_ROTATED_CLI',

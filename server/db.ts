@@ -83,13 +83,35 @@ export const prisma = new PrismaClient({
   },
 });
 
+function deriveVaultKey(secret: string): Buffer {
+  return crypto.scryptSync(secret, 'lightningdeals_salt_2026', 32, { N: 1024, r: 8, p: 1 });
+}
+
+let cachedEncryptionSecret: string | null = null;
 let cachedEncryptionKey: Buffer | null = null;
 function getDerivedEncryptionKey(): Buffer {
-  if (!cachedEncryptionKey) {
-    const secret = process.env.ENCRYPTION_KEY || 'lightningdeals_default_vault_secret';
-    cachedEncryptionKey = crypto.scryptSync(secret, 'lightningdeals_salt_2026', 32, { N: 1024, r: 8, p: 1 });
+  const secret = process.env.ENCRYPTION_KEY || 'lightningdeals_default_vault_secret';
+  if (cachedEncryptionSecret !== secret) {
+    cachedEncryptionSecret = secret;
+    cachedEncryptionKey = deriveVaultKey(secret);
   }
-  return cachedEncryptionKey;
+  return cachedEncryptionKey!;
+}
+
+let cachedOldSecret: string | null = null;
+let cachedOldEncryptionKey: Buffer | null = null;
+function getDerivedOldEncryptionKey(): Buffer | null {
+  const secret = process.env.OLD_ENCRYPTION_KEY;
+  if (!secret) {
+    cachedOldSecret = null;
+    cachedOldEncryptionKey = null;
+    return null;
+  }
+  if (cachedOldSecret !== secret) {
+    cachedOldSecret = secret;
+    cachedOldEncryptionKey = deriveVaultKey(secret);
+  }
+  return cachedOldEncryptionKey;
 }
 
 const IV_LENGTH_GCM = 12; // 96-bit IV for AES-256-GCM
@@ -105,18 +127,16 @@ export function encryptText(text: string): string {
   return `gcm:${iv.toString('hex')}:${authTag}:${encrypted}`;
 }
 
-export function decryptText(text: string): string {
-  if (!text) return '';
+function tryDecryptWithKey(text: string, key: Buffer): string | null {
   try {
     // Format 1: AES-256-GCM AEAD (gcm:iv:authTag:ciphertext)
     if (text.startsWith('gcm:')) {
       const parts = text.split(':');
-      if (parts.length !== 4) return text;
+      if (parts.length !== 4) return null;
       const [, ivHex, tagHex, cipherHex] = parts;
       const iv = Buffer.from(ivHex, 'hex');
       const authTag = Buffer.from(tagHex, 'hex');
       const encryptedText = Buffer.from(cipherHex, 'hex');
-      const key = getDerivedEncryptionKey();
       const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
       decipher.setAuthTag(authTag);
       let decrypted = decipher.update(encryptedText, undefined, 'utf8');
@@ -126,17 +146,36 @@ export function decryptText(text: string): string {
 
     // Format 2: Legacy AES-256-CBC backwards compatibility (iv:ciphertext)
     const textParts = text.split(':');
-    if (textParts.length < 2) return text;
+    if (textParts.length < 2) return null;
     const iv = Buffer.from(textParts.shift()!, 'hex');
     const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const key = getDerivedEncryptionKey();
     const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString('utf8');
-  } catch (e) {
-    return text;
+  } catch {
+    return null;
   }
+}
+
+export function decryptText(text: string): string {
+  if (!text) return '';
+
+  // 1. Primary: Attempt decryption with active ENCRYPTION_KEY
+  const primaryDecrypted = tryDecryptWithKey(text, getDerivedEncryptionKey());
+  if (primaryDecrypted !== null) return primaryDecrypted;
+
+  // 2. Dual-Key Transition: Fallback to OLD_ENCRYPTION_KEY if configured during key rotation
+  const oldKey = getDerivedOldEncryptionKey();
+  if (oldKey) {
+    const fallbackDecrypted = tryDecryptWithKey(text, oldKey);
+    if (fallbackDecrypted !== null) {
+      return fallbackDecrypted;
+    }
+  }
+
+  // 3. If unencrypted or failed, return original text
+  return text;
 }
 
 // Convert BigInt to string in JSON serialization

@@ -20,6 +20,12 @@ function encryptText(text: string): string {
   return iv.toString('hex') + ':' + encrypted.toString('hex');
 }
 
+function hashPasswordScrypt(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+  return `scrypt$${salt}$${derivedKey.toString('hex')}`;
+}
+
 async function main() {
   console.log('Seeding LightningDeals database (idempotent production seed)...');
 
@@ -28,22 +34,38 @@ async function main() {
   const existingPackageCount = await prisma.tokenPackage.count();
 
   // ──────────────────────────────────────────────
-  // 1. Initial Admin User (ONLY if admin does not exist)
+  // 1. Initial Admin User Provisioning (Secure, Non-Default)
   // ──────────────────────────────────────────────
-  const adminEmail = 'sidhjain9002@gmail.com';
-  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+  const existingAdmin = await prisma.user.findFirst({ where: { role: 'admin' } });
+
+  const envAdminEmail = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase();
+  const envAdminPass = process.env.INITIAL_ADMIN_PASSWORD?.trim();
 
   if (!existingAdmin) {
-    const passwordHash = crypto.createHash('sha256').update('love9002').digest('hex');
-    await prisma.user.create({
-      data: {
-        name: 'LightningDeals Owner',
-        email: adminEmail,
-        passwordHash,
-        role: 'admin',
-        status: 'active',
-      },
-    });
+    if (envAdminEmail && envAdminPass) {
+      if (envAdminPass.length < 12) {
+        throw new Error('INITIAL_ADMIN_PASSWORD must be at least 12 characters.');
+      }
+      const passwordHash = hashPasswordScrypt(envAdminPass);
+      await prisma.user.create({
+        data: {
+          name: 'LightningDeals Administrator',
+          email: envAdminEmail,
+          passwordHash,
+          role: 'admin',
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+          status: 'active',
+          passwordChangedAt: new Date(),
+        },
+      });
+      console.log(`✅ Provisioned initial administrator (${envAdminEmail}) via environment configuration.`);
+    } else {
+      console.log('⚠️ [SECURITY NOTICE] No administrator account currently exists in database.');
+      console.log('   Run: npx tsx scripts/provision-admin.ts --email=<owner@domain.com> to provision securely.');
+    }
+  } else {
+    console.log('ℹ️ Administrator account exists. Preserving existing administrator credentials.');
   }
 
   // ──────────────────────────────────────────────

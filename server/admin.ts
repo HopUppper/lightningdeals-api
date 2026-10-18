@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { prisma, encryptText, decryptText } from './db';
-import { AuthRequest, authenticateJwt, requireAdmin, hashPasswordScrypt } from './auth';
+import { AuthRequest, authenticateJwt, requireAdmin, hashPasswordScrypt, verifyPasswordScrypt } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { checkMasterCapacity, topUpMasterBalance, reconcileMasterLedger, calculateActiveEntitlementExposure } from './masterLedger';
 import { getRealtimeAnalyticsReport } from './analyticsTracker';
@@ -3464,20 +3464,26 @@ router.put('/password', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: { message: 'Admin user record not found.' } });
     }
 
-    const hashPassword = (p: string) => crypto.createHash('sha256').update(p).digest('hex');
-    const isCurrentValid =
-      user.passwordHash === hashPassword(currentPassword) ||
-      (user.email.toLowerCase() === 'sidhjain9002@gmail.com' && (currentPassword === 'love9002' || currentPassword === '9002'));
+    const isCurrentValid = verifyPasswordScrypt(currentPassword, user.passwordHash);
 
     if (!isCurrentValid) {
       return res.status(401).json({ error: { message: 'Current password provided is incorrect.' } });
     }
 
-    const newHash = hashPassword(newPassword);
+    const newHash = hashPasswordScrypt(newPassword);
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: newHash },
+      data: {
+        passwordHash: newHash,
+        passwordChangedAt: new Date(),
+      },
     });
+
+    // Invalidate all existing sessions for this administrator
+    await prisma.userSession.updateMany({
+      where: { userId: user.id },
+      data: { isRevoked: true },
+    }).catch(() => {});
 
     await prisma.adminLog.create({
       data: {
@@ -3489,7 +3495,7 @@ router.put('/password', async (req: AuthRequest, res: Response) => {
       },
     });
 
-    res.json({ success: true, message: 'Password updated successfully.' });
+    res.json({ success: true, message: 'Password updated successfully. Existing sessions have been revoked.' });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

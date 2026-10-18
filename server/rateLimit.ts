@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import net from 'net';
 import { recordAuditEvent } from './auditLogger';
 
 interface RateLimitStore {
@@ -6,96 +7,186 @@ interface RateLimitStore {
   resetAt: number;
 }
 
-const authRateLimitMap = new Map<string, RateLimitStore>();
-const trialRateLimitMap = new Map<string, RateLimitStore>();
-const keyCheckRateLimitMap = new Map<string, RateLimitStore>();
-const apiRateLimitMap = new Map<string, RateLimitStore>();
+const rateLimitStores = new Map<string, Map<string, RateLimitStore>>();
 
-// Clean up expired buckets periodically (every 5 minutes)
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of authRateLimitMap.entries()) {
-    if (now > val.resetAt) authRateLimitMap.delete(key);
+function getStore(prefix: string): Map<string, RateLimitStore> {
+  let store = rateLimitStores.get(prefix);
+  if (!store) {
+    store = new Map<string, RateLimitStore>();
+    rateLimitStores.set(prefix, store);
   }
-  for (const [key, val] of trialRateLimitMap.entries()) {
-    if (now > val.resetAt) trialRateLimitMap.delete(key);
-  }
-  for (const [key, val] of apiRateLimitMap.entries()) {
-    if (now > val.resetAt) apiRateLimitMap.delete(key);
-  }
-  for (const [key, val] of keyCheckRateLimitMap.entries()) {
-    if (now > val.resetAt) keyCheckRateLimitMap.delete(key);
-  }
-}, 5 * 60 * 1000);
-
-export function clearAuthRateLimit(ip: string) {
-  authRateLimitMap.delete(`auth:${ip}`);
-  authRateLimitMap.delete(`auth:${ip.trim()}`);
+  return store;
 }
 
-export function createRateLimiter(options: { windowMs: number; max: number; message: string; keyPrefix: string }) {
-  const storeMap = options.keyPrefix === 'auth' ? authRateLimitMap : options.keyPrefix === 'trial' ? trialRateLimitMap : options.keyPrefix === 'key_check' ? keyCheckRateLimitMap : apiRateLimitMap;
+// Clean up expired buckets periodically (every 5 minutes) without blocking process exit
+const cleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const store of rateLimitStores.values()) {
+    for (const [key, val] of store.entries()) {
+      if (now > val.resetAt) store.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+if (cleanupTimer.unref) {
+  cleanupTimer.unref();
+}
+
+/**
+ * Derives client IP securely.
+ * Express 'trust proxy: 1' inspects the trusted reverse proxy (Render / Cloudflare)
+ * and populates req.ip with the real client IP.
+ * Raw attacker-supplied X-Forwarded-For headers cannot spoof req.ip when trust proxy is configured properly.
+ */
+export function resolveClientIp(req: Request): string {
+  // 1. Prefer Express-calculated req.ip (validated through trust proxy setting)
+  if (req.ip) {
+    const cleanIp = req.ip.replace(/^::ffff:/, '').trim();
+    if (net.isIP(cleanIp)) {
+      return cleanIp;
+    }
+  }
+
+  // 2. Direct socket address fallback
+  const socketIp = req.socket?.remoteAddress?.replace(/^::ffff:/, '').trim();
+  if (socketIp && net.isIP(socketIp)) {
+    return socketIp;
+  }
+
+  return '127.0.0.1';
+}
+
+export function clearAuthRateLimit(identifier: string) {
+  const clean = identifier.trim();
+  const authIpStore = getStore('auth_ip');
+  const authAdminStore = getStore('auth_admin');
+  const authStore = getStore('auth');
+  authIpStore.delete(`auth_ip:${clean}`);
+  authAdminStore.delete(`auth_admin:${clean}`);
+  authStore.delete(`auth:${clean}`);
+}
+
+export interface RateLimiterOptions {
+  windowMs: number;
+  max: number;
+  message: string;
+  keyPrefix: string;
+  accountKeyExtractor?: (req: Request) => string | null;
+  accountMax?: number;
+}
+
+export function createRateLimiter(options: RateLimiterOptions) {
+  const ipStore = getStore(options.keyPrefix);
+  const accountStore = getStore(`${options.keyPrefix}_account`);
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const ip = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
-    const key = `${options.keyPrefix}:${ip}`;
+    const clientIp = resolveClientIp(req);
+    const ipKey = `${options.keyPrefix}:${clientIp}`;
     const now = Date.now();
 
-    const record = storeMap.get(key);
+    // 1. Check IP-based limit
+    const ipRecord = ipStore.get(ipKey);
+    if (!ipRecord || now > ipRecord.resetAt) {
+      ipStore.set(ipKey, { count: 1, resetAt: now + options.windowMs });
+    } else {
+      if (ipRecord.count >= options.max) {
+        const retryAfterSec = Math.ceil((ipRecord.resetAt - now) / 1000);
+        res.setHeader('Retry-After', retryAfterSec);
+        res.setHeader('X-RateLimit-Limit', options.max);
+        res.setHeader('X-RateLimit-Remaining', 0);
 
-    if (!record || now > record.resetAt) {
-      storeMap.set(key, { count: 1, resetAt: now + options.windowMs });
-      res.setHeader('X-RateLimit-Limit', options.max);
-      res.setHeader('X-RateLimit-Remaining', options.max - 1);
-      return next();
+        recordAuditEvent({
+          eventType: 'RATE_LIMIT_TRIGGERED',
+          severity: 'LOW',
+          actorType: (req as any).user ? 'CUSTOMER' : 'ANONYMOUS',
+          actorId: (req as any).user?.id,
+          endpoint: req.originalUrl || req.url,
+          action: 'RATE_LIMIT_BLOCK',
+          result: 'BLOCKED',
+          statusCode: 429,
+          failureReason: options.message,
+          metadata: {
+            rateLimitPrefix: options.keyPrefix,
+            dimension: 'IP',
+            clientIp,
+            maxAllowed: options.max,
+            retryAfterSec,
+          },
+          req,
+        });
+
+        return res.status(429).json({
+          error: {
+            type: 'rate_limit_exceeded',
+            message: options.message,
+            retryAfterSeconds: retryAfterSec,
+          },
+        });
+      }
+      ipRecord.count++;
     }
 
-    if (record.count >= options.max) {
-      const retryAfterSec = Math.ceil((record.resetAt - now) / 1000);
-      res.setHeader('Retry-After', retryAfterSec);
-      res.setHeader('X-RateLimit-Limit', options.max);
-      res.setHeader('X-RateLimit-Remaining', 0);
+    // 2. Check Account-based limit (anti-spraying / credential stuffing)
+    if (options.accountKeyExtractor) {
+      const accountKeyRaw = options.accountKeyExtractor(req);
+      if (accountKeyRaw) {
+        const accMax = options.accountMax || Math.min(options.max, 10);
+        const accKey = `${options.keyPrefix}_acc:${accountKeyRaw.toLowerCase().trim()}`;
+        const accRecord = accountStore.get(accKey);
 
-      recordAuditEvent({
-        eventType: 'RATE_LIMIT_TRIGGERED',
-        severity: 'LOW',
-        actorType: (req as any).user ? 'CUSTOMER' : 'ANONYMOUS',
-        actorId: (req as any).user?.id,
-        customerId: (req as any).user?.id,
-        endpoint: req.originalUrl || req.url,
-        action: 'RATE_LIMIT_BLOCK',
-        result: 'BLOCKED',
-        statusCode: 429,
-        failureReason: options.message,
-        metadata: {
-          rateLimitPrefix: options.keyPrefix,
-          maxAllowed: options.max,
-          retryAfterSec,
-        },
-        req,
-      });
+        if (!accRecord || now > accRecord.resetAt) {
+          accountStore.set(accKey, { count: 1, resetAt: now + options.windowMs });
+        } else {
+          if (accRecord.count >= accMax) {
+            const retryAfterSec = Math.ceil((accRecord.resetAt - now) / 1000);
+            res.setHeader('Retry-After', retryAfterSec);
+            res.setHeader('X-RateLimit-Limit', accMax);
+            res.setHeader('X-RateLimit-Remaining', 0);
 
-      return res.status(429).json({
-        error: {
-          type: 'rate_limit_exceeded',
-          message: options.message,
-          retryAfterSeconds: retryAfterSec,
-        },
-      });
+            recordAuditEvent({
+              eventType: 'RATE_LIMIT_ACCOUNT_TRIGGERED',
+              severity: 'MEDIUM',
+              actorType: 'ANONYMOUS',
+              endpoint: req.originalUrl || req.url,
+              action: 'RATE_LIMIT_BLOCK',
+              result: 'BLOCKED',
+              statusCode: 429,
+              failureReason: 'Account targeted by excessive authentication attempts.',
+              metadata: {
+                rateLimitPrefix: options.keyPrefix,
+                dimension: 'ACCOUNT',
+                accountKey: accountKeyRaw,
+                retryAfterSec,
+              },
+              req,
+            });
+
+            return res.status(429).json({
+              error: {
+                type: 'rate_limit_exceeded',
+                message: 'Too many authentication attempts for this account. Access is temporarily locked for protection.',
+                retryAfterSeconds: retryAfterSec,
+              },
+            });
+          }
+          accRecord.count++;
+        }
+      }
     }
 
-    record.count++;
+    const currentCount = ipStore.get(ipKey)?.count || 1;
     res.setHeader('X-RateLimit-Limit', options.max);
-    res.setHeader('X-RateLimit-Remaining', options.max - record.count);
+    res.setHeader('X-RateLimit-Remaining', Math.max(0, options.max - currentCount));
     next();
   };
 }
 
 export const authLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 15, // 15 attempts
+  max: 15,
   message: 'Too many authentication attempts. Please try again after 15 minutes.',
   keyPrefix: 'auth',
+  accountKeyExtractor: (req) => (req.body?.email ? String(req.body.email) : null),
+  accountMax: 10,
 });
 
 export const trialLimiter = createRateLimiter({
@@ -111,3 +202,4 @@ export const keyCheckLimiter = createRateLimiter({
   message: 'Security Alert: Rate limit exceeded for API key validation. Max 5 checks per minute.',
   keyPrefix: 'key_check',
 });
+

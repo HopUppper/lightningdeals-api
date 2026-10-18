@@ -13,7 +13,10 @@
     "db:push": "node scripts/db-sync.cjs",
     "db:seed": "tsx prisma/seed.ts",
     "supabase:connect": "tsx scripts/configure-supabase.ts",
-    "test:api": "tsx scripts/test-api-contract.ts"
+    "test:api": "tsx scripts/test-api-contract.ts",
+    "test:security": "tsx scripts/test-phase1-security-regression.ts",
+    "provision:admin": "tsx scripts/provision-admin.ts",
+    "session:revoke": "tsx scripts/revoke-all-sessions.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",

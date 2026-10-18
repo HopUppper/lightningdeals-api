@@ -37,6 +37,8 @@ export function setMemoryCached<T>(key: string, data: T, ttlSeconds: number = 30
   });
 }
 
+import { getJwtSecret } from './jwtConfig';
+
 // 0. Startup Configuration Integrity Checks
 function validateEnvironmentOnStartup() {
   const isProd = process.env.NODE_ENV === 'production';
@@ -48,6 +50,18 @@ function validateEnvironmentOnStartup() {
 
   if (isProd && !process.env.ENCRYPTION_KEY) {
     console.warn(`[SECURITY WARNING] ENCRYPTION_KEY environment variable is not explicitly set in production mode.`);
+  }
+
+  try {
+    getJwtSecret();
+    console.log('⚡ [STARTUP AUDIT] JWT Cryptographic Secret verified.');
+  } catch (err: any) {
+    if (isProd) {
+      console.error(err.message);
+      process.exit(1);
+    } else {
+      console.warn(`[SECURITY NOTICE] ${err.message}`);
+    }
   }
 }
 
@@ -67,8 +81,8 @@ app.use(
   })
 );
 
-// Trust reverse proxy (Render / Cloudflare) to extract true client IP
-app.set('trust proxy', true);
+// Trust 1 reverse proxy hop (Render / Cloudflare) to extract true client IP securely
+app.set('trust proxy', 1);
 
 // Request ID Correlation & Security Headers Middleware
 app.use((req, res, next) => {

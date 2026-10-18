@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../server/jwtConfig';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
 
 async function main() {
   // Ensure we have a customer
@@ -37,14 +37,14 @@ async function main() {
 
   const customerToken = jwt.sign(
     { id: customer.id, email: customer.email, role: 'user', name: customer.name },
-    JWT_SECRET,
-    { expiresIn: '7d' }
+    getJwtSecret(),
+    { algorithm: 'HS256', expiresIn: '7d' }
   );
 
   const adminToken = jwt.sign(
     { id: admin.id, email: admin.email, role: 'admin', name: admin.name },
-    JWT_SECRET,
-    { expiresIn: '7d' }
+    getJwtSecret(),
+    { algorithm: 'HS256', expiresIn: '7d' }
   );
 
   console.log('TOKENS_READY');

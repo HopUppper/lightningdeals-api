@@ -20,6 +20,7 @@ import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
 import { generateProviderApiKey } from './keyService';
 import { buildProviderRequest } from './providerAdapter';
 import { sanitizeErrorMessage, sanitizeModelResponse, getFriendlyModelName } from './gateway';
+import { ReferralEngine } from './referrals/referralEngine';
 
 const router = Router();
 
@@ -819,22 +820,7 @@ router.post('/auth/login', authLimiter, async (req: Request, res: Response) => {
   const userAgent = (req.headers['user-agent'] || 'Unknown Device').substring(0, 150);
 
   try {
-    let user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-
-    // Auto-create Master Admin if not present
-    if (!user && cleanEmail === 'sidhjain9002@gmail.com' && (password === '9002' || password === 'love9002')) {
-      user = await prisma.user.create({
-        data: {
-          name: 'LightningDeals Owner',
-          email: cleanEmail,
-          passwordHash: hashPasswordScrypt(password),
-          role: 'admin',
-          emailVerified: true,
-          emailVerifiedAt: new Date(),
-          status: 'active',
-        },
-      });
-    }
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
 
     const genericError = { error: { type: 'authentication_failed', message: 'Invalid email or password.' } };
 

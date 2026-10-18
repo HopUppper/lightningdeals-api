@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
+import { getJwtSecret } from './jwtConfig';
 
 export interface PageviewHit {
   id: string;
@@ -93,7 +92,7 @@ function extractUserInfoFromReq(req: Request): { userName: string; userEmail: st
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { email?: string; name?: string };
+      const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as { email?: string; name?: string };
       if (decoded && decoded.email) {
         return {
           userName: decoded.name || decoded.email.split('@')[0],

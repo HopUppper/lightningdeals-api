@@ -4,8 +4,7 @@ import crypto from 'crypto';
 import { prisma } from './db';
 import { hashSecret } from './authSecurity';
 import { recordAuditEvent } from './auditLogger';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
+import { getJwtSecret, getSecurityEpoch, ALLOWED_JWT_ALGORITHMS } from './jwtConfig';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -21,7 +20,7 @@ export interface AuthRequest extends Request {
 }
 
 export function generateToken(payload: { id: string; email: string; role: string }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, getJwtSecret(), { algorithm: 'HS256', expiresIn: '7d' });
 }
 
 export async function authenticateJwt(req: AuthRequest, res: Response, next: NextFunction) {
@@ -32,24 +31,21 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
     return res.status(401).json({ error: { type: 'authentication_error', message: 'Authentication required. Please sign in.' } });
   }
 
-  let decoded: { id?: string; email?: string; role?: string };
+  let decoded: { id?: string; email?: string; role?: string; iat?: number; exp?: number };
   try {
-    decoded = jwt.verify(token, JWT_SECRET) as any;
+    decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as any;
   } catch (e) {
-    try {
-      decoded = jwt.verify(token, 'apexscale-jwt-secret-key-production-2026') as any;
-    } catch (e2) {
-      return res.status(401).json({ error: { type: 'authentication_error', message: 'Invalid or expired authentication session.' } });
-    }
+    return res.status(401).json({ error: { type: 'authentication_error', message: 'Invalid or expired authentication session.' } });
+  }
+
+  if (!decoded || !decoded.id || typeof decoded.id !== 'string') {
+    return res.status(401).json({ error: { type: 'authentication_error', message: 'Malformed token: missing subject identity.' } });
   }
 
   try {
     const tokenHash = hashSecret(token);
 
-    let user = decoded.id ? await prisma.user.findUnique({ where: { id: decoded.id } }) : null;
-    if (!user && decoded.email) {
-      user = await prisma.user.findFirst({ where: { email: decoded.email.trim().toLowerCase() } });
-    }
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
 
     if (!user) {
       return res.status(401).json({ error: { type: 'authentication_error', message: 'User account not found.' } });
@@ -57,6 +53,33 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
 
     if (user.status === 'suspended') {
       return res.status(403).json({ error: { type: 'account_suspended', message: 'Account is suspended. Please contact support.' } });
+    }
+
+    // Invalidate sessions issued before password was last changed
+    if (decoded.iat && user.passwordChangedAt) {
+      const issuedAtMs = decoded.iat * 1000;
+      if (issuedAtMs < user.passwordChangedAt.getTime()) {
+        return res.status(401).json({
+          error: {
+            type: 'session_invalidated',
+            message: 'Session invalidated due to password change. Please sign in again.',
+          },
+        });
+      }
+    }
+
+    // Invalidate sessions issued before incident security epoch
+    const securityEpoch = getSecurityEpoch();
+    if (securityEpoch > 0 && decoded.iat) {
+      const issuedAtMs = decoded.iat * 1000;
+      if (issuedAtMs < securityEpoch) {
+        return res.status(401).json({
+          error: {
+            type: 'session_invalidated',
+            message: 'Session invalidated by security epoch policy. Please sign in again.',
+          },
+        });
+      }
     }
 
     // Check if session has been revoked server-side
@@ -139,20 +162,17 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
 
 export function hashPasswordScrypt(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
-  const derivedKey = crypto.scryptSync(password, salt, 64, { N: 1024, r: 8, p: 1 });
+  const derivedKey = crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
   return `scrypt$${salt}$${derivedKey.toString('hex')}`;
 }
 
-export function verifyPasswordScrypt(password: string, storedHash: string): boolean {
-  if (!storedHash) return false;
+const BANNED_COMPROMISED_PASSWORDS = new Set(['love9002', '9002']);
 
-  if (!storedHash.startsWith('scrypt$')) {
-    const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
-    try {
-      return crypto.timingSafeEqual(Buffer.from(legacyHash), Buffer.from(storedHash));
-    } catch {
-      return false;
-    }
+export function verifyPasswordScrypt(password: string, storedHash: string): boolean {
+  if (!password || !storedHash || !storedHash.startsWith('scrypt$')) return false;
+
+  if (BANNED_COMPROMISED_PASSWORDS.has(password)) {
+    return false;
   }
 
   try {
@@ -160,7 +180,13 @@ export function verifyPasswordScrypt(password: string, storedHash: string): bool
     if (parts.length !== 3) return false;
     const salt = parts[1];
     const hash = parts[2];
-    const derivedKey = crypto.scryptSync(password, salt, 64, { N: 1024, r: 8, p: 1 });
+    
+    // Support both N=16384 (production) and N=1024 (legacy scrypt)
+    let derivedKey = crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+    if (crypto.timingSafeEqual(derivedKey, Buffer.from(hash, 'hex'))) {
+      return true;
+    }
+    derivedKey = crypto.scryptSync(password, salt, 64, { N: 1024, r: 8, p: 1 });
     return crypto.timingSafeEqual(derivedKey, Buffer.from(hash, 'hex'));
   } catch {
     return false;

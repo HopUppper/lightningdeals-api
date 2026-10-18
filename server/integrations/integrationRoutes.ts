@@ -5,28 +5,38 @@ import { OrderEngine } from '../orders/orderEngine';
 
 export const integrationRouter = Router();
 
-// Middleware: Authenticate integration requests via API key or Admin JWT
+import crypto from 'crypto';
+
+// Middleware: Authenticate integration requests via dedicated integration key
 function authenticateIntegration(req: Request, res: Response, next: Function) {
-  const integrationKey = req.headers['x-integration-key'] || req.headers['x-api-key'];
+  const configuredKey = process.env.INTEGRATION_API_KEY?.trim();
+  const providedKey = (req.headers['x-integration-key'] || req.headers['x-api-key'])?.toString().trim();
   const authHeader = req.headers['authorization'];
 
-  const configuredKey = process.env.INTEGRATION_API_KEY || process.env.JWT_SECRET || 'lightning-integration-key-2026';
-
-  if (integrationKey && (integrationKey === configuredKey || integrationKey === process.env.JWT_SECRET)) {
-    return next();
+  if (!configuredKey) {
+    return res.status(503).json({
+      error: {
+        code: 'INTEGRATION_NOT_CONFIGURED',
+        message: 'Integration service is not configured with an authorized API key.',
+      },
+    });
   }
 
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    if (token === configuredKey || token === process.env.JWT_SECRET) {
+  if (providedKey) {
+    const providedBuf = Buffer.from(providedKey);
+    const configuredBuf = Buffer.from(configuredKey);
+    if (providedBuf.length === configuredBuf.length && crypto.timingSafeEqual(providedBuf, configuredBuf)) {
       return next();
     }
   }
 
-  // Allow localhost / internal server development
-  const origin = req.headers.origin || req.ip;
-  if (req.ip === '127.0.0.1' || req.ip === '::1' || origin?.includes('localhost')) {
-    return next();
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    const tokenBuf = Buffer.from(token);
+    const configuredBuf = Buffer.from(configuredKey);
+    if (tokenBuf.length === configuredBuf.length && crypto.timingSafeEqual(tokenBuf, configuredBuf)) {
+      return next();
+    }
   }
 
   return res.status(401).json({

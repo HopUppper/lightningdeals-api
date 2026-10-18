@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../server/jwtConfig';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'lightningdeals_secret_jwt_key_2026';
 const BASE_URL = 'http://localhost:3001';
 
 async function runFeedbackSystemTests() {
@@ -61,9 +61,9 @@ async function runFeedbackSystemTests() {
     },
   });
 
-  const customerToken = jwt.sign({ id: customerUser.id, email: customerUser.email, role: 'user' }, JWT_SECRET, { expiresIn: '1h' });
-  const otherToken = jwt.sign({ id: otherCustomer.id, email: otherCustomer.email, role: 'user' }, JWT_SECRET, { expiresIn: '1h' });
-  const adminToken = jwt.sign({ id: adminUser.id, email: adminUser.email, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' });
+  const customerToken = jwt.sign({ id: customerUser.id, email: customerUser.email, role: 'user' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: '1h' });
+  const otherToken = jwt.sign({ id: otherCustomer.id, email: otherCustomer.email, role: 'user' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: '1h' });
+  const adminToken = jwt.sign({ id: adminUser.id, email: adminUser.email, role: 'admin' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: '1h' });
 
   let feedbackId = '';
   let reviewId = '';

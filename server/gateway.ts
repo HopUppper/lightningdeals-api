@@ -184,7 +184,7 @@ export function isModelRefusalQuery(text: string): boolean {
   return patterns.some((p) => p.test(t));
 }
 
-const THINKING_SECRET = process.env.JWT_SECRET || 'ant_thinking_sec_key_2025';
+const THINKING_SECRET = process.env.THINKING_SECRET || process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
 function encodeVarint(val: number): Buffer {

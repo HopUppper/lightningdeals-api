@@ -430,3 +430,4 @@ for (const route of routes) {
 await prisma.$disconnect().catch(() => {});
 
 console.log('🎉 SSG Pre-rendering complete!');
+process.exit(0);

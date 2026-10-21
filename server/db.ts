@@ -61,13 +61,16 @@ function resolveDatabaseUrl(): string {
   }
 
   // Schedule periodic background sync to persistent backup file every 5 seconds
-  setInterval(() => {
+  const backupSyncTimer = setInterval(() => {
     try {
       if (fs.existsSync(targetDbFile) && fs.statSync(targetDbFile).size > 0) {
         fs.copyFileSync(targetDbFile, tmpBackupFile);
       }
     } catch (e) {}
   }, 5000);
+  if (backupSyncTimer && typeof backupSyncTimer.unref === 'function') {
+    backupSyncTimer.unref();
+  }
 
   return `file:${targetDbFile}`;
 }

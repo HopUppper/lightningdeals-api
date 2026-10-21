@@ -12,6 +12,9 @@ export interface PlanItem {
   rateLimitRpm?: number;
   priceInr: number;
   originalPriceInr?: number;
+  annualPriceInr?: number;
+  annualOriginalPriceInr?: number;
+  annualValidityDays?: number;
   currency: string;
   tagline: string;
   badge?: string;
@@ -43,13 +46,16 @@ export const DEFAULT_PLANS: PlanItem[] = [
     rateLimitRpm: 100,
     priceInr: 2499,
     originalPriceInr: 3499,
+    annualPriceInr: 24990,
+    annualOriginalPriceInr: 29988,
+    annualValidityDays: 365,
     currency: 'INR',
     tagline: 'High-performance access for active daily coding assistance with Sonnet 5',
     badge: 'STARTER CHOICE',
     featured: false,
     features: [
       '5,000,000 Tokens / 5h Window',
-      '30-Day Fixed Validity',
+      '30-Day / 365-Day Validity',
       'Claude Sonnet 5 & Haiku 4.5 Access',
       'Sub-50ms Gateway Routing',
       'Instant Automated Delivery',
@@ -68,13 +74,16 @@ export const DEFAULT_PLANS: PlanItem[] = [
     rateLimitRpm: 100,
     priceInr: 5999,
     originalPriceInr: 22999,
+    annualPriceInr: 59990,
+    annualOriginalPriceInr: 71988,
+    annualValidityDays: 365,
     currency: 'INR',
     tagline: 'Best value for heavy IDE power users & builders with Opus 5 & Fable 5',
     badge: 'MOST POPULAR',
     featured: true,
     features: [
       '20,000,000 Tokens / 5h Window',
-      '30-Day Fixed Validity',
+      '30-Day / 365-Day Validity',
       'Claude Opus 5, Fable 5 & Sonnet 5 Access',
       'Cursor, Windsurf & CLI Ready',
       'Instant Automated Delivery',
@@ -93,13 +102,16 @@ export const DEFAULT_PLANS: PlanItem[] = [
     rateLimitRpm: 100,
     priceInr: 8999,
     originalPriceInr: 12999,
+    annualPriceInr: 89990,
+    annualOriginalPriceInr: 107988,
+    annualValidityDays: 365,
     currency: 'INR',
     tagline: 'Maximum high-volume capacity for engineering teams with all Claude 5 models',
     badge: 'BEST VALUE',
     featured: false,
     features: [
       '40,000,000 Tokens / 5h Window',
-      '30-Day Fixed Validity',
+      '30-Day / 365-Day Validity',
       'Max Concurrency & Throughput',
       'All Top Claude Opus 5, Fable 5 & Sonnet 5 Models',
       'VIP Priority Support',
@@ -118,13 +130,16 @@ export const DEFAULT_PLANS: PlanItem[] = [
     rateLimitRpm: 100,
     priceInr: 16999,
     originalPriceInr: 69999,
+    annualPriceInr: 169990,
+    annualOriginalPriceInr: 203988,
+    annualValidityDays: 365,
     currency: 'INR',
     tagline: 'Supreme high-volume capacity for engineering teams & autonomous agentic loops',
     badge: 'MAX SCALE',
     featured: false,
     features: [
       '100,000,000 Tokens / 5h Window',
-      '30-Day Fixed Validity',
+      '30-Day / 365-Day Validity',
       'All Top Claude Opus 5.5, Sonnet 5.5 & Haiku Access',
       'VIP Priority Concurrency & Dedicated Gateway Ingress',
       'Instant Automated Delivery',
@@ -188,6 +203,9 @@ export const PlansProvider: React.FC<{
           rateLimitRpm: Number(p.rateLimitRpm) || 100,
           priceInr: Number(p.priceInr) || 0,
           originalPriceInr: p.originalPriceInr ? Number(p.originalPriceInr) : undefined,
+          annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : undefined,
+          annualOriginalPriceInr: p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
+          annualValidityDays: p.annualValidityDays ? Number(p.annualValidityDays) : 365,
           currency: p.currency || 'INR',
           tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
           badge: p.badge || undefined,

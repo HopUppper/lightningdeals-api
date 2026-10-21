@@ -1,9 +1,9 @@
 import crypto from 'crypto';
 import { prisma, encryptText } from '../db';
-import { getPlanByIdAsync } from './plans';
+import { getPlanByIdAsync, calculatePlanPricing } from './plans';
 import { recordSecurityLog } from '../authSecurity';
 import { awardOrderCredits } from '../rewards/rewardService';
-import { activateOrRenewSubscription } from '../subscriptions/subscriptionEngine';
+import { activateOrRenewSubscription, calculateSubscriptionExpiry } from '../subscriptions/subscriptionEngine';
 import { InventoryService } from '../inventory/inventoryService';
 import { dispatchNotification } from '../notifications';
 import { recordAuditEvent } from '../auditLogger';
@@ -174,9 +174,14 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
     }
 
     // 5. Verify Amount Integrity (Lock to negotiated amount if priceSource is ADMIN_NEGOTIATED)
+    const billingPeriod = ((order as any).billingPeriod === 'yearly' ? 'yearly' : 'monthly') as 'monthly' | 'yearly';
+    const pricing = calculatePlanPricing(plan, billingPeriod);
+    const expectedBaseAmount = (order as any).priceSource === 'ADMIN_NEGOTIATED'
+      ? order.amountInr
+      : pricing.priceInr;
     const expectedAmount = (order as any).priceSource === 'ADMIN_NEGOTIATED'
       ? order.amountInr
-      : Math.max(0, plan.priceInr - (order.discountAmountInr || 0) - (order.creditsRedeemed || 0));
+      : Math.max(0, expectedBaseAmount - (order.discountAmountInr || 0) - (order.creditsRedeemed || 0));
     if (order.paidAmountInr !== null && order.paidAmountInr !== undefined && order.paidAmountInr < expectedAmount) {
       await prisma.order.update({
         where: { id: order.id },
@@ -273,7 +278,9 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
     const keyMaterial = await generateProviderApiKey({ isTrial: false });
     const { rawKeySecret, keyPrefix, keyHash, displayKey, providerId } = keyMaterial;
     const tokenAllowanceBigInt = plan.tokenAllowance;
-    const durationDays = (plan as any).durationDays || plan.validityDays || 30;
+    const durationDays = order.validityDays || pricing.validityDays || (billingPeriod === 'yearly' ? 365 : 30);
+    const now = new Date();
+    const initialCustomerExpiry = calculateSubscriptionExpiry(now, durationDays);
 
     let createdApiKey: any = null;
 
@@ -296,6 +303,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           plan: plan.name,
           rateLimitRpm: plan.rateLimitRpm || 100,
           maxConcurrency: 5,
+          expiresAt: initialCustomerExpiry,
         },
       });
 
@@ -322,9 +330,18 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         orderId: order.id,
         apiKeyId: createdApiKey?.id,
         durationDays,
+        billingPeriod,
         existingSubscriptionId: order.subscriptionId || undefined,
-        notes: `Fulfilled via ${order.internalOrderId}`,
+        notes: `Fulfilled via ${order.internalOrderId} (${billingPeriod.toUpperCase()}, ${durationDays} days)`,
       });
+
+      // Synchronize key expiry with subscription's authoritative expiry
+      if (createdApiKey && subscriptionResult?.newExpiry) {
+        await prisma.apiKey.update({
+          where: { id: createdApiKey.id },
+          data: { expiresAt: subscriptionResult.newExpiry },
+        });
+      }
     }
 
     // 9. Update Order to FULFILLED state
@@ -348,8 +365,8 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         ? `⚡ Subscription Renewed: ${plan.displayName}`
         : `⚡ Subscription Activated: ${plan.displayName}`,
       message: subscriptionResult?.isRenewal
-        ? `Your ${plan.name} subscription has been extended until ${subscriptionResult.newExpiry.toLocaleDateString()}.`
-        : `Your ${plan.name} plan is now active until ${subscriptionResult?.newExpiry?.toLocaleDateString() || 'next month'}.`,
+        ? `Your ${plan.name} subscription has been extended until ${subscriptionResult.newExpiry.toLocaleDateString()} (${durationDays} days validity).`
+        : `Your ${plan.name} plan is now active until ${subscriptionResult?.newExpiry?.toLocaleDateString() || 'next period'} (${durationDays} days validity).`,
       type: 'success',
       metadata: {
         orderId: order.id,

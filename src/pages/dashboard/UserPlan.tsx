@@ -229,7 +229,14 @@ export const UserPlan: React.FC = () => {
             </div>
 
             <div className="flex flex-col sm:items-end text-xs space-y-1">
-              <span className="text-[#64607d]">Status: <strong className="text-emerald-700 uppercase">ACTIVE</strong></span>
+              <div className="flex items-center gap-2">
+                <span className="text-[#64607d]">Status: <strong className="text-emerald-700 uppercase">ACTIVE</strong></span>
+                {activeSub.billingPeriod === 'yearly' && (
+                  <span className="text-[10px] font-mono font-bold text-violet-800 bg-violet-100 px-2 py-0.5 rounded-full border border-violet-200">
+                    Annual (365 Days)
+                  </span>
+                )}
+              </div>
               <span className="text-[#64607d]">Expiry Date: <strong className="text-[#1e1b2e]">{new Date(activeSub.expiryTime).toLocaleDateString()}</strong></span>
               <span className="text-[11px] text-violet-700 font-bold bg-violet-50 px-2 py-0.5 rounded-full border border-violet-200">{expiryCountdown} remaining</span>
             </div>

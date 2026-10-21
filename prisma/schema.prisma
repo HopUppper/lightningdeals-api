@@ -177,10 +177,36 @@ model VendorProvider {
   lastTestedAt           DateTime?
   lastError              String?
   notes                  String?
+  vendorSubscriptionStatus String              @default("active") // "active" | "renewing" | "expired" | "failed"
+  vendorCurrentPeriodStart DateTime?
+  vendorCurrentPeriodEnd   DateTime?
+  vendorAutoRenew          Boolean             @default(true)
+  vendorRenewalCount       Int                 @default(0)
+  vendorLastRenewedAt      DateTime?
+  vendorNextRenewalDate    DateTime?
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
   masterTokenLedgers     MasterTokenLedger[]
   apiKeys                ApiKey[]
+  vendorRenewalEvents    VendorRenewalEvent[]
+}
+
+model VendorRenewalEvent {
+  id              String         @id @default(uuid())
+  providerId      String
+  provider        VendorProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  status          String         // "SUCCESS" | "FAILED" | "PENDING"
+  periodStart     DateTime
+  periodEnd       DateTime
+  renewalCost     Float?
+  currency        String         @default("USD")
+  vendorReference String?
+  failureReason   String?
+  notes           String?
+  initiatedBy     String         @default("SYSTEM") // "SYSTEM" | "ADMIN"
+  createdAt       DateTime       @default(now())
+
+  @@index([providerId, createdAt])
 }
 
 model GatewayProviderConfig {
@@ -262,6 +288,8 @@ model Order {
   slaPriority       String        @default("NORMAL") // "LOW" | "NORMAL" | "HIGH" | "URGENT"
   channel           String        @default("WEBSITE") // "WEBSITE" | "WHATSAPP" | "MANUAL"
   priceSource       String        @default("STANDARD") // "STANDARD" | "ADMIN_NEGOTIATED"
+  billingPeriod     String        @default("monthly") // "monthly" | "yearly"
+  validityDays      Int           @default(30)
   whatsappConversationId String?
   whatsappConversation   WhatsAppConversation? @relation(fields: [whatsappConversationId], references: [id], onDelete: SetNull)
   negotiatedPrice        NegotiatedPrice?
@@ -342,6 +370,7 @@ model Subscription {
   activationTime   DateTime  @default(now())
   expiryTime       DateTime
   durationDays     Int       @default(30)
+  billingPeriod    String    @default("monthly") // "monthly" | "yearly"
   renewalCount     Int       @default(0)
   autoRenewEnabled Boolean   @default(false)
   lastRenewedAt    DateTime?
@@ -375,6 +404,9 @@ model Plan {
   rateLimitRpm           Int      @default(100)
   priceInr               Float    @default(4999)
   originalPriceInr       Float?
+  annualPriceInr         Float?
+  annualOriginalPriceInr Float?
+  annualValidityDays     Int?     @default(365)
   currency               String   @default("INR")
   tagline                String?
   badge                  String?

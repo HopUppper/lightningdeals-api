@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Request } from 'express';
 import { prisma } from '../db';
 import { getPaymentProvider } from '../payments';
-import { getPlanByIdAsync } from '../payments/plans';
+import { getPlanByIdAsync, calculatePlanPricing } from '../payments/plans';
 import { fulfillOrder } from '../payments/fulfillment';
 import { validateCoupon, recordCouponUsage } from '../couponService';
 import {
@@ -20,6 +20,7 @@ import { WhatsAppClient } from '../whatsapp/whatsappClient';
 export interface CreateWebsiteOrderParams {
   userId: string;
   planId: string;
+  billingPeriod?: 'monthly' | 'yearly';
   couponCode?: string;
   redeemCredits?: number;
   customerPhone?: string;
@@ -89,14 +90,23 @@ export class OrderEngine {
       throw new Error(`Customer account '${userId}' not found.`);
     }
 
-    let payableAmountInr = plan.priceInr;
+    const billingPeriod = params.billingPeriod === 'yearly' ? 'yearly' : 'monthly';
+    const pricing = calculatePlanPricing(plan, billingPeriod);
+
+    if (billingPeriod === 'yearly' && !pricing.isAnnualAvailable) {
+      throw new Error(`Annual billing is not currently available for plan '${plan.name}'.`);
+    }
+
+    let payableAmountInr = pricing.priceInr;
+    const basePlanPriceInr = pricing.priceInr;
+    const validityDays = pricing.validityDays;
     let discountAmountInr = 0;
     let appliedCouponId: string | null = null;
     let verifiedCouponCode: string | null = null;
 
     // 2. Authoritative Coupon Verification
     if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
-      const couponValidation = await validateCoupon(couponCode, plan.priceInr, user.id, plan.id);
+      const couponValidation = await validateCoupon(couponCode, basePlanPriceInr, user.id, plan.id);
       if (couponValidation.valid && couponValidation.coupon) {
         discountAmountInr = couponValidation.discountAmountInr;
         payableAmountInr = couponValidation.finalAmountInr;
@@ -130,8 +140,10 @@ export class OrderEngine {
         planName: plan.name,
         tokenQuantity: plan.tokenAllowance,
         windowHours: plan.windowHours,
+        billingPeriod,
+        validityDays,
         amountInr: payableAmountInr,
-        originalAmountInr: plan.priceInr,
+        originalAmountInr: pricing.originalPriceInr || basePlanPriceInr,
         discountAmountInr,
         couponCode: verifiedCouponCode,
         creditsRedeemed: creditsToRedeem,
@@ -201,8 +213,10 @@ export class OrderEngine {
           id: order.id,
           internalOrderId: order.internalOrderId,
           planId: plan.id,
+          billingPeriod,
+          validityDays,
           amountInr: 0,
-          originalAmountInr: plan.priceInr,
+          originalAmountInr: pricing.originalPriceInr || basePlanPriceInr,
           discountAmountInr,
           creditsRedeemed: creditsToRedeem,
           paymentStatus: 'CAPTURED',
@@ -287,8 +301,10 @@ export class OrderEngine {
         gatewayOrderId: gatewayResult.gatewayOrderId,
         planId: plan.id,
         planName: plan.name,
+        billingPeriod,
+        validityDays,
         amountInr: payableAmountInr,
-        originalAmountInr: plan.priceInr,
+        originalAmountInr: pricing.originalPriceInr || basePlanPriceInr,
         discountAmountInr,
         couponCode: verifiedCouponCode,
         currency: plan.currency,

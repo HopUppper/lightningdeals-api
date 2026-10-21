@@ -55,10 +55,13 @@ customerSubscriptionRouter.get('/', async (req: AuthRequest, res: Response) => {
         id: sub.id,
         planId: sub.planId,
         planName: sub.planName,
+        billingPeriod: sub.billingPeriod || (sub.durationDays >= 365 ? 'yearly' : 'monthly'),
         status: liveStatus,
         rawStatus: sub.status,
         activationTime: sub.activationTime,
         expiryTime: sub.expiryTime,
+        currentPeriodStart: sub.activationTime,
+        currentPeriodEnd: sub.expiryTime,
         durationDays: sub.durationDays,
         daysRemaining,
         renewalCount: sub.renewalCount,
@@ -132,6 +135,9 @@ customerSubscriptionRouter.get('/:id', async (req: AuthRequest, res: Response) =
       success: true,
       subscription: {
         ...sub,
+        billingPeriod: sub.billingPeriod || (sub.durationDays >= 365 ? 'yearly' : 'monthly'),
+        currentPeriodStart: sub.activationTime,
+        currentPeriodEnd: sub.expiryTime,
         status: liveStatus,
         daysRemaining,
         apiKey: sub.apiKey

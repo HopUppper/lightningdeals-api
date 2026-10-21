@@ -12,6 +12,9 @@ export interface ServerPlan {
   rateLimitRpm?: number;
   priceInr: number;
   originalPriceInr?: number;
+  annualPriceInr?: number;
+  annualOriginalPriceInr?: number;
+  annualValidityDays?: number;
   currency: string;
   tagline?: string;
   badge?: string;
@@ -19,6 +22,66 @@ export interface ServerPlan {
   featured: boolean;
   enabled: boolean;
   displayOrder: number;
+}
+
+export interface PlanPricingCalculation {
+  priceInr: number;
+  amountInr?: number;
+  originalPriceInr?: number;
+  validityDays: number;
+  billingPeriod: 'monthly' | 'yearly';
+  monthlyEquivalentPrice: number;
+  annualSavings: number;
+  annualSavingsInr?: number;
+  savingsPercentage: number;
+  isAnnualAvailable: boolean;
+}
+
+export function calculatePlanPricing(
+  plan: ServerPlan,
+  billingPeriod: 'monthly' | 'yearly' = 'monthly'
+): PlanPricingCalculation {
+  const isAnnual = billingPeriod === 'yearly';
+  const monthlyPrice = Number(plan.priceInr || 0);
+  const annualPrice = plan.annualPriceInr !== undefined && plan.annualPriceInr !== null
+    ? Number(plan.annualPriceInr)
+    : undefined;
+  const isAnnualAvailable = annualPrice !== undefined && annualPrice > 0;
+
+  if (isAnnual && isAnnualAvailable) {
+    const monthlyEquivalent = Math.round((annualPrice! / 12) * 100) / 100;
+    const fullYearMonthlySum = monthlyPrice * 12;
+    const annualSavings = Math.max(0, fullYearMonthlySum - annualPrice!);
+    const savingsPercentage = fullYearMonthlySum > 0 && annualSavings > 0
+      ? Math.round((annualSavings / fullYearMonthlySum) * 100)
+      : 0;
+
+    return {
+      priceInr: annualPrice!,
+      amountInr: annualPrice!,
+      originalPriceInr: plan.annualOriginalPriceInr || (fullYearMonthlySum > annualPrice! ? fullYearMonthlySum : undefined),
+      validityDays: plan.annualValidityDays || 365,
+      billingPeriod: 'yearly',
+      monthlyEquivalentPrice: monthlyEquivalent,
+      annualSavings,
+      annualSavingsInr: annualSavings,
+      savingsPercentage,
+      isAnnualAvailable: true,
+    };
+  }
+
+  return {
+    priceInr: monthlyPrice,
+    amountInr: monthlyPrice,
+    originalPriceInr: plan.originalPriceInr || undefined,
+    validityDays: plan.validityDays || 30,
+    billingPeriod: 'monthly',
+    monthlyEquivalentPrice: monthlyPrice,
+    annualSavings: 0,
+    annualSavingsInr: 0,
+    savingsPercentage: 0,
+    isAnnualAvailable,
+  };
 }
 
 export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
@@ -34,12 +97,15 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     rateLimitRpm: 100,
     priceInr: 2499,
     originalPriceInr: 3499,
+    annualPriceInr: 24990,
+    annualOriginalPriceInr: 29988,
+    annualValidityDays: 365,
     currency: 'INR',
     tagline: 'High-performance access for active daily coding assistance with Sonnet 5',
     badge: 'STARTER CHOICE',
     features: [
       '5,000,000 Tokens / 5h Window',
-      '30-Day Fixed Validity',
+      '30-Day / 365-Day Validity',
       'Claude Sonnet 5 & Haiku 4.5 Access',
       'Sub-50ms Gateway Routing',
       'Instant Automated Delivery',
@@ -60,12 +126,15 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     rateLimitRpm: 100,
     priceInr: 5999,
     originalPriceInr: 22999,
+    annualPriceInr: 59990,
+    annualOriginalPriceInr: 71988,
+    annualValidityDays: 365,
     currency: 'INR',
     tagline: 'Best value for heavy IDE power users & builders with Opus 5 & Fable 5',
     badge: 'MOST POPULAR',
     features: [
       '20,000,000 Tokens / 5h Window',
-      '30-Day Fixed Validity',
+      '30-Day / 365-Day Validity',
       'Claude Opus 5, Fable 5 & Sonnet 5 Access',
       'Cursor, Windsurf & CLI Ready',
       'Instant Automated Delivery',
@@ -86,12 +155,15 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     rateLimitRpm: 100,
     priceInr: 8999,
     originalPriceInr: 12999,
+    annualPriceInr: 89990,
+    annualOriginalPriceInr: 107988,
+    annualValidityDays: 365,
     currency: 'INR',
     tagline: 'Maximum high-volume capacity for engineering teams with all Claude 5 models',
     badge: 'BEST VALUE',
     features: [
       '40,000,000 Tokens / 5h Window',
-      '30-Day Fixed Validity',
+      '30-Day / 365-Day Validity',
       'Max Concurrency & Throughput',
       'All Top Claude Opus 5, Fable 5 & Sonnet 5 Models',
       'VIP Priority Support',
@@ -112,12 +184,15 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     rateLimitRpm: 100,
     priceInr: 16999,
     originalPriceInr: 69999,
+    annualPriceInr: 169990,
+    annualOriginalPriceInr: 203988,
+    annualValidityDays: 365,
     currency: 'INR',
     tagline: 'Supreme high-volume capacity for engineering teams & autonomous agentic loops',
     badge: 'MAX SCALE',
     features: [
       '100,000,000 Tokens / 5h Window',
-      '30-Day Fixed Validity',
+      '30-Day / 365-Day Validity',
       'All Top Claude Opus 5.5, Sonnet 5.5 & Haiku Access',
       'VIP Priority Concurrency & Dedicated Gateway Ingress',
       'Instant Automated Delivery',
@@ -191,6 +266,9 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
           rateLimitRpm: p.rateLimitRpm || 100,
           priceInr: p.priceInr,
           originalPriceInr: p.originalPriceInr || undefined,
+          annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : undefined,
+          annualOriginalPriceInr: p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
+          annualValidityDays: p.annualValidityDays || 365,
           currency: p.currency || 'INR',
           tagline: p.tagline || undefined,
           badge: p.badge || undefined,
@@ -249,6 +327,9 @@ export async function getPlanByIdAsync(planId: string): Promise<ServerPlan | nul
         rateLimitRpm: dbPlan.rateLimitRpm || 100,
         priceInr: dbPlan.priceInr,
         originalPriceInr: dbPlan.originalPriceInr || undefined,
+        annualPriceInr: dbPlan.annualPriceInr ? Number(dbPlan.annualPriceInr) : undefined,
+        annualOriginalPriceInr: dbPlan.annualOriginalPriceInr ? Number(dbPlan.annualOriginalPriceInr) : undefined,
+        annualValidityDays: dbPlan.annualValidityDays || 365,
         currency: dbPlan.currency || 'INR',
         tagline: dbPlan.tagline || undefined,
         badge: dbPlan.badge || undefined,

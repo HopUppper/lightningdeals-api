@@ -218,19 +218,19 @@ export const UserSubscriptions: React.FC = () => {
                     <div className="flex justify-between text-muted">
                       <span>Billing Period:</span>
                       <span className="font-bold text-fg">
-                        {sub.periodType || '30-Day Cycle'}
+                        {sub.billingPeriod === 'yearly' ? 'Annual (365 Days Extended)' : (sub.periodType || 'Monthly (30 Days)')}
                       </span>
                     </div>
                     <div className="flex justify-between text-muted">
-                      <span>Renews / Expires:</span>
+                      <span>Customer Purchased Validity:</span>
                       <span className="font-bold text-fg">
-                        {new Date(sub.currentPeriodEnd).toLocaleDateString()} ({daysRemaining} days left)
+                        {new Date(sub.currentPeriodEnd).toLocaleDateString()} ({daysRemaining} days remaining)
                       </span>
                     </div>
                     <div className="flex justify-between text-muted">
                       <span>Plan Price:</span>
                       <span className="font-black text-fg">
-                        ₹{Number(sub.price || 0).toLocaleString()}
+                        ₹{Number(sub.price || 0).toLocaleString()} {sub.billingPeriod === 'yearly' ? '(Annual)' : '(Monthly)'}
                       </span>
                     </div>
                   </div>

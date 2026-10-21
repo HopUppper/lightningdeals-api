@@ -42,6 +42,9 @@ export const AdminPlans: React.FC = () => {
     rateLimitRpm: 100,
     priceInr: 2499,
     originalPriceInr: 3499,
+    annualPriceInr: 24990,
+    annualOriginalPriceInr: 29988,
+    annualValidityDays: 365,
     tagline: '',
     badge: '',
     features: ['5,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Sonnet 5.5 & Haiku 5.5 Access'],
@@ -81,6 +84,7 @@ export const AdminPlans: React.FC = () => {
   // Modals for Subscriptions
   const [selectedSubForExtend, setSelectedSubForExtend] = useState<any | null>(null);
   const [extendDays, setExtendDays] = useState(30);
+  const [extendReason, setExtendReason] = useState('Administrative manual extension');
   const [extending, setExtending] = useState(false);
 
   const [selectedSubForStatus, setSelectedSubForStatus] = useState<any | null>(null);
@@ -140,6 +144,9 @@ export const AdminPlans: React.FC = () => {
       rateLimitRpm: 100,
       priceInr: 2499,
       originalPriceInr: 3499,
+      annualPriceInr: 24990,
+      annualOriginalPriceInr: 29988,
+      annualValidityDays: 365,
       tagline: '',
       badge: '',
       features: ['5,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Sonnet 5.5 & Haiku 5.5 Access'],
@@ -162,6 +169,9 @@ export const AdminPlans: React.FC = () => {
       rateLimitRpm: plan.rateLimitRpm || 100,
       priceInr: plan.priceInr,
       originalPriceInr: plan.originalPriceInr || '',
+      annualPriceInr: plan.annualPriceInr !== null && plan.annualPriceInr !== undefined ? plan.annualPriceInr : '',
+      annualOriginalPriceInr: plan.annualOriginalPriceInr !== null && plan.annualOriginalPriceInr !== undefined ? plan.annualOriginalPriceInr : '',
+      annualValidityDays: plan.annualValidityDays || 365,
       tagline: plan.tagline || '',
       badge: plan.badge || '',
       features: plan.features && plan.features.length > 0 ? plan.features : ['30-Day Fixed Validity', 'Instant Automated Key Delivery'],
@@ -339,7 +349,7 @@ export const AdminPlans: React.FC = () => {
     try {
       const res = await adminFetch(`/api/admin/subscriptions/${selectedSubForExtend.id}/extend`, {
         method: 'POST',
-        body: JSON.stringify({ additionalDays: extendDays }),
+        body: JSON.stringify({ additionalDays: extendDays, reason: extendReason }),
       });
       if (res.ok) {
         setSelectedSubForExtend(null);
@@ -557,6 +567,17 @@ export const AdminPlans: React.FC = () => {
                       <span className="text-xs text-muted line-through">₹{p.originalPriceInr.toLocaleString()}</span>
                     )}
                     <span className="text-xs text-muted">/ {p.validityDays}d</span>
+                  </div>
+                  <div className="text-[11px] font-mono">
+                    {p.annualPriceInr ? (
+                      <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Annual: ₹{p.annualPriceInr.toLocaleString()} / {p.annualValidityDays || 365}d
+                      </span>
+                    ) : (
+                      <span className="text-[#a8a29e] bg-[#f5f5f4] px-2 py-0.5 rounded">
+                        Annual: Not configured
+                      </span>
+                    )}
                   </div>
 
                   <div className="p-2.5 rounded bg-subtle/70 text-xs font-mono space-y-1 text-muted">
@@ -904,6 +925,49 @@ export const AdminPlans: React.FC = () => {
                 </div>
               </div>
 
+              {/* Annual Billing Configuration */}
+              <div className="p-3.5 bg-violet-50/70 rounded-xl border border-violet-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-violet-800 uppercase tracking-wider block">
+                    ⚡ Annual Billing Configuration
+                  </span>
+                  <span className="text-[10px] font-mono text-violet-600 bg-white px-2 py-0.5 rounded border border-violet-200">
+                    Independent 365d Entitlement
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-muted mb-1 text-[11px]">Annual Price (₹ INR)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 24990"
+                      value={planForm.annualPriceInr}
+                      onChange={(e) => setPlanForm({ ...planForm, annualPriceInr: e.target.value })}
+                      className="w-full ui-input text-xs py-2 px-3 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-muted mb-1 text-[11px]">Annual Strikethrough (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 29988"
+                      value={planForm.annualOriginalPriceInr}
+                      onChange={(e) => setPlanForm({ ...planForm, annualOriginalPriceInr: e.target.value })}
+                      className="w-full ui-input text-xs py-2 px-3 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-muted mb-1 text-[11px]">Validity (Days)</label>
+                    <input
+                      type="number"
+                      value={planForm.annualValidityDays || 365}
+                      onChange={(e) => setPlanForm({ ...planForm, annualValidityDays: Number(e.target.value) })}
+                      className="w-full ui-input text-xs py-2 px-3 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-muted mb-1">Tokens Quota</label>
@@ -1146,13 +1210,41 @@ export const AdminPlans: React.FC = () => {
             <p className="text-xs text-muted">Customer: {selectedSubForExtend.user?.email}</p>
             <form onSubmit={handleExtendSubscription} className="space-y-3">
               <div>
-                <label className="block text-xs font-mono text-muted mb-1">Additional Days</label>
+                <label className="block text-xs font-mono text-muted mb-1">Additional Validity Days</label>
+                <div className="flex gap-1.5 mb-2">
+                  {[30, 90, 180, 365].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setExtendDays(preset)}
+                      className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors ${
+                        extendDays === preset
+                          ? 'bg-violet-600 text-white'
+                          : 'bg-subtle text-muted hover:text-fg'
+                      }`}
+                    >
+                      +{preset}d{preset === 365 ? ' (1y)' : ''}
+                    </button>
+                  ))}
+                </div>
                 <input
                   type="number"
                   min="1"
-                  max="365"
+                  max="730"
                   value={extendDays}
                   onChange={(e) => setExtendDays(Number(e.target.value))}
+                  className="w-full ui-input text-xs py-2 px-3 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-muted mb-1">Audit Extension Reason</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Annual contract customer extension"
+                  value={extendReason}
+                  onChange={(e) => setExtendReason(e.target.value)}
                   className="w-full ui-input text-xs py-2 px-3"
                 />
               </div>

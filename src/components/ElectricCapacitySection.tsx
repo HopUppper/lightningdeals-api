@@ -18,6 +18,7 @@ import { useCart } from '../context/CartContext';
 import { usePlans, PlanItem } from '../context/PlansContext';
 import { CheckoutModal } from './CheckoutModal';
 import { CredTiltCard } from './CredTiltCard';
+import { PricingBillingToggle, BillingPeriod } from './PricingBillingToggle';
 
 export const ElectricCapacitySection: React.FC = () => {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ export const ElectricCapacitySection: React.FC = () => {
   const navigate = useNavigate();
 
   const { plans, loading } = usePlans();
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<PlanItem | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'compare'>('grid');
   
@@ -34,25 +36,43 @@ export const ElectricCapacitySection: React.FC = () => {
   const displayPlans = plans;
 
   const handleSelectPlan = (pkg: PlanItem) => {
+    const isYearly = billingPeriod === 'yearly';
+    if (isYearly && !pkg.annualPriceInr) return;
+
+    const activePrice = isYearly ? (pkg.annualPriceInr || pkg.priceInr) : pkg.priceInr;
+    const activeValidity = isYearly ? (pkg.annualValidityDays || 365) : pkg.validityDays;
+
     if (user) {
-      setSelectedPlanForCheckout(pkg);
+      setSelectedPlanForCheckout({
+        ...pkg,
+        priceInr: activePrice,
+        validityDays: activeValidity,
+      });
     } else {
-      navigate(`/register?plan=${pkg.id}`);
+      navigate(`/register?plan=${pkg.id}&billing=${billingPeriod}`);
     }
   };
 
   const handleAddToCart = (pkg: PlanItem) => {
+    const isYearly = billingPeriod === 'yearly';
+    if (isYearly && !pkg.annualPriceInr) return;
+
+    const activePrice = isYearly ? (pkg.annualPriceInr || pkg.priceInr) : pkg.priceInr;
+    const activeOriginalPrice = isYearly ? pkg.annualOriginalPriceInr : pkg.originalPriceInr;
+    const activeValidity = isYearly ? (pkg.annualValidityDays || 365) : pkg.validityDays;
+
     addToCart({
       id: pkg.id,
       planId: pkg.id,
       name: pkg.name,
-      priceInr: pkg.priceInr,
-      originalPriceInr: pkg.originalPriceInr,
+      priceInr: activePrice,
+      originalPriceInr: activeOriginalPrice,
       tokenDisplay: pkg.tokenDisplay || `${(Number(pkg.tokenAllowance || 0) / 1_000_000).toFixed(0)}M Tokens`,
       windowHours: pkg.windowHours,
-      validityDays: pkg.validityDays,
+      validityDays: activeValidity,
       tagline: pkg.tagline,
       badge: pkg.badge,
+      billingPeriod,
     });
     openCart();
   };
@@ -216,11 +236,29 @@ export const ElectricCapacitySection: React.FC = () => {
           </div>
         </div>
 
+        {/* Authoritative Monthly / Annual Billing Toggle */}
+        <div className="flex flex-col items-center justify-center pt-2 pb-1">
+          <PricingBillingToggle
+            billingPeriod={billingPeriod}
+            onChange={setBillingPeriod}
+          />
+        </div>
+
         {/* Paid Plans Display: Grid Mode */}
         {viewMode === 'grid' && (
           <div className={`grid grid-cols-1 sm:grid-cols-2 ${capacityPlans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 items-stretch`}>
             {capacityPlans.map((pkg) => {
               const isRecommended = pkg.id === recommendedPlan?.id;
+              const isYearly = billingPeriod === 'yearly';
+              const hasAnnual = Boolean(pkg.annualPriceInr && pkg.annualPriceInr > 0);
+              const activePrice = isYearly ? (pkg.annualPriceInr || 0) : pkg.priceInr;
+              const activeOriginalPrice = isYearly ? pkg.annualOriginalPriceInr : pkg.originalPriceInr;
+              const monthlyEquivalent = isYearly && hasAnnual ? Math.round(activePrice / 12) : null;
+              const yearly12xMonthly = pkg.priceInr * 12;
+              const annualSavings = hasAnnual ? yearly12xMonthly - (pkg.annualPriceInr || 0) : 0;
+              const annualSavingsPercent = hasAnnual && yearly12xMonthly > 0 ? Math.round((annualSavings / yearly12xMonthly) * 100) : 0;
+              const isAnnualUnavailable = isYearly && !hasAnnual;
+
               return (
                 <CredTiltCard
                   key={pkg.id}
@@ -259,30 +297,69 @@ export const ElectricCapacitySection: React.FC = () => {
                   </div>
 
                   {/* Price Block */}
-                  <div className="py-4 border-y border-[#e7e5e4] my-4 space-y-1">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl sm:text-4xl font-extrabold text-[#1c1917] tracking-tight font-mono">
-                        ₹{pkg.priceInr.toLocaleString()}
-                      </span>
-                      {pkg.originalPriceInr && (
-                        <span className="text-xs text-[#78716c] line-through font-mono">
-                          ₹{pkg.originalPriceInr.toLocaleString()}
+                  <div className="py-4 border-y border-[#e7e5e4] my-4 space-y-2">
+                    {isAnnualUnavailable ? (
+                      <div className="py-3 text-center rounded-xl bg-amber-50/70 border border-amber-200">
+                        <span className="text-xs font-semibold text-amber-800">
+                          Annual billing unavailable
                         </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[#6d28d9] font-mono">
-                      <Zap className="w-3.5 h-3.5 fill-current" />
+                        <p className="text-[11px] text-[#78716c] mt-0.5">Available exclusively on monthly cycle</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl sm:text-4xl font-extrabold text-[#1c1917] tracking-tight font-mono">
+                            ₹{activePrice.toLocaleString()}
+                          </span>
+                          <span className="text-xs font-mono text-[#78716c]">
+                            {isYearly ? '/ year' : '/ month'}
+                          </span>
+                          {activeOriginalPrice && (
+                            <span className="text-xs text-[#78716c] line-through font-mono ml-auto">
+                              ₹{activeOriginalPrice.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Yearly equivalent monthly breakdown & savings */}
+                        {isYearly && monthlyEquivalent && (
+                          <div className="space-y-1 pt-0.5">
+                            <div className="text-[11px] font-mono text-[#57534e]">
+                              Equivalent to <strong className="text-[#1c1917]">₹{monthlyEquivalent.toLocaleString()}</strong> / month · billed annually
+                            </div>
+                            {annualSavings > 0 && (
+                              <div className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                                <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                                <span>Save ₹{annualSavings.toLocaleString()} ({annualSavingsPercent}%) vs 12 monthly payments</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <div className="flex items-center gap-2 text-xs font-semibold text-[#6d28d9] font-mono pt-0.5">
+                      <Zap className="w-3.5 h-3.5 fill-current shrink-0" />
                       <span>{pkg.tokenDisplay}</span>
                     </div>
                   </div>
 
                   {/* Feature Checklist */}
                   <ul className="space-y-2.5 text-xs text-[#57534e] flex-1 pb-6">
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        {isYearly ? (
+                          <strong className="text-[#1c1917]">365-Day Extended Validity (1 Full Year)</strong>
+                        ) : (
+                          `${pkg.validityDays}-Day Fixed Validity`
+                        )}
+                      </span>
+                    </li>
                     {(pkg.features && pkg.features.length > 0
-                      ? pkg.features
+                      ? pkg.features.filter((f: string) => !f.toLowerCase().includes('validity'))
                       : [
                           `${pkg.tokenDisplay || '5M TOKENS / 5 HOURS'} Window`,
-                          '30-Day Fixed Validity',
                           'Claude Models Access',
                         ]
                     ).map((feat: string, idx: number) => (
@@ -297,21 +374,33 @@ export const ElectricCapacitySection: React.FC = () => {
                   <div className="mt-auto pt-2 space-y-2">
                     <button
                       type="button"
+                      disabled={isAnnualUnavailable}
                       onClick={() => handleSelectPlan(pkg)}
-                      className={`w-full py-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer cred-shimmer-btn ${
-                        isRecommended || pkg.featured
-                          ? 'bg-[#6d28d9] hover:bg-[#581c87] text-white shadow-plum'
-                          : 'bg-[#1c1917] hover:bg-black text-white shadow-xs'
+                      className={`w-full py-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cred-shimmer-btn ${
+                        isAnnualUnavailable
+                          ? 'bg-[#e7e5e4] text-[#a8a29e] cursor-not-allowed'
+                          : isRecommended || pkg.featured
+                          ? 'bg-[#6d28d9] hover:bg-[#581c87] text-white shadow-plum cursor-pointer'
+                          : 'bg-[#1c1917] hover:bg-black text-white shadow-xs cursor-pointer'
                       }`}
                     >
-                      <span>Select Plan — ₹{pkg.priceInr.toLocaleString()}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>
+                        {isAnnualUnavailable
+                          ? 'Unavailable for Annual'
+                          : `Select ${isYearly ? 'Annual ' : ''}Plan — ₹${activePrice.toLocaleString()}`}
+                      </span>
+                      {!isAnnualUnavailable && <ArrowRight className="w-3.5 h-3.5" />}
                     </button>
 
                     <button
                       type="button"
+                      disabled={isAnnualUnavailable}
                       onClick={() => handleAddToCart(pkg)}
-                      className="w-full py-2.5 rounded-xl border border-[#e7e5e4] bg-white hover:bg-[#f5f2eb] text-[#1c1917] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className={`w-full py-2.5 rounded-xl border border-[#e7e5e4] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                        isAnnualUnavailable
+                          ? 'bg-[#f5f5f4] text-[#a8a29e] cursor-not-allowed'
+                          : 'bg-white hover:bg-[#f5f2eb] text-[#1c1917] cursor-pointer'
+                      }`}
                     >
                       <ShoppingBag className="w-3.5 h-3.5 text-[#78716c]" />
                       <span>Add to Cart</span>
@@ -345,17 +434,34 @@ export const ElectricCapacitySection: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-[#e7e5e4]">
                   <tr>
-                    <td className="p-4 font-semibold text-[#1c1917]">Price ({capacityPlans[0]?.validityDays || 30} Days)</td>
-                    {capacityPlans.map((pkg) => (
-                      <td
-                        key={pkg.id}
-                        className={`p-4 font-mono border-l border-[#e7e5e4] ${
-                          pkg.featured ? 'font-bold text-[#6d28d9]' : ''
-                        }`}
-                      >
-                        ₹{pkg.priceInr.toLocaleString()}
-                      </td>
-                    ))}
+                    <td className="p-4 font-semibold text-[#1c1917]">
+                      Price ({billingPeriod === 'yearly' ? '365 Days Extended' : `${capacityPlans[0]?.validityDays || 30} Days`})
+                    </td>
+                    {capacityPlans.map((pkg) => {
+                      const isYearly = billingPeriod === 'yearly';
+                      const activePrice = isYearly ? pkg.annualPriceInr : pkg.priceInr;
+                      return (
+                        <td
+                          key={pkg.id}
+                          className={`p-4 font-mono border-l border-[#e7e5e4] ${
+                            pkg.featured ? 'font-bold text-[#6d28d9]' : ''
+                          }`}
+                        >
+                          {activePrice ? (
+                            <div>
+                              <span>₹{activePrice.toLocaleString()}</span>
+                              {isYearly && (
+                                <span className="block text-[10px] text-[#78716c]">
+                                  (₹{Math.round(activePrice / 12).toLocaleString()}/mo)
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[#a8a29e] text-xs">Unavailable</span>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                   <tr>
                     <td className="p-4 font-semibold text-[#1c1917]">
@@ -407,17 +513,26 @@ export const ElectricCapacitySection: React.FC = () => {
                     <td className="p-4 font-semibold text-[#1c1917]">Direct Activation</td>
                     {capacityPlans.map((pkg) => (
                       <td key={pkg.id} className="p-4 border-l border-[#e7e5e4]">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectPlan(pkg)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            pkg.featured
-                              ? 'bg-[#6d28d9] text-white hover:bg-[#581c87]'
-                              : 'bg-[#1c1917] text-white hover:bg-black'
-                          }`}
-                        >
-                          Select {pkg.name}
-                        </button>
+                        {(() => {
+                          const isYearly = billingPeriod === 'yearly';
+                          const isUnavailable = isYearly && !pkg.annualPriceInr;
+                          return (
+                            <button
+                              type="button"
+                              disabled={isUnavailable}
+                              onClick={() => handleSelectPlan(pkg)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                isUnavailable
+                                  ? 'bg-[#e7e5e4] text-[#a8a29e] cursor-not-allowed'
+                                  : pkg.featured
+                                  ? 'bg-[#6d28d9] text-white hover:bg-[#581c87] cursor-pointer'
+                                  : 'bg-[#1c1917] text-white hover:bg-black cursor-pointer'
+                              }`}
+                            >
+                              {isUnavailable ? 'Unavailable' : `Select ${pkg.name}`}
+                            </button>
+                          );
+                        })()}
                       </td>
                     ))}
                   </tr>
@@ -440,6 +555,8 @@ export const ElectricCapacitySection: React.FC = () => {
             windowHours: selectedPlanForCheckout.windowHours,
             validityDays: selectedPlanForCheckout.validityDays,
             tagline: selectedPlanForCheckout.tagline,
+            billingPeriod,
+            annualPriceInr: selectedPlanForCheckout.annualPriceInr,
           }}
         />
       )}

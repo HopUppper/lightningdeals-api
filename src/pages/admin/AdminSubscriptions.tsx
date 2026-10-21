@@ -231,7 +231,12 @@ export const AdminSubscriptions: React.FC = () => {
                       <p className="font-bold text-fg">{sub.user?.name}</p>
                       <p className="text-[10px] text-muted font-mono">{sub.user?.email}</p>
                     </td>
-                    <td className="py-3 px-4 font-bold text-fg">{sub.planName}</td>
+                    <td className="py-3 px-4 font-bold text-fg">
+                      <div>{sub.planName}</div>
+                      <span className="text-[10px] font-mono font-normal text-muted">
+                        {sub.billingPeriod === 'yearly' ? '⚡ Annual (365d)' : 'Monthly (30d)'}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 font-mono">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${

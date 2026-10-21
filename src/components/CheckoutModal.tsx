@@ -14,6 +14,8 @@ export interface CheckoutModalProps {
     windowHours: number;
     validityDays: number;
     tagline?: string;
+    billingPeriod?: 'monthly' | 'yearly';
+    annualPriceInr?: number | null;
   } | null;
   onClose: () => void;
 }
@@ -151,7 +153,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
     try {
       const res = await adminFetch('/api/checkout/validate-coupon', {
         method: 'POST',
-        body: JSON.stringify({ code: couponCode.trim(), planId: plan.id }),
+        body: JSON.stringify({ code: couponCode.trim(), planId: plan.id, billingPeriod: plan.billingPeriod || 'monthly' }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -199,6 +201,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
         method: 'POST',
         body: JSON.stringify({
           planId: plan.id,
+          billingPeriod: plan.billingPeriod || 'monthly',
           couponCode: appliedCoupon?.code,
           phone: cleanPhone,
           redeemCredits: appliedCredits,
@@ -377,8 +380,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
               {/* Plan Summary Card */}
               <div className="p-4 rounded-control bg-subtle/70 border border-border/80 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-extrabold text-sm text-fg">{plan.name}</span>
-                  <span className="text-base font-extrabold text-violet-700 font-mono">₹{plan.priceInr.toLocaleString()}</span>
+                  <div>
+                    <span className="font-extrabold text-sm text-fg block">{plan.name}</span>
+                    <span className="text-[10px] font-mono text-violet-700 font-bold uppercase tracking-wider">
+                      {plan.billingPeriod === 'yearly' ? '⚡ Annual Access · 365 Days' : '30-Day Monthly Access'}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-base font-extrabold text-violet-700 font-mono">₹{plan.priceInr.toLocaleString()}</span>
+                    <span className="block text-[10px] font-mono text-muted">
+                      {plan.billingPeriod === 'yearly' ? 'billed annually' : 'billed monthly'}
+                    </span>
+                  </div>
                 </div>
 
                 <p className="text-xs text-muted leading-relaxed">

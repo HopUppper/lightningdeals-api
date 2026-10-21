@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../db';
 import { authenticateJwt, AuthRequest } from '../auth';
-import { getAllActivePlansAsync, getPlanByIdAsync } from './plans';
+import { getAllActivePlansAsync, getPlanByIdAsync, calculatePlanPricing } from './plans';
 import { getPaymentProvider } from './index';
 import { fulfillOrder } from './fulfillment';
 import { recordSecurityLog } from '../authSecurity';
@@ -32,6 +32,9 @@ checkoutRouter.get('/plans', async (req: Request, res: Response) => {
       validityDays: p.validityDays,
       priceInr: p.priceInr,
       originalPriceInr: p.originalPriceInr,
+      annualPriceInr: p.annualPriceInr,
+      annualOriginalPriceInr: p.annualOriginalPriceInr,
+      annualValidityDays: p.annualValidityDays || 365,
       currency: p.currency,
       tagline: p.tagline,
       badge: p.badge,
@@ -46,7 +49,7 @@ checkoutRouter.get('/plans', async (req: Request, res: Response) => {
 
 // 2. POST /api/checkout/validate-coupon — Realtime Server-Side Coupon Verification
 checkoutRouter.post('/validate-coupon', async (req: Request, res: Response) => {
-  const { code, planId } = req.body;
+  const { code, planId, billingPeriod } = req.body;
 
   if (!code || typeof code !== 'string') {
     return res.status(400).json({ error: { type: 'invalid_request', message: 'Coupon code is required.' } });
@@ -56,7 +59,8 @@ checkoutRouter.post('/validate-coupon', async (req: Request, res: Response) => {
   if (planId) {
     const plan = await getPlanByIdAsync(planId);
     if (plan) {
-      priceInr = plan.priceInr;
+      const pricing = calculatePlanPricing(plan, billingPeriod === 'yearly' ? 'yearly' : 'monthly');
+      priceInr = pricing.priceInr;
     }
   }
 
@@ -88,7 +92,7 @@ checkoutRouter.get('/provider-health', async (req: Request, res: Response) => {
 
 // 4. POST /api/checkout/create-order — Create Internal Order & Gateway Order (With Coupon Support)
 checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, res: Response) => {
-  const { planId, couponCode, redeemCredits } = req.body;
+  const { planId, couponCode, redeemCredits, billingPeriod } = req.body;
 
   if (!planId || typeof planId !== 'string') {
     return res.status(400).json({ error: { type: 'invalid_request', message: 'Plan ID is required.' } });
@@ -98,6 +102,7 @@ checkoutRouter.post('/create-order', authenticateJwt, async (req: AuthRequest, r
     const result = await OrderEngine.createWebsiteOrder({
       userId: req.user!.id,
       planId,
+      billingPeriod: billingPeriod === 'yearly' ? 'yearly' : 'monthly',
       couponCode,
       redeemCredits,
       customerPhone: req.body.phone,

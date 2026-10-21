@@ -12,6 +12,7 @@ import { OrderEngine } from './orders/orderEngine';
 import { getPaymentProvider } from './payments';
 import { generateProviderApiKey, generateRotatedKeyMaterial } from './keyService';
 import { ProviderRegistry } from './providerAdapter';
+import { VendorRenewalService } from './providers/vendorRenewalService';
 
 const router = Router();
 
@@ -1143,6 +1144,40 @@ router.post('/providers/:id/reconcile', async (req: AuthRequest, res: Response) 
 
 
 
+// GET /admin/providers/:id/vendor-lifecycle — Upstream Vendor Subscription Lifecycle Status
+router.get('/providers/:id/vendor-lifecycle', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const status = await VendorRenewalService.getVendorLifecycleStatus(id);
+    res.json({ success: true, ...status });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /admin/providers/:id/record-renewal — Explicit Upstream Vendor Subscription Renewal
+router.post('/providers/:id/record-renewal', async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { status, periodDays, renewalCost, currency, vendorReference, failureReason, notes } = req.body;
+  try {
+    const result = await VendorRenewalService.recordVendorRenewal({
+      providerId: id,
+      status: status || 'SUCCESS',
+      periodDays: periodDays ? Number(periodDays) : 30,
+      renewalCost: renewalCost !== undefined ? Number(renewalCost) : undefined,
+      currency,
+      vendorReference,
+      failureReason,
+      notes,
+      initiatedBy: 'ADMIN',
+      adminUserId: req.user?.id,
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // 3. Token Package Pricing Configuration (/admin/pricing)
 router.get('/pricing', async (req: AuthRequest, res: Response) => {
   try {
@@ -1239,6 +1274,9 @@ router.post('/plans', async (req: AuthRequest, res: Response) => {
     rateLimitRpm,
     priceInr,
     originalPriceInr,
+    annualPriceInr,
+    annualOriginalPriceInr,
+    annualValidityDays,
     tagline,
     badge,
     features,
@@ -1260,6 +1298,9 @@ router.post('/plans', async (req: AuthRequest, res: Response) => {
         rateLimitRpm: Number(rateLimitRpm || 60),
         priceInr: Number(priceInr || 0),
         originalPriceInr: originalPriceInr ? Number(originalPriceInr) : null,
+        annualPriceInr: annualPriceInr !== undefined ? (annualPriceInr ? Number(annualPriceInr) : null) : null,
+        annualOriginalPriceInr: annualOriginalPriceInr !== undefined ? (annualOriginalPriceInr ? Number(annualOriginalPriceInr) : null) : null,
+        annualValidityDays: annualValidityDays !== undefined ? Number(annualValidityDays || 365) : 365,
         tagline: tagline || null,
         badge: badge || null,
         featuresJson: features ? JSON.stringify(features) : (featuresJson || null),
@@ -1288,6 +1329,9 @@ router.put('/plans/:id', async (req: AuthRequest, res: Response) => {
     rateLimitRpm,
     priceInr,
     originalPriceInr,
+    annualPriceInr,
+    annualOriginalPriceInr,
+    annualValidityDays,
     tagline,
     badge,
     features,
@@ -1309,6 +1353,9 @@ router.put('/plans/:id', async (req: AuthRequest, res: Response) => {
     if (rateLimitRpm !== undefined) updateData.rateLimitRpm = Number(rateLimitRpm);
     if (priceInr !== undefined) updateData.priceInr = Number(priceInr);
     if (originalPriceInr !== undefined) updateData.originalPriceInr = originalPriceInr ? Number(originalPriceInr) : null;
+    if (annualPriceInr !== undefined) updateData.annualPriceInr = annualPriceInr ? Number(annualPriceInr) : null;
+    if (annualOriginalPriceInr !== undefined) updateData.annualOriginalPriceInr = annualOriginalPriceInr ? Number(annualOriginalPriceInr) : null;
+    if (annualValidityDays !== undefined) updateData.annualValidityDays = Number(annualValidityDays || 365);
     if (tagline !== undefined) updateData.tagline = tagline;
     if (badge !== undefined) updateData.badge = badge;
     if (features !== undefined) updateData.featuresJson = Array.isArray(features) ? JSON.stringify(features) : null;
@@ -3835,9 +3882,12 @@ router.get('/subscriptions', async (req: AuthRequest, res: Response) => {
 // 32. Admin Extend Subscription Validity
 router.post('/subscriptions/:id/extend', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { additionalDays } = req.body;
+  const { additionalDays, reason } = req.body;
 
-  const days = Number(additionalDays || 30);
+  const days = Number(additionalDays);
+  if (!days || isNaN(days) || days < 1 || days > 730) {
+    return res.status(400).json({ error: { message: 'additionalDays must be a positive integer between 1 and 730 days.' } });
+  }
 
   try {
     const sub = await prisma.subscription.findUnique({ where: { id }, include: { user: true } });
@@ -3845,7 +3895,10 @@ router.post('/subscriptions/:id/extend', async (req: AuthRequest, res: Response)
       return res.status(404).json({ error: { message: 'Subscription not found.' } });
     }
 
-    const newExpiry = new Date(new Date(sub.expiryTime).getTime() + days * 24 * 3600 * 1000);
+    const previousExpiry = sub.expiryTime;
+    const now = new Date();
+    const baseDate = new Date(sub.expiryTime) > now ? new Date(sub.expiryTime) : now;
+    const newExpiry = new Date(baseDate.getTime() + days * 24 * 3600 * 1000);
 
     await prisma.subscription.update({
       where: { id },
@@ -3868,11 +3921,48 @@ router.post('/subscriptions/:id/extend', async (req: AuthRequest, res: Response)
         action: 'EXTEND_SUBSCRIPTION',
         targetType: 'Subscription',
         targetId: sub.id,
-        metadata: `Extended subscription '${sub.planName}' for user ${sub.user.email} by ${days} days until ${newExpiry.toISOString()}`,
+        metadata: JSON.stringify({
+          adminId: req.user!.id,
+          adminEmail: req.user!.email,
+          customerEmail: sub.user?.email,
+          planName: sub.planName,
+          additionalDays: days,
+          previousExpiry: previousExpiry.toISOString(),
+          newExpiry: newExpiry.toISOString(),
+          reason: reason && typeof reason === 'string' ? reason.trim() : 'Administrative manual extension',
+          timestamp: new Date().toISOString(),
+        }),
       },
     });
 
-    res.json({ success: true, message: `Subscription extended by ${days} days!`, newExpiry });
+    await recordAuditEvent({
+      eventType: 'SUBSCRIPTION_VALIDITY_EXTENDED',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actorId: req.user!.id,
+      adminId: req.user!.id,
+      customerId: sub.userId,
+      resourceType: 'SUBSCRIPTION',
+      resourceId: sub.id,
+      action: 'ADMIN_EXTEND_VALIDITY',
+      result: 'SUCCESS',
+      metadata: {
+        additionalDays: days,
+        previousExpiry: previousExpiry.toISOString(),
+        newExpiry: newExpiry.toISOString(),
+        reason: reason || 'Administrative manual extension',
+        apiKeyId: sub.apiKeyId,
+      },
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: `Subscription extended by ${days} days until ${newExpiry.toLocaleDateString()}!`,
+      previousExpiry,
+      newExpiry,
+      subscription: updated,
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }
@@ -4040,6 +4130,9 @@ router.get('/plans-catalog', async (req: AuthRequest, res: Response) => {
           rateLimitRpm: p.rateLimitRpm,
           priceInr: p.priceInr,
           originalPriceInr: p.originalPriceInr,
+          annualPriceInr: p.annualPriceInr,
+          annualOriginalPriceInr: p.annualOriginalPriceInr,
+          annualValidityDays: p.annualValidityDays ?? 365,
           currency: p.currency,
           tagline: p.tagline,
           badge: p.badge,
@@ -4074,6 +4167,9 @@ router.post('/plans-catalog', async (req: AuthRequest, res: Response) => {
     rateLimitRpm,
     priceInr,
     originalPriceInr,
+    annualPriceInr,
+    annualOriginalPriceInr,
+    annualValidityDays,
     tagline,
     badge,
     features,
@@ -4101,6 +4197,9 @@ router.post('/plans-catalog', async (req: AuthRequest, res: Response) => {
         rateLimitRpm: Number(rateLimitRpm) || 100,
         priceInr: Number(priceInr) || 2499,
         originalPriceInr: originalPriceInr ? Number(originalPriceInr) : null,
+        annualPriceInr: annualPriceInr !== undefined ? (annualPriceInr ? Number(annualPriceInr) : null) : null,
+        annualOriginalPriceInr: annualOriginalPriceInr !== undefined ? (annualOriginalPriceInr ? Number(annualOriginalPriceInr) : null) : null,
+        annualValidityDays: annualValidityDays !== undefined ? Number(annualValidityDays || 365) : 365,
         tagline: tagline || null,
         badge: badge || null,
         featuresJson: features && Array.isArray(features) ? JSON.stringify(features) : null,
@@ -4146,6 +4245,9 @@ router.put('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
     rateLimitRpm,
     priceInr,
     originalPriceInr,
+    annualPriceInr,
+    annualOriginalPriceInr,
+    annualValidityDays,
     tagline,
     badge,
     features,
@@ -4172,6 +4274,9 @@ router.put('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
         rateLimitRpm: rateLimitRpm !== undefined ? Number(rateLimitRpm) : existing.rateLimitRpm,
         priceInr: priceInr !== undefined ? Number(priceInr) : existing.priceInr,
         originalPriceInr: originalPriceInr !== undefined ? (originalPriceInr ? Number(originalPriceInr) : null) : existing.originalPriceInr,
+        annualPriceInr: annualPriceInr !== undefined ? (annualPriceInr ? Number(annualPriceInr) : null) : existing.annualPriceInr,
+        annualOriginalPriceInr: annualOriginalPriceInr !== undefined ? (annualOriginalPriceInr ? Number(annualOriginalPriceInr) : null) : existing.annualOriginalPriceInr,
+        annualValidityDays: annualValidityDays !== undefined ? Number(annualValidityDays || 365) : existing.annualValidityDays,
         tagline: tagline !== undefined ? tagline : existing.tagline,
         badge: badge !== undefined ? badge : existing.badge,
         featuresJson: features !== undefined ? (Array.isArray(features) ? JSON.stringify(features) : null) : existing.featuresJson,

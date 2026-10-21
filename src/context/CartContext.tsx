@@ -12,6 +12,7 @@ export interface CartItem {
   validityDays: number;
   tagline?: string;
   badge?: string;
+  billingPeriod?: 'monthly' | 'yearly';
 }
 
 export interface AppliedCoupon {
@@ -129,7 +130,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await fetch('/api/checkout/validate-coupon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: cleanCode, planId }),
+        body: JSON.stringify({ code: cleanCode, planId, billingPeriod: cartItems[0]?.billingPeriod || 'monthly' }),
       });
 
       const data = await res.json();

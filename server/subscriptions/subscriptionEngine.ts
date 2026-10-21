@@ -129,6 +129,7 @@ export interface ActivateOrRenewSubscriptionParams {
   orderId: string;
   apiKeyId?: string;
   durationDays?: number;
+  billingPeriod?: 'monthly' | 'yearly';
   existingSubscriptionId?: string;
   notes?: string;
   tx?: any;
@@ -184,11 +185,14 @@ export async function activateOrRenewSubscription(
       if (orderExists) validOrderId = orderId;
     }
 
+    const updatedBillingPeriod = params.billingPeriod || (durationDays >= 365 ? 'yearly' : (existingSub.billingPeriod || 'monthly'));
+
     const updated = await tx.subscription.update({
       where: { id: existingSub.id },
       data: {
         expiryTime: newExpiry,
         durationDays,
+        billingPeriod: updatedBillingPeriod,
         status: updatedStatus,
         renewalCount: existingSub.renewalCount + 1,
         lastRenewedAt: now,
@@ -197,6 +201,15 @@ export async function activateOrRenewSubscription(
         notes: notes || `Renewed via Order ${orderId}`,
       },
     });
+
+    // Synchronize linked API key expiry
+    const targetApiKeyId = apiKeyId || existingSub.apiKeyId;
+    if (targetApiKeyId) {
+      await tx.apiKey.update({
+        where: { id: targetApiKeyId },
+        data: { expiresAt: newExpiry, status: 'active' },
+      }).catch(() => {});
+    }
 
     // Refresh renewal reminders for the new expiry date
     await scheduleRenewalReminders(updated.id, newExpiry, tx);
@@ -213,6 +226,8 @@ export async function activateOrRenewSubscription(
       metadata: {
         orderId,
         planId,
+        billingPeriod: updatedBillingPeriod,
+        durationDays,
         previousExpiry: existingSub.expiryTime,
         newExpiry,
         renewalCount: updated.renewalCount,
@@ -228,6 +243,7 @@ export async function activateOrRenewSubscription(
   } else {
     // NEW SUBSCRIPTION ACTIVATION
     const expiryTime = calculateSubscriptionExpiry(now, durationDays);
+    const newBillingPeriod = params.billingPeriod || (durationDays >= 365 ? 'yearly' : 'monthly');
 
     let validOrderId: string | null = null;
     if (orderId) {
@@ -245,6 +261,7 @@ export async function activateOrRenewSubscription(
         activationTime: now,
         expiryTime,
         durationDays,
+        billingPeriod: newBillingPeriod,
         renewalCount: 0,
         quotaLimit: 5000000n,
         quotaWindowHours: 5,
@@ -254,6 +271,14 @@ export async function activateOrRenewSubscription(
         notes: notes || `Activated via Order ${orderId}`,
       },
     });
+
+    // Synchronize linked API key expiry
+    if (apiKeyId) {
+      await tx.apiKey.update({
+        where: { id: apiKeyId },
+        data: { expiresAt: expiryTime, status: 'active' },
+      }).catch(() => {});
+    }
 
     await scheduleRenewalReminders(created.id, expiryTime, tx);
 

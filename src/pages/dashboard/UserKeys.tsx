@@ -16,6 +16,7 @@ interface ApiKeyItem {
   tokensRemaining: string;
   lastPlatform?: string | null;
   lastUsedAt?: string | null;
+  expiresAt?: string | null;
   createdAt: string;
 }
 
@@ -195,6 +196,11 @@ export const UserKeys: React.FC = () => {
                         <div className="font-extrabold text-[#1e1b2e]">{k.name}</div>
                         <div className="text-[11px] text-[#64607d] mt-0.5">
                           {k.plan} • {new Date(k.createdAt).toLocaleDateString()}
+                          {k.expiresAt && (
+                            <span className="block text-[10.5px] font-mono text-emerald-700 font-semibold mt-0.5">
+                              Expires: {new Date(k.expiresAt).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
                         {k.lastPlatform && (
                           <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-violet-50 text-violet-700 border border-violet-200">

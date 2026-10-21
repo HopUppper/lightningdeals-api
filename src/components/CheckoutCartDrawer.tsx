@@ -119,6 +119,7 @@ export const CheckoutCartDrawer: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planId: item.planId || item.id,
+          billingPeriod: item.billingPeriod || 'monthly',
           couponCode: appliedCoupon?.code || undefined,
         }),
       });
@@ -261,7 +262,7 @@ export const CheckoutCartDrawer: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-[#78716c] pt-2 border-t border-[#f5f2eb]">
                     <div>Window: <strong className="text-[#1c1917]">{item.windowHours}h Refresh</strong></div>
-                    <div>Validity: <strong className="text-[#1c1917]">{item.validityDays} Days</strong></div>
+                    <div>Validity: <strong className="text-[#1c1917]">{item.billingPeriod === 'yearly' ? '365 Days (Annual)' : `${item.validityDays} Days`}</strong></div>
                   </div>
 
                   <div className="flex items-baseline justify-between pt-1 border-t border-[#f5f2eb]">
@@ -274,6 +275,9 @@ export const CheckoutCartDrawer: React.FC = () => {
                       )}
                       <span className="text-base font-bold font-mono text-[#1c1917]">
                         ₹{item.priceInr.toLocaleString()}
+                      </span>
+                      <span className="block text-[10px] text-[#78716c] font-mono">
+                        {item.billingPeriod === 'yearly' ? 'billed annually' : 'billed monthly'}
                       </span>
                     </div>
                   </div>

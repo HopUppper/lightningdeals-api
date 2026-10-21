@@ -22,10 +22,14 @@ try {
     
   execSync(pushCmd, { stdio: 'inherit' });
   console.log('✓ [DB-SYNC] Prisma db push succeeded.');
+  console.log('⚡ [DB-SYNC] Running annual pricing and entitlement migration...');
+  execSync('npx tsx scripts/migrate-annual-pricing-entitlements.ts', { stdio: 'inherit' });
+  console.log('✓ [DB-SYNC] Annual pricing and entitlement migration succeeded.');
 } catch (err) {
   console.warn('⚠️ [DB-SYNC] Prisma db push encountered pooler contention or schema conflict. Running fallback schema migration...');
   try {
     execSync('npx tsx scripts/migrate-purchases.ts', { stdio: 'inherit' });
+    execSync('npx tsx scripts/migrate-annual-pricing-entitlements.ts', { stdio: 'inherit' });
     console.log('✓ [DB-SYNC] Fallback schema migration succeeded.');
   } catch (mErr) {
     console.error('❌ [DB-SYNC] Fallback migration failed:', mErr.message);

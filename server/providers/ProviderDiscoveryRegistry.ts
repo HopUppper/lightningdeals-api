@@ -1,5 +1,5 @@
 import { prisma } from '../db';
-import { decryptText } from '../crypto';
+import { decryptText } from '../db';
 import { AnthropicAdapter } from './AnthropicAdapter';
 import { OpenAICompatibleAdapter } from './OpenAICompatibleAdapter';
 import { CustomHttpAdapter } from './CustomHttpAdapter';

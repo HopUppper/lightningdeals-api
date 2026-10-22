@@ -1,40 +1,40 @@
 import { prisma } from './db';
-import { calculateKeyRollingWindow } from './window';
+import { getUpstreamMasterAccounting } from './accounting/upstreamAccounting';
+import { calculateAggregateAccounting } from './accounting/aggregateAccounting';
+import {
+  reserveTokens,
+  releaseReservation,
+  getActiveMasterReservations as getActiveMasterReservationsFromStore,
+} from './accounting/tokenReservation';
 
-// In-memory active request reservations for Master Vendor Capacity: requestId -> tokens
-const masterReservations = new Map<string, { providerId: string; tokens: number }>();
-
-export function getActiveMasterReservations(providerId: string): number {
-  let sum = 0;
-  for (const [, res] of masterReservations.entries()) {
-    if (res.providerId === providerId) {
-      sum += res.tokens;
-    }
-  }
-  return sum;
+export async function getActiveMasterReservations(providerId: string): Promise<number> {
+  return getActiveMasterReservationsFromStore(providerId);
 }
 
 export function reserveMasterTokens(providerId: string, requestId: string, estimatedTokens: number) {
-  masterReservations.set(requestId, { providerId, tokens: estimatedTokens });
+  reserveTokens({ providerId, requestId, estimatedTokens });
 }
 
 export function releaseMasterReservation(requestId: string) {
-  masterReservations.delete(requestId);
+  releaseReservation(requestId);
 }
 
+/**
+ * Checks master provider headroom against a required token amount.
+ * Powered by Layer A upstream master accounting.
+ * Zero hardcoded fallback numbers.
+ */
 export async function checkMasterCapacity(providerId?: string, requiredTokens = 1000) {
-  const provider = providerId
-    ? await prisma.vendorProvider.findUnique({ where: { id: providerId } })
-    : await prisma.vendorProvider.findFirst({ where: { isPrimary: true } });
+  const upstream = await getUpstreamMasterAccounting(providerId);
 
-  if (!provider || !provider.masterApiKeyEncrypted) {
+  if (upstream.providerId === 'none' || upstream.status === 'NOT_CONFIGURED') {
     return {
       available: false,
       availableTokens: 0,
       rawAvailableTokens: '0',
       reservedTokens: 0,
-      providerId: provider?.id || 'none',
-      providerName: provider?.name || 'No Upstream Provider Configured',
+      providerId: upstream.providerId,
+      providerName: upstream.providerName,
       status: 'NOT_CONFIGURED',
       capacityModel: 'lifetime_prepaid',
       windowHours: 5,
@@ -42,81 +42,33 @@ export async function checkMasterCapacity(providerId?: string, requiredTokens = 
       windowTokensUsed: 0,
       nextResetAt: null,
       windowResetSeconds: null,
+      discoverySource: upstream.discoverySource,
+      discoveryStatus: upstream.discoveryStatus,
+      discoveryConfidence: upstream.discoveryConfidence,
     };
   }
 
-  const isRolling = provider.capacityModel === 'rolling_window' || Number(provider.windowAllowance) > 0;
-  const windowHours = provider.windowHours || 5;
-  const windowMs = windowHours * 60 * 60 * 1000;
-  const nowMs = Date.now();
-  const windowStartMs = nowMs - windowMs;
-
-  let windowTokensUsed = 0;
-  let nextResetAt: string | null = null;
-  let windowResetSeconds: number | null = null;
-  let allowanceNum = 0;
-  let availableNum = 0;
-  const reservedNum = getActiveMasterReservations(provider.id);
-
-  if (isRolling) {
-    const windowUsage = await prisma.apiRequest.aggregate({
-      _sum: { totalTokens: true },
-      where: {
-        providerId: provider.id,
-        createdAt: { gte: new Date(windowStartMs) },
-      },
-    });
-    windowTokensUsed = windowUsage._sum.totalTokens || 0;
-    allowanceNum = Number(provider.windowAllowance > 0 ? provider.windowAllowance : (provider.purchasedTokens > 0 ? provider.purchasedTokens : 5000000));
-    availableNum = Math.max(0, allowanceNum - windowTokensUsed - reservedNum);
-
-    if (windowTokensUsed > 0) {
-      const oldestInWindow = await prisma.apiRequest.findFirst({
-        where: {
-          providerId: provider.id,
-          createdAt: { gte: new Date(windowStartMs) },
-        },
-        orderBy: { createdAt: 'asc' },
-      });
-      if (oldestInWindow) {
-        const rollOffMs = new Date(oldestInWindow.createdAt).getTime() + windowMs;
-        nextResetAt = new Date(rollOffMs).toISOString();
-        windowResetSeconds = Math.max(0, Math.floor((rollOffMs - nowMs) / 1000));
-      }
-    }
-  } else {
-    allowanceNum = Number(provider.purchasedTokens || 0);
-    availableNum = Number(provider.availableTokens) - reservedNum;
-  }
-
-  const isAvailable = availableNum >= requiredTokens && provider.status !== 'disabled';
-
-  let status = 'HEALTHY';
-  if (provider.status === 'disabled' || !provider.masterApiKeyEncrypted) {
-    status = 'NOT_CONFIGURED';
-  } else if (availableNum <= Number(provider.criticalThresholdTokens)) {
-    status = availableNum <= 0 ? 'DEPLETED' : 'CRITICAL';
-  } else if (availableNum <= Number(provider.warningThresholdTokens)) {
-    status = 'WARNING';
-  }
+  const isAvailable = upstream.effectiveAvailableTokens >= requiredTokens;
 
   return {
     available: isAvailable,
-    availableTokens: Math.max(0, availableNum),
-    rawAvailableTokens: availableNum.toString(),
-    reservedTokens: reservedNum,
-    providerId: provider.id,
-    providerName: provider.name,
-    status,
-    capacityModel: provider.capacityModel,
-    windowHours,
-    windowAllowance: allowanceNum.toString(),
-    windowTokensUsed,
-    nextResetAt,
-    windowResetSeconds,
+    availableTokens: upstream.effectiveAvailableTokens,
+    rawAvailableTokens: upstream.effectiveAvailableTokens.toString(),
+    reservedTokens: upstream.activeMasterReservations,
+    providerId: upstream.providerId,
+    providerName: upstream.providerName,
+    status: upstream.status,
+    capacityModel: upstream.capacityModel,
+    windowHours: upstream.windowHours,
+    windowAllowance: (upstream.upstreamLimit !== null ? upstream.upstreamLimit : upstream.effectiveAvailableTokens).toString(),
+    windowTokensUsed: upstream.upstreamConsumedWindow,
+    nextResetAt: upstream.discoveredResetAt ? upstream.discoveredResetAt.toISOString() : null,
+    windowResetSeconds: upstream.discoveredResetSeconds,
+    discoverySource: upstream.discoverySource,
+    discoveryStatus: upstream.discoveryStatus,
+    discoveryConfidence: upstream.discoveryConfidence,
   };
 }
-
 
 export async function settleMasterUsage({
   providerId,
@@ -156,7 +108,18 @@ export async function settleMasterUsage({
         },
       });
       const usedInWindow = (windowUsage._sum.totalTokens || 0) + actualTokens;
-      const allowanceNum = Number(provider.windowAllowance > 0 ? provider.windowAllowance : (provider.purchasedTokens > 0 ? provider.purchasedTokens : 5000000));
+      // Authoritative limit calculation: discoveredLimitTokens -> configuredLimitTokens -> windowAllowance -> purchasedTokens -> 0
+      const allowanceNum = Number(
+        provider.discoveredLimitTokens && provider.discoveredLimitTokens > BigInt(0)
+          ? provider.discoveredLimitTokens
+          : provider.configuredLimitTokens && provider.configuredLimitTokens > BigInt(0)
+          ? provider.configuredLimitTokens
+          : provider.windowAllowance > BigInt(0)
+          ? provider.windowAllowance
+          : provider.purchasedTokens > BigInt(0)
+          ? provider.purchasedTokens
+          : 0
+      );
       const remainingRolling = Math.max(0, allowanceNum - usedInWindow);
       newAvailable = BigInt(remainingRolling);
     } else {
@@ -325,35 +288,25 @@ export async function reconcileMasterLedger(providerId: string, autoFix = false,
   };
 }
 
-export async function calculateActiveEntitlementExposure() {
-  const fiveHoursAgo = new Date(Date.now() - 5 * 3600 * 1000);
-
-  const [activeKeysAgg, windowUsageAgg, activeKeyCount] = await Promise.all([
-    prisma.apiKey.aggregate({
-      _sum: { purchasedTokens: true },
-      where: { status: 'active' },
-    }),
-    prisma.apiRequest.aggregate({
-      _sum: { totalTokens: true },
-      where: { createdAt: { gte: fiveHoursAgo } },
-    }),
-    prisma.apiKey.count({ where: { status: 'active' } }),
-  ]);
-
-  const sumActiveWindowAllowance = activeKeysAgg._sum.purchasedTokens || BigInt(0);
-  const sumActiveWindowUsed = windowUsageAgg._sum.totalTokens ? BigInt(windowUsageAgg._sum.totalTokens) : BigInt(0);
-  const sumActiveWindowRemaining = sumActiveWindowAllowance > sumActiveWindowUsed
-    ? sumActiveWindowAllowance - sumActiveWindowUsed
-    : BigInt(0);
-
-  // Theoretical 30-day exposure = (sumActiveWindowAllowance * (30 days * 24 hours / 5 hours)) = sumActiveWindowAllowance * 144
-  const theoretical30DayExposure = sumActiveWindowAllowance * BigInt(144);
+/**
+ * Authoritative Layer C Active Entitlement Exposure calculation.
+ * Accurately calculates exposure, consumption, remaining master capacity, and headroom.
+ */
+export async function calculateActiveEntitlementExposure(providerId?: string) {
+  const aggregate = await calculateAggregateAccounting(providerId);
 
   return {
-    activeKeyCount,
-    active5hWindowAllowance: sumActiveWindowAllowance.toString(),
-    active5hWindowUsed: sumActiveWindowUsed.toString(),
-    active5hWindowRemaining: sumActiveWindowRemaining.toString(),
-    theoretical30DayExposure: theoretical30DayExposure.toString(),
+    activeKeyCount: aggregate.activeCustomerCount,
+    totalCustomerCount: aggregate.totalCustomerCount,
+    active5hWindowAllowance: aggregate.activeCustomer5hAllowanceExposure.toString(),
+    active5hWindowUsed: aggregate.aggregateWindowTokensConsumed.toString(),
+    active5hWindowRemaining: Math.max(0, aggregate.activeCustomer5hAllowanceExposure - aggregate.aggregateWindowTokensConsumed).toString(),
+    theoretical30DayExposure: aggregate.theoretical30DayExposure.toString(),
+    upstreamRemainingMasterCapacity: aggregate.upstreamRemainingMasterCapacity.toString(),
+    exposureHeadroomTokens: aggregate.exposureHeadroomTokens.toString(),
+    exposureRatioPercent: aggregate.exposureRatioPercent,
+    utilizationRatioPercent: aggregate.utilizationRatioPercent,
+    unreconciledOrUnknownTokens: aggregate.unreconciledOrUnknownTokens.toString(),
+    isOversubscribed: aggregate.isOversubscribed,
   };
 }

@@ -131,6 +131,9 @@ model ApiRequest {
   errorMessage   String?
   isEstimated    Boolean   @default(false)
   usageSource    String    @default("PROVIDER_REPORTED") // "PROVIDER_REPORTED" | "LOCAL_CALCULATED" | "SIMULATED_ESTIMATE"
+  cachedTokens   Int       @default(0)
+  reasoningTokens Int      @default(0)
+  idempotencyKey String?
   clientPlatform String?   // "Claude Code CLI", "Cursor", "VS Code", "Python SDK", etc.
   userAgent      String?   // Raw HTTP User-Agent string
   ipAddress      String?   // Client IP address
@@ -139,6 +142,7 @@ model ApiRequest {
   @@index([apiKeyId, createdAt])
   @@index([userId, createdAt])
   @@index([createdAt])
+  @@index([idempotencyKey])
 }
 
 
@@ -172,6 +176,18 @@ model VendorProvider {
   windowAllowance        BigInt              @default(0)
   warningThresholdTokens BigInt              @default(20000000)
   criticalThresholdTokens BigInt             @default(5000000)
+  configuredLimitTokens    BigInt?             @default(0)
+  discoveredLimitTokens    BigInt?             @default(0)
+  discoveredConsumedTokens BigInt?             @default(0)
+  discoveredRemainingTokens BigInt?            @default(0)
+  discoveredResetAt        DateTime?
+  discoverySource          String              @default("NOT_DISCOVERED") // "OFFICIAL_QUOTA_API" | "RATE_LIMIT_HEADERS" | "LOCALLY_TRACKED" | "ADMIN_CONFIGURED_UNVERIFIED" | "NOT_DISCOVERED"
+  discoveryStatus          String              @default("UNKNOWN") // "VERIFIED" | "LOCALLY_TRACKED" | "STALE" | "UNAVAILABLE" | "UNSUPPORTED" | "UNKNOWN"
+  discoveryConfidence      String              @default("UNKNOWN") // "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN"
+  lastDiscoveredAt         DateTime?
+  lastReconciledAt         DateTime?
+  discoveryError           String?
+  discoveryDetailsJson     String?
   modelMappingsJson      String?             // JSON string for internal -> vendor model mappings
   headersJson            String?             // JSON string for custom HTTP headers
   lastTestedAt           DateTime?
@@ -235,6 +251,23 @@ model MasterTokenLedger {
   userId       String?
   createdAt    DateTime       @default(now())
 }
+
+model TokenReservation {
+  id          String    @id @default(uuid())
+  apiKeyId    String?
+  providerId  String?
+  requestId   String    @unique
+  tokens      Int
+  status      String    @default("ACTIVE") // "ACTIVE" | "SETTLED" | "EXPIRED" | "RELEASED"
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([apiKeyId, status])
+  @@index([providerId, status])
+  @@index([expiresAt])
+}
+
 
 
 

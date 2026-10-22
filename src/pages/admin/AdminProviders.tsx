@@ -25,6 +25,13 @@ interface VendorProviderItem {
   reservedTokens?: string;
   warningThresholdTokens: string;
   criticalThresholdTokens: string;
+  discoverySource?: string;
+  discoveryStatus?: string;
+  discoveryConfidence?: string;
+  discoveredLimitTokens?: string | null;
+  discoveredRemainingTokens?: string | null;
+  lastDiscoveredAt?: string | null;
+  configuredLimitTokens?: string | null;
   modelMappingsJson?: string;
   headersJson?: string;
   lastTestedAt?: string;
@@ -663,7 +670,7 @@ export const AdminProviders: React.FC = () => {
                 className="ui-button-primary text-xs py-1.5 px-3 gap-1.5 font-mono bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs disabled:opacity-50"
               >
                 <CloudDownload className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? 'Syncing...' : 'Sync Vendor Balance'}</span>
+                <span>{syncing ? 'Discovering...' : 'Discover Provider Limits'}</span>
               </button>
             )}
             <button
@@ -676,53 +683,91 @@ export const AdminProviders: React.FC = () => {
           </div>
         </div>
 
-        {/* Master Balance KPIs */}
+        {/* Master Balance KPIs: Three-Layer Accurate Accounting */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
+          {/* Layer A Card 1: Master Upstream Limit */}
           <div className="p-4 rounded-control bg-bg border border-border space-y-1">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] text-muted uppercase font-bold">
-                {primaryProvider?.capacityModel === 'rolling_window' || balanceMetrics?.capacityModel === 'rolling_window'
-                  ? 'Available 5h Rolling Capacity'
-                  : 'Available Master Tokens'}
-              </p>
-              {(primaryProvider?.capacityModel === 'rolling_window' || balanceMetrics?.capacityModel === 'rolling_window') && (
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20">
-                  {balanceMetrics?.windowHours || primaryProvider?.windowHours || 5}H ROLLING
-                </span>
-              )}
+              <p className="text-[11px] text-muted uppercase font-bold">Master Upstream Limit</p>
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                balanceMetrics?.discoverySource === 'RATE_LIMIT_HEADERS' || balanceMetrics?.discoverySource === 'OFFICIAL_QUOTA_API'
+                  ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                  : balanceMetrics?.discoverySource === 'LOCALLY_TRACKED'
+                  ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                  : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+              }`}>
+                {balanceMetrics?.discoverySource || 'NOT_DISCOVERED'}
+              </span>
             </div>
-            <p className="text-2xl font-bold text-emerald-600">
-              {formatTokens(balanceMetrics?.availableTokens ?? primaryProvider?.availableTokens ?? 0)}
+            <p className="text-2xl font-bold text-fg">
+              {formatTokens(balanceMetrics?.windowAllowance || primaryProvider?.windowAllowance || 0)}
             </p>
             <p className="text-[10px] text-muted">
-              {primaryProvider?.capacityModel === 'rolling_window' || balanceMetrics?.capacityModel === 'rolling_window'
-                ? `Allowance: ${formatTokens(balanceMetrics?.windowAllowance || primaryProvider?.windowAllowance || 5000000)} / ${balanceMetrics?.windowHours || primaryProvider?.windowHours || 5}h (used in window: ${formatTokens(balanceMetrics?.windowTokensUsed || 0)})`
-                : 'Prepaid capacity available for customer completions'}
+              Confidence: <span className="font-semibold">{balanceMetrics?.discoveryConfidence || 'UNKNOWN'}</span>{balanceMetrics?.lastDiscoveredAt ? ` · Discovered ${new Date(balanceMetrics.lastDiscoveredAt).toLocaleTimeString()}` : ''}
             </p>
           </div>
 
+          {/* Layer A Card 2: Known Remaining Upstream Capacity */}
           <div className="p-4 rounded-control bg-bg border border-border space-y-1">
-            <p className="text-[11px] text-muted uppercase font-bold font-mono">Active 5h Entitlement Exposure</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted uppercase font-bold">Remaining Master Headroom</p>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                LAYER A HEADROOM
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-600">
+              {formatTokens(balanceMetrics?.exposure?.upstreamRemainingMasterCapacity || balanceMetrics?.availableTokens || 0)}
+            </p>
+            <p className="text-[10px] text-muted">
+              Upstream Limit minus verified consumption in current window
+            </p>
+          </div>
+
+          {/* Layer C Card 3: Active 5h Customer Entitlement Exposure */}
+          <div className="p-4 rounded-control bg-bg border border-border space-y-1">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted uppercase font-bold">Active 5H Exposure</p>
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                (balanceMetrics?.exposure?.exposureRatioPercent || 0) > 100
+                  ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                  : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'
+              }`}>
+                {balanceMetrics?.exposure?.exposureRatioPercent ?? 0}% RATIO
+              </span>
+            </div>
             <p className="text-2xl font-bold text-violet-600">
               {formatTokens(balanceMetrics?.exposure?.active5hWindowAllowance || '0')}
             </p>
-            <p className="text-[10px] text-muted">Sum of active customer 5-hour rolling allowances</p>
+            <p className="text-[10px] text-muted">
+              Potential concurrent customer demand (Headroom: {formatTokens(balanceMetrics?.exposure?.exposureHeadroomTokens || 0)})
+            </p>
           </div>
 
+          {/* Layer A & B Card 4: Consumed Upstream Tokens */}
           <div className="p-4 rounded-control bg-bg border border-border space-y-1">
-            <p className="text-[11px] text-muted uppercase font-bold font-mono">Consumed Upstream Tokens</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted uppercase font-bold">Consumed Tokens</p>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                ACTUAL USAGE
+              </span>
+            </div>
             <p className="text-2xl font-bold text-amber-600">
-              {formatTokens(balanceMetrics?.consumedTokens ?? primaryProvider?.consumedTokens ?? 0)}
+              {formatTokens(balanceMetrics?.windowTokensUsed || 0)}
             </p>
-            <p className="text-[10px] text-muted">Total tokens used by customer requests</p>
+            <p className="text-[10px] text-muted">
+              In 5h window · Lifetime: {formatTokens(balanceMetrics?.consumedTokens ?? primaryProvider?.consumedTokens ?? 0)}
+            </p>
           </div>
+        </div>
 
-          <div className="p-4 rounded-control bg-bg border border-border space-y-1">
-            <p className="text-[11px] text-muted uppercase font-bold font-mono">Lifetime Purchased Tokens</p>
-            <p className="text-2xl font-bold text-fg">
-              {formatTokens(balanceMetrics?.purchasedTokens ?? primaryProvider?.purchasedTokens ?? 0)}
+        {/* Layer C Business Scenario Explainer Note */}
+        <div className="p-3.5 rounded-control bg-violet-500/5 border border-violet-500/20 flex items-start gap-3 text-xs font-mono">
+          <Layers className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-bold text-fg">Three-Layer Token Accounting Separation Active</p>
+            <p className="text-muted leading-relaxed font-sans text-[11px]">
+              Active 5H Entitlement Exposure ({formatTokens(balanceMetrics?.exposure?.active5hWindowAllowance || '0')}) represents maximum potential concurrent demand across all active customer keys. It is monitored for capacity planning and headroom (<strong className="text-fg">{formatTokens(balanceMetrics?.exposure?.exposureHeadroomTokens || 0)} headroom remaining</strong>), and is strictly independent of Upstream Master Consumption. Remaining Upstream Master Headroom is calculated from actual verified requests ({formatTokens(balanceMetrics?.windowTokensUsed || 0)} consumed in window).
             </p>
-            <p className="text-[10px] text-muted">Total master tokens topped up across {balanceMetrics?.topUpCount || 0} top-ups</p>
           </div>
         </div>
 

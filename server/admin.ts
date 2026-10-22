@@ -13,6 +13,8 @@ import { getPaymentProvider } from './payments';
 import { generateProviderApiKey, generateRotatedKeyMaterial } from './keyService';
 import { ProviderRegistry } from './providerAdapter';
 import { VendorRenewalService } from './providers/vendorRenewalService';
+import { ProviderDiscoveryRegistry } from './providers/ProviderDiscoveryRegistry';
+import { calculateAggregateAccounting } from './accounting/aggregateAccounting';
 
 const router = Router();
 
@@ -213,6 +215,13 @@ router.get('/providers', async (req: AuthRequest, res: Response) => {
           windowTokensUsed: cap.windowTokensUsed,
           nextResetAt: cap.nextResetAt,
           windowResetSeconds: cap.windowResetSeconds,
+          discoverySource: p.discoverySource || 'NOT_DISCOVERED',
+          discoveryStatus: p.discoveryStatus || 'UNKNOWN',
+          discoveryConfidence: p.discoveryConfidence || 'UNKNOWN',
+          discoveredLimitTokens: p.discoveredLimitTokens?.toString() ?? null,
+          discoveredRemainingTokens: p.discoveredRemainingTokens?.toString() ?? null,
+          lastDiscoveredAt: p.lastDiscoveredAt?.toISOString() ?? null,
+          configuredLimitTokens: p.configuredLimitTokens?.toString() ?? null,
         };
       })
     );
@@ -287,6 +296,7 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
         purchasedTokens: initialPurchased,
         warningThresholdTokens: warningTokens,
         criticalThresholdTokens: criticalTokens,
+        configuredLimitTokens: winAllowance > BigInt(0) ? winAllowance : initialPurchased,
         notes,
         modelMappingsJson,
         headersJson,
@@ -311,6 +321,9 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
       },
     });
 
+    if (provider.masterApiKeyEncrypted) {
+      ProviderDiscoveryRegistry.discoverProvider(provider.id).catch((e) => console.warn('Provider auto-discovery error:', e));
+    }
     res.json({ success: true, providerId: provider.id });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -352,6 +365,7 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
     if (windowHours !== undefined) updateData.windowHours = Number(windowHours);
     if (windowAllowance !== undefined) {
       updateData.windowAllowance = BigInt(windowAllowance);
+      updateData.configuredLimitTokens = BigInt(windowAllowance);
       if (capacityModel === 'rolling_window' || updateData.capacityModel === 'rolling_window') {
         updateData.availableTokens = BigInt(windowAllowance);
         updateData.purchasedTokens = BigInt(windowAllowance);
@@ -707,8 +721,7 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
     const provider = await prisma.vendorProvider.findUnique({ where: { id } });
     if (!provider) return res.status(404).json({ error: { message: 'Vendor provider not found.' } });
 
-    const capacity = await checkMasterCapacity(id, 0);
-    const exposure = await calculateActiveEntitlementExposure();
+    const aggregate = await calculateAggregateAccounting(id);
 
     const topUpCount = await prisma.masterTokenLedger.count({
       where: { providerId: id, type: 'TOP_UP' },
@@ -727,21 +740,42 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
     res.json({
       providerId: provider.id,
       providerName: provider.name,
-      status: capacity.status,
+      status: aggregate.upstream.status,
       isPrimary: provider.isPrimary,
-      availableTokens: capacity.availableTokens.toString(),
-      purchasedTokens: (provider.capacityModel === 'rolling_window' && Number(provider.windowAllowance) > 0 ? provider.windowAllowance : provider.purchasedTokens).toString(),
-      consumedTokens: provider.consumedTokens.toString(),
-      reservedTokens: capacity.reservedTokens,
+      availableTokens: aggregate.upstreamRemainingMasterCapacity.toString(),
+      purchasedTokens: (aggregate.upstream.upstreamLimit !== null
+        ? aggregate.upstream.upstreamLimit
+        : (provider.capacityModel === 'rolling_window' && Number(provider.windowAllowance) > 0 ? provider.windowAllowance : provider.purchasedTokens)).toString(),
+      consumedTokens: aggregate.upstream.upstreamConsumedLifetime.toString(),
+      reservedTokens: aggregate.upstream.activeMasterReservations,
       capacityModel: provider.capacityModel,
       windowHours: provider.windowHours,
-      windowAllowance: provider.windowAllowance.toString(),
-      windowTokensUsed: capacity.windowTokensUsed,
-      nextResetAt: capacity.nextResetAt,
-      windowResetSeconds: capacity.windowResetSeconds,
+      windowAllowance: (aggregate.upstream.upstreamLimit !== null ? aggregate.upstream.upstreamLimit : provider.windowAllowance).toString(),
+      windowTokensUsed: aggregate.upstream.upstreamConsumedWindow,
+      nextResetAt: aggregate.upstream.discoveredResetAt ? aggregate.upstream.discoveredResetAt.toISOString() : null,
+      windowResetSeconds: aggregate.upstream.discoveredResetSeconds,
       warningThresholdTokens: provider.warningThresholdTokens.toString(),
       criticalThresholdTokens: provider.criticalThresholdTokens.toString(),
-      exposure,
+      // Discovery metadata
+      discoverySource: aggregate.upstream.discoverySource,
+      discoveryStatus: aggregate.upstream.discoveryStatus,
+      discoveryConfidence: aggregate.upstream.discoveryConfidence,
+      lastDiscoveredAt: aggregate.upstream.lastDiscoveredAt ? aggregate.upstream.lastDiscoveredAt.toISOString() : null,
+      // Layer C Accounting Metrics
+      exposure: {
+        activeKeyCount: aggregate.activeCustomerCount,
+        totalCustomerCount: aggregate.totalCustomerCount,
+        active5hWindowAllowance: aggregate.activeCustomer5hAllowanceExposure.toString(),
+        active5hWindowUsed: aggregate.aggregateWindowTokensConsumed.toString(),
+        active5hWindowRemaining: Math.max(0, aggregate.activeCustomer5hAllowanceExposure - aggregate.aggregateWindowTokensConsumed).toString(),
+        theoretical30DayExposure: aggregate.theoretical30DayExposure.toString(),
+        upstreamRemainingMasterCapacity: aggregate.upstreamRemainingMasterCapacity.toString(),
+        exposureHeadroomTokens: aggregate.exposureHeadroomTokens.toString(),
+        exposureRatioPercent: aggregate.exposureRatioPercent,
+        utilizationRatioPercent: aggregate.utilizationRatioPercent,
+        unreconciledOrUnknownTokens: aggregate.unreconciledOrUnknownTokens.toString(),
+        isOversubscribed: aggregate.isOversubscribed,
+      },
       topUpCount,
       lastTopUpAt: lastTopUp?.createdAt || null,
       lastUsageAt: lastUsage?.createdAt || null,
@@ -751,324 +785,43 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
   }
 });
 
-// Helper to recursively scan any JSON object for quota/token/balance values
-function scanObjectForBalance(obj: any): { total?: number; used?: number; remaining?: number } | null {
-  if (!obj || typeof obj !== 'object') return null;
-
-  let total: number | undefined;
-  let used: number | undefined;
-  let remaining: number | undefined;
-
-  const keys = Object.keys(obj);
-  for (const k of keys) {
-    const lk = k.toLowerCase();
-    const val = obj[k];
-
-    // IGNORE per-message completion usage fields (prompt_tokens, completion_tokens, total_tokens)
-    if (lk === 'prompt_tokens' || lk === 'completion_tokens' || lk === 'total_tokens') {
-      continue;
-    }
-
-    if (typeof val === 'number' && !isNaN(val)) {
-      if (lk === 'remain_quota' || lk === 'remaining_quota' || lk === 'tokens_remaining' || lk === 'remaining_tokens' || lk === 'balance_tokens' || lk === 'available_tokens') {
-        remaining = val;
-      } else if (lk === 'total_quota' || lk === 'token_limit' || lk === 'purchased_tokens' || lk === 'quota') {
-        total = val;
-      } else if (lk === 'used_quota' || lk === 'consumed_tokens' || lk === 'used_tokens') {
-        used = val;
-      } else if (lk === 'balance' || lk === 'credits' || lk === 'remaining_credits') {
-        // If dollar amount (e.g. 100.0), convert $1 to 500,000 tokens if small
-        remaining = val < 10000 ? val * 500000 : val;
-      }
-    } else if (typeof val === 'string') {
-      const num = Number(val);
-      if (!isNaN(num) && num > 0) {
-        if (lk.includes('remain') || lk.includes('balance') || lk.includes('available')) {
-          remaining = num < 10000 ? num * 500000 : num;
-        } else if (lk.includes('quota') || lk.includes('limit')) {
-          total = num < 10000 ? num * 500000 : num;
-        }
-      }
-    } else if (typeof val === 'object' && val !== null) {
-      const sub = scanObjectForBalance(val);
-      if (sub) {
-        if (sub.total !== undefined && total === undefined) total = sub.total;
-        if (sub.used !== undefined && used === undefined) used = sub.used;
-        if (sub.remaining !== undefined && remaining === undefined) remaining = sub.remaining;
-      }
-    }
-  }
-
-  if (total !== undefined || used !== undefined || remaining !== undefined) {
-    return { total, used, remaining };
-  }
-  return null;
-}
-
-// POST /admin/providers/:id/sync-balance — Fetch real balance from vendor API and sync into DB
-router.post('/providers/:id/sync-balance', async (req: AuthRequest, res: Response) => {
+// POST /admin/providers/:id/sync-balance & /admin/providers/:id/discover — Authoritative Capability Discovery
+router.post(['/providers/:id/sync-balance', '/providers/:id/discover'], async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   try {
+    const discovery = await ProviderDiscoveryRegistry.discoverProvider(id);
     const provider = await prisma.vendorProvider.findUnique({ where: { id } });
-    if (!provider) return res.status(404).json({ error: { message: 'Vendor provider not found.' } });
 
-    const masterKey = decryptText(provider.masterApiKeyEncrypted);
-    if (!masterKey) return res.status(400).json({ error: { message: 'No master API key configured for this vendor.' } });
-
-    const baseUrl = provider.baseUrl.replace(/\/$/, '');
-
-    // Build auth headers for both standard Anthropic & Bearer token formats
-    const headersAnthropic: Record<string, string> = {
-      'x-api-key': masterKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    };
-    const headersBearer: Record<string, string> = {
-      'Authorization': `Bearer ${masterKey}`,
-      'Content-Type': 'application/json',
-    };
-    const headersBoth: Record<string, string> = {
-      ...headersAnthropic,
-      'Authorization': `Bearer ${masterKey}`,
-    };
-
-    // Endpoints to probe — Put /v1/usage & user self at top
-    const endpointsToTry = [
-      { path: '/v1/usage', method: 'GET', headers: headersBoth },
-      { path: '/api/user/self', method: 'GET', headers: headersBoth },
-      { path: '/api/key/self', method: 'GET', headers: headersBoth },
-      { path: '/v1/user/self', method: 'GET', headers: headersBoth },
-      { path: '/v1/key/self', method: 'GET', headers: headersBoth },
-      { path: '/api/user/info', method: 'GET', headers: headersBoth },
-      { path: '/v1/user/info', method: 'GET', headers: headersBoth },
-      { path: '/v1/credits', method: 'GET', headers: headersBoth },
-      { path: '/v1/balance', method: 'GET', headers: headersBoth },
-      { path: '/api/balance', method: 'GET', headers: headersBoth },
-      { path: '/api/credits', method: 'GET', headers: headersBoth },
-      { path: '/api/usage', method: 'GET', headers: headersBoth },
-      { path: '/v1/dashboard/billing/credit_grants', method: 'GET', headers: headersBoth },
-      { path: '/v1/dashboard/billing/subscription', method: 'GET', headers: headersBoth },
-      { path: '/v1/models', method: 'GET', headers: headersBoth },
-    ];
-
-    let vendorBalance: {
-      totalTokens?: number;
-      usedTokens?: number;
-      remainingTokens?: number;
-      rawResponse?: any;
-      endpoint?: string;
-    } | null = null;
-
-    const probeResults: Array<{ path: string; method: string; status: number; body?: any; headers?: Record<string, string> }> = [];
-
-    // 1. Probe GET Endpoints
-    for (const ep of endpointsToTry) {
-      try {
-        const upstreamRes = await fetch(`${baseUrl}${ep.path}`, {
-          method: ep.method,
-          headers: ep.headers,
-        });
-
-        const status = upstreamRes.status;
-
-        // Capture interesting balance headers
-        const resHeaders: Record<string, string> = {};
-        upstreamRes.headers.forEach((v, k) => {
-          const lk = k.toLowerCase();
-          if (lk.includes('token') || lk.includes('balance') || lk.includes('credit') || lk.includes('quota') || lk.includes('limit') || lk.includes('remaining')) {
-            resHeaders[k] = v;
-          }
-        });
-
-        if (status === 404 || status === 405) {
-          probeResults.push({ path: ep.path, method: ep.method, status, headers: resHeaders });
-          continue;
-        }
-
-        let body: any;
-        try {
-          body = await upstreamRes.json();
-        } catch {
-          const text = await upstreamRes.text();
-          body = { rawText: text.substring(0, 500) };
-        }
-
-        probeResults.push({ path: ep.path, method: ep.method, status, body, headers: resHeaders });
-
-        // Inspect response headers specifically for TOKEN remaining / quota (EXCLUDING request counters)
-        for (const [hk, hv] of Object.entries(resHeaders)) {
-          const lk = hk.toLowerCase();
-          // STRICT FILTER: Ignore RPM / request counters like x-ratelimit-remaining-requests!
-          if (lk.includes('request') || lk.includes('req') || lk.includes('rpm') || lk.includes('reset')) {
-            continue;
-          }
-
-          const num = Number(hv);
-          if (!isNaN(num) && num > 0) {
-            if (lk.includes('remaining-tokens') || lk.includes('token') || lk.includes('quota') || lk.includes('balance')) {
-              vendorBalance = { remainingTokens: num < 10000 ? num * 500000 : num, endpoint: `${ep.path} (Header: ${hk})` };
-              break;
-            }
-          }
-        }
-
-        // Inspect body if 200 OK and no header balance found yet
-        if (status === 200 && body && !vendorBalance) {
-          const extracted = scanObjectForBalance(body);
-          if (extracted && (extracted.total !== undefined || extracted.remaining !== undefined || extracted.used !== undefined)) {
-            vendorBalance = {
-              totalTokens: extracted.total,
-              usedTokens: extracted.used,
-              remainingTokens: extracted.remaining,
-              rawResponse: body,
-              endpoint: ep.path,
-            };
-          }
-        }
-      } catch (err: any) {
-        probeResults.push({ path: ep.path, method: ep.method, status: 0, body: { error: err.message } });
-      }
-    }
-
-    // 2. If no GET endpoint returned a balance, probe minimal 1-token completion to inspect response headers & body metadata
-    if (!vendorBalance) {
-      const completionProbes = [
-        {
-          path: '/v1/messages',
-          body: { model: 'claude-3-5-sonnet-20241022', max_tokens: 1, messages: [{ role: 'user', content: 'h' }] },
-          headers: headersBoth,
-        },
-        {
-          path: '/v1/chat/completions',
-          body: { model: 'claude-3-5-sonnet-20241022', max_tokens: 1, messages: [{ role: 'user', content: 'h' }] },
-          headers: headersBoth,
-        },
-      ];
-
-      for (const cp of completionProbes) {
-        try {
-          const upstreamRes = await fetch(`${baseUrl}${cp.path}`, {
-            method: 'POST',
-            headers: cp.headers,
-            body: JSON.stringify(cp.body),
-          });
-
-          const status = upstreamRes.status;
-          const resHeaders: Record<string, string> = {};
-          upstreamRes.headers.forEach((v, k) => {
-            const lk = k.toLowerCase();
-            if (lk.includes('token') || lk.includes('balance') || lk.includes('credit') || lk.includes('quota') || lk.includes('limit') || lk.includes('remaining')) {
-              resHeaders[k] = v;
-            }
-          });
-
-          let body: any;
-          try {
-            body = await upstreamRes.json();
-          } catch {
-            const text = await upstreamRes.text();
-            body = { rawText: text.substring(0, 500) };
-          }
-
-          probeResults.push({ path: `${cp.path} (Test Completion Probe)`, method: 'POST', status, body, headers: resHeaders });
-
-          // Inspect headers on completion probe (excluding request counters)
-          for (const [hk, hv] of Object.entries(resHeaders)) {
-            const lk = hk.toLowerCase();
-            if (lk.includes('request') || lk.includes('req') || lk.includes('rpm') || lk.includes('reset')) {
-              continue;
-            }
-            const num = Number(hv);
-            if (!isNaN(num) && num > 0) {
-              if (lk.includes('remaining-tokens') || lk.includes('quota') || lk.includes('balance') || lk.includes('token')) {
-                vendorBalance = { remainingTokens: num < 10000 ? num * 500000 : num, endpoint: `${cp.path} (Completion Header: ${hk})` };
-                break;
-              }
-            }
-          }
-
-          // NOTE: Do NOT scan completion probe body for balance!
-          // Completion response bodies ONLY contain request-specific usage (e.g. usage: { total_tokens: 292 }), NEVER total account quota!
-        } catch (err: any) {
-          probeResults.push({ path: cp.path, method: 'POST', status: 0, body: { error: err.message } });
-        }
-      }
-    }
-
-    // If balance was successfully auto-detected and extracted:
-    if (vendorBalance && (vendorBalance.totalTokens || vendorBalance.remainingTokens)) {
-      const syncedTotal = BigInt(vendorBalance.totalTokens || vendorBalance.remainingTokens || 0);
-      const syncedUsed = BigInt(vendorBalance.usedTokens || 0);
-      const syncedAvailable = vendorBalance.remainingTokens !== undefined
-        ? BigInt(vendorBalance.remainingTokens)
-        : syncedTotal - syncedUsed;
-
-      // Update vendor provider in DB
-      await prisma.vendorProvider.update({
-        where: { id },
-        data: {
-          availableTokens: syncedAvailable,
-          purchasedTokens: syncedTotal > 0 ? syncedTotal : syncedAvailable,
-          consumedTokens: syncedUsed,
-          status: 'connected',
-          lastTestedAt: new Date(),
-        },
-      });
-
-      // Update / Create MasterTokenLedger entry
-      const existingLedgerCount = await prisma.masterTokenLedger.count({
-        where: { providerId: id },
-      });
-
-      if (existingLedgerCount === 0) {
-        await prisma.masterTokenLedger.create({
-          data: {
-            providerId: id,
-            type: 'INITIAL_ALLOCATION',
-            amount: syncedAvailable,
-            balanceAfter: syncedAvailable,
-            reference: `VENDOR_AUTO_SYNC_${new Date().toISOString()}`,
-            notes: `Auto-synced from vendor API ${vendorBalance.endpoint}. Total: ${syncedTotal.toString()}, Available: ${syncedAvailable.toString()}`,
-            adminUserId: req.user?.id || null,
-          },
-        });
-      } else {
-        await prisma.masterTokenLedger.create({
-          data: {
-            providerId: id,
-            type: 'ADJUSTMENT',
-            amount: syncedAvailable - provider.availableTokens,
-            balanceAfter: syncedAvailable,
-            reference: `VENDOR_RESYNC_${new Date().toISOString()}`,
-            notes: `Re-synced from vendor API ${vendorBalance.endpoint}. Previous: ${provider.availableTokens.toString()}, New: ${syncedAvailable.toString()}`,
-            adminUserId: req.user?.id || null,
-          },
-        });
-      }
-
-      return res.json({
-        success: true,
-        synced: true,
-        balance: {
-          totalTokens: syncedTotal.toString(),
-          usedTokens: syncedUsed.toString(),
-          availableTokens: syncedAvailable.toString(),
-          source: vendorBalance.endpoint,
-        },
-        probeResults,
-      });
-    }
-
-    const isRolling = provider.capacityModel === 'rolling_window' || Number(provider.windowAllowance) > 0;
-    const allowanceDisplay = (Number(provider.windowAllowance || provider.purchasedTokens || 5000000) / 1000000).toFixed(2);
-
-    return res.json({
-      success: false,
-      synced: false,
-      message: isRolling
-        ? `Vendor API connection verified (HTTP 200). Provider operates on a ${provider.windowHours || 5}-hour rolling window model (${allowanceDisplay}M allowance); tokens are automatically tracked and renewed via rolling window metrics.`
-        : 'Probed vendor API endpoints & completion headers. Vendor does not expose public billing endpoints or balance headers. Balance can be managed in Provider Settings or Master Top-Up.',
-      probeResults,
+    res.json({
+      success: discovery.status !== 'UNAVAILABLE',
+      synced: discovery.status === 'VERIFIED' || discovery.status === 'LOCALLY_TRACKED',
+      discovery: {
+        limitTokens: discovery.limitTokens?.toString() ?? null,
+        consumedTokens: discovery.consumedTokens?.toString() ?? null,
+        remainingTokens: discovery.remainingTokens?.toString() ?? null,
+        resetAt: discovery.resetAt?.toISOString() ?? null,
+        resetSeconds: discovery.resetSeconds,
+        source: discovery.source,
+        status: discovery.status,
+        confidence: discovery.confidence,
+        lastDiscoveredAt: discovery.lastDiscoveredAt.toISOString(),
+        error: discovery.error || null,
+        metadata: discovery.metadata || {},
+      },
+      provider: provider ? {
+        id: provider.id,
+        name: provider.name,
+        availableTokens: provider.availableTokens.toString(),
+        consumedTokens: provider.consumedTokens.toString(),
+        discoveryStatus: provider.discoveryStatus,
+        discoverySource: provider.discoverySource,
+        discoveryConfidence: provider.discoveryConfidence,
+      } : null,
+      message: discovery.status === 'VERIFIED'
+        ? `Provider limits discovered from official headers/API (${discovery.source}). Remaining: ${discovery.remainingTokens?.toLocaleString()} tokens.`
+        : discovery.status === 'LOCALLY_TRACKED'
+        ? `Provider capacity tracked locally against verified requests (${discovery.source}, ${discovery.confidence} confidence).`
+        : discovery.error || 'Provider discovery completed.',
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

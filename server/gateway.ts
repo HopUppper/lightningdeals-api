@@ -6,6 +6,8 @@ import { buildProviderRequest, normalizeProviderResponse } from './providerAdapt
 import { validateVendorBaseUrl } from './ssrf';
 import { checkMasterCapacity, reserveMasterTokens, releaseMasterReservation, settleMasterUsage } from './masterLedger';
 import { recordAuditEvent } from './auditLogger';
+import { ProviderDiscoveryRegistry } from './providers/ProviderDiscoveryRegistry';
+import { settleReservation } from './accounting/tokenReservation';
 
 const rateLimitMap = new Map<string, number[]>();
 
@@ -922,6 +924,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   }
 
   const friendlyModel = getFriendlyModelName(model);
+  const idempotencyKey = ((req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || '') as string).trim();
 
   // Authoritative Provider Resolution (ApiKey.providerId -> VendorProvider)
   const providerResolution = await resolveProviderForApiKey(keyRecord);
@@ -1528,6 +1531,8 @@ export async function updateTokensAndLog({
   model,
   inputTokens,
   outputTokens,
+  cachedTokens = 0,
+  reasoningTokens = 0,
   totalTokens,
   latencyMs,
   streaming,
@@ -1537,11 +1542,15 @@ export async function updateTokensAndLog({
   clientPlatform,
   userAgent,
   ipAddress,
+  idempotencyKey,
+  requestId,
 }: {
   keyRecord: any;
   model: string;
   inputTokens: number;
   outputTokens: number;
+  cachedTokens?: number;
+  reasoningTokens?: number;
   totalTokens: number;
   latencyMs: number;
   streaming: boolean;
@@ -1551,8 +1560,30 @@ export async function updateTokensAndLog({
   clientPlatform?: string;
   userAgent?: string;
   ipAddress?: string;
+  idempotencyKey?: string;
+  requestId?: string;
 }) {
   try {
+    // 1. Idempotency Check: if this idempotency key was already processed for this key, return early
+    if (idempotencyKey) {
+      const existingReq = await prisma.apiRequest.findFirst({
+        where: { apiKeyId: keyRecord.id, idempotencyKey },
+      });
+      if (existingReq) {
+        if (requestId) await settleReservation(requestId);
+        return;
+      }
+    }
+
+    // 2. Check if key is a rolling window plan
+    const planLower = (keyRecord.plan || '').toLowerCase();
+    const isRolling = keyRecord.windowHours > 0 ||
+      planLower.includes('max') ||
+      planLower.includes('pro') ||
+      planLower.includes('ultra') ||
+      planLower.includes('rolling') ||
+      planLower.includes('claude');
+
     await prisma.$transaction(async (tx) => {
       // Re-fetch current authoritative key record inside transaction to prevent concurrency lost updates
       const currentKey = await tx.apiKey.findUnique({
@@ -1575,7 +1606,8 @@ export async function updateTokensAndLog({
         where: { id: keyRecord.id },
         data: {
           tokensUsed: { increment: tokensUsedBig },
-          tokensRemaining: { decrement: tokensUsedBig },
+          // For rolling-window plans, do NOT permanently decrement tokensRemaining
+          ...(!isRolling && { tokensRemaining: { decrement: tokensUsedBig } }),
           totalRequests: { increment: 1 },
           totalInputTokens: { increment: BigInt(inputTokens) },
           totalOutputTokens: { increment: BigInt(outputTokens) },
@@ -1609,6 +1641,9 @@ export async function updateTokensAndLog({
           statusCode: 200,
           inputTokens,
           outputTokens,
+          cachedTokens: cachedTokens || 0,
+          reasoningTokens: reasoningTokens || 0,
+          idempotencyKey: idempotencyKey || null,
           totalTokens,
           latencyMs,
           streaming,
@@ -1633,6 +1668,9 @@ export async function updateTokensAndLog({
       });
     }
 
+    if (requestId) {
+      await settleReservation(requestId);
+    }
   } catch (err) {
     console.error('Error recording token deduction:', err);
   }

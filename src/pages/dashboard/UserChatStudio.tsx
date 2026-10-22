@@ -82,6 +82,10 @@ import {
   ContextActivityPanel,
   StudioActivityEvent,
 } from '../../components/chat/ContextActivityPanel';
+import { StudioOnboardingGuide } from '../../components/chat/StudioOnboardingGuide';
+import { DocumentGeneratorModal } from '../../components/chat/DocumentGeneratorModal';
+import { MediaGenerationModal } from '../../components/chat/MediaGenerationModal';
+import { FileSpreadsheet, HelpCircle, Compass, FolderKanban } from 'lucide-react';
 
 export interface ChatAttachment {
   name: string;
@@ -469,6 +473,14 @@ export const UserChatStudio: React.FC = () => {
 
   // Persistent Memories
   const [userMemories, setUserMemories] = useState<ProjectMemoryItem[]>([]);
+
+  // Onboarding, Document Generator & Media Studio Modals
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(() => {
+    return !localStorage.getItem('lightning_studio_onboarding_completed_v2');
+  });
+  const [isDocGenOpen, setIsDocGenOpen] = useState(false);
+  const [isMediaGenOpen, setIsMediaGenOpen] = useState(false);
+  const [sidebarSection, setSidebarSection] = useState<'workspace' | 'library'>('workspace');
 
   // Upgrade Modal
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -2100,28 +2112,28 @@ export const UserChatStudio: React.FC = () => {
     };
   }, [activeThread.messages, inputMessage, activeModelMeta]);
 
-  // Style Tokens & Palettes
+  // Style Tokens & Palettes - Studio 2.0 Warm Ivory & Obsidian Dark
   const c = {
-    bg: isDark ? 'bg-[#0B1020]' : 'bg-[#F8FAFC]',
-    text: isDark ? 'text-[#F3F5FC]' : 'text-[#0F172A]',
-    textSecondary: isDark ? 'text-[#A5B0C7]' : 'text-[#475569]',
-    textMuted: isDark ? 'text-[#77839E]' : 'text-[#64748B]',
+    bg: isDark ? 'bg-[#0B1020]' : 'bg-[#FAF8F5]',
+    text: isDark ? 'text-[#F3F5FC]' : 'text-[#171717]',
+    textSecondary: isDark ? 'text-[#A5B0C7]' : 'text-[#625F5A]',
+    textMuted: isDark ? 'text-[#77839E]' : 'text-[#8E8A83]',
     headerBg: isDark
       ? 'bg-[#0E1425]/95 border-b border-[#28334B]'
-      : 'bg-white/95 border-b border-[#E2E8F0] shadow-2xs',
-    sidebarBg: isDark ? 'bg-[#0E1425]' : 'bg-[#FFFFFF]',
-    sidebarBorder: isDark ? 'border-[#28334B]' : 'border-[#E2E8F0]',
+      : 'bg-white/95 border-b border-[#E9E4DD] shadow-2xs',
+    sidebarBg: isDark ? 'bg-[#0E1425]' : 'bg-[#FAF8F5]',
+    sidebarBorder: isDark ? 'border-[#28334B]' : 'border-[#E9E4DD]',
     cardBg: isDark ? 'bg-[#141C30]' : 'bg-[#FFFFFF]',
-    elevatedBg: isDark ? 'bg-[#19233A]' : 'bg-[#F1F5F9]',
-    border: isDark ? 'border-[#28334B]' : 'border-[#E2E8F0]',
-    borderSubtle: isDark ? 'border-[#28334B]/60' : 'border-[#E2E8F0]/80',
+    elevatedBg: isDark ? 'bg-[#19233A]' : 'bg-[#F5F2EE]',
+    border: isDark ? 'border-[#28334B]' : 'border-[#E9E4DD]',
+    borderSubtle: isDark ? 'border-[#28334B]/60' : 'border-[#E9E4DD]/70',
     inputBg: isDark ? 'bg-[#141C30]' : 'bg-[#FFFFFF]',
     pillBg: isDark
       ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:text-[#F3F5FC] hover:border-violet-500/40'
-      : 'bg-[#F1F5F9] border-[#E2E8F0] text-[#475569] hover:text-[#0F172A] hover:border-violet-500/40',
+      : 'bg-[#F5F2EE] border-[#E9E4DD] text-[#625F5A] hover:text-[#171717] hover:border-violet-500/40',
     userBubble: isDark
       ? 'bg-[#19233A] border border-violet-500/30 text-[#F3F5FC] shadow-sm'
-      : 'bg-violet-50/80 border border-violet-200 text-slate-900 shadow-2xs',
+      : 'bg-[#F3ECFF] border border-[#E4D4FF] text-[#171717] shadow-2xs',
   };
 
   return (
@@ -2324,180 +2336,329 @@ export const UserChatStudio: React.FC = () => {
             {toolsMenuOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setToolsMenuOpen(false)} />
-                <div className={`absolute right-0 mt-2 z-40 w-72 rounded-2xl border shadow-2xl p-2 space-y-1 ${c.cardBg} ${c.border} animate-fadeIn`}>
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-black/5 dark:border-white/5">
-                    Studio Capabilities & Controls
+                <div className={`absolute right-0 mt-2 z-40 w-80 max-h-[85vh] overflow-y-auto rounded-2xl border shadow-2xl p-2.5 space-y-2.5 ${c.cardBg} ${c.border} animate-fadeIn`}>
+                  {/* Category 1: Write & Create */}
+                  <div className="space-y-1">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center justify-between">
+                      <span>Write & Create</span>
+                      <Sparkles className="w-3 h-3 opacity-60" />
+                    </div>
+
+                    {/* Document Generator */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        setIsDocGenOpen(true);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <FileSpreadsheet className="w-4 h-4 text-blue-500" />
+                        <div>
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <span>Document Generator</span>
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                              Word/Excel/PDF
+                            </span>
+                          </p>
+                          <p className={`text-[10px] ${c.textMuted}`}>OpenXML .docx, .xlsx & vector PDF</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                        Open
+                      </span>
+                    </button>
+
+                    {/* Media Generation Studio */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        setIsMediaGenOpen(true);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ImageIcon className="w-4 h-4 text-purple-500" />
+                        <div>
+                          <p className="font-semibold">Media Generation</p>
+                          <p className={`text-[10px] ${c.textMuted}`}>Aspect ratios & vector synthesis</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                        Studio
+                      </span>
+                    </button>
                   </div>
 
-                  {/* Thinking Mode Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!activeModelMeta?.supportsThinking) {
-                        alert(`Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}. Select Claude 3.7 Sonnet or Claude Sonnet 5.5 to enable Thinking.`);
-                        return;
-                      }
-                      updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled });
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                      !activeModelMeta?.supportsThinking ? 'opacity-40 cursor-not-allowed' : 'hover:bg-violet-500/10'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Brain className={`w-4 h-4 ${activeThread.thinkingEnabled ? 'text-amber-400' : 'text-slate-400'}`} />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                          <span>Thinking Mode</span>
-                          {activeThread.thinkingEnabled && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
-                        </p>
-                        <p className={`text-[10px] ${c.textMuted}`}>Extended deliberative reasoning</p>
-                      </div>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      activeThread.thinkingEnabled ? 'bg-amber-500/20 text-amber-300' : 'bg-black/10 dark:bg-white/10 text-slate-400'
-                    }`}>
-                      {activeThread.thinkingEnabled ? 'ON' : 'OFF'}
-                    </span>
-                  </button>
+                  <div className="border-t border-black/5 dark:border-white/5" />
 
-                  {/* Token-Saver Optimization Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => updateActiveThread({ tokenSaverEnabled: !activeThread.tokenSaverEnabled })}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Zap className={`w-4 h-4 ${activeThread.tokenSaverEnabled ? 'text-emerald-400' : 'text-slate-400'}`} />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                          <span>Token-Saver</span>
-                          {activeThread.tokenSaverEnabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                        </p>
-                        <p className={`text-[10px] ${c.textMuted}`}>Optimized diffs & concise tokens</p>
-                      </div>
+                  {/* Category 2: Analyze */}
+                  <div className="space-y-1">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                      <span>Analyze</span>
+                      <Search className="w-3 h-3 opacity-60" />
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      activeThread.tokenSaverEnabled ? 'bg-emerald-500/20 text-emerald-300' : 'bg-black/10 dark:bg-white/10 text-slate-400'
-                    }`}>
-                      {activeThread.tokenSaverEnabled ? 'ON' : 'OFF'}
-                    </span>
-                  </button>
 
-                  {/* Project Memory Drawer */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setToolsMenuOpen(false);
-                      setContextManagerOpen(true);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <SlidersHorizontal className="w-4 h-4 text-violet-400" />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">Project Memory</p>
-                        <p className={`text-[10px] ${c.textMuted}`}>{userMemories.length} active persistent facts</p>
+                    {/* Web Search & Research Mode */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextMode = researchMode === 'web_search' ? 'standard' : 'web_search';
+                        setResearchMode(nextMode);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Globe className={`w-4 h-4 ${researchMode === 'web_search' ? 'text-emerald-500' : 'text-slate-400'}`} />
+                        <div>
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <span>Web Search</span>
+                            {researchMode === 'web_search' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+                          </p>
+                          <p className={`text-[10px] ${c.textMuted}`}>Live citations & search grounding</p>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-500/20 text-violet-300">
-                      Manage
-                    </span>
-                  </button>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        researchMode === 'web_search' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-black/10 dark:bg-white/10 text-slate-400'
+                      }`}>
+                        {researchMode === 'web_search' ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
 
-                  {/* Interactive Artifact Canvas Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setToolsMenuOpen(false);
-                      if (activeArtifact) {
-                        setActiveArtifact(null);
-                      } else {
-                        setActiveArtifact({
-                          id: 'studio_canvas',
-                          title: 'Interactive Studio Canvas',
-                          language: 'html',
-                          code: `<div style="font-family:system-ui;padding:24px;text-align:center;">\n  <h2 style="color:#8b5cf6;margin-bottom:8px;">Live Sandboxed Preview</h2>\n  <p style="color:#94a3b8;font-size:14px;">Any code generated by Claude can be rendered live here in real time.</p>\n</div>`,
-                          type: 'html',
-                        });
-                      }
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Eye className="w-4 h-4 text-blue-400" />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">Artifact Canvas</p>
-                        <p className={`text-[10px] ${c.textMuted}`}>{activeArtifact ? 'Panel currently open' : 'Open sandbox viewer'}</p>
+                    {/* Document & Vision Upload */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Paperclip className="w-4 h-4 text-slate-400" />
+                        <div>
+                          <p className="font-semibold">Document & Vision Upload</p>
+                          <p className={`text-[10px] ${c.textMuted}`}>PDF, Word, Code, or Images</p>
+                        </div>
                       </div>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      activeArtifact ? 'bg-blue-500/20 text-blue-300' : 'bg-black/10 dark:bg-white/10 text-slate-400'
-                    }`}>
-                      {activeArtifact ? 'Open' : 'View'}
-                    </span>
-                  </button>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 text-slate-400">
+                        Upload
+                      </span>
+                    </button>
+                  </div>
 
-                  {/* Workspace Skills Modal Trigger */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setToolsMenuOpen(false);
-                      setIsSkillsModalOpen(true);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Sparkles className="w-4 h-4 text-purple-400" />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">Agent Skills</p>
-                        <p className={`text-[10px] ${c.textMuted}`}>{activeSkillIds.length} skills enabled</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
-                      {activeSkillIds.length}
-                    </span>
-                  </button>
+                  <div className="border-t border-black/5 dark:border-white/5" />
 
-                  {/* Conversation Export Options */}
-                  {activeThread.messages.length > 0 && (
-                    <div className="pt-1 border-t border-black/5 dark:border-white/5 space-y-0.5">
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Export Session
-                      </div>
-                      <div className="grid grid-cols-3 gap-1 px-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setToolsMenuOpen(false);
-                            handleExportThread('markdown');
-                          }}
-                          className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
-                        >
-                          .MD
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setToolsMenuOpen(false);
-                            handleExportThread('json');
-                          }}
-                          className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
-                        >
-                          .JSON
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setToolsMenuOpen(false);
-                            handleExportThread('text');
-                          }}
-                          className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
-                        >
-                          .TXT
-                        </button>
-                      </div>
+                  {/* Category 3: Build */}
+                  <div className="space-y-1">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center justify-between">
+                      <span>Build</span>
+                      <Layers className="w-3 h-3 opacity-60" />
                     </div>
-                  )}
+
+                    {/* Interactive Artifact Canvas Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        if (activeArtifact) {
+                          setActiveArtifact(null);
+                        } else {
+                          setActiveArtifact({
+                            id: 'studio_canvas',
+                            title: 'Interactive Studio Canvas',
+                            language: 'html',
+                            code: `<div style="font-family:system-ui;padding:24px;text-align:center;">\n  <h2 style="color:#7C3AED;margin-bottom:8px;">Live Sandboxed Preview</h2>\n  <p style="color:#625F5A;font-size:14px;">Any code or visual output generated by Claude is rendered live here in real time.</p>\n</div>`,
+                            type: 'html',
+                          });
+                        }
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Eye className="w-4 h-4 text-blue-500" />
+                        <div>
+                          <p className="font-semibold">Artifact Canvas</p>
+                          <p className={`text-[10px] ${c.textMuted}`}>{activeArtifact ? 'Panel currently open' : 'Open sandbox viewer'}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        activeArtifact ? 'bg-blue-500/20 text-blue-500' : 'bg-black/10 dark:bg-white/10 text-slate-400'
+                      }`}>
+                        {activeArtifact ? 'Open' : 'View'}
+                      </span>
+                    </button>
+
+                    {/* Workspace Skills Modal Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        setIsSkillsModalOpen(true);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Sparkles className="w-4 h-4 text-purple-500" />
+                        <div>
+                          <p className="font-semibold">Agent Skills</p>
+                          <p className={`text-[10px] ${c.textMuted}`}>{activeSkillIds.length} skills enabled</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-600 dark:text-purple-400">
+                        {activeSkillIds.length}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-black/5 dark:border-white/5" />
+
+                  {/* Category 4: Manage */}
+                  <div className="space-y-1">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center justify-between">
+                      <span>Manage</span>
+                      <SlidersHorizontal className="w-3 h-3 opacity-60" />
+                    </div>
+
+                    {/* Thinking Mode Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!activeModelMeta?.supportsThinking) {
+                          alert(`Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}. Select Claude 3.7 Sonnet or Claude Sonnet 5.5 to enable Thinking.`);
+                          return;
+                        }
+                        updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled });
+                      }}
+                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                        !activeModelMeta?.supportsThinking ? 'opacity-40 cursor-not-allowed' : 'hover:bg-violet-500/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Brain className={`w-4 h-4 ${activeThread.thinkingEnabled ? 'text-amber-500' : 'text-slate-400'}`} />
+                        <div>
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <span>Thinking Mode</span>
+                            {activeThread.thinkingEnabled && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
+                          </p>
+                          <p className={`text-[10px] ${c.textMuted}`}>Extended deliberative reasoning</p>
+                        </div>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        activeThread.thinkingEnabled ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300' : 'bg-black/10 dark:bg-white/10 text-slate-400'
+                      }`}>
+                        {activeThread.thinkingEnabled ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+
+                    {/* Token-Saver Optimization Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => updateActiveThread({ tokenSaverEnabled: !activeThread.tokenSaverEnabled })}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Zap className={`w-4 h-4 ${activeThread.tokenSaverEnabled ? 'text-emerald-500' : 'text-slate-400'}`} />
+                        <div>
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <span>Token-Saver</span>
+                            {activeThread.tokenSaverEnabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                          </p>
+                          <p className={`text-[10px] ${c.textMuted}`}>Optimized diffs & concise tokens</p>
+                        </div>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        activeThread.tokenSaverEnabled ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300' : 'bg-black/10 dark:bg-white/10 text-slate-400'
+                      }`}>
+                        {activeThread.tokenSaverEnabled ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+
+                    {/* Contextual Memory Preferences */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        setContextManagerOpen(true);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Brain className="w-4 h-4 text-violet-500" />
+                        <div>
+                          <p className="font-semibold">Contextual Memory</p>
+                          <p className={`text-[10px] ${c.textMuted}`}>{userMemories.length} active preferences</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                        Preferences
+                      </span>
+                    </button>
+
+                    {/* Guided Onboarding Walkthrough */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        setIsOnboardingOpen(true);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Compass className="w-4 h-4 text-indigo-500" />
+                        <div>
+                          <p className="font-semibold">Onboarding Tour</p>
+                          <p className={`text-[10px] ${c.textMuted}`}>Replay 6-step walkthrough</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                        Tour
+                      </span>
+                    </button>
+
+                    {/* Conversation Export Options */}
+                    {activeThread.messages.length > 0 && (
+                      <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-1">
+                        <div className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Export Session
+                        </div>
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setToolsMenuOpen(false);
+                              handleExportThread('markdown');
+                            }}
+                            className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
+                          >
+                            .MD
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setToolsMenuOpen(false);
+                              handleExportThread('json');
+                            }}
+                            className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
+                          >
+                            .JSON
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setToolsMenuOpen(false);
+                              handleExportThread('text');
+                            }}
+                            className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
+                          >
+                            .TXT
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -2520,145 +2681,207 @@ export const UserChatStudio: React.FC = () => {
         {/* Left: Collapsible Sessions Sidebar */}
         {sidebarOpen && (
           <aside className={`w-64 sm:w-72 border-r ${c.sidebarBorder} ${c.sidebarBg} flex flex-col shrink-0 h-full overflow-hidden text-xs`}>
-            {/* New Session Button */}
-            <div className="p-3 border-b border-black/5 dark:border-white/5 shrink-0">
+            {/* 1. CREATE SECTION */}
+            <div className="p-3 border-b border-black/5 dark:border-white/5 shrink-0 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 px-1">
+                <span>Create</span>
+                <Sparkles className="w-3 h-3 opacity-60" />
+              </div>
               <button
                 type="button"
                 onClick={() => handleCreateNewThread()}
-                className="w-full py-2.5 px-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-semibold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>New Session</span>
+                <span>+ New Chat</span>
               </button>
+
+              {/* Quick Starters */}
+              <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setIsDocGenOpen(true)}
+                  className={`px-2 py-1.5 rounded-xl border flex items-center gap-1.5 text-[11px] font-medium transition-colors cursor-pointer ${c.pillBg}`}
+                  title="Generate Word, Excel or PDF document"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <span className="truncate">Document</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMediaGenOpen(true)}
+                  className={`px-2 py-1.5 rounded-xl border flex items-center gap-1.5 text-[11px] font-medium transition-colors cursor-pointer ${c.pillBg}`}
+                  title="Open Media Studio"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                  <span className="truncate">Media</span>
+                </button>
+              </div>
             </div>
 
-            {/* Session Search */}
+            {/* 2. WORKSPACE & LIBRARY SECTION */}
             <div className="p-2.5 border-b border-black/5 dark:border-white/5 shrink-0 space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <FolderKanban className="w-3 h-3 text-violet-500" />
+                  <span>Workspace</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArchiveView(false);
+                      setSidebarSection('workspace');
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
+                      !archiveView
+                        ? 'bg-violet-600 text-white shadow-2xs'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArchiveView(true);
+                      setSidebarSection('library');
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
+                      archiveView
+                        ? 'bg-violet-600 text-white shadow-2xs'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Library ({threads.filter((t) => t.archived).length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Bar */}
               <div className="relative">
                 <Search className={`w-3.5 h-3.5 absolute left-2.5 top-2.5 ${c.textMuted}`} />
                 <input
                   type="text"
-                  placeholder="Search chats..."
+                  placeholder={archiveView ? "Search archived library..." : "Search chats & projects..."}
                   value={threadSearch}
                   onChange={(e) => setThreadSearch(e.target.value)}
-                  className={`w-full pl-8 pr-2.5 py-1.5 rounded-lg text-xs border focus:outline-none focus:ring-1 focus:ring-violet-500 ${
-                    isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  className={`w-full pl-8 pr-2.5 py-1.5 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-violet-500 ${
+                    isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-[#E9E4DD] text-[#171717]'
                   }`}
                 />
               </div>
 
-              {/* Active vs Archived filter tabs */}
-              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-black/5 dark:bg-white/5 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => setArchiveView(false)}
-                  className={`flex-1 py-1 rounded text-center font-medium transition-colors cursor-pointer ${
-                    !archiveView ? 'bg-violet-600 text-white shadow-2xs font-bold' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Active
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setArchiveView(true)}
-                  className={`flex-1 py-1 rounded text-center font-medium transition-colors cursor-pointer ${
-                    archiveView ? 'bg-violet-600 text-white shadow-2xs font-bold' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Archived
-                </button>
-              </div>
-            </div>
-
-            {/* Folders & Projects Section (Image 5 style) */}
-            <div className="px-2.5 pt-2 pb-1 border-b border-black/5 dark:border-white/5 shrink-0 space-y-1">
-              <div className="flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Folder className="w-3 h-3 text-violet-400" />
-                  <span>Projects</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setProjectModalOpen(true)}
-                  className="hover:text-white p-0.5 rounded cursor-pointer"
-                  title="Create or manage projects"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-
-              {/* All Chats Option */}
-              <div
-                onClick={() => setSelectedProjectId(null)}
-                className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-colors ${
-                  selectedProjectId === null
-                    ? 'bg-violet-600/15 text-violet-300 font-semibold'
-                    : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
-                }`}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <Folder className="w-3.5 h-3.5 opacity-70" />
-                  <span className="truncate">All Conversations</span>
-                </div>
-                <span className="text-[10px] font-mono opacity-60">
-                  {threads.filter((t) => (archiveView ? t.archived : !t.archived)).length}
-                </span>
-              </div>
-
-              {/* Project Folders */}
-              {projects.map((proj) => {
-                const isSelected = selectedProjectId === proj.id;
-                const count = threads.filter((t) => t.projectId === proj.id && (archiveView ? t.archived : !t.archived)).length;
-
-                return (
-                  <div key={proj.id} className="space-y-0.5">
-                    <div
-                      onClick={() => setSelectedProjectId(proj.id)}
-                      className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-colors group ${
-                        isSelected
-                          ? 'bg-violet-600/15 text-white font-semibold'
-                          : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
-                      }`}
+              {/* Projects Collapsible Tree */}
+              {!archiveView && (
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Folder className="w-3 h-3 text-violet-400" />
+                      <span>Projects</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setProjectModalOpen(true)}
+                      className="hover:text-violet-500 p-0.5 rounded cursor-pointer"
+                      title="Create or manage projects"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: proj.color || '#8b5cf6' }}
-                        />
-                        <span className="truncate">{proj.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className="text-[10px] font-mono opacity-60">{count}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCreateNewThread(proj.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-white"
-                          title="New chat in this project"
-                        >
-                          <Plus className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Project Settings Pill (Matching Image 5) */}
-                    {isSelected && (
-                      <div className="pl-6 pb-1">
-                        <button
-                          type="button"
-                          onClick={() => setProjectModalOpen(true)}
-                          className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-violet-300 border border-slate-700 flex items-center gap-1 cursor-pointer transition-colors"
-                        >
-                          <FileText className="w-2.5 h-2.5" />
-                          <span>Project Settings</span>
-                        </button>
-                      </div>
-                    )}
+                      <Plus className="w-3 h-3" />
+                    </button>
                   </div>
-                );
-              })}
+
+                  {/* All Chats Option */}
+                  <div
+                    onClick={() => setSelectedProjectId(null)}
+                    className={`px-2 py-1.5 rounded-xl flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                      selectedProjectId === null
+                        ? 'bg-violet-600/15 text-violet-700 dark:text-violet-300 font-semibold'
+                        : 'text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Folder className="w-3.5 h-3.5 opacity-70" />
+                      <span className="truncate">All Conversations</span>
+                    </div>
+                    <span className="text-[10px] font-mono opacity-60">
+                      {threads.filter((t) => !t.archived).length}
+                    </span>
+                  </div>
+
+                  {/* Project Folders */}
+                  {projects.map((proj) => {
+                    const isSelected = selectedProjectId === proj.id;
+                    const count = threads.filter((t) => t.projectId === proj.id && !t.archived).length;
+                    return (
+                      <div key={proj.id} className="space-y-0.5">
+                        <div
+                          onClick={() => setSelectedProjectId(proj.id)}
+                          className={`px-2 py-1.5 rounded-xl flex items-center justify-between text-xs cursor-pointer transition-colors group ${
+                            isSelected
+                              ? 'bg-violet-600/15 text-violet-700 dark:text-violet-200 font-semibold'
+                              : 'text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: proj.color || '#8b5cf6' }}
+                            />
+                            <span className="truncate">{proj.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[10px] font-mono opacity-60">{count}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCreateNewThread(proj.id);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-violet-500"
+                              title="New chat in this project"
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {isSelected && (
+                          <div className="pl-6 pb-1">
+                            <button
+                              type="button"
+                              onClick={() => setProjectModalOpen(true)}
+                              className="px-2 py-0.5 rounded text-[10px] font-medium bg-black/5 dark:bg-white/5 hover:bg-black/10 text-violet-500 dark:text-violet-300 border border-violet-500/20 flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <FileText className="w-2.5 h-2.5" />
+                              <span>Project Settings</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Library Quick Generator Pill */}
+              {archiveView && (
+                <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-violet-500" />
+                    <div>
+                      <p className="font-bold text-[11px] text-violet-700 dark:text-violet-300">File Deliverables</p>
+                      <p className="text-[10px] opacity-75">Word, Excel, PDF & CSV</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDocGenOpen(true)}
+                    className="px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-600 text-white hover:bg-violet-700 cursor-pointer"
+                  >
+                    Generate
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Thread List with Date Grouping */}
@@ -4119,6 +4342,35 @@ export const UserChatStudio: React.FC = () => {
         onConfirmAction={handleBrowserConfirmAction}
         onCancelSession={handleBrowserCancelSession}
         isDarkTheme={isDark}
+      />
+
+      {/* Studio 2.0 Guided Onboarding Walkthrough */}
+      <StudioOnboardingGuide
+        open={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        isDarkTheme={isDark}
+      />
+
+      {/* Studio 2.0 Pure-Engine Document Generator Modal */}
+      <DocumentGeneratorModal
+        open={isDocGenOpen}
+        onClose={() => setIsDocGenOpen(false)}
+        isDarkTheme={isDark}
+        onInsertToChat={(text) => {
+          setPrompt(text);
+          textareaRef.current?.focus();
+        }}
+      />
+
+      {/* Studio 2.0 Media Generation Boundary Studio */}
+      <MediaGenerationModal
+        open={isMediaGenOpen}
+        onClose={() => setIsMediaGenOpen(false)}
+        isDarkTheme={isDark}
+        onGenerateSvgInCanvas={(p) => {
+          setPrompt(`Create a clean, scalable interactive SVG visual component representing: ${p}. Output clean code in an artifact.`);
+          textareaRef.current?.focus();
+        }}
       />
     </div>
   );

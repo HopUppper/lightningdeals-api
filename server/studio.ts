@@ -26,6 +26,7 @@ import {
 } from './studioActivity';
 // @ts-ignore
 import yauzl from 'yauzl';
+import { generateStudioDocument } from './documentGenerator';
 
 export function extractTextFromDocx(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -1166,6 +1167,102 @@ studioRouter.delete('/memories', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Strict secret / PII filter for automatic memory
+export function containsSecretOrSensitiveData(text: string): boolean {
+  const sensitivePatterns = [
+    /\bpassword\b/i,
+    /\bsecret\b/i,
+    /\bbearer\b\s+/i,
+    /\bapi[_-]?key\b/i,
+    /\baccess[_-]?token\b/i,
+    /\btoken\b/i,
+    /sk-[a-zA-Z0-9_-]{16,}/i,
+    /lk-[a-zA-Z0-9_-]{10,}/i,
+    /ghp_[a-zA-Z0-9]{20,}/i,
+    /ey[A-Za-z0-9-_]{20,}\.[A-Za-z0-9-_]{20,}/,
+    /-----BEGIN (?:RSA|OPENSSH|PGP|PRIVATE) KEY-----/i,
+    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/,
+    /\b(?:\d{4}[- ]?){3}\d{4}\b/,
+    /\b(?:pin|cvv|ssn)\b/i,
+  ];
+  return sensitivePatterns.some((p) => p.test(text));
+}
+
+export async function extractAndSavePreferences(userId: string, userPrompt: string): Promise<void> {
+  if (!userPrompt || typeof userPrompt !== 'string') return;
+  const trimmed = userPrompt.trim();
+  if (trimmed.length < 8 || trimmed.length > 5000) return;
+  if (containsSecretOrSensitiveData(trimmed)) return;
+
+  const preferencePatterns = [
+    {
+      regex: /(?:i prefer|i like|always use|prefer to use|please use|default to)\s+([a-zA-Z0-9\+\#\.\s\,\-]{3,60})/i,
+      category: 'Preferences',
+      prefix: 'User prefers',
+    },
+    {
+      regex: /(?:my (?:primary )?tech stack is|our stack is|we use|i am building with|built with)\s+([a-zA-Z0-9\+\#\.\s\,\-]{3,80})/i,
+      category: 'Tech Stack',
+      prefix: 'Tech stack',
+    },
+    {
+      regex: /(?:i usually write in|i code in|my main language is)\s+([a-zA-Z0-9\+\#\.\s\,\-]{3,50})/i,
+      category: 'Coding Style',
+      prefix: 'Language preference',
+    },
+    {
+      regex: /(?:call me|my name is)\s+([A-Z][a-zA-Z\s]{1,30})/i,
+      category: 'General',
+      prefix: 'User name',
+    },
+    {
+      regex: /(?:keep answers|responses should be|always be|give me answers that are)\s+(concise|detailed|bulleted|step[- ]by[- ]step|production[- ]ready|minimal)/i,
+      category: 'Preferences',
+      prefix: 'Response style preference',
+    },
+  ];
+
+  for (const { regex, category, prefix } of preferencePatterns) {
+    const match = regex.exec(trimmed);
+    if (match && match[1]) {
+      const captured = match[1].trim().replace(/[\.\,\;]+$/, '');
+      if (captured.length >= 3 && captured.length <= 80 && !containsSecretOrSensitiveData(captured)) {
+        const fact = `${prefix}: ${captured}`;
+
+        const existing = await prisma.studioMemory.findFirst({
+          where: {
+            userId,
+            category,
+            fact: { contains: captured, mode: 'insensitive' },
+          },
+        }).catch(() => null);
+
+        if (!existing) {
+          const count = await prisma.studioMemory.count({ where: { userId, category: { not: 'Skill' } } }).catch(() => 0);
+          if (count >= 20) {
+            const oldest = await prisma.studioMemory.findFirst({
+              where: { userId, category: { not: 'Skill' } },
+              orderBy: { updatedAt: 'asc' },
+            }).catch(() => null);
+            if (oldest) {
+              await prisma.studioMemory.delete({ where: { id: oldest.id } }).catch(() => {});
+            }
+          }
+
+          await prisma.studioMemory.create({
+            data: {
+              userId,
+              category,
+              fact,
+            },
+          }).catch((e) => console.error('[STUDIO AUTO-MEMORY SAVE ERROR]', e));
+        }
+        break;
+      }
+    }
+  }
+}
+
 // GET /api/user/studio/skills - List prebuilt and custom skills
 studioRouter.get('/skills', async (req: AuthRequest, res: Response) => {
   try {
@@ -1435,6 +1532,54 @@ studioRouter.post('/upload', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST /api/user/studio/documents/generate - Server-side OpenXML/PDF/CSV/MD/TXT Generator
+studioRouter.post('/documents/generate', async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, format = 'docx', content = '', tableData, category } = req.body;
+    const isDirectDownload = req.query.download === '1' || req.body.download === true;
+
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ success: false, error: { message: 'Document title is required.' } });
+    }
+
+    const validFormats = ['docx', 'xlsx', 'pdf', 'csv', 'md', 'txt'];
+    const chosenFormat = validFormats.includes(format) ? format : 'docx';
+
+    const safeTitle = title.trim().slice(0, 100);
+    const generated = generateStudioDocument({
+      title: safeTitle,
+      format: chosenFormat as any,
+      content: typeof content === 'string' ? content : '',
+      tableData: Array.isArray(tableData) ? tableData : undefined,
+      author: 'LightningAPI Studio 2.0',
+      category: category || 'General',
+    });
+
+    const safeFilename = `${safeTitle.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().replace(/\s+/g, '_') || 'document'}.${generated.extension}`;
+
+    if (isDirectDownload) {
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+      res.setHeader('Content-Type', generated.mimeType);
+      res.setHeader('Content-Length', generated.buffer.length);
+      return res.send(generated.buffer);
+    }
+
+    return res.json({
+      success: true,
+      document: {
+        filename: safeFilename,
+        extension: generated.extension,
+        mimeType: generated.mimeType,
+        sizeBytes: generated.buffer.length,
+        base64: generated.buffer.toString('base64'),
+      },
+    });
+  } catch (err: any) {
+    console.error('[STUDIO DOCUMENT GENERATION ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to generate document.' } });
+  }
+});
+
 // POST /api/user/studio/research/search - Real-time Web Search
 studioRouter.post('/research/search', async (req: AuthRequest, res: Response) => {
   const { query, maxResults = 5 } = req.body;
@@ -1701,12 +1846,21 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 6. Build Context & Ingest User Persistent Memories & Workspace Skills
-    const userMemories = await prisma.studioMemory.findMany({
+    // 6. Build Context & Ingest User Persistent Memories & Workspace Skills (Bounded to max 5 items and 500 chars)
+    const rawMemories = await prisma.studioMemory.findMany({
       where: { userId, category: { not: 'Skill' } },
-      take: 15,
+      take: 5,
       orderBy: { updatedAt: 'desc' },
     });
+
+    const boundedMemories: string[] = [];
+    let memoryChars = 0;
+    for (const m of rawMemories) {
+      const entry = `- [${m.category}]: ${m.fact}`;
+      if (memoryChars + entry.length > 500 && boundedMemories.length > 0) break;
+      boundedMemories.push(entry);
+      memoryChars += entry.length;
+    }
 
     let effectiveSystemPrompt = customSystemPrompt || conversation.systemPrompt || '';
 
@@ -1719,9 +1873,8 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         effectiveSystemPrompt += `\n\n[PROJECT DIRECTIVE - ${projectRecord.name}]:\n${projectRecord.instructions}`;
       }
     }
-    if (memoryEnabled !== false && userMemories.length > 0) {
-      const memoryDirectives = userMemories.map((m) => `- [${m.category}]: ${m.fact}`).join('\n');
-      effectiveSystemPrompt += `\n\n[USER PROJECT CONTEXT & PREFERENCES]:\n${memoryDirectives}`;
+    if (memoryEnabled !== false && boundedMemories.length > 0) {
+      effectiveSystemPrompt += `\n\n[USER PROJECT CONTEXT & PREFERENCES]:\n${boundedMemories.join('\n')}`;
     }
 
     if (Array.isArray(activeSkills) && activeSkills.length > 0) {
@@ -2211,6 +2364,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
           where: { id: conversation.id },
           data: { title: autoTitle },
         }).catch(() => {});
+      }
+
+      // Automatic Contextual Memory Extraction (non-blocking, secrets-filtered)
+      if (memoryEnabled !== false && prompt) {
+        extractAndSavePreferences(userId, prompt).catch((e) => console.error('[STUDIO AUTO-MEMORY EXTRACT ERROR]', e));
       }
     }
 

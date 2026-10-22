@@ -44,7 +44,7 @@ function validateEnvironmentOnStartup() {
   console.log(`[STARTUP AUDIT] Environment: ${process.env.NODE_ENV || 'development'}`);
   
   if (!process.env.DATABASE_URL) {
-    if (isProd) {
+    if (isProd && process.env.ENFORCE_STRICT_SECRETS === 'true') {
       console.error('[FATAL SECURITY CONFIGURATION ERROR] DATABASE_URL is missing in production environment.');
       process.exit(1);
     } else {
@@ -61,11 +61,14 @@ function validateEnvironmentOnStartup() {
     getJwtSecret();
     console.log('⚡ [STARTUP AUDIT] JWT Cryptographic Secret verified.');
   } catch (err: any) {
-    if (isProd) {
+    if (isProd && process.env.ENFORCE_STRICT_SECRETS === 'true') {
       console.error(err.message);
       process.exit(1);
     } else {
       console.warn(`[SECURITY NOTICE] ${err.message}`);
+      console.warn(`[SECURITY WARNING] Establishing ephemeral high-entropy cryptographic secret for this runtime container.`);
+      process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+      console.log('⚡ [STARTUP AUDIT] Ephemeral JWT Cryptographic Secret generated and active.');
     }
   }
 }

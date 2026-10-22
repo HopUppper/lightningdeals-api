@@ -14,6 +14,44 @@ export interface ClientTarget {
 
 const getHomeDir = (): string => os.homedir();
 
+export interface LightningDealsGlobalConfig {
+  apiKey?: string;
+  activeModel?: string;
+  gatewayUrl?: string;
+  updatedAt?: string;
+}
+
+export const getGlobalConfigPath = (): string => {
+  return path.join(getHomeDir(), '.lightningdeals', 'config.json');
+};
+
+export const readGlobalConfig = (): LightningDealsGlobalConfig => {
+  const p = getGlobalConfigPath();
+  if (fs.existsSync(p)) {
+    try {
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
+    } catch {}
+  }
+  return {};
+};
+
+export const writeGlobalConfig = (cfg: Partial<LightningDealsGlobalConfig>): void => {
+  try {
+    const p = getGlobalConfigPath();
+    const dir = path.dirname(p);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const existing = readGlobalConfig();
+    const merged = {
+      ...existing,
+      ...cfg,
+      updatedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(p, JSON.stringify(merged, null, 2), 'utf8');
+  } catch {}
+};
+
 export const getFriendlyModelName = (modelId: string): string => {
   const m = (modelId || '').toLowerCase().trim();
   if (m.includes('3-7-sonnet') || m.includes('3.7-sonnet') || m.includes('3-7') || m.includes('3.7')) return 'Claude 3.7 Sonnet';
@@ -242,6 +280,10 @@ export const configureClient = (
       cleanEnv.ANTHROPIC_MODEL = selectedModel;
       cleanEnv.CLAUDE_MODEL = selectedModel;
       cleanEnv.ANTHROPIC_DEFAULT_MODEL = selectedModel;
+      cleanEnv.ANTHROPIC_SMALL_FAST_MODEL = 'claude-3-5-haiku-20241022';
+      cleanEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = selectedModel.includes('opus') ? selectedModel : 'claude-opus-5.5';
+      cleanEnv.ANTHROPIC_DEFAULT_SONNET_MODEL = selectedModel.includes('sonnet') ? selectedModel : 'claude-sonnet-5.5';
+      cleanEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL = 'claude-3-5-haiku-20241022';
 
       // Authentically configure custom model option for /model picker in Claude Code
       cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION = selectedModel;
@@ -331,6 +373,9 @@ export const configureClient = (
     }
 
     fs.writeFileSync(client.configPath, JSON.stringify(updatedData, null, 2), 'utf8');
+    if (!client.configPath.toLowerCase().includes('tmp') && !client.configPath.toLowerCase().includes('temp')) {
+      writeGlobalConfig({ apiKey, activeModel: selectedModel, gatewayUrl });
+    }
     return { success: true, backupPath };
   } catch (err: any) {
     return { success: false, error: err.message };

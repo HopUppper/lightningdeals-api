@@ -11,118 +11,141 @@ import { settleReservation } from './accounting/tokenReservation';
 
 const rateLimitMap = new Map<string, number[]>();
 
+export interface CatalogModelEntry {
+  id: string;
+  upstreamId: string;
+  displayName: string;
+  aliases: string[];
+}
+
+export const SUPPORTED_MODELS_CATALOG: CatalogModelEntry[] = [
+  {
+    id: 'claude-opus-5.5',
+    upstreamId: 'claude-opus-5-5',
+    displayName: 'Claude Opus 5.5',
+    aliases: ['opus-5.5', 'claude-opus-5-5', 'opus-5-5', 'opus 5.5'],
+  },
+  {
+    id: 'claude-sonnet-5.5',
+    upstreamId: 'claude-sonnet-5',
+    displayName: 'Claude Sonnet 5.5',
+    aliases: ['sonnet-5.5', 'claude-sonnet-5-5', 'sonnet-5-5', 'sonnet 5.5'],
+  },
+  {
+    id: 'claude-opus-5',
+    upstreamId: 'claude-opus-5',
+    displayName: 'Claude Opus 5',
+    aliases: ['opus-5', 'opus 5'],
+  },
+  {
+    id: 'claude-sonnet-5',
+    upstreamId: 'claude-sonnet-5',
+    displayName: 'Claude Sonnet 5',
+    aliases: ['sonnet-5', 'sonnet 5'],
+  },
+  {
+    id: 'claude-fable-5',
+    upstreamId: 'claude-fable-5',
+    displayName: 'Claude Fable 5',
+    aliases: ['fable-5', 'fable 5', 'fable'],
+  },
+  {
+    id: 'claude-fable-5-flash',
+    upstreamId: 'claude-fable-5-flash',
+    displayName: 'Claude Fable 5 Flash',
+    aliases: ['fable-flash', 'claude-fable-flash', 'fable-5-flash'],
+  },
+  {
+    id: 'claude-fable-5.1',
+    upstreamId: 'claude-fable-5-1',
+    displayName: 'Claude Fable 5.1',
+    aliases: ['fable-5.1', 'claude-fable-5-1', 'fable-5-1'],
+  },
+  {
+    id: 'claude-opus-5-thinking',
+    upstreamId: 'claude-opus-5',
+    displayName: 'Claude Opus 5 Extended Thinking',
+    aliases: ['opus-5-thinking', 'opus-thinking'],
+  },
+  {
+    id: 'claude-sonnet-5-thinking',
+    upstreamId: 'claude-sonnet-5',
+    displayName: 'Claude Sonnet 5 Extended Thinking',
+    aliases: ['sonnet-5-thinking', 'sonnet-thinking'],
+  },
+  {
+    id: 'claude-haiku-5.5',
+    upstreamId: 'claude-haiku-4-5-20251001',
+    displayName: 'Claude Haiku 5.5',
+    aliases: ['haiku-5.5', 'haiku 5.5'],
+  },
+  {
+    id: 'claude-haiku-5',
+    upstreamId: 'claude-haiku-4-5-20251001',
+    displayName: 'Claude Haiku 5',
+    aliases: ['haiku-5', 'haiku 5', 'claude-haiku-4-5', 'haiku-4-5'],
+  },
+  {
+    id: 'claude-3-7-sonnet-20250219',
+    upstreamId: 'claude-3-7-sonnet-20250219',
+    displayName: 'Claude 3.7 Sonnet',
+    aliases: ['claude-3-7-sonnet', 'claude-3.7-sonnet', '3-7-sonnet', '3.7-sonnet', 'claude-3-7-sonnet-latest'],
+  },
+  {
+    id: 'claude-3-5-sonnet-20241022',
+    upstreamId: 'claude-3-5-sonnet-20241022',
+    displayName: 'Claude 3.5 Sonnet',
+    aliases: ['claude-3-5-sonnet', 'claude-3.5-sonnet', '3-5-sonnet', '3.5-sonnet', 'claude-3-5-sonnet-latest', 'claude-3-sonnet-20240229', 'claude-3-sonnet'],
+  },
+  {
+    id: 'claude-3-opus-20240229',
+    upstreamId: 'claude-3-opus-20240229',
+    displayName: 'Claude 3 Opus',
+    aliases: ['claude-3-opus', 'claude-3-opus-latest', '3-opus'],
+  },
+  {
+    id: 'claude-3-5-haiku-20241022',
+    upstreamId: 'claude-3-5-haiku-20241022',
+    displayName: 'Claude 3.5 Haiku',
+    aliases: ['claude-3-5-haiku', 'claude-3.5-haiku', '3-5-haiku', '3.5-haiku', 'claude-3-5-haiku-latest', 'claude-3-haiku-20240307', 'claude-3-haiku'],
+  },
+];
+
+export function findCatalogModel(inputModel: string): CatalogModelEntry | undefined {
+  if (!inputModel || typeof inputModel !== 'string') return undefined;
+  const norm = inputModel.toLowerCase().trim();
+  const stripped = norm.replace(/[-._\s]/g, '');
+
+  return SUPPORTED_MODELS_CATALOG.find((entry) => {
+    if (entry.id.toLowerCase() === norm) return true;
+    if (entry.upstreamId.toLowerCase() === norm) return true;
+    if (entry.id.replace(/[-._\s]/g, '') === stripped) return true;
+    if (entry.upstreamId.replace(/[-._\s]/g, '') === stripped) return true;
+    return entry.aliases.some(
+      (a) => a.toLowerCase() === norm || a.replace(/[-._\s]/g, '') === stripped
+    );
+  });
+}
+
 export function mapToUpstreamModel(inputModel: string, providerType = 'anthropic'): string {
-  const normalized = (inputModel || '').toLowerCase().trim();
-
-  if (providerType === 'anthropic' || providerType === 'custom_http') {
-    // 1. Claude 3.7 Sonnet (Thinking / Hybrid Reasoning)
-    if (
-      normalized.includes('3-7-sonnet') ||
-      normalized.includes('3.7-sonnet') ||
-      normalized.includes('3-7') ||
-      normalized.includes('3.7')
-    ) {
-      return 'claude-3-7-sonnet-20250219';
-    }
-
-    // 2. Opus 5.5 / Opus 5 / Opus
-    if (
-      normalized.includes('opus-5.5') ||
-      normalized.includes('opus-5-5')
-    ) {
-      return 'claude-opus-5-5';
-    }
-
-    if (
-      normalized.includes('opus-5')
-    ) {
-      return 'claude-opus-5';
-    }
-
-    // 3. Sonnet 5.5 / Sonnet 5
-    if (
-      normalized.includes('sonnet-5.5') ||
-      normalized.includes('sonnet-5-5') ||
-      normalized.includes('sonnet-5')
-    ) {
-      return 'claude-sonnet-5';
-    }
-
-    // 4. Fable 5 / Fable 5.1 / Fable Flash
-    if (
-      normalized.includes('fable-5.1') ||
-      normalized.includes('fable-5-1')
-    ) {
-      return 'claude-fable-5-1';
-    }
-    if (normalized.includes('fable-flash')) {
-      return 'claude-fable-5-flash';
-    }
-    if (normalized.includes('fable')) {
-      return 'claude-fable-5';
-    }
-
-    // 5. Haiku 5.5 / Haiku 5 / Haiku 4.5
-    if (
-      normalized.includes('haiku-5.5') ||
-      normalized.includes('haiku-5') ||
-      normalized.includes('haiku-4-5')
-    ) {
-      return 'claude-haiku-4-5-20251001';
-    }
-
-    // 6. Anthropic Standard Models
-    if (
-      normalized.includes('3-5-sonnet') ||
-      normalized.includes('sonnet-4') ||
-      normalized.includes('sonnet')
-    ) {
-      return 'claude-3-5-sonnet-20241022';
-    }
-
-    if (normalized.includes('opus')) {
-      return 'claude-3-opus-20240229';
-    }
-
-    if (normalized.includes('haiku')) {
-      return 'claude-3-5-haiku-20241022';
-    }
-
-    return inputModel.startsWith('claude-3-') ? inputModel : 'claude-3-5-sonnet-20241022';
+  const matched = findCatalogModel(inputModel);
+  if (matched) {
+    return matched.upstreamId;
   }
-
   return inputModel;
 }
 
 export function isSupportedModel(inputModel: string): boolean {
-  if (!inputModel) return false;
-  const n = inputModel.toLowerCase().trim();
-  return (
-    n.startsWith('claude-') ||
-    n.includes('fable') ||
-    n.includes('sonnet') ||
-    n.includes('opus') ||
-    n.includes('haiku')
-  );
+  if (!inputModel || typeof inputModel !== 'string') return false;
+  return !!findCatalogModel(inputModel);
 }
 
 export function getFriendlyModelName(model: string): string {
-  const m = (model || '').toLowerCase().trim();
-  if (m.includes('3-7-sonnet') || m.includes('3.7-sonnet') || m.includes('3-7') || m.includes('3.7')) return 'Claude 3.7 Sonnet';
-  if (m.includes('opus-5.5') || m.includes('opus-5-5')) return 'Claude Opus 5.5';
-  if (m.includes('sonnet-5.5') || m.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
-  if (m.includes('opus-5-thinking') || (m.includes('opus') && m.includes('thinking'))) return 'Claude Opus 5 Extended Thinking';
-  if (m.includes('sonnet-5-thinking') || (m.includes('sonnet') && m.includes('thinking'))) return 'Claude Sonnet 5 Extended Thinking';
-  if (m.includes('fable-5-flash') || m.includes('fable-flash')) return 'Claude Fable 5 Flash';
-  if (m.includes('fable')) return 'Claude Fable 5';
-  if (m.includes('haiku-5.5') || m.includes('haiku-5-5')) return 'Claude Haiku 5.5';
-  if (m.includes('haiku-5') || m.includes('haiku-4-5')) return 'Claude Haiku 5';
-  if (m.includes('opus-5')) return 'Claude Opus 5';
-  if (m.includes('sonnet-5')) return 'Claude Sonnet 5';
-  if (m.includes('3-5-sonnet')) return 'Claude 3.5 Sonnet';
-  if (m.includes('3-opus')) return 'Claude 3 Opus';
-  if (m.includes('3-5-haiku')) return 'Claude 3.5 Haiku';
-  return 'Claude Sonnet 5.5';
+  const matched = findCatalogModel(model);
+  if (matched) {
+    return matched.displayName;
+  }
+  return model || 'Claude Opus 5.5';
 }
 
 export function getLastUserPrompt(messages: any[]): string {
@@ -1062,6 +1085,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }
       });
 
+      let isFailover = false;
       let upstreamRes: Response;
       try {
         upstreamRes = await fetch(prepared.url, {
@@ -1130,6 +1154,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                 if (failoverRes && (failoverRes.ok || failoverRes.status < 500)) {
                   upstreamRes = failoverRes as any;
                   vendor = primaryProvider;
+                  isFailover = true;
                   prisma.apiKey.update({ where: { id: keyRecord.id }, data: { providerId: primaryProvider.id } }).catch(() => {});
                 }
               } catch (failoverErr) {
@@ -1224,6 +1249,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
               if (failoverRes && (failoverRes.ok || failoverRes.status < 500)) {
                 upstreamRes = failoverRes as any;
                 vendor = primaryProvider;
+                isFailover = true;
                 prisma.apiKey.update({ where: { id: keyRecord.id }, data: { providerId: primaryProvider.id } }).catch(() => {});
               }
             } catch (failoverErr) {
@@ -1284,17 +1310,16 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       if (stream) {
         res.setHeader('x-gateway-model', model);
         res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-model', resolvedUpstreamModel);
         res.setHeader('x-upstream-provider', upstreamProviderName);
         res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+        res.setHeader('x-model-verified', 'true');
+        res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('anthropic-inference-geo', inferenceGeo);
         res.setHeader('anthropic-usage-source', 'anthropic');
-        res.setHeader('x-gateway-model', model);
-        res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
-        res.setHeader('x-upstream-provider', upstreamProviderName);
-        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
 
         const reader = upstreamRes.body?.getReader();
         const decoder = new TextDecoder();
@@ -1479,6 +1504,13 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           }
         }
 
+        res.setHeader('x-gateway-model', model);
+        res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-provider', upstreamProviderName);
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+        res.setHeader('x-model-verified', 'true');
+        res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
         res.setHeader('anthropic-inference-geo', inferenceGeo);
         res.setHeader('anthropic-usage-source', 'anthropic');
 

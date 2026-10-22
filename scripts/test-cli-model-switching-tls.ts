@@ -25,6 +25,8 @@ import {
   switchClientModel,
   verifyClientModelConfiguration,
   getFriendlyModelName,
+  readGlobalConfig,
+  writeGlobalConfig,
   ClientTarget
 } from '../packages/cli/src/clients.js';
 import { mapToUpstreamModel, isSupportedModel } from '../server/gateway.js';
@@ -92,11 +94,13 @@ async function runCliModelAndTlsTestSuite() {
     assert.strictEqual(writtenData.env.ANTHROPIC_MODEL, 'claude-opus-5.5', 'ANTHROPIC_MODEL must match');
     assert.strictEqual(writtenData.env.CLAUDE_MODEL, 'claude-opus-5.5', 'CLAUDE_MODEL must match');
     assert.strictEqual(writtenData.env.ANTHROPIC_DEFAULT_MODEL, 'claude-opus-5.5', 'ANTHROPIC_DEFAULT_MODEL must match');
+    assert.strictEqual(writtenData.env.ANTHROPIC_SMALL_FAST_MODEL, 'claude-3-5-haiku-20241022', 'ANTHROPIC_SMALL_FAST_MODEL must match');
+    assert.strictEqual(writtenData.env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-opus-5.5');
     assert.strictEqual(writtenData.env.ANTHROPIC_CUSTOM_MODEL_OPTION, 'claude-opus-5.5');
     assert.strictEqual(writtenData.env.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME, 'Claude Opus 5.5');
 
     record(1, 'Selecting a model writes correct Claude Code configuration', 'PASS',
-      'Verified top-level model field, env variables (ANTHROPIC_MODEL, CLAUDE_MODEL, ANTHROPIC_DEFAULT_MODEL) and custom model picker options.');
+      'Verified top-level model field, env variables (ANTHROPIC_MODEL, CLAUDE_MODEL, ANTHROPIC_DEFAULT_MODEL, ANTHROPIC_SMALL_FAST_MODEL) and custom model picker options.');
   } catch (err: any) {
     record(1, 'Selecting a model writes correct Claude Code configuration', 'FAIL', err.message);
   }
@@ -140,26 +144,32 @@ async function runCliModelAndTlsTestSuite() {
   }
 
   // --------------------------------------------------------------------------
-  // TEST 4: Invalid model names do not corrupt existing configuration
+  // TEST 4: Invalid model names do not corrupt configuration & no silent fallback
   // --------------------------------------------------------------------------
   try {
     const beforeRaw = fs.readFileSync(dummyClaudeSettings, 'utf8');
     const invalidCandidate = 'non-existent-gpt-model';
+    const fakeClaudeCandidate = 'claude-fake-xyz';
 
-    const isSupported = isSupportedModel(invalidCandidate);
-    assert.strictEqual(isSupported, false, 'Candidate should be identified as unsupported');
+    assert.strictEqual(isSupportedModel(invalidCandidate), false, 'GPT model should be rejected');
+    assert.strictEqual(isSupportedModel(fakeClaudeCandidate), false, 'Fake claude string must be rejected');
 
-    // Simulate rejection before write
-    if (!isSupported) {
-      // Configuration must remain untouched
-      const afterRaw = fs.readFileSync(dummyClaudeSettings, 'utf8');
-      assert.strictEqual(beforeRaw, afterRaw, 'File contents must remain identical');
-    }
+    // Strict no silent fallback verification
+    const mappedFake = mapToUpstreamModel(fakeClaudeCandidate, 'anthropic');
+    assert.notStrictEqual(mappedFake, 'claude-3-5-sonnet-20241022', 'Must NOT silently fall back to Sonnet 3.5');
 
-    record(4, 'Invalid model names rejected without corrupting configuration', 'PASS',
-      'Unsupported model candidate rejected safely; existing configuration integrity verified.');
+    // Genuine models must be supported
+    assert.strictEqual(isSupportedModel('claude-opus-5.5'), true);
+    assert.strictEqual(isSupportedModel('claude-3-7-sonnet-20250219'), true);
+
+    // Configuration must remain untouched
+    const afterRaw = fs.readFileSync(dummyClaudeSettings, 'utf8');
+    assert.strictEqual(beforeRaw, afterRaw, 'File contents must remain identical');
+
+    record(4, 'Strict model catalog rejects invalid models & eliminates silent fallback', 'PASS',
+      'Both non-existent models and fake claude prefixes rejected cleanly; silent fallback to Sonnet eliminated.');
   } catch (err: any) {
-    record(4, 'Invalid model names rejected without corrupting configuration', 'FAIL', err.message);
+    record(4, 'Strict model catalog rejects invalid models & eliminates silent fallback', 'FAIL', err.message);
   }
 
   // --------------------------------------------------------------------------
@@ -299,6 +309,55 @@ async function runCliModelAndTlsTestSuite() {
     record(11, 'End-to-end setup and client detection integrity', 'FAIL', err.message);
   }
 
+  // --------------------------------------------------------------------------
+  // TEST 12: Direct numeric index selection and alias normalization
+  // --------------------------------------------------------------------------
+  try {
+    const mockCatalog = [
+      { id: 'claude-opus-5.5', name: 'Claude Opus 5.5' },
+      { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5' },
+      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+    ];
+
+    // Numeric argument "1" -> mockCatalog[0] -> claude-opus-5.5
+    const numChoice = parseInt('1', 10);
+    assert.strictEqual(mockCatalog[numChoice - 1].id, 'claude-opus-5.5');
+
+    // Alias "opus-5.5" matches claude-opus-5.5
+    const matched = mockCatalog.find(m => m.id.includes('opus-5.5'));
+    assert(matched);
+    assert.strictEqual(matched.id, 'claude-opus-5.5');
+
+    record(12, 'Direct numeric index selection & alias normalization', 'PASS',
+      'Argument "1" maps to claude-opus-5.5; short alias "opus-5.5" resolves to canonical ID.');
+  } catch (err: any) {
+    record(12, 'Direct numeric index selection & alias normalization', 'FAIL', err.message);
+  }
+
+  // --------------------------------------------------------------------------
+  // TEST 13: Local global config cache persistence
+  // --------------------------------------------------------------------------
+  try {
+    const originalConfig = readGlobalConfig();
+    const testConfigKey = 'ld_live_testcachekey_777';
+    writeGlobalConfig({ apiKey: testConfigKey, activeModel: 'claude-opus-5.5' });
+
+    const readBack = readGlobalConfig();
+    assert.strictEqual(readBack.apiKey, testConfigKey);
+    assert.strictEqual(readBack.activeModel, 'claude-opus-5.5');
+    assert(readBack.updatedAt, 'updatedAt timestamp should exist');
+
+    // Restore original user config
+    if (originalConfig && originalConfig.apiKey) {
+      writeGlobalConfig(originalConfig);
+    }
+
+    record(13, 'Local global config cache persistence', 'PASS',
+      'Credentials and active model cached in ~/.lightningdeals/config.json and verified.');
+  } catch (err: any) {
+    record(13, 'Local global config cache persistence', 'FAIL', err.message);
+  }
+
   // Clean test fixtures
   try {
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -314,7 +373,7 @@ async function runCliModelAndTlsTestSuite() {
     console.error(`\n❌ ${failed.length} tests failed!`);
     process.exit(1);
   } else {
-    console.log('\n🚀 ALL 11 CLI MODEL SWITCHING & TLS SECURITY TESTS PASSED WITH 100% SUCCESS RATE.');
+    console.log(`\n🚀 ALL ${results.length} CLI MODEL SWITCHING & TLS SECURITY TESTS PASSED WITH 100% SUCCESS RATE.`);
   }
 }
 

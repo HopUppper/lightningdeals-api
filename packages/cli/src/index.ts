@@ -7,7 +7,17 @@ import readline from 'readline';
 import os from 'os';
 
 import { validateApiKey, fetchLiveModels, getGatewayUrl, probeModelRouting, KeyStatusResult, KeyModel } from './api.js';
-import { getClientTargets, configureClient, switchClientModel, verifyClientModelConfiguration, removeClientConfiguration, getFriendlyModelName, ClientTarget } from './clients.js';
+import {
+  getClientTargets,
+  configureClient,
+  switchClientModel,
+  verifyClientModelConfiguration,
+  removeClientConfiguration,
+  getFriendlyModelName,
+  readGlobalConfig,
+  writeGlobalConfig,
+  ClientTarget
+} from './clients.js';
 
 async function resolveKeyModels(apiKey: string, status: KeyStatusResult): Promise<KeyModel[]> {
   if (status.availableModels && status.availableModels.length > 1) {
@@ -118,7 +128,13 @@ const getApiKeyFromArgsOrEnv = (): string => {
   if (keyIndex !== -1 && args[keyIndex + 1]) {
     return args[keyIndex + 1].trim();
   }
-  return (process.env.LIGHTNINGDEALS_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || '').trim();
+  const envKey = (process.env.LIGHTNINGDEALS_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || '').trim();
+  if (envKey) return envKey;
+
+  const globalCfg = readGlobalConfig();
+  if (globalCfg.apiKey) return globalCfg.apiKey.trim();
+
+  return '';
 };
 
 const getModelFromArgsOrEnv = (): string => {
@@ -127,7 +143,13 @@ const getModelFromArgsOrEnv = (): string => {
   if (mIndex !== -1 && args[mIndex + 1]) {
     return args[mIndex + 1].trim();
   }
-  return (process.env.ANTHROPIC_MODEL || process.env.LIGHTNINGDEALS_MODEL || '').trim();
+  const envModel = (process.env.ANTHROPIC_MODEL || process.env.LIGHTNINGDEALS_MODEL || '').trim();
+  if (envModel) return envModel;
+
+  const globalCfg = readGlobalConfig();
+  if (globalCfg.activeModel) return globalCfg.activeModel.trim();
+
+  return '';
 };
 
 function printSystemInfo() {
@@ -325,6 +347,13 @@ async function runSetModel(modelArg?: string) {
   // If no model argument was supplied: show current model and intentional interactive picker
   let targetModelId = modelArg?.trim();
 
+  if (targetModelId) {
+    const directNum = parseInt(targetModelId, 10);
+    if (!isNaN(directNum) && directNum >= 1 && directNum <= availableModels.length && String(directNum) === targetModelId) {
+      targetModelId = availableModels[directNum - 1].id;
+    }
+  }
+
   if (!targetModelId) {
     console.log(`${c.cyan}Current Active Model${c.reset}: ${c.brightGreen}${currentFriendly}${c.reset} ${c.gray}(${currentModelId})${c.reset} in ${primaryClient?.name || 'Clients'}\n`);
     console.log(`${c.bold}Available Models for your Key (${availableModels.length} authorized):${c.reset}`);
@@ -350,13 +379,35 @@ async function runSetModel(modelArg?: string) {
     }
   }
 
-  // Validate the model against availableModels
+  // Validate the model against availableModels with smart alias support
   const normalizedTarget = targetModelId.toLowerCase().trim();
-  const matchedModel = availableModels.find(m =>
-    m.id.toLowerCase() === normalizedTarget ||
-    m.name.toLowerCase() === normalizedTarget ||
-    m.id.toLowerCase().replace(/[-._]/g, '') === normalizedTarget.replace(/[-._]/g, '')
-  );
+  const strippedTarget = normalizedTarget.replace(/[-._\s]/g, '');
+
+  const matchedModel = availableModels.find(m => {
+    const idNorm = m.id.toLowerCase();
+    const nameNorm = m.name.toLowerCase();
+    const idStripped = idNorm.replace(/[-._\s]/g, '');
+    const nameStripped = nameNorm.replace(/[-._\s]/g, '');
+
+    if (idNorm === normalizedTarget || nameNorm === normalizedTarget) return true;
+    if (idStripped === strippedTarget || nameStripped === strippedTarget) return true;
+    if (idNorm === `claude-${normalizedTarget}` || idStripped === `claude${strippedTarget}`) return true;
+    if (normalizedTarget.startsWith('claude-') && idNorm === normalizedTarget.replace('claude-', '')) return true;
+
+    // Direct alias mappings
+    if ((normalizedTarget === 'opus-5.5' || normalizedTarget === 'opus 5.5' || normalizedTarget === 'opus5.5' || normalizedTarget === 'claude-opus-5-5') && idNorm.includes('opus-5.5')) return true;
+    if ((normalizedTarget === 'sonnet-5.5' || normalizedTarget === 'sonnet 5.5' || normalizedTarget === 'sonnet5.5' || normalizedTarget === 'claude-sonnet-5-5') && idNorm.includes('sonnet-5.5')) return true;
+    if ((normalizedTarget === 'opus-5' || normalizedTarget === 'opus 5') && idNorm === 'claude-opus-5') return true;
+    if ((normalizedTarget === 'sonnet-5' || normalizedTarget === 'sonnet 5') && idNorm === 'claude-sonnet-5') return true;
+    if ((normalizedTarget === 'fable-5' || normalizedTarget === 'fable 5' || normalizedTarget === 'fable') && idNorm === 'claude-fable-5') return true;
+    if ((normalizedTarget === 'fable-flash' || normalizedTarget === 'fable-5-flash') && idNorm.includes('fable-5-flash')) return true;
+    if ((normalizedTarget === '3.7' || normalizedTarget === '3-7' || normalizedTarget.includes('3.7-sonnet') || normalizedTarget.includes('3-7-sonnet')) && idNorm.includes('3-7-sonnet')) return true;
+    if ((normalizedTarget === '3.5' || normalizedTarget === '3-5' || normalizedTarget.includes('3.5-sonnet') || normalizedTarget.includes('3-5-sonnet')) && idNorm.includes('3-5-sonnet')) return true;
+    if ((normalizedTarget.includes('haiku-5.5') || normalizedTarget.includes('haiku 5.5')) && idNorm.includes('haiku-5.5')) return true;
+    if ((normalizedTarget.includes('haiku-5') || normalizedTarget.includes('haiku 5')) && idNorm === 'claude-haiku-5') return true;
+
+    return false;
+  });
 
   if (!matchedModel) {
     console.log(`\n${c.red}✕ Error: "${targetModelId}" is not a recognized or authorized model for this API key.${c.reset}`);
@@ -384,6 +435,8 @@ async function runSetModel(modelArg?: string) {
       console.log(`  ${c.yellow}⚠ Could not update ${client.name}: ${res.error}${c.reset}`);
     }
   }
+
+  writeGlobalConfig({ apiKey, activeModel: selectedModelId, gatewayUrl });
 
   console.log(`\n${c.gray}┌──────────────────────── MODEL SWITCH COMPLETE ────────────────────────┐${c.reset}`);
   console.log(`  ${c.brightGreen}🎉 Successfully switched active model!${c.reset}`);

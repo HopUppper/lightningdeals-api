@@ -15,7 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 
 export const UserOrders: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -32,7 +32,7 @@ export const UserOrders: React.FC = () => {
   const loadOrders = async () => {
     setLoading(true);
     try {
-      const res = await adminFetch('/api/user/orders');
+      const res = await userFetch('/api/user/orders');
       if (res.ok) {
         const data = await res.json();
         const loadedOrders = data.orders || (Array.isArray(data) ? data : []);
@@ -68,7 +68,7 @@ export const UserOrders: React.FC = () => {
   const handleRetryFulfillment = async (orderId: string) => {
     setFulfillingOrderId(orderId);
     try {
-      const res = await adminFetch(`/api/user/orders/${orderId}/retry-fulfill`, {
+      const res = await userFetch(`/api/user/orders/${orderId}/retry-fulfill`, {
         method: 'POST',
       });
       if (res.ok) {

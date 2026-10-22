@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag, Sparkles, Copy, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 import { CheckoutModal } from '../../components/CheckoutModal';
 import { ApiKeyRevealModal } from '../../components/ApiKeyRevealModal';
 
@@ -32,8 +32,8 @@ export const UserPlan: React.FC = () => {
   const fetchSubscriptions = async () => {
     try {
       const [subRes, trialRes, plansRes] = await Promise.all([
-        adminFetch('/api/user/subscriptions'),
-        adminFetch('/api/user/trial/status').catch(() => null),
+        userFetch('/api/user/subscriptions'),
+        userFetch('/api/user/trial/status').catch(() => null),
         fetch(`/api/checkout/plans?t=${Date.now()}`, {
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-cache' },
@@ -71,7 +71,7 @@ export const UserPlan: React.FC = () => {
     setClaimingTrial(true);
     setTrialError(null);
     try {
-      const res = await adminFetch('/api/user/trial/claim', {
+      const res = await userFetch('/api/user/trial/claim', {
         method: 'POST',
       });
       const resData = await res.json();

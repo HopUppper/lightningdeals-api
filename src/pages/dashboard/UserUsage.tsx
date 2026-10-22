@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Clock, ShieldCheck, FileText, Zap, RefreshCw, BarChart2, CheckCircle2, ArrowUpRight, Check, AlertCircle } from 'lucide-react';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 
 export const UserUsage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
@@ -11,7 +11,7 @@ export const UserUsage: React.FC = () => {
 
   const loadStats = async () => {
     try {
-      const res = await adminFetch('/api/user/usage');
+      const res = await userFetch('/api/user/usage');
       if (res.ok) {
         setStats(await res.json());
       } else {

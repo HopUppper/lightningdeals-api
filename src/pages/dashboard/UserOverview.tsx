@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles, Gift, Play } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 
 export const UserOverview: React.FC = () => {
   const { user } = useAuth();
@@ -16,7 +16,7 @@ export const UserOverview: React.FC = () => {
     async function loadData() {
       try {
         const [usageRes, offerRes] = await Promise.all([
-          adminFetch('/api/user/usage'),
+          userFetch('/api/user/usage'),
           fetch('/api/rewards/active-offer'),
         ]);
 

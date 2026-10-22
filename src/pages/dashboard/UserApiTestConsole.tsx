@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Terminal, Play, Zap, AlertCircle, Mail, Check, Copy, Code, CheckCircle2, Sparkles, Bot, Clock, Cpu, ShieldCheck, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 
 const PRO_TIPS = [
   '⚡ Lightning Deals proxies stream tokens with sub-50ms latency via worldwide edge mesh.',
@@ -55,7 +55,7 @@ export const UserApiTestConsole: React.FC = () => {
   useEffect(() => {
     async function loadKeys() {
       try {
-        const res = await adminFetch('/api/user/keys');
+        const res = await userFetch('/api/user/keys');
         if (res.ok) {
           const data = await res.json();
           const keyList = data.keys || data || [];
@@ -80,7 +80,7 @@ export const UserApiTestConsole: React.FC = () => {
     const activeKeyObj = keys.find((k) => k.displayKey === selectedKey || k.id === selectedKey);
 
     try {
-      const res = await adminFetch('/api/user/keys/test', {
+      const res = await userFetch('/api/user/keys/test', {
         method: 'POST',
         body: JSON.stringify({
           apiKeyId: activeKeyObj?.id,

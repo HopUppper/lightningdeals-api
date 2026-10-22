@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Key, ShieldCheck, Trash2, AlertTriangle, Mail, Copy, Check, Eye, EyeOff, Terminal, Sparkles, ExternalLink, Activity, HelpCircle } from 'lucide-react';
+import { Key, ShieldCheck, Trash2, AlertTriangle, Mail, Copy, Check, Eye, EyeOff, Terminal, Sparkles, ExternalLink, Activity, HelpCircle, RefreshCw, LogIn } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 
 interface ApiKeyItem {
   id: string;
@@ -34,12 +34,12 @@ export const UserKeys: React.FC = () => {
 
   const fetchKeys = async () => {
     try {
-      const res = await adminFetch('/api/user/keys');
+      const res = await userFetch('/api/user/keys');
       if (res.ok) {
         const data = await res.json();
         setKeys(data.keys || []);
       } else {
-        setError('Unable to load assigned keys.');
+        setError(res.status === 401 || res.status === 403 ? 'Your login session has expired. Please sign in again.' : 'Unable to load assigned keys.');
       }
     } catch (e) {
       setError('Unable to load assigned keys.');
@@ -74,7 +74,7 @@ export const UserKeys: React.FC = () => {
     setRevoking(true);
 
     try {
-      const res = await adminFetch(`/api/user/keys/${revokingKey.id}`, {
+      const res = await userFetch(`/api/user/keys/${revokingKey.id}`, {
         method: 'DELETE',
       });
 
@@ -156,7 +156,16 @@ export const UserKeys: React.FC = () => {
             <p className="text-xs text-[#64607d]">Loading your assigned API keys...</p>
           </div>
         ) : error ? (
-          <div className="py-12 text-center text-xs text-rose-500 font-medium">{error}</div>
+          <div className="py-12 text-center space-y-3 px-4">
+            <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <p className="text-sm font-semibold text-rose-600">{error}</p>
+            <div className="flex items-center justify-center gap-2 pt-1">
+              <Link to="/login" className="px-4 py-2 rounded-xl bg-violet-600 text-white font-bold text-xs hover:bg-violet-700 transition-colors shadow-2xs">Sign In Again</Link>
+              <button type="button" onClick={fetchKeys} className="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer">Retry</button>
+            </div>
+          </div>
         ) : keys.length === 0 ? (
           <div className="py-14 text-center text-xs text-[#64607d] space-y-4 max-w-sm mx-auto">
             <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-700 mx-auto flex items-center justify-center">

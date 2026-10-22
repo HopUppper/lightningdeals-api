@@ -14,7 +14,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 
 export const UserSupport: React.FC = () => {
   const { user } = useAuth();
@@ -40,7 +40,7 @@ export const UserSupport: React.FC = () => {
 
   const fetchTickets = async () => {
     try {
-      const res = await adminFetch('/api/user/tickets');
+      const res = await userFetch('/api/user/tickets');
       if (res.ok) {
         const data = await res.json();
         setTickets(Array.isArray(data) ? data : data.tickets || []);
@@ -58,7 +58,7 @@ export const UserSupport: React.FC = () => {
   const fetchTicketDetails = async (id: string) => {
     setLoadingDetails(true);
     try {
-      const res = await adminFetch(`/api/user/tickets/${id}`);
+      const res = await userFetch(`/api/user/tickets/${id}`);
       if (res.ok) {
         const data = await res.json();
         setActiveTicket(data.ticket || data);
@@ -94,7 +94,7 @@ export const UserSupport: React.FC = () => {
     setSuccessMessage(null);
 
     try {
-      const res = await adminFetch('/api/user/tickets', {
+      const res = await userFetch('/api/user/tickets', {
         method: 'POST',
         body: JSON.stringify({
           subject: subject.trim(),
@@ -133,7 +133,7 @@ export const UserSupport: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      const res = await adminFetch(`/api/user/tickets/${activeTicketId}/messages`, {
+      const res = await userFetch(`/api/user/tickets/${activeTicketId}/messages`, {
         method: 'POST',
         body: JSON.stringify({ content: replyText.trim() }),
       });

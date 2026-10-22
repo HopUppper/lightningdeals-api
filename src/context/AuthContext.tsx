@@ -100,6 +100,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('ld_admin_token');
     refreshUser();
     refreshAdmin();
+
+    const handleSessionExpired = () => {
+      sessionStorage.removeItem('apexscale_token');
+      localStorage.removeItem('apexscale_token');
+      setUser(null);
+    };
+
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('auth:session-expired', handleSessionExpired);
+    };
   }, []);
 
   const login = (token: string, userData: User) => {
@@ -110,11 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const adminLogin = (token: string, userData: User) => {
     sessionStorage.setItem('ld_admin_token', token);
-    sessionStorage.setItem('apexscale_token', token);
     localStorage.removeItem('ld_admin_token');
-    localStorage.removeItem('apexscale_token');
     setAdminUser(userData);
-    setUser(userData);
     window.location.href = '/admin';
   };
 
@@ -123,9 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {}
     sessionStorage.removeItem('apexscale_token');
-    sessionStorage.removeItem('ld_admin_token');
     localStorage.removeItem('apexscale_token');
-    localStorage.removeItem('ld_admin_token');
     setUser(null);
   };
 
@@ -134,9 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {}
     sessionStorage.removeItem('ld_admin_token');
-    sessionStorage.removeItem('apexscale_token');
     localStorage.removeItem('ld_admin_token');
-    localStorage.removeItem('apexscale_token');
     setAdminUser(null);
   };
 

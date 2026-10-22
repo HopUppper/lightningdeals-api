@@ -63,7 +63,7 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { adminFetch, userFetch, getAuthHeaders } from '../../utils/api';
+import { userFetch, getAuthHeaders } from '../../utils/api';
 import { MarkdownBlock } from '../../components/chat/MarkdownBlock';
 import { ArtifactCanvas, ArtifactData } from '../../components/chat/ArtifactCanvas';
 import { ContextManagerDrawer, ProjectMemoryItem } from '../../components/chat/ContextManagerDrawer';
@@ -2306,7 +2306,7 @@ export const UserChatStudio: React.FC = () => {
           >
             <Key className="w-3 h-3 opacity-80" />
             <span className="font-sans font-semibold max-w-[80px] truncate text-[11px]">
-              {activeKey?.name || activeKey?.displayKey || 'API Key'}
+              {keys.length === 0 ? 'No Key' : activeKey?.name || activeKey?.displayKey || 'API Key'}
             </span>
             <span className="opacity-40">|</span>
             <span className="font-bold text-[11px]">
@@ -2955,7 +2955,7 @@ export const UserChatStudio: React.FC = () => {
                 >
                   <Key className="w-3 h-3 text-violet-500 shrink-0" />
                   <span className="font-sans font-semibold truncate text-[11px]">
-                    {activeKey?.name || activeKey?.displayKey || 'API Key'}
+                    {keys.length === 0 ? 'No Key' : activeKey?.name || activeKey?.displayKey || 'API Key'}
                   </span>
                 </button>
                 <button
@@ -2968,7 +2968,7 @@ export const UserChatStudio: React.FC = () => {
                   }`}
                   title="Switch API Key"
                 >
-                  {Number(remainingTokens) <= 0 ? 'Switch Key' : `${remainingTokensM}M`}
+                  {keys.length === 0 ? 'No Key' : Number(remainingTokens) <= 0 ? 'Switch Key' : `${remainingTokensM}M`}
                 </button>
               </div>
               <div
@@ -3662,7 +3662,7 @@ export const UserChatStudio: React.FC = () => {
                     >
                       <Key className="w-3 h-3 text-violet-500" />
                       <span className="truncate max-w-[85px] sm:max-w-[120px] font-sans text-[11px]">
-                        {activeKey?.name || activeKey?.displayKey || 'API Key'}
+                        {keys.length === 0 ? 'No Key' : activeKey?.name || activeKey?.displayKey || 'API Key'}
                       </span>
                       <ChevronDown className="w-2.5 h-2.5 opacity-60" />
                     </button>

@@ -18,7 +18,7 @@ import {
   Info,
   Flame,
 } from 'lucide-react';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
 interface RewardSummary {
@@ -61,7 +61,7 @@ export const UserRewards: React.FC = () => {
   const fetchRewards = async () => {
     try {
       setLoading(true);
-      const res = await adminFetch('/api/user/rewards/summary');
+      const res = await userFetch('/api/user/rewards/summary');
       if (res.ok) {
         const json = await res.json();
         if (json.success) {

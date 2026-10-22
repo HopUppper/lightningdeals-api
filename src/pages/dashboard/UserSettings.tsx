@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { User, Mail, ShieldCheck, Laptop, Trash2, CheckCircle2, RefreshCw, Smartphone, Monitor } from 'lucide-react';
-import { adminFetch } from '../../utils/api';
+import { userFetch } from '../../utils/api';
 
 interface UserSessionItem {
   id: string;
@@ -21,7 +21,7 @@ export const UserSettings: React.FC = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await adminFetch('/api/user/auth/sessions');
+      const res = await userFetch('/api/user/auth/sessions');
       if (res.ok) {
         const data = await res.json();
         setSessions(data.sessions || []);
@@ -40,7 +40,7 @@ export const UserSettings: React.FC = () => {
   const handleRevokeSession = async (sessionId: string) => {
     setRevokingId(sessionId);
     try {
-      const res = await adminFetch(`/api/user/auth/sessions/${sessionId}`, {
+      const res = await userFetch(`/api/user/auth/sessions/${sessionId}`, {
         method: 'DELETE',
       });
       if (res.ok) {

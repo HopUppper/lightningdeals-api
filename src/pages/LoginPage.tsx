@@ -71,6 +71,13 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
+          {searchParams.get('session_expired') === '1' && !error && (
+            <div className="p-3.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>Your session has expired. Please sign in to continue.</span>
+            </div>
+          )}
+
           {error && (
             <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs flex flex-col gap-1.5">
               <div className="flex items-center gap-2">

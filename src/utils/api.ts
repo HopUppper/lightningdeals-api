@@ -1,7 +1,7 @@
 export function getAuthHeaders(isAdmin = false): Record<string, string> {
   const token = isAdmin
-    ? (sessionStorage.getItem('ld_admin_token') || sessionStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || localStorage.getItem('apexscale_token') || '')
-    : (sessionStorage.getItem('apexscale_token') || sessionStorage.getItem('ld_admin_token') || localStorage.getItem('apexscale_token') || localStorage.getItem('ld_admin_token') || '');
+    ? (sessionStorage.getItem('ld_admin_token') || localStorage.getItem('ld_admin_token') || '')
+    : (sessionStorage.getItem('apexscale_token') || localStorage.getItem('apexscale_token') || '');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -32,7 +32,7 @@ export async function adminFetch(url: string, options: RequestInit = {}, timeout
   try {
     const response = await fetch(url, mergedOptions);
     clearTimeout(timer);
-    if (url.includes('/api/admin/') && (response.status === 401 || response.status === 403)) {
+    if (response.status === 401 || response.status === 403) {
       sessionStorage.removeItem('ld_admin_token');
       localStorage.removeItem('ld_admin_token');
     }
@@ -67,6 +67,13 @@ export async function userFetch(url: string, options: RequestInit = {}, timeoutM
   try {
     const response = await fetch(url, mergedOptions);
     clearTimeout(timer);
+    if (response.status === 401) {
+      sessionStorage.removeItem('apexscale_token');
+      localStorage.removeItem('apexscale_token');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:session-expired'));
+      }
+    }
     return response;
   } catch (err: any) {
     clearTimeout(timer);

@@ -419,7 +419,9 @@ export const UserChatStudio: React.FC = () => {
 
   // Theme: Warm Claude Paper ('light') vs Obsidian Dark ('dark')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('lightning_studio_theme') as any) || 'light';
+    const saved = localStorage.getItem('lightning_studio_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return 'light';
   });
 
   const toggleTheme = () => {
@@ -429,6 +431,17 @@ export const UserChatStudio: React.FC = () => {
   };
 
   const isDark = theme === 'dark';
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    return () => {
+      document.documentElement.classList.remove('dark');
+    };
+  }, [theme]);
 
   // Sidebar toggle
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -2115,25 +2128,25 @@ export const UserChatStudio: React.FC = () => {
   // Style Tokens & Palettes - Studio 2.0 Warm Ivory & Obsidian Dark
   const c = {
     bg: isDark ? 'bg-[#0B1020]' : 'bg-[#FAF8F5]',
-    text: isDark ? 'text-[#F3F5FC]' : 'text-[#171717]',
-    textSecondary: isDark ? 'text-[#A5B0C7]' : 'text-[#625F5A]',
-    textMuted: isDark ? 'text-[#77839E]' : 'text-[#8E8A83]',
+    text: isDark ? 'text-[#F3F5FC]' : 'text-[#0f172a]',
+    textSecondary: isDark ? 'text-[#A5B0C7]' : 'text-[#334155]',
+    textMuted: isDark ? 'text-[#77839E]' : 'text-[#475569]',
     headerBg: isDark
       ? 'bg-[#0E1425]/95 border-b border-[#28334B]'
-      : 'bg-white/95 border-b border-[#E9E4DD] shadow-2xs',
-    sidebarBg: isDark ? 'bg-[#0E1425]' : 'bg-[#FAF8F5]',
-    sidebarBorder: isDark ? 'border-[#28334B]' : 'border-[#E9E4DD]',
+      : 'bg-white/95 border-b border-[#E2DCD3] shadow-2xs',
+    sidebarBg: isDark ? 'bg-[#0E1425]' : 'bg-[#F4F1EA]',
+    sidebarBorder: isDark ? 'border-[#28334B]' : 'border-[#E2DCD3]',
     cardBg: isDark ? 'bg-[#141C30]' : 'bg-[#FFFFFF]',
-    elevatedBg: isDark ? 'bg-[#19233A]' : 'bg-[#F5F2EE]',
-    border: isDark ? 'border-[#28334B]' : 'border-[#E9E4DD]',
-    borderSubtle: isDark ? 'border-[#28334B]/60' : 'border-[#E9E4DD]/70',
+    elevatedBg: isDark ? 'bg-[#19233A]' : 'bg-[#EDE8E0]',
+    border: isDark ? 'border-[#28334B]' : 'border-[#DCD5C9]',
+    borderSubtle: isDark ? 'border-[#28334B]/60' : 'border-[#E5DFD4]',
     inputBg: isDark ? 'bg-[#141C30]' : 'bg-[#FFFFFF]',
     pillBg: isDark
       ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:text-[#F3F5FC] hover:border-violet-500/40'
-      : 'bg-[#F5F2EE] border-[#E9E4DD] text-[#625F5A] hover:text-[#171717] hover:border-violet-500/40',
+      : 'bg-[#EFEAE2] border-[#D8D2C5] text-[#1E293B] hover:text-[#0F172A] hover:border-violet-500/50 hover:bg-[#E8E2D6]',
     userBubble: isDark
       ? 'bg-[#19233A] border border-violet-500/30 text-[#F3F5FC] shadow-sm'
-      : 'bg-[#F3ECFF] border border-[#E4D4FF] text-[#171717] shadow-2xs',
+      : 'bg-[#F3ECFF] border border-[#DDD0FA] text-[#0f172a] shadow-2xs',
   };
 
   return (
@@ -2141,7 +2154,7 @@ export const UserChatStudio: React.FC = () => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative w-full h-full min-h-0 flex flex-col overflow-hidden font-sans ${c.bg} ${c.text}`}
+      className={`relative w-full h-full min-h-0 flex flex-col overflow-hidden font-sans ${isDark ? 'dark' : ''} ${c.bg} ${c.text}`}
     >
       {/* Drag & Drop Visual Overlay */}
       {isDragging && (
@@ -2242,9 +2255,9 @@ export const UserChatStudio: React.FC = () => {
             className={`hidden md:flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all text-xs cursor-pointer shadow-2xs ${c.pillBg}`}
             title="Search & Commands (⌘K)"
           >
-            <Search className="w-3.5 h-3.5 text-violet-400" />
+            <Search className={`w-3.5 h-3.5 ${isDark ? 'text-violet-400' : 'text-violet-700'}`} />
             <span className={`text-[11px] ${c.textMuted}`}>Search...</span>
-            <kbd className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${isDark ? 'bg-black/30 border-[#28334B] text-slate-400' : 'bg-slate-200 border-slate-300 text-slate-600'}`}>
+            <kbd className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${isDark ? 'bg-black/30 border-[#28334B] text-slate-400' : 'bg-slate-200 border-slate-300 text-slate-700 font-bold'}`}>
               ⌘K
             </kbd>
           </button>
@@ -2256,13 +2269,21 @@ export const UserChatStudio: React.FC = () => {
           <button
             type="button"
             onClick={() => setModelPickerOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 font-semibold text-xs transition-all cursor-pointer shadow-2xs"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-semibold text-xs transition-all cursor-pointer shadow-2xs ${
+              isDark
+                ? 'border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-300'
+                : 'border-violet-200 bg-violet-100 hover:bg-violet-200 text-violet-950 font-bold'
+            }`}
             title="Change AI model & inspect capabilities"
           >
-            <Sparkles className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+            <Sparkles className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-violet-400' : 'text-violet-700'}`} />
             <span className="truncate max-w-[120px] sm:max-w-none">{getModelDisplayName(activeThread.model)}</span>
             {activeModelMeta?.supportsThinking && (
-              <span className="hidden xl:inline text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span className={`hidden xl:inline text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                isDark
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  : 'bg-amber-100 text-amber-900 border-amber-300'
+              }`}>
                 Thinking
               </span>
             )}
@@ -2297,10 +2318,12 @@ export const UserChatStudio: React.FC = () => {
             onClick={() => setKeyPickerOpen(true)}
             className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer ${
               Number(remainingTokens) <= 0
-                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
+                ? isDark
+                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
+                  : 'bg-rose-100 border-rose-300 text-rose-900 hover:bg-rose-200 font-bold'
                 : isDark
                 ? 'bg-emerald-950/30 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/50'
-                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                : 'bg-emerald-100/80 text-emerald-950 border-emerald-300 hover:bg-emerald-200/80 font-bold'
             }`}
             title="Active API key and token quota"
           >
@@ -2324,7 +2347,7 @@ export const UserChatStudio: React.FC = () => {
               }`}
               title="Studio Advanced Tools & Settings"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-violet-400" />
+              <SlidersHorizontal className={`w-3.5 h-3.5 ${isDark ? 'text-violet-400' : 'text-violet-700'}`} />
               <span className="hidden sm:inline">Tools</span>
               {(activeThread.thinkingEnabled || activeThread.tokenSaverEnabled || activeArtifact) && (
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
@@ -2722,7 +2745,7 @@ export const UserChatStudio: React.FC = () => {
             {/* 2. WORKSPACE & LIBRARY SECTION */}
             <div className="p-2.5 border-b border-black/5 dark:border-white/5 shrink-0 space-y-2">
               <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
                   <FolderKanban className="w-3 h-3 text-violet-500" />
                   <span>Workspace</span>
                 </div>
@@ -2736,7 +2759,7 @@ export const UserChatStudio: React.FC = () => {
                     className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
                       !archiveView
                         ? 'bg-violet-600 text-white shadow-2xs'
-                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 font-semibold'
                     }`}
                   >
                     Active
@@ -2750,7 +2773,7 @@ export const UserChatStudio: React.FC = () => {
                     className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
                       archiveView
                         ? 'bg-violet-600 text-white shadow-2xs'
-                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 font-semibold'
                     }`}
                   >
                     Library ({threads.filter((t) => t.archived).length})
@@ -2767,7 +2790,7 @@ export const UserChatStudio: React.FC = () => {
                   value={threadSearch}
                   onChange={(e) => setThreadSearch(e.target.value)}
                   className={`w-full pl-8 pr-2.5 py-1.5 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-violet-500 ${
-                    isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-[#E9E4DD] text-[#171717]'
+                    isDark ? 'bg-slate-900 border-slate-700 text-slate-200 placeholder:text-slate-500' : 'bg-white border-[#D8D2C5] text-slate-900 placeholder:text-slate-500 shadow-2xs'
                   }`}
                 />
               </div>
@@ -2775,7 +2798,7 @@ export const UserChatStudio: React.FC = () => {
               {/* Projects Collapsible Tree */}
               {!archiveView && (
                 <div className="space-y-1 pt-1">
-                  <div className="flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
                     <span className="flex items-center gap-1">
                       <Folder className="w-3 h-3 text-violet-400" />
                       <span>Projects</span>
@@ -2796,7 +2819,7 @@ export const UserChatStudio: React.FC = () => {
                     className={`px-2 py-1.5 rounded-xl flex items-center justify-between text-xs cursor-pointer transition-colors ${
                       selectedProjectId === null
                         ? 'bg-violet-600/15 text-violet-700 dark:text-violet-300 font-semibold'
-                        : 'text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5'
+                        : 'text-slate-700 dark:text-slate-400 hover:bg-[#EAE4DC] dark:hover:bg-white/5 font-medium'
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate">
@@ -2819,7 +2842,7 @@ export const UserChatStudio: React.FC = () => {
                           className={`px-2 py-1.5 rounded-xl flex items-center justify-between text-xs cursor-pointer transition-colors group ${
                             isSelected
                               ? 'bg-violet-600/15 text-violet-700 dark:text-violet-200 font-semibold'
-                              : 'text-slate-500 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/5'
+                              : 'text-slate-700 dark:text-slate-400 hover:bg-[#EAE4DC] dark:hover:bg-white/5 font-medium'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
@@ -2900,7 +2923,7 @@ export const UserChatStudio: React.FC = () => {
               {/* Group: Today */}
               {groupedThreads.today.length > 0 && (
                 <div className="space-y-1">
-                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
                     Today
                   </p>
                   {groupedThreads.today.map((t) => renderThreadRow(t))}
@@ -2910,7 +2933,7 @@ export const UserChatStudio: React.FC = () => {
               {/* Group: Yesterday */}
               {groupedThreads.yesterday.length > 0 && (
                 <div className="space-y-1">
-                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
                     Yesterday
                   </p>
                   {groupedThreads.yesterday.map((t) => renderThreadRow(t))}
@@ -2920,7 +2943,7 @@ export const UserChatStudio: React.FC = () => {
               {/* Group: Previous 7 Days */}
               {groupedThreads.previous7Days.length > 0 && (
                 <div className="space-y-1">
-                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
                     Previous 7 Days
                   </p>
                   {groupedThreads.previous7Days.map((t) => renderThreadRow(t))}
@@ -2930,7 +2953,7 @@ export const UserChatStudio: React.FC = () => {
               {/* Group: Older */}
               {groupedThreads.older.length > 0 && (
                 <div className="space-y-1">
-                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
                     Older
                   </p>
                   {groupedThreads.older.map((t) => renderThreadRow(t))}
@@ -3025,17 +3048,23 @@ export const UserChatStudio: React.FC = () => {
                           textareaRef.current?.focus();
                         }}
                         className={`p-3.5 rounded-2xl border transition-all text-left group cursor-pointer ${
-                          isDark ? 'bg-[#141C30] border-[#28334B] hover:border-violet-500/50 hover:bg-[#19233A]' : 'bg-white border-slate-200 hover:border-violet-500/50 hover:shadow-xs'
+                          isDark ? 'bg-[#141C30] border-[#28334B] hover:border-violet-500/50 hover:bg-[#19233A]' : 'bg-white border-[#D8D2C5] hover:border-violet-500 hover:shadow-md'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${c.pillBg}`}>
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                            isDark
+                              ? 'bg-[#19233A] border-[#28334B] text-violet-300'
+                              : 'bg-violet-100/90 border-violet-200 text-violet-950 font-bold'
+                          }`}>
                             {card.category}
                           </span>
                           <card.icon className="w-4 h-4 text-violet-500 transition-transform group-hover:scale-110" />
                         </div>
-                        <h4 className="text-xs font-bold mb-1">{card.title}</h4>
-                        <p className={`text-[11px] line-clamp-2 leading-relaxed ${c.textMuted}`}>
+                        <h4 className="text-xs font-bold mb-1 text-slate-900 dark:text-white">{card.title}</h4>
+                        <p className={`text-[11px] line-clamp-2 leading-relaxed ${
+                          isDark ? 'text-[#77839E]' : 'text-slate-600 font-normal'
+                        }`}>
                           {card.prompt}
                         </p>
                       </button>
@@ -3300,7 +3329,11 @@ export const UserChatStudio: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => setActiveTelemetryMsgId(activeTelemetryMsgId === msg.id ? null : msg.id)}
-                                  className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                                    isDark
+                                      ? 'bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20'
+                                      : 'bg-teal-50 border-teal-300 text-teal-900 hover:bg-teal-100 font-semibold'
+                                  }`}
                                   title="View verified token telemetry"
                                 >
                                   <Zap className="w-2.5 h-2.5" />
@@ -3313,9 +3346,9 @@ export const UserChatStudio: React.FC = () => {
                                 </button>
 
                                 {activeTelemetryMsgId === msg.id && (
-                                  <div className="absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-2xl bg-[#141C30] border border-[#28334B] shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn">
-                                    <div className="flex items-center justify-between pb-1 border-b border-slate-800">
-                                      <span className="font-bold text-white flex items-center gap-1">
+                                  <div className={`absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-2xl shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn ${c.cardBg} ${c.border}`}>
+                                    <div className="flex items-center justify-between pb-1 border-b border-black/10 dark:border-slate-800">
+                                      <span className={`font-bold flex items-center gap-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                         <Activity className="w-3 h-3 text-teal-400" />
                                         <span>Token Telemetry</span>
                                       </span>
@@ -3324,7 +3357,7 @@ export const UserChatStudio: React.FC = () => {
                                       </span>
                                     </div>
 
-                                    <div className="space-y-1 font-mono text-[11px] text-slate-300">
+                                    <div className={`space-y-1 font-mono text-[11px] ${isDark ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>
                                       <div className="flex justify-between">
                                         <span className="text-slate-400 font-sans">Input tokens:</span>
                                         <span>{msg.usage.input_tokens.toLocaleString()}</span>
@@ -3345,7 +3378,7 @@ export const UserChatStudio: React.FC = () => {
                                           <span>{msg.usage.cached_tokens?.toLocaleString()}</span>
                                         </div>
                                       )}
-                                      <div className="flex justify-between pt-1 border-t border-slate-800 font-bold text-white">
+                                      <div className={`flex justify-between pt-1 border-t border-black/10 dark:border-slate-800 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                         <span className="font-sans">Total:</span>
                                         <span>{msg.usage.total_tokens.toLocaleString()}</span>
                                       </div>
@@ -3606,7 +3639,7 @@ export const UserChatStudio: React.FC = () => {
                       ? 'Paste URL to inspect and analyze page content...'
                       : 'Ask Claude to code, debug an error, or drop files/images (Enter to send, / for commands)...'
                   }
-                  className={`w-full bg-transparent resize-none text-xs sm:text-sm focus:outline-none leading-relaxed ${c.text}`}
+                  className={`w-full bg-transparent resize-none text-xs sm:text-sm focus:outline-none leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-500 ${c.text}`}
                 />
               </div>
 
@@ -3640,7 +3673,7 @@ export const UserChatStudio: React.FC = () => {
                     type="button"
                     onClick={() => setModelPickerOpen(true)}
                     className={`border font-semibold rounded-xl px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                      isDark ? 'bg-[#19233A] border-[#28334B] text-[#F3F5FC] hover:bg-[#202c48]' : 'bg-slate-100 border-slate-200 text-slate-900 hover:bg-slate-200 shadow-2xs'
+                      isDark ? 'bg-[#19233A] border-[#28334B] text-[#F3F5FC] hover:bg-[#202c48]' : 'bg-[#F0ECE4] border-[#D8D2C5] text-slate-900 hover:bg-[#E8E2D6] shadow-2xs'
                     }`}
                   >
                     <Sparkles className="w-3 h-3 text-violet-500" />
@@ -3656,7 +3689,7 @@ export const UserChatStudio: React.FC = () => {
                       className={`border font-semibold rounded-xl px-2 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
                         Number(remainingTokens) <= 0
                           ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
-                          : isDark ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:bg-[#202c48] hover:text-[#F3F5FC]' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 hover:text-slate-900 shadow-2xs'
+                          : isDark ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:bg-[#202c48] hover:text-[#F3F5FC]' : 'bg-[#F0ECE4] border-[#D8D2C5] text-slate-800 hover:bg-[#E8E2D6] hover:text-slate-950 shadow-2xs font-semibold'
                       }`}
                       title="Switch active API Key for billing"
                     >
@@ -3676,7 +3709,7 @@ export const UserChatStudio: React.FC = () => {
                       className={`border font-semibold rounded-xl px-2 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
                         researchMode !== 'standard'
                           ? 'bg-violet-600 text-white border-violet-500 shadow-2xs'
-                          : isDark ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:bg-[#202c48]' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                          : isDark ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:bg-[#202c48]' : 'bg-[#F0ECE4] border-[#D8D2C5] text-slate-800 hover:bg-[#E8E2D6] font-semibold'
                       }`}
                       title="Web Research & Automation Tools"
                     >
@@ -3702,7 +3735,7 @@ export const UserChatStudio: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <Globe className="w-3 h-3 opacity-60 text-slate-400" />
+                          <Globe className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`} />
                           <span className="text-[11px]">Web Tools</span>
                         </>
                       )}
@@ -3981,7 +4014,9 @@ export const UserChatStudio: React.FC = () => {
             </div>
 
             {/* Live Token Intelligence Bar */}
-            <div className="mt-2 px-2 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400">
+            <div className={`mt-2 px-2 flex items-center justify-between text-[11px] font-mono ${
+              isDark ? 'text-slate-400' : 'text-slate-700 font-medium'
+            }`}>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
@@ -4008,7 +4043,9 @@ export const UserChatStudio: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setContextManagerOpen(true)}
-                className="hover:text-violet-500 flex items-center gap-1 text-[10px] cursor-pointer transition-colors"
+                className={`hover:text-violet-500 flex items-center gap-1 text-[10px] cursor-pointer transition-colors ${
+                  isDark ? 'text-slate-400' : 'text-slate-700 font-bold'
+                }`}
                 title="View full token & quota inspector"
               >
                 <span>Details</span>
@@ -4142,7 +4179,7 @@ export const UserChatStudio: React.FC = () => {
                           <span className="font-bold text-xs truncate max-w-[160px]">
                             {k.name || 'API Key'}
                           </span>
-                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-slate-400">
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-slate-700 dark:text-slate-400 font-semibold">
                             {k.displayKey || k.keyPrefix || k.id.slice(0, 8)}
                           </span>
                           {k.plan && (
@@ -4170,7 +4207,7 @@ export const UserChatStudio: React.FC = () => {
                           <CheckCircle2 className="w-4 h-4 text-violet-500 shrink-0" />
                         )}
                         {!isSelected && !isDepleted && (
-                          <span className="text-[11px] font-medium text-slate-400 hover:text-slate-200">
+                          <span className="text-[11px] font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">
                             Use this key
                           </span>
                         )}
@@ -4197,7 +4234,7 @@ export const UserChatStudio: React.FC = () => {
               </Link>
               <Link
                 to="/dashboard/plan"
-                className="text-slate-500 dark:text-slate-400 hover:text-violet-500 flex items-center gap-1 text-[11px]"
+                className="text-slate-700 dark:text-slate-400 hover:text-violet-600 font-medium flex items-center gap-1 text-[11px]"
               >
                 <span>Recharge Quota</span>
                 <ExternalLink className="w-3 h-3" />
@@ -4394,10 +4431,10 @@ export const UserChatStudio: React.FC = () => {
           isActive
             ? isDark
               ? 'bg-[#19233A] border-violet-500/40 text-[#F3F5FC] font-medium shadow-xs'
-              : 'bg-white border-violet-300 text-slate-900 font-semibold shadow-xs'
+              : 'bg-white border-violet-400 text-slate-950 font-bold shadow-xs'
             : isDark
             ? 'border-transparent text-[#A5B0C7] hover:bg-[#141C30] hover:text-[#F3F5FC]'
-            : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            : 'border-transparent text-slate-800 hover:bg-[#EAE4DC] hover:text-slate-950 font-medium'
         }`}
       >
         <div className="flex-1 min-w-0 pr-1">
@@ -4429,7 +4466,7 @@ export const UserChatStudio: React.FC = () => {
                 title={t.project.name}
               />
             )}
-            <p className={`text-[10px] truncate font-mono ${c.textMuted}`}>
+            <p className={`text-[10px] truncate font-mono ${isDark ? 'text-[#77839E]' : 'text-slate-500 font-medium'}`}>
               {getModelDisplayName(t.model).replace('Claude ', '')} · {t.messages.length} msgs
             </p>
           </div>
@@ -4442,7 +4479,7 @@ export const UserChatStudio: React.FC = () => {
             onClick={() => setActiveMenuThreadId(isMenuOpen ? null : t.id)}
             className={`p-1 rounded-md transition-opacity cursor-pointer ${
               isMenuOpen ? 'opacity-100 bg-black/10 dark:bg-white/10' : 'opacity-0 group-hover:opacity-100'
-            } ${c.textMuted} hover:text-white`}
+            } ${c.textMuted} hover:text-slate-950 dark:hover:text-white`}
             title="Conversation Options"
           >
             <MoreHorizontal className="w-3.5 h-3.5" />

@@ -104,11 +104,11 @@ export const WebResearchSources: React.FC<WebResearchSourcesProps> = ({
                     </p>
                   </div>
 
-                  <p className="mt-1 text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                  <p className="mt-1 text-[10px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
                     {src.snippet}
                   </p>
 
-                  <div className="mt-1.5 pt-1 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <div className="mt-1.5 pt-1 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                     <span className="truncate max-w-[120px]">{src.domain}</span>
                     <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100 group-hover:text-violet-500" />
                   </div>

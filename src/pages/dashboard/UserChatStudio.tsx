@@ -67,6 +67,9 @@ import { ArtifactCanvas, ArtifactData } from '../../components/chat/ArtifactCanv
 import { ContextManagerDrawer, ProjectMemoryItem } from '../../components/chat/ContextManagerDrawer';
 import { WorkspaceSkillsModal } from '../../components/chat/WorkspaceSkillsModal';
 import { CommandPaletteModal } from '../../components/chat/CommandPaletteModal';
+import { ModelSelectorModal } from '../../components/chat/ModelSelectorModal';
+import { ProjectManagementModal, StudioProjectItem } from '../../components/chat/ProjectManagementModal';
+import { Folder, FolderPlus, Archive, ArchiveRestore } from 'lucide-react';
 import { WebResearchSources, WebSourceItem } from '../../components/chat/WebResearchSources';
 import {
   BrowserTaskModal,
@@ -126,6 +129,10 @@ export interface ChatMessage {
     input_tokens: number;
     output_tokens: number;
     total_tokens: number;
+    cached_tokens?: number;
+    reasoning_tokens?: number;
+    first_token_ms?: number;
+    usage_source?: string;
     savings_tokens?: number;
     estimated_savings_tokens?: number;
     is_savings_estimated?: boolean;
@@ -146,6 +153,9 @@ export interface ChatThread {
   title: string;
   model: string;
   pinned?: boolean;
+  archived?: boolean;
+  projectId?: string | null;
+  project?: { id: string; name: string; color: string | null } | null;
   systemPrompt?: string;
   temperature?: number;
   thinkingEnabled?: boolean;
@@ -437,6 +447,14 @@ export const UserChatStudio: React.FC = () => {
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState('');
   const [keyPickerOpen, setKeyPickerOpen] = useState(false);
+
+  // Projects State
+  const [projects, setProjects] = useState<StudioProjectItem[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectModalOpen, setProjectModalOpen] = useState(false);
+  const [archiveView, setArchiveView] = useState(false);
+  const [activeTelemetryMsgId, setActiveTelemetryMsgId] = useState<string | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   // Advanced Drawers & Canvas
   const [contextManagerOpen, setContextManagerOpen] = useState(false);
@@ -786,6 +804,15 @@ export const UserChatStudio: React.FC = () => {
           }
         }
 
+        // Load Projects
+        try {
+          const projRes = await userFetch('/api/user/studio/projects');
+          if (projRes.ok) {
+            const pData = await projRes.json();
+            if (Array.isArray(pData.projects)) setProjects(pData.projects);
+          }
+        } catch {}
+
         // Load Server-Backed Conversations
         const convsRes = await userFetch('/api/user/studio/conversations');
         if (convsRes.ok) {
@@ -796,6 +823,9 @@ export const UserChatStudio: React.FC = () => {
               title: c.title,
               model: c.model,
               pinned: Boolean(c.pinned),
+              archived: Boolean(c.archived),
+              projectId: c.projectId || null,
+              project: c.project || null,
               systemPrompt: c.systemPrompt || '',
               thinkingEnabled: Boolean(c.thinkingEnabled),
               tokenSaverEnabled: Boolean(c.tokenSaverEnabled),
@@ -1135,7 +1165,9 @@ export const UserChatStudio: React.FC = () => {
     );
   };
 
-  const handleCreateNewThread = async () => {
+  const handleCreateNewThread = async (forProjectId?: string) => {
+    const projIdToUse = forProjectId !== undefined ? forProjectId : selectedProjectId;
+    const projObj = projIdToUse ? projects.find((p) => p.id === projIdToUse) : null;
     const defaultModel = activeThread.model || 'claude-sonnet-5.5';
     let newId = `thread_${Date.now()}`;
 
@@ -1147,6 +1179,7 @@ export const UserChatStudio: React.FC = () => {
           model: defaultModel,
           thinkingEnabled: activeThread.thinkingEnabled ?? true,
           tokenSaverEnabled: activeThread.tokenSaverEnabled ?? false,
+          projectId: projIdToUse || undefined,
         }),
       });
       if (res.ok) {
@@ -1161,6 +1194,8 @@ export const UserChatStudio: React.FC = () => {
       id: newId,
       title: 'New Session',
       model: defaultModel,
+      projectId: projIdToUse || null,
+      project: projObj ? { id: projObj.id, name: projObj.name, color: projObj.color || '#8b5cf6' } : null,
       systemPrompt: activeThread.systemPrompt,
       temperature: activeThread.temperature ?? 0.2,
       thinkingEnabled: activeThread.thinkingEnabled ?? true,
@@ -1200,6 +1235,25 @@ export const UserChatStudio: React.FC = () => {
       if (activeThreadId === id) {
         setActiveThreadId(nextThreads[0].id);
         loadConversationMessages(nextThreads[0].id);
+      }
+    }
+  };
+
+  const handleToggleArchive = async (id: string, currentArchived: boolean, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const nextArchived = !currentArchived;
+    setThreads((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, archived: nextArchived } : t))
+    );
+
+    if (!id.startsWith('thread_')) {
+      try {
+        await userFetch(`/api/user/studio/conversations/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ archived: nextArchived }),
+        });
+      } catch (err) {
+        console.error('Failed to toggle archive:', err);
       }
     }
   };
@@ -1249,9 +1303,17 @@ export const UserChatStudio: React.FC = () => {
     const yesterdayStart = todayStart - 86400000;
     const sevenDaysStart = todayStart - 6 * 86400000;
 
-    const filtered = threads.filter((t) =>
+    let filtered = threads.filter((t) =>
       t.title.toLowerCase().includes(threadSearch.toLowerCase())
     );
+
+    // Filter by Archive mode
+    filtered = filtered.filter((t) => (archiveView ? Boolean(t.archived) : !t.archived));
+
+    // Filter by Project if selected
+    if (selectedProjectId) {
+      filtered = filtered.filter((t) => t.projectId === selectedProjectId);
+    }
 
     const pinned: ChatThread[] = [];
     const today: ChatThread[] = [];
@@ -1376,9 +1438,56 @@ export const UserChatStudio: React.FC = () => {
     }
   };
 
-  // Export Thread to Markdown
-  const handleExportThread = () => {
+  // Export Thread to Markdown, JSON, or Plain Text
+  const handleExportThread = (format: 'markdown' | 'json' | 'text' = 'markdown') => {
     if (!activeThread.messages.length) return;
+    const sanitizedTitle = activeThread.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'thread';
+
+    if (format === 'json') {
+      const dataStr = JSON.stringify(
+        {
+          id: activeThread.id,
+          title: activeThread.title,
+          model: activeThread.model,
+          messages: activeThread.messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+            thinking: m.thinking,
+            usage: m.usage,
+            timestamp: m.timestamp,
+          })),
+        },
+        null,
+        2
+      );
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${sanitizedTitle}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setExportMenuOpen(false);
+      return;
+    }
+
+    if (format === 'text') {
+      let txt = `=== ${activeThread.title} ===\nModel: ${activeThread.model}\n\n`;
+      for (const m of activeThread.messages) {
+        txt += `[${m.role.toUpperCase()}]\n${m.content}\n\n`;
+      }
+      const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${sanitizedTitle}.txt`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setExportMenuOpen(false);
+      return;
+    }
+
+    // Default: Markdown
     const md = activeThread.messages
       .map((m) => `### ${m.role === 'user' ? 'User' : 'Assistant'}\n\n${m.content}\n`)
       .join('\n---\n\n');
@@ -1386,9 +1495,10 @@ export const UserChatStudio: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${activeThread.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'thread'}.md`;
+    link.download = `${sanitizedTitle}.md`;
     link.click();
     URL.revokeObjectURL(url);
+    setExportMenuOpen(false);
   };
 
   // ── CORE REAL-TIME SSE STREAMING HANDLER ──
@@ -2032,11 +2142,28 @@ export const UserChatStudio: React.FC = () => {
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
           </button>
 
-          {/* Workspace Selector Dropdown Pill */}
-          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-100/80 dark:bg-gray-800/60 font-semibold text-xs text-gray-700 dark:text-gray-300">
-            <span className="w-2 h-2 rounded-full bg-violet-600" />
-            <span>My Workspace</span>
-          </div>
+          {/* Active Project or Workspace Pill */}
+          {activeThread.projectId && projects.find((p) => p.id === activeThread.projectId) ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedProjectId(activeThread.projectId || null);
+                setProjectModalOpen(true);
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-all font-semibold text-xs cursor-pointer"
+              title="Active Project: Click to view details & instructions"
+            >
+              <Folder className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+              <span className="truncate max-w-[120px]">
+                {projects.find((p) => p.id === activeThread.projectId)?.name}
+              </span>
+            </button>
+          ) : (
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-100/80 dark:bg-gray-800/60 font-semibold text-xs text-gray-700 dark:text-gray-300">
+              <span className="w-2 h-2 rounded-full bg-violet-600" />
+              <span>My Workspace</span>
+            </div>
+          )}
 
           {/* Quick Search Command Bar (⌘K) */}
           <button
@@ -2248,16 +2375,46 @@ export const UserChatStudio: React.FC = () => {
             <span className="hidden sm:inline">Canvas</span>
           </button>
 
-          {/* Export Thread */}
+          {/* Export Thread Dropdown */}
           {activeThread.messages.length > 0 && (
-            <button
-              type="button"
-              onClick={handleExportThread}
-              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${c.pillBg} hover:opacity-100`}
-              title="Export Conversation as Markdown"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                className={`px-2 py-1.5 rounded-lg border transition-all cursor-pointer ${c.pillBg} hover:opacity-100 flex items-center gap-1 text-[11px] font-medium`}
+                title="Export Conversation"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Export</span>
+                <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+              </button>
+
+              {exportMenuOpen && (
+                <div className="absolute right-0 mt-1.5 z-40 w-40 rounded-xl bg-[#0c101b] border border-slate-700 shadow-2xl py-1 text-xs animate-fadeIn">
+                  <button
+                    type="button"
+                    onClick={() => handleExportThread('markdown')}
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-200 cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Markdown (.md)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportThread('json')}
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-200 cursor-pointer flex items-center justify-between"
+                  >
+                    <span>JSON (.json)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportThread('text')}
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-200 cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Plain Text (.txt)</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </header>
@@ -2271,7 +2428,7 @@ export const UserChatStudio: React.FC = () => {
             <div className="p-3 border-b border-black/5 dark:border-white/5 shrink-0">
               <button
                 type="button"
-                onClick={handleCreateNewThread}
+                onClick={() => handleCreateNewThread()}
                 className="w-full py-2.5 px-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
@@ -2280,12 +2437,12 @@ export const UserChatStudio: React.FC = () => {
             </div>
 
             {/* Session Search */}
-            <div className="p-2.5 border-b border-black/5 dark:border-white/5 shrink-0">
+            <div className="p-2.5 border-b border-black/5 dark:border-white/5 shrink-0 space-y-2">
               <div className="relative">
                 <Search className={`w-3.5 h-3.5 absolute left-2.5 top-2.5 ${c.textMuted}`} />
                 <input
                   type="text"
-                  placeholder="Search sessions..."
+                  placeholder="Search chats..."
                   value={threadSearch}
                   onChange={(e) => setThreadSearch(e.target.value)}
                   className={`w-full pl-8 pr-2.5 py-1.5 rounded-lg text-xs border focus:outline-none focus:ring-1 focus:ring-violet-500 ${
@@ -2293,6 +2450,119 @@ export const UserChatStudio: React.FC = () => {
                   }`}
                 />
               </div>
+
+              {/* Active vs Archived filter tabs */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-black/5 dark:bg-white/5 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setArchiveView(false)}
+                  className={`flex-1 py-1 rounded text-center font-medium transition-colors cursor-pointer ${
+                    !archiveView ? 'bg-violet-600 text-white shadow-2xs font-bold' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setArchiveView(true)}
+                  className={`flex-1 py-1 rounded text-center font-medium transition-colors cursor-pointer ${
+                    archiveView ? 'bg-violet-600 text-white shadow-2xs font-bold' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Archived
+                </button>
+              </div>
+            </div>
+
+            {/* Folders & Projects Section (Image 5 style) */}
+            <div className="px-2.5 pt-2 pb-1 border-b border-black/5 dark:border-white/5 shrink-0 space-y-1">
+              <div className="flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="flex items-center gap-1">
+                  <Folder className="w-3 h-3 text-violet-400" />
+                  <span>Projects</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setProjectModalOpen(true)}
+                  className="hover:text-white p-0.5 rounded cursor-pointer"
+                  title="Create or manage projects"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* All Chats Option */}
+              <div
+                onClick={() => setSelectedProjectId(null)}
+                className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                  selectedProjectId === null
+                    ? 'bg-violet-600/15 text-violet-300 font-semibold'
+                    : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Folder className="w-3.5 h-3.5 opacity-70" />
+                  <span className="truncate">All Conversations</span>
+                </div>
+                <span className="text-[10px] font-mono opacity-60">
+                  {threads.filter((t) => (archiveView ? t.archived : !t.archived)).length}
+                </span>
+              </div>
+
+              {/* Project Folders */}
+              {projects.map((proj) => {
+                const isSelected = selectedProjectId === proj.id;
+                const count = threads.filter((t) => t.projectId === proj.id && (archiveView ? t.archived : !t.archived)).length;
+
+                return (
+                  <div key={proj.id} className="space-y-0.5">
+                    <div
+                      onClick={() => setSelectedProjectId(proj.id)}
+                      className={`px-2 py-1.5 rounded-lg flex items-center justify-between text-xs cursor-pointer transition-colors group ${
+                        isSelected
+                          ? 'bg-violet-600/15 text-white font-semibold'
+                          : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: proj.color || '#8b5cf6' }}
+                        />
+                        <span className="truncate">{proj.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-[10px] font-mono opacity-60">{count}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCreateNewThread(proj.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-white"
+                          title="New chat in this project"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Project Settings Pill (Matching Image 5) */}
+                    {isSelected && (
+                      <div className="pl-6 pb-1">
+                        <button
+                          type="button"
+                          onClick={() => setProjectModalOpen(true)}
+                          className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-violet-300 border border-slate-700 flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <FileText className="w-2.5 h-2.5" />
+                          <span>Project Settings</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Thread List with Date Grouping */}
@@ -2705,19 +2975,77 @@ export const UserChatStudio: React.FC = () => {
                                 {msg.latencyMs}ms
                               </span>
                             ) : null}
-                            {msg.usage ? (() => {
-                              const savings = msg.usage.estimated_savings_tokens ?? msg.usage.savings_tokens ?? 0;
-                              return (
-                                <span
-                                  className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 cursor-help"
-                                  title={`Input: ${msg.usage.input_tokens?.toLocaleString() || 0} tokens | Output: ${msg.usage.output_tokens?.toLocaleString() || 0} tokens${msg.multiplier && msg.multiplier !== 1 ? ` | Multiplier: ${msg.multiplier}x` : ''} | Billed: ${Math.round(msg.usage.total_tokens * (msg.multiplier || 1)).toLocaleString()} units${savings > 0 ? ` | Context Saved: ~${savings.toLocaleString()} est. tokens (character-ratio estimate)` : ''}`}
+                            {msg.usage ? (
+                              <div className="relative inline-block">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTelemetryMsgId(activeTelemetryMsgId === msg.id ? null : msg.id)}
+                                  className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                                  title="View verified token telemetry"
                                 >
-                                  ✓ {msg.usage.total_tokens.toLocaleString()} tokens
-                                  {msg.multiplier && msg.multiplier !== 1 ? ` (${msg.multiplier}x)` : ''}
-                                  {savings > 0 ? ` · ~${savings.toLocaleString()} est. saved` : ''}
-                                </span>
-                              );
-                            })() : null}
+                                  <Zap className="w-2.5 h-2.5" />
+                                  <span>{msg.usage.total_tokens.toLocaleString()} tokens</span>
+                                  {msg.latencyMs ? <span>• {(msg.latencyMs / 1000).toFixed(1)}s</span> : null}
+                                  <span className="text-[9px] uppercase px-1 rounded bg-teal-500/20 text-teal-300">
+                                    {msg.usage.usage_source === 'PROVIDER_REPORTED' ? 'Verified' : 'Tracked'}
+                                  </span>
+                                  <ChevronDown className={`w-2.5 h-2.5 transition-transform ${activeTelemetryMsgId === msg.id ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {activeTelemetryMsgId === msg.id && (
+                                  <div className="absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-xl bg-[#0c101b] border border-slate-700 shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn">
+                                    <div className="flex items-center justify-between pb-1 border-b border-slate-800">
+                                      <span className="font-bold text-white flex items-center gap-1">
+                                        <Activity className="w-3 h-3 text-teal-400" />
+                                        <span>Token Telemetry</span>
+                                      </span>
+                                      <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-400 font-bold">
+                                        {msg.usage.usage_source || 'PROVIDER_REPORTED'}
+                                      </span>
+                                    </div>
+
+                                    <div className="space-y-1 font-mono text-[11px] text-slate-300">
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-400 font-sans">Input tokens:</span>
+                                        <span>{msg.usage.input_tokens.toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-400 font-sans">Output tokens:</span>
+                                        <span>{msg.usage.output_tokens.toLocaleString()}</span>
+                                      </div>
+                                      {Boolean(msg.usage.reasoning_tokens) && (
+                                        <div className="flex justify-between text-amber-400">
+                                          <span className="font-sans">Reasoning:</span>
+                                          <span>{msg.usage.reasoning_tokens?.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {Boolean(msg.usage.cached_tokens) && (
+                                        <div className="flex justify-between text-teal-400">
+                                          <span className="font-sans">Cached:</span>
+                                          <span>{msg.usage.cached_tokens?.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex justify-between pt-1 border-t border-slate-800 font-bold text-white">
+                                        <span className="font-sans">Total:</span>
+                                        <span>{msg.usage.total_tokens.toLocaleString()}</span>
+                                      </div>
+                                      {msg.multiplier && msg.multiplier !== 1 && (
+                                        <div className="flex justify-between text-violet-400">
+                                          <span className="font-sans">Multiplier:</span>
+                                          <span>{msg.multiplier}x</span>
+                                        </div>
+                                      )}
+                                      {msg.latencyMs && (
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 font-sans">Duration:</span>
+                                          <span>{msg.latencyMs}ms</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
                           </div>
 
                           <div className="flex items-center gap-1 text-xs">
@@ -3387,161 +3715,58 @@ export const UserChatStudio: React.FC = () => {
         )}
       </div>
 
-      {/* Model Selector Modal / Drawer */}
-      {modelPickerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className={`max-w-xl w-full rounded-2xl border shadow-2xl flex flex-col max-h-[85vh] ${c.cardBg} ${c.border}`}>
-            {/* Header */}
-            <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-violet-500" />
-                  <span>Choose Model</span>
-                </h3>
-                <p className={`text-xs ${c.textMuted}`}>Select from verified models available through LightningAPI</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModelPickerOpen(false)}
-                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* Model Capability Registry Modal (Image 2 style) */}
+      <ModelSelectorModal
+        open={modelPickerOpen}
+        onClose={() => setModelPickerOpen(false)}
+        models={availableModels}
+        activeModelId={activeThread.model}
+        onSelectModel={(newModelId) => {
+          updateActiveThread({ model: newModelId });
+        }}
+        currentEstimatedTokens={threadTokenStats.inputTokens}
+      />
 
-            {/* Search */}
-            <div className="p-3 border-b border-black/5 dark:border-white/5">
-              <div className="relative">
-                <Search className={`w-4 h-4 absolute left-3 top-2.5 ${c.textMuted}`} />
-                <input
-                  type="text"
-                  placeholder="Filter models by name or capability..."
-                  value={modelSearch}
-                  onChange={(e) => setModelSearch(e.target.value)}
-                  className={`w-full pl-9 pr-3 py-1.5 rounded-xl text-xs border focus:outline-none focus:ring-1 focus:ring-violet-500 ${
-                    isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'
-                  }`}
-                />
-              </div>
-            </div>
-
-            {/* Model List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-4">
-              {['Flagship Models', 'Reasoning & Deep Thinking', 'High-Velocity & Coding', 'Fast & Economical', 'Standard Anthropic Series'].map((cat) => {
-                const catModels = availableModels.filter(
-                  (m) =>
-                    m.category === cat &&
-                    (m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
-                     m.description.toLowerCase().includes(modelSearch.toLowerCase()))
-                );
-
-                if (catModels.length === 0) return null;
-
-                return (
-                  <div key={cat} className="space-y-1.5">
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 px-1">
-                      {cat} ({catModels.length})
-                    </p>
-                    <div className="space-y-1.5">
-                      {catModels.map((m) => {
-                        const isSelected = activeThread.model === m.id;
-                        return (
-                          <div
-                            key={m.id}
-                            onClick={() => {
-                              updateActiveThread({ model: m.id });
-                              setModelPickerOpen(false);
-                            }}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
-                              isSelected
-                                ? 'bg-violet-500/10 border-violet-500 text-violet-700 dark:text-violet-300 shadow-2xs'
-                                : isDark
-                                ? 'bg-slate-800/40 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
-                                : 'bg-slate-50/70 border-slate-200 hover:bg-white hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-xs">{m.name}</span>
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-violet-500/20 text-violet-500">
-                                  {m.tokenMultiplier}x Tokens
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-500/15 text-slate-400">
-                                  {m.contextWindow >= 1000000
-                                    ? `${(m.contextWindow / 1000000).toFixed(0)}M`
-                                    : `${(m.contextWindow / 1000).toFixed(0)}k`}{' '}
-                                  Context
-                                </span>
-                                {m.supportsThinking && (
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-500">
-                                    Thinking
-                                  </span>
-                                )}
-                                {m.supportsVision && (
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-blue-500/20 text-blue-500">
-                                    Vision
-                                  </span>
-                                )}
-                              </div>
-                              <p className={`text-[11px] leading-relaxed ${c.textMuted}`}>
-                                {m.description}
-                              </p>
-                            </div>
-                            {isSelected && (
-                              <CheckCircle2 className="w-4 h-4 text-violet-500 shrink-0 mt-1" />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Model Comparison Toggle Footer */}
-            <div className="p-3 border-t border-black/5 dark:border-white/5 bg-violet-500/5 dark:bg-violet-950/20 flex flex-col gap-2.5 shrink-0">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  <input
-                    type="checkbox"
-                    checked={isComparingModels}
-                    onChange={(e) => setIsComparingModels(e.target.checked)}
-                    className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 accent-violet-600 cursor-pointer"
-                  />
-                  <span>Compare with a second model side-by-side</span>
-                </label>
-                {isComparingModels && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-600 text-white font-bold">
-                    Split Mode Active
-                  </span>
-                )}
-              </div>
-
-              {isComparingModels && (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1 border-t border-violet-500/10 text-xs">
-                  <span className="text-gray-500 dark:text-gray-400 font-medium text-[11px]">Secondary Model:</span>
-                  <select
-                    value={secondaryModelId}
-                    onChange={(e) => setSecondaryModelId(e.target.value)}
-                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-violet-500 ${
-                      isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
-                    }`}
-                  >
-                    {availableModels
-                      .filter((m) => m.id !== activeThread.model)
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} ({m.contextWindow >= 1000000 ? '1M' : '200k'} · {m.tokenMultiplier}x)
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Studio Projects & Knowledge Modal (Image 1 style) */}
+      <ProjectManagementModal
+        open={projectModalOpen}
+        onClose={() => setProjectModalOpen(false)}
+        projects={projects}
+        activeProjectId={selectedProjectId || activeThread.projectId || null}
+        onSelectProject={(projId) => {
+          setSelectedProjectId(projId);
+        }}
+        onCreateProject={async (data) => {
+          const res = await userFetch('/api/user/studio/projects', {
+            method: 'POST',
+            body: JSON.stringify(data),
+          });
+          const resData = await res.json();
+          if (resData.success && resData.project) {
+            setProjects((prev) => [resData.project, ...prev]);
+            setSelectedProjectId(resData.project.id);
+          }
+        }}
+        onUpdateProject={async (id, data) => {
+          const res = await userFetch(`/api/user/studio/projects/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+          });
+          const resData = await res.json();
+          if (resData.success && resData.project) {
+            setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...resData.project } : p)));
+          }
+        }}
+        onDeleteProject={async (id) => {
+          await userFetch(`/api/user/studio/projects/${id}`, { method: 'DELETE' });
+          setProjects((prev) => prev.filter((p) => p.id !== id));
+          if (selectedProjectId === id) setSelectedProjectId(null);
+        }}
+        onStartChatInProject={(projId) => {
+          setSelectedProjectId(projId);
+          handleCreateNewThread();
+        }}
+      />
 
       {/* API Key Selector Modal */}
       {keyPickerOpen && (
@@ -3848,9 +4073,18 @@ export const UserChatStudio: React.FC = () => {
           ) : (
             <p className="truncate text-xs leading-snug">{t.title}</p>
           )}
-          <p className={`text-[10px] mt-0.5 truncate font-mono ${c.textMuted}`}>
-            {getModelDisplayName(t.model).replace('Claude ', '')} · {t.messages.length} msgs
-          </p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {t.project && (
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: t.project.color || '#8b5cf6' }}
+                title={t.project.name}
+              />
+            )}
+            <p className={`text-[10px] truncate font-mono ${c.textMuted}`}>
+              {getModelDisplayName(t.model).replace('Claude ', '')} · {t.messages.length} msgs
+            </p>
+          </div>
         </div>
 
         {/* Action icons on hover */}
@@ -3863,6 +4097,16 @@ export const UserChatStudio: React.FC = () => {
             title={t.pinned ? 'Unpin' : 'Pin to top'}
           >
             <Pin className="w-3 h-3" />
+          </button>
+
+          {/* Archive / Restore */}
+          <button
+            type="button"
+            onClick={(e) => handleToggleArchive(t.id, Boolean(t.archived), e)}
+            className={`p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 ${t.archived ? 'text-violet-400 opacity-100' : c.textMuted}`}
+            title={t.archived ? 'Restore Conversation' : 'Archive Conversation'}
+          >
+            {t.archived ? <ArchiveRestore className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
           </button>
 
           {/* Rename */}

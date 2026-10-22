@@ -176,7 +176,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 4,
+    intelligence: 5,
+    costTier: 'Standard',
+    provider: 'Anthropic via OpusMax',
+    contextWords: '750k words',
     upstreamModelId: 'claude-sonnet-5',
     providerRoute: 'custom_http (OpusMax proxy)',
   },
@@ -192,7 +199,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 3,
+    intelligence: 5,
+    costTier: 'Premium',
+    provider: 'Anthropic via OpusMax',
+    contextWords: '750k words',
     upstreamModelId: 'claude-opus-5-5',
     providerRoute: 'custom_http (OpusMax proxy)',
   },
@@ -208,7 +222,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 4,
+    intelligence: 5,
+    costTier: 'Standard',
+    provider: 'Anthropic',
+    contextWords: '150k words',
     upstreamModelId: 'claude-3-7-sonnet-20250219',
     providerRoute: 'anthropic / custom_http',
   },
@@ -224,7 +245,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 3,
+    intelligence: 5,
+    costTier: 'Premium',
+    provider: 'Anthropic via OpusMax',
+    contextWords: '750k words',
     upstreamModelId: 'claude-opus-5',
     providerRoute: 'custom_http (OpusMax proxy)',
   },
@@ -240,7 +268,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 5,
+    intelligence: 4,
+    costTier: 'Economy',
+    provider: 'Anthropic via OpusMax',
+    contextWords: '750k words',
     upstreamModelId: 'claude-fable-5',
     providerRoute: 'custom_http (OpusMax proxy)',
   },
@@ -256,7 +291,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 5,
+    intelligence: 4,
+    costTier: 'Economy',
+    provider: 'Anthropic via OpusMax',
+    contextWords: '750k words',
     upstreamModelId: 'claude-fable-5-1',
     providerRoute: 'custom_http (OpusMax proxy)',
   },
@@ -272,7 +314,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 5,
+    intelligence: 3,
+    costTier: 'Economy',
+    provider: 'Anthropic via OpusMax',
+    contextWords: '375k words',
     upstreamModelId: 'claude-haiku-4-5-20251001',
     providerRoute: 'custom_http (OpusMax proxy)',
   },
@@ -288,7 +337,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 4,
+    intelligence: 4,
+    costTier: 'Standard',
+    provider: 'Anthropic',
+    contextWords: '150k words',
     upstreamModelId: 'claude-3-5-sonnet-20241022',
     providerRoute: 'anthropic / custom_http',
   },
@@ -304,7 +360,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 5,
+    intelligence: 3,
+    costTier: 'Economy',
+    provider: 'Anthropic',
+    contextWords: '150k words',
     upstreamModelId: 'claude-3-5-haiku-20241022',
     providerRoute: 'anthropic / custom_http',
   },
@@ -320,7 +383,14 @@ export const VERIFIED_STUDIO_MODELS = [
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
     isAvailable: true,
+    speed: 3,
+    intelligence: 5,
+    costTier: 'Premium',
+    provider: 'Anthropic',
+    contextWords: '150k words',
     upstreamModelId: 'claude-3-opus-20240229',
     providerRoute: 'anthropic / custom_http',
   },
@@ -334,13 +404,170 @@ studioRouter.get('/models', async (req: AuthRequest, res: Response) => {
   });
 });
 
+// GET /api/user/studio/projects - List user projects
+studioRouter.get('/projects', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const projects = await prisma.studioProject.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        _count: {
+          select: { conversations: true },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      projects: projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        instructions: p.instructions,
+        color: p.color || '#8b5cf6',
+        conversationsCount: p._count.conversations,
+        createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
+      })),
+    });
+  } catch (err: any) {
+    console.error('[STUDIO PROJECTS GET ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to load projects.' } });
+  }
+});
+
+// POST /api/user/studio/projects - Create project
+studioRouter.post('/projects', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { name, description, instructions, color } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ success: false, error: { message: 'Project name is required.' } });
+    }
+
+    const project = await prisma.studioProject.create({
+      data: {
+        userId,
+        name: name.trim().slice(0, 100),
+        description: typeof description === 'string' && description.trim() ? description.trim() : null,
+        instructions: typeof instructions === 'string' && instructions.trim() ? instructions.trim() : null,
+        color: typeof color === 'string' && color.trim() ? color.trim() : '#8b5cf6',
+      },
+    });
+
+    return res.json({ success: true, project });
+  } catch (err: any) {
+    console.error('[STUDIO PROJECT CREATE ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to create project.' } });
+  }
+});
+
+// GET /api/user/studio/projects/:id - Get project with conversations
+studioRouter.get('/projects/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const project = await prisma.studioProject.findFirst({
+      where: { id, userId },
+      include: {
+        conversations: {
+          where: { archived: false },
+          orderBy: { updatedAt: 'desc' },
+          include: {
+            _count: { select: { messages: true } },
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ success: false, error: { message: 'Project not found.' } });
+    }
+
+    return res.json({ success: true, project });
+  } catch (err: any) {
+    console.error('[STUDIO PROJECT GET ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to load project.' } });
+  }
+});
+
+// PATCH /api/user/studio/projects/:id - Update project
+studioRouter.patch('/projects/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const { name, description, instructions, color } = req.body;
+
+    const existing = await prisma.studioProject.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ success: false, error: { message: 'Project not found.' } });
+    }
+
+    const updateData: any = {};
+    if (typeof name === 'string' && name.trim()) updateData.name = name.trim().slice(0, 100);
+    if (description !== undefined) updateData.description = typeof description === 'string' && description.trim() ? description.trim() : null;
+    if (instructions !== undefined) updateData.instructions = typeof instructions === 'string' && instructions.trim() ? instructions.trim() : null;
+    if (typeof color === 'string') updateData.color = color;
+
+    const updated = await prisma.studioProject.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return res.json({ success: true, project: updated });
+  } catch (err: any) {
+    console.error('[STUDIO PROJECT UPDATE ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to update project.' } });
+  }
+});
+
+// DELETE /api/user/studio/projects/:id - Delete project
+studioRouter.delete('/projects/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const existing = await prisma.studioProject.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ success: false, error: { message: 'Project not found.' } });
+    }
+
+    await prisma.studioProject.delete({
+      where: { id },
+    });
+
+    return res.json({ success: true, message: 'Project deleted.' });
+  } catch (err: any) {
+    console.error('[STUDIO PROJECT DELETE ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to delete project.' } });
+  }
+});
+
 // GET /api/user/studio/conversations - List user's conversations
 studioRouter.get('/conversations', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const projectId = typeof req.query.projectId === 'string' ? req.query.projectId : undefined;
+    const archivedParam = req.query.archived;
+    const archived = archivedParam === 'true' ? true : archivedParam === 'all' ? undefined : false;
 
     const where: any = { userId };
+    if (archived !== undefined) {
+      where.archived = archived;
+    }
+    if (projectId !== undefined) {
+      where.projectId = projectId || null;
+    }
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -359,6 +586,9 @@ studioRouter.get('/conversations', async (req: AuthRequest, res: Response) => {
         _count: {
           select: { messages: true },
         },
+        project: {
+          select: { id: true, name: true, color: true },
+        },
         messages: {
           take: 1,
           orderBy: { createdAt: 'desc' },
@@ -376,6 +606,9 @@ studioRouter.get('/conversations', async (req: AuthRequest, res: Response) => {
       thinkingEnabled: c.thinkingEnabled,
       tokenSaverEnabled: c.tokenSaverEnabled,
       temperature: c.temperature,
+      projectId: (c as any).projectId || null,
+      archived: Boolean((c as any).archived),
+      project: (c as any).project || null,
       messagesCount: c._count.messages,
       lastSnippet: c.messages[0]?.content?.slice(0, 80) || '',
       createdAt: c.createdAt.toISOString(),
@@ -393,7 +626,13 @@ studioRouter.get('/conversations', async (req: AuthRequest, res: Response) => {
 studioRouter.post('/conversations', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { title, model, systemPrompt, thinkingEnabled, tokenSaverEnabled, temperature } = req.body;
+    const { title, model, systemPrompt, thinkingEnabled, tokenSaverEnabled, temperature, projectId } = req.body;
+
+    let validProjectId: string | null = null;
+    if (projectId && typeof projectId === 'string') {
+      const p = await prisma.studioProject.findFirst({ where: { id: projectId, userId } });
+      if (p) validProjectId = p.id;
+    }
 
     const conversation = await prisma.studioConversation.create({
       data: {
@@ -404,6 +643,7 @@ studioRouter.post('/conversations', async (req: AuthRequest, res: Response) => {
         thinkingEnabled: Boolean(thinkingEnabled),
         tokenSaverEnabled: Boolean(tokenSaverEnabled),
         temperature: typeof temperature === 'number' ? temperature : 0.2,
+        projectId: validProjectId,
       },
     });
 
@@ -504,7 +744,7 @@ studioRouter.patch('/conversations/:id', async (req: AuthRequest, res: Response)
   try {
     const userId = req.user!.id;
     const { id } = req.params;
-    const { title, model, systemPrompt, thinkingEnabled, tokenSaverEnabled, temperature, pinned } = req.body;
+    const { title, model, systemPrompt, thinkingEnabled, tokenSaverEnabled, temperature, pinned, archived, projectId } = req.body;
 
     const existing = await prisma.studioConversation.findFirst({
       where: { id, userId },
@@ -522,6 +762,8 @@ studioRouter.patch('/conversations/:id', async (req: AuthRequest, res: Response)
     if (tokenSaverEnabled !== undefined) updateData.tokenSaverEnabled = Boolean(tokenSaverEnabled);
     if (typeof temperature === 'number') updateData.temperature = temperature;
     if (pinned !== undefined) updateData.pinned = Boolean(pinned);
+    if (archived !== undefined) updateData.archived = Boolean(archived);
+    if (projectId !== undefined) updateData.projectId = projectId || null;
 
     const updated = await prisma.studioConversation.update({
       where: { id },
@@ -533,6 +775,87 @@ studioRouter.patch('/conversations/:id', async (req: AuthRequest, res: Response)
     console.error('[STUDIO CONVERSATION UPDATE ERROR]', err);
     return res.status(500).json({ success: false, error: { message: err.message || 'Failed to update conversation.' } });
   }
+});
+
+// GET /api/user/studio/conversations/:id/export - Export conversation (Markdown, JSON, Text)
+studioRouter.get('/conversations/:id/export', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const format = (req.query.format as string) || 'markdown';
+
+    const conversation = await prisma.studioConversation.findFirst({
+      where: { id, userId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: { message: 'Conversation not found.' } });
+    }
+
+    const sanitizedTitle = (conversation.title || 'conversation')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 40);
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${sanitizedTitle}.json"`);
+      return res.json({
+        id: conversation.id,
+        title: conversation.title,
+        model: conversation.model,
+        createdAt: conversation.createdAt,
+        messages: conversation.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          thinking: m.thinking,
+          modelUsed: m.modelUsed,
+          createdAt: m.createdAt,
+          usage: {
+            inputTokens: m.inputTokens,
+            outputTokens: m.outputTokens,
+            totalTokens: m.totalTokens,
+          },
+        })),
+      });
+    }
+
+    if (format === 'text') {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${sanitizedTitle}.txt"`);
+      let textOut = `=== ${conversation.title} ===\nModel: ${conversation.model}\nDate: ${conversation.createdAt.toISOString()}\n\n`;
+      for (const m of conversation.messages) {
+        textOut += `[${m.role.toUpperCase()}]\n${m.content}\n\n`;
+      }
+      return res.send(textOut);
+    }
+
+    // Default: Markdown
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${sanitizedTitle}.md"`);
+    let mdOut = `# ${conversation.title}\n\n*Model: \`${conversation.model}\` | Exported: ${new Date().toISOString()}*\n\n---\n\n`;
+    for (const m of conversation.messages) {
+      const roleName = m.role === 'user' ? '👤 User' : '⚡ Assistant';
+      mdOut += `### ${roleName}\n\n`;
+      if (m.thinking) {
+        mdOut += `> **Thinking Process:**\n> ${m.thinking.replace(/\n/g, '\n> ')}\n\n`;
+      }
+      mdOut += `${m.content}\n\n---\n\n`;
+    }
+    return res.send(mdOut);
+  } catch (err: any) {
+    console.error('[STUDIO CONVERSATION EXPORT ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to export conversation.' } });
+  }
+});
+
+// POST /api/user/studio/conversations/:id/cancel - Stop/cancel generation endpoint
+studioRouter.post('/conversations/:id/cancel', async (req: AuthRequest, res: Response) => {
+  return res.json({ success: true, message: 'Generation stop acknowledged.' });
 });
 
 // DELETE /api/user/studio/conversations/:id - Delete conversation
@@ -1386,6 +1709,16 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     });
 
     let effectiveSystemPrompt = customSystemPrompt || conversation.systemPrompt || '';
+
+    // Ingest Project Directives if conversation belongs to a Project
+    if (conversation.projectId) {
+      const projectRecord = await prisma.studioProject.findFirst({
+        where: { id: conversation.projectId, userId },
+      });
+      if (projectRecord?.instructions) {
+        effectiveSystemPrompt += `\n\n[PROJECT DIRECTIVE - ${projectRecord.name}]:\n${projectRecord.instructions}`;
+      }
+    }
     if (memoryEnabled !== false && userMemories.length > 0) {
       const memoryDirectives = userMemories.map((m) => `- [${m.category}]: ${m.fact}`).join('\n');
       effectiveSystemPrompt += `\n\n[USER PROJECT CONTEXT & PREFERENCES]:\n${memoryDirectives}`;

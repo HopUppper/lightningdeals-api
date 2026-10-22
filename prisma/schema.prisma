@@ -70,6 +70,7 @@ model User {
   publicReviews           PublicReview[]
   studioConversations     StudioConversation[]
   studioMemories          StudioMemory[]
+  studioProjects          StudioProject[]
 }
 
 
@@ -1177,12 +1178,17 @@ model StudioConversation {
   tokenSaverEnabled  Boolean         @default(false)
   temperature        Float           @default(0.2)
   pinned             Boolean         @default(false)
+  archived           Boolean         @default(false)
+  projectId          String?
+  project            StudioProject?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   messages           StudioMessage[]
 
   @@index([userId, updatedAt])
   @@index([userId, pinned])
+  @@index([userId, projectId])
+  @@index([userId, archived])
 }
 
 model StudioMessage {
@@ -1198,6 +1204,11 @@ model StudioMessage {
   totalTokens     Int                @default(0)
   multiplier      Float              @default(1.0)
   latencyMs       Int                @default(0)
+  firstTokenMs    Int                @default(0)
+  cachedTokens    Int                @default(0)
+  reasoningTokens Int                @default(0)
+  usageSource     String             @default("PROVIDER_REPORTED")
+  costUsd         Float?
   attachmentsJson String?            @db.Text
   createdAt       DateTime           @default(now())
 
@@ -1212,6 +1223,21 @@ model StudioMemory {
   fact      String   @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
+model StudioProject {
+  id           String               @id @default(uuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?              @db.Text
+  instructions String?              @db.Text
+  color        String?              @default("#8b5cf6")
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  conversations StudioConversation[]
 
   @@index([userId, updatedAt])
 }

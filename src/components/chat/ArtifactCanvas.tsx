@@ -14,6 +14,9 @@ import {
   Sparkles,
   Edit3,
   Play,
+  Monitor,
+  Tablet,
+  Smartphone,
 } from 'lucide-react';
 
 export interface ArtifactData {
@@ -31,6 +34,7 @@ interface ArtifactCanvasProps {
 
 export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClose }) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
+  const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
@@ -61,6 +65,22 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
     navigator.clipboard.writeText(effectiveCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getExtension = (lang: string) => {
+    switch (lang.toLowerCase()) {
+      case 'html': return 'html';
+      case 'svg': return 'svg';
+      case 'typescript': case 'ts': return 'ts';
+      case 'tsx': return 'tsx';
+      case 'javascript': case 'js': return 'js';
+      case 'jsx': return 'jsx';
+      case 'python': case 'py': return 'py';
+      case 'json': return 'json';
+      case 'markdown': case 'md': return 'md';
+      case 'css': return 'css';
+      default: return 'txt';
+    }
   };
 
   const handleDownload = () => {
@@ -107,7 +127,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 p-6 min-h-screen">
@@ -139,6 +159,51 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
           </div>
         </div>
 
+        {/* Center: Device Viewport Controls (Image 4 style) */}
+        {isPreviewable && currentTab === 'preview' && (
+          <div className="hidden sm:flex items-center gap-1 bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setViewportMode('desktop')}
+              className={`p-1.5 rounded-md text-xs transition-all cursor-pointer ${
+                viewportMode === 'desktop'
+                  ? 'bg-violet-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Desktop Viewport (100%)"
+            >
+              <Monitor className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewportMode('tablet')}
+              className={`p-1.5 rounded-md text-xs transition-all cursor-pointer ${
+                viewportMode === 'tablet'
+                  ? 'bg-violet-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Tablet Viewport (768px)"
+            >
+              <Tablet className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewportMode('mobile')}
+              className={`p-1.5 rounded-md text-xs transition-all cursor-pointer ${
+                viewportMode === 'mobile'
+                  ? 'bg-violet-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Mobile Viewport (375px)"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[10px] font-mono text-slate-400 px-1.5">
+              {viewportMode === 'desktop' ? '100%' : viewportMode === 'tablet' ? '768px' : '375px'}
+            </span>
+          </div>
+        )}
+
         {/* Tab Controls & Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
           {isPreviewable && (
@@ -168,29 +233,6 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
                 <span>Code</span>
               </button>
             </div>
-          )}
-
-          {/* Edit / View Code toggle button */}
-          {currentTab === 'code' && (
-            <button
-              type="button"
-              onClick={() => {
-                if (isEditing) {
-                  handleApplyAndPreview();
-                } else {
-                  setIsEditing(true);
-                }
-              }}
-              className={`p-1.5 px-2 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                isEditing
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60'
-              }`}
-              title={isEditing ? 'Save and preview changes' : 'Edit code in canvas'}
-            >
-              {isEditing ? <Play className="w-3 h-3 fill-current" /> : <Edit3 className="w-3 h-3" />}
-              <span>{isEditing ? 'Apply & Run' : 'Edit'}</span>
-            </button>
           )}
 
           {isPreviewable && currentTab === 'preview' && (
@@ -246,20 +288,30 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
       {/* Canvas Main Body */}
       <div className="flex-1 min-h-0 overflow-hidden relative bg-[#090d16]">
         {currentTab === 'preview' && isPreviewable ? (
-          <div className="w-full h-full flex flex-col">
-            <iframe
-              key={previewKey}
-              title="Interactive Live Canvas Preview"
-              srcDoc={generatePreviewDoc()}
-              sandbox="allow-scripts allow-modals"
-              className="w-full flex-1 border-0 bg-slate-950"
-            />
-            <div className="px-3 py-1.5 bg-[#0e1424] border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Live Sandboxed Runtime</span>
-              </span>
-              <span>{lines.length} lines</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/60">
+            <div
+              className={`h-full flex flex-col transition-all duration-200 ${
+                viewportMode === 'mobile'
+                  ? 'w-[375px] max-w-full border-x border-slate-800 shadow-2xl'
+                  : viewportMode === 'tablet'
+                  ? 'w-[768px] max-w-full border-x border-slate-800 shadow-2xl'
+                  : 'w-full'
+              }`}
+            >
+              <iframe
+                key={previewKey}
+                title="Interactive Live Canvas Preview"
+                srcDoc={generatePreviewDoc()}
+                sandbox="allow-scripts allow-modals"
+                className="w-full flex-1 border-0 bg-slate-950"
+              />
+              <div className="px-3 py-1.5 bg-[#0e1424] border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Live Sandboxed Runtime</span>
+                </span>
+                <span>{lines.length} lines</span>
+              </div>
             </div>
           </div>
         ) : isEditing ? (
@@ -298,14 +350,16 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
                         isDiffAdd
                           ? 'bg-emerald-950/30 text-emerald-300'
                           : isDiffRemove
-                          ? 'bg-rose-950/30 text-rose-300 line-through opacity-75'
-                          : 'text-slate-300'
+                          ? 'bg-rose-950/30 text-rose-300'
+                          : ''
                       }`}
                     >
-                      <td className="w-10 pr-3 text-right select-none text-slate-600 font-mono text-[11px]">
+                      <td className="w-10 pr-3 py-0.5 text-right text-slate-600 select-none text-[11px]">
                         {idx + 1}
                       </td>
-                      <td className="whitespace-pre pl-2 font-mono">{line || '\n'}</td>
+                      <td className="py-0.5 whitespace-pre font-mono text-slate-200">
+                        {line || ' '}
+                      </td>
                     </tr>
                   );
                 })}
@@ -317,21 +371,3 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
     </div>
   );
 };
-
-function getExtension(lang: string): string {
-  const map: Record<string, string> = {
-    typescript: 'tsx',
-    javascript: 'jsx',
-    html: 'html',
-    svg: 'svg',
-    python: 'py',
-    sql: 'sql',
-    json: 'json',
-    css: 'css',
-    markdown: 'md',
-    rust: 'rs',
-    go: 'go',
-    bash: 'sh',
-  };
-  return map[(lang || '').toLowerCase()] || 'txt';
-}

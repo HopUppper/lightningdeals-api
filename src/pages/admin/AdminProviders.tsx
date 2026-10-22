@@ -109,7 +109,7 @@ export const AdminProviders: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setProviders(data);
-        const primary = data.find((p: any) => p.isPrimary) || data[0];
+        const primary = data.find((p: any) => p.isPrimary && p.status !== 'disabled' && p.status !== 'invalid_credential') || data.find((p: any) => p.status === 'connected') || data.find((p: any) => p.isPrimary) || data[0];
         if (primary) {
           fetchBalanceMetrics(primary.id);
           fetchLedger(primary.id);

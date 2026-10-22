@@ -125,7 +125,7 @@ async function runTestSuite() {
   }
 
   // Ensure vendor provider exists
-  let vendorProvider = await prisma.vendorProvider.findFirst({ where: { status: 'active' } });
+  let vendorProvider = await prisma.vendorProvider.findFirst({ where: { status: { in: ['active', 'connected'] } } });
   if (!vendorProvider) {
     vendorProvider = await prisma.vendorProvider.create({
       data: {
@@ -815,6 +815,9 @@ async function runTestSuite() {
     });
     await prisma.plan.deleteMany({
       where: { slug: { startsWith: 'quarterly_' } },
+    });
+    await prisma.vendorProvider.deleteMany({
+      where: { name: { startsWith: 'Vendor Anthropic Primary' } },
     });
     await prisma.$disconnect();
   }

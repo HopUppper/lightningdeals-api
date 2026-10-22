@@ -138,9 +138,9 @@ const CodeBlock: React.FC<{
   const isPreviewable = language === 'html' || language === 'svg' || language === 'tsx' || language === 'jsx';
 
   return (
-    <div className="my-3 rounded-2xl overflow-hidden border border-slate-800 bg-[#0c101c] text-slate-200 shadow-lg">
+    <div className="my-3 rounded-2xl overflow-hidden border border-[#28334B] bg-[#0B1020] text-slate-200 shadow-lg">
       {/* Code Header Bar */}
-      <div className="px-3.5 py-2 bg-[#111728] border-b border-slate-800 flex items-center justify-between text-xs">
+      <div className="px-3.5 py-2 bg-[#141C30] border-b border-[#28334B] flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
           <FileCode className="w-3.5 h-3.5 text-violet-400" />
           <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-violet-300">
@@ -247,7 +247,7 @@ const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text
         }
         if (trimmed.startsWith('## ')) {
           return (
-            <h3 key={pIdx} className="text-base font-extrabold text-slate-900 dark:text-white mt-5 mb-1.5 pb-1 border-b border-slate-200 dark:border-slate-800">
+            <h3 key={pIdx} className="text-base font-extrabold text-slate-900 dark:text-white mt-5 mb-1.5 pb-1 border-b border-slate-200 dark:border-[#28334B]">
               {formatInline(trimmed.replace('## ', ''), sources)}
             </h3>
           );

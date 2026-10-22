@@ -133,11 +133,11 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
       <div
-        className="w-full max-w-4xl bg-[#0e1320] text-slate-100 rounded-2xl border border-slate-800 shadow-2xl flex flex-col max-h-[88vh] overflow-hidden"
+        className="w-full max-w-4xl bg-[#0E1425] text-slate-100 rounded-2xl border border-[#28334B] shadow-2xl flex flex-col max-h-[88vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="h-14 px-5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-[#0c101b]">
+        <div className="h-14 px-5 border-b border-[#28334B] flex items-center justify-between shrink-0 bg-[#141C30]">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-violet-600/20 text-violet-400 flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
@@ -159,9 +159,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         {/* Modal Body: Left List + Right Detail Card */}
         <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* Left Pane: Search + Model List */}
-          <div className="w-full md:w-1/2 border-r border-slate-800 flex flex-col min-h-0 bg-[#0a0d16]">
+          <div className="w-full md:w-1/2 border-r border-[#28334B] flex flex-col min-h-0 bg-[#0E1425]">
             {/* Search Input */}
-            <div className="p-3 border-b border-slate-800">
+            <div className="p-3 border-b border-[#28334B]">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 <input
@@ -235,7 +235,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           </div>
 
           {/* Right Pane: Detail Inspection Card (Matching Reference Image 2) */}
-          <div className="w-full md:w-1/2 p-5 flex flex-col justify-between overflow-y-auto bg-[#0e1320]">
+          <div className="w-full md:w-1/2 p-5 flex flex-col justify-between overflow-y-auto bg-[#0E1425]">
             {activeDetail ? (
               <div className="space-y-5">
                 {/* Header */}
@@ -257,7 +257,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 </div>
 
                 {/* Rating Meters: Speed & Intelligence (Image 2 style) */}
-                <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                <div className="space-y-3 pt-2 border-t border-[#28334B]/80">
                   <div className="flex items-center justify-between gap-4 text-xs">
                     <span className="text-slate-400 font-medium w-24">Speed</span>
                     {renderSegmentedBar(activeDetail.speed || (activeDetail.tokenMultiplier < 1 ? 5 : 4))}
@@ -270,7 +270,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 </div>
 
                 {/* Meta details list */}
-                <div className="space-y-2.5 pt-2 border-t border-slate-800/80 text-xs">
+                <div className="space-y-2.5 pt-2 border-t border-[#28334B]/80 text-xs">
                   <div className="flex items-center justify-between py-1">
                     <span className="text-slate-400">Cost Tier</span>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30">
@@ -299,7 +299,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 </div>
 
                 {/* Capability Checkmarks (Image 2 style) */}
-                <div className="pt-2 border-t border-slate-800/80 space-y-2 text-xs">
+                <div className="pt-2 border-t border-[#28334B]/80 space-y-2 text-xs">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                     Supports
                   </span>
@@ -351,7 +351,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             ) : null}
 
             {/* Bottom Select Action */}
-            <div className="pt-4 mt-4 border-t border-slate-800">
+            <div className="pt-4 mt-4 border-t border-[#28334B]">
               <button
                 type="button"
                 onClick={() => {

@@ -108,11 +108,11 @@ export const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
       <div
-        className="w-full max-w-3xl bg-[#0e1320] text-slate-100 rounded-2xl border border-slate-800 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+        className="w-full max-w-3xl bg-[#0E1425] text-slate-100 rounded-2xl border border-[#28334B] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="h-14 px-5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-[#0c101b]">
+        <div className="h-14 px-5 border-b border-[#28334B] flex items-center justify-between shrink-0 bg-[#141C30]">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-violet-600/20 text-violet-400 flex items-center justify-center">
               <Folder className="w-4 h-4" />
@@ -134,8 +134,8 @@ export const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
         {/* Modal Content: Split View (Projects list left, Project details right) */}
         <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden">
           {/* Left Column: Project Selector & Create Button */}
-          <div className="w-full sm:w-1/3 border-r border-slate-800 flex flex-col min-h-0 bg-[#0a0d16]">
-            <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+          <div className="w-full sm:w-1/3 border-r border-[#28334B] flex flex-col min-h-0 bg-[#0E1425]">
+            <div className="p-3 border-b border-[#28334B] flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Projects ({projects.length})
               </span>
@@ -188,7 +188,7 @@ export const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
           </div>
 
           {/* Right Column: Project View (Matching Reference Image 1) */}
-          <div className="w-full sm:w-2/3 p-5 overflow-y-auto bg-[#0e1320] flex flex-col justify-between">
+          <div className="w-full sm:w-2/3 p-5 overflow-y-auto bg-[#0E1425] flex flex-col justify-between">
             {isCreating ? (
               /* Create Project Form */
               <div className="space-y-4">
@@ -279,7 +279,7 @@ export const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
               /* Project Details View (Matching Image 1) */
               <div className="space-y-5">
                 {/* Project Header (Image 1 style) */}
-                <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-800">
+                <div className="flex items-start justify-between gap-4 pb-3 border-b border-[#28334B]">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2.5">
                       <div
@@ -314,7 +314,7 @@ export const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
                 </div>
 
                 {/* Instructions Section (Image 1 style) */}
-                <div className="p-4 rounded-xl bg-[#0b0e17] border border-slate-800 space-y-2">
+                <div className="p-4 rounded-xl bg-[#0b0e17] border border-[#28334B] space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-violet-400" />
@@ -371,7 +371,7 @@ export const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
                 </div>
 
                 {/* Project Files & Capacity Meter (Image 1 style) */}
-                <div className="p-4 rounded-xl bg-[#0b0e17] border border-slate-800 space-y-3">
+                <div className="p-4 rounded-xl bg-[#0b0e17] border border-[#28334B] space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                       <HardDrive className="w-3.5 h-3.5 text-teal-400" />

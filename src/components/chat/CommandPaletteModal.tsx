@@ -248,12 +248,12 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white dark:bg-[#18181b] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col text-gray-900 dark:text-gray-100 animate-in zoom-in-95 duration-150"
+        className="w-full max-w-2xl bg-white dark:bg-[#0E1425] border border-gray-200 dark:border-[#28334B] rounded-2xl shadow-2xl overflow-hidden flex flex-col text-gray-900 dark:text-gray-100 animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
         {/* Search Input Bar */}
-        <div className="flex items-center px-4 py-3.5 border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-[#1f1f23]">
+        <div className="flex items-center px-4 py-3.5 border-b border-gray-200 dark:border-[#28334B] bg-gray-50/50 dark:bg-[#141C30]">
           <Search className="w-5 h-5 text-gray-400 mr-3 shrink-0" />
           <input
             ref={inputRef}
@@ -350,7 +350,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         </div>
 
         {/* Modal Footer Hotkey Guide */}
-        <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-[#1f1f23] text-[11px] text-gray-400 dark:text-gray-500 flex items-center justify-between">
+        <div className="px-4 py-2 border-t border-gray-200 dark:border-[#28334B] bg-gray-50/70 dark:bg-[#141C30] text-[11px] text-gray-400 dark:text-gray-500 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span>↑↓ to navigate</span>
             <span>↵ to select</span>

@@ -59,6 +59,8 @@ import {
   ArrowDown,
   Command,
   Info,
+  MoreHorizontal,
+  MoreVertical,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { adminFetch, userFetch, getAuthHeaders } from '../../utils/api';
@@ -455,6 +457,10 @@ export const UserChatStudio: React.FC = () => {
   const [archiveView, setArchiveView] = useState(false);
   const [activeTelemetryMsgId, setActiveTelemetryMsgId] = useState<string | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const [activeMenuThreadId, setActiveMenuThreadId] = useState<string | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [headerTitleText, setHeaderTitleText] = useState('');
 
   // Advanced Drawers & Canvas
   const [contextManagerOpen, setContextManagerOpen] = useState(false);
@@ -2096,17 +2102,26 @@ export const UserChatStudio: React.FC = () => {
 
   // Style Tokens & Palettes
   const c = {
-    bg: isDark ? 'bg-[#0B0F19]' : 'bg-[#F8FAFC]',
-    text: isDark ? 'text-slate-100' : 'text-slate-900',
-    textMuted: isDark ? 'text-slate-400' : 'text-slate-600',
-    headerBg: isDark ? 'bg-[#0E1424]/90 border-b border-slate-800' : 'bg-white/95 border-b border-slate-200/90 shadow-2xs',
-    sidebarBg: isDark ? 'bg-[#0E1424]' : 'bg-[#FFFFFF]',
-    sidebarBorder: isDark ? 'border-slate-800' : 'border-slate-200',
-    cardBg: isDark ? 'bg-[#131A2B]' : 'bg-[#FFFFFF]',
-    border: isDark ? 'border-slate-800' : 'border-slate-200/90',
-    inputBg: isDark ? 'bg-[#131A2B]' : 'bg-[#FFFFFF]',
-    pillBg: isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700',
-    userBubble: isDark ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white shadow-xs',
+    bg: isDark ? 'bg-[#0B1020]' : 'bg-[#F8FAFC]',
+    text: isDark ? 'text-[#F3F5FC]' : 'text-[#0F172A]',
+    textSecondary: isDark ? 'text-[#A5B0C7]' : 'text-[#475569]',
+    textMuted: isDark ? 'text-[#77839E]' : 'text-[#64748B]',
+    headerBg: isDark
+      ? 'bg-[#0E1425]/95 border-b border-[#28334B]'
+      : 'bg-white/95 border-b border-[#E2E8F0] shadow-2xs',
+    sidebarBg: isDark ? 'bg-[#0E1425]' : 'bg-[#FFFFFF]',
+    sidebarBorder: isDark ? 'border-[#28334B]' : 'border-[#E2E8F0]',
+    cardBg: isDark ? 'bg-[#141C30]' : 'bg-[#FFFFFF]',
+    elevatedBg: isDark ? 'bg-[#19233A]' : 'bg-[#F1F5F9]',
+    border: isDark ? 'border-[#28334B]' : 'border-[#E2E8F0]',
+    borderSubtle: isDark ? 'border-[#28334B]/60' : 'border-[#E2E8F0]/80',
+    inputBg: isDark ? 'bg-[#141C30]' : 'bg-[#FFFFFF]',
+    pillBg: isDark
+      ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:text-[#F3F5FC] hover:border-violet-500/40'
+      : 'bg-[#F1F5F9] border-[#E2E8F0] text-[#475569] hover:text-[#0F172A] hover:border-violet-500/40',
+    userBubble: isDark
+      ? 'bg-[#19233A] border border-violet-500/30 text-[#F3F5FC] shadow-sm'
+      : 'bg-violet-50/80 border border-violet-200 text-slate-900 shadow-2xs',
   };
 
   return (
@@ -2129,293 +2144,374 @@ export const UserChatStudio: React.FC = () => {
         </div>
       )}
 
-      {/* Main Studio 3.0 Workspace Header */}
+      {/* Main Studio Midnight Aurora Header */}
       <header className={`h-14 px-3 sm:px-4 ${c.headerBg} flex items-center justify-between shrink-0 text-xs z-20 backdrop-blur-md sticky top-0 gap-2`}>
-        {/* Left: Sidebar Toggle, Workspace Brand/Selector, Command Bar, Navigation Tabs */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {/* Left: Sidebar Toggle, Editable Session Title, Project Pill, Command Bar */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${c.pillBg} hover:opacity-100 shrink-0`}
-            title={sidebarOpen ? 'Hide Sessions Sidebar' : 'Show Sessions Sidebar'}
+            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${c.pillBg} shrink-0`}
+            title={sidebarOpen ? 'Collapse Sessions Sidebar' : 'Expand Sessions Sidebar'}
           >
-            {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
+            {sidebarOpen ? <PanelLeftClose className="w-4 h-4 text-violet-400" /> : <PanelLeft className="w-4 h-4 text-violet-400" />}
           </button>
 
-          {/* Active Project or Workspace Pill */}
-          {activeThread.projectId && projects.find((p) => p.id === activeThread.projectId) ? (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedProjectId(activeThread.projectId || null);
-                setProjectModalOpen(true);
-              }}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-all font-semibold text-xs cursor-pointer"
-              title="Active Project: Click to view details & instructions"
-            >
-              <Folder className="w-3.5 h-3.5 text-violet-500 shrink-0" />
-              <span className="truncate max-w-[120px]">
-                {projects.find((p) => p.id === activeThread.projectId)?.name}
-              </span>
-            </button>
-          ) : (
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-100/80 dark:bg-gray-800/60 font-semibold text-xs text-gray-700 dark:text-gray-300">
-              <span className="w-2 h-2 rounded-full bg-violet-600" />
-              <span>My Workspace</span>
-            </div>
-          )}
+          {/* Session Title (Inline Editable) */}
+          <div className="flex items-center gap-1.5 min-w-0 max-w-[200px] sm:max-w-[280px] md:max-w-[360px]">
+            {isEditingTitle ? (
+              <input
+                type="text"
+                autoFocus
+                value={headerTitleText}
+                onChange={(e) => setHeaderTitleText(e.target.value)}
+                onBlur={() => {
+                  if (headerTitleText.trim() && headerTitleText.trim() !== activeThread.title) {
+                    setRenameText(headerTitleText.trim());
+                    handleSaveRename(activeThread.id);
+                  }
+                  setIsEditingTitle(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (headerTitleText.trim() && headerTitleText.trim() !== activeThread.title) {
+                      setRenameText(headerTitleText.trim());
+                      handleSaveRename(activeThread.id);
+                    }
+                    setIsEditingTitle(false);
+                  }
+                  if (e.key === 'Escape') setIsEditingTitle(false);
+                }}
+                className={`text-xs font-semibold px-2 py-0.5 rounded border border-violet-500 focus:outline-none w-full ${
+                  isDark ? 'bg-[#19233A] text-white' : 'bg-white text-slate-900'
+                }`}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setHeaderTitleText(activeThread.title);
+                  setRenameText(activeThread.title);
+                  setIsEditingTitle(true);
+                }}
+                className="group flex items-center gap-1.5 min-w-0 text-left hover:opacity-90 transition-opacity cursor-pointer"
+                title="Click to rename session"
+              >
+                <span className={`font-semibold text-xs sm:text-sm truncate ${c.text}`}>
+                  {activeThread.title}
+                </span>
+                <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity shrink-0 text-violet-400" />
+              </button>
+            )}
+
+            {/* Active Project Pill */}
+            {activeThread.projectId && projects.find((p) => p.id === activeThread.projectId) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedProjectId(activeThread.projectId || null);
+                  setProjectModalOpen(true);
+                }}
+                className="hidden lg:flex items-center gap-1 px-2 py-0.5 rounded-md border border-violet-500/30 bg-violet-500/10 text-violet-400 font-medium text-[11px] hover:bg-violet-500/20 transition-all shrink-0 cursor-pointer"
+                title="Active Project: Click for settings"
+              >
+                <Folder className="w-3 h-3 text-violet-400" />
+                <span className="truncate max-w-[100px]">
+                  {projects.find((p) => p.id === activeThread.projectId)?.name}
+                </span>
+              </button>
+            )}
+          </div>
 
           {/* Quick Search Command Bar (⌘K) */}
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
-            className="flex items-center gap-2 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#1a1a1e] text-gray-500 dark:text-gray-400 hover:border-violet-500/50 hover:text-gray-900 dark:hover:text-gray-100 transition-all text-xs cursor-pointer shadow-2xs"
-            title="Quick Command Bar (Ctrl+K or ⌘K)"
+            className={`hidden md:flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all text-xs cursor-pointer shadow-2xs ${c.pillBg}`}
+            title="Search & Commands (⌘K)"
           >
-            <Search className="w-3.5 h-3.5 text-violet-500" />
-            <span className="hidden sm:inline">Search commands...</span>
-            <kbd className="hidden sm:inline px-1.5 py-0.2 rounded text-[10px] font-mono bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400">
+            <Search className="w-3.5 h-3.5 text-violet-400" />
+            <span className={`text-[11px] ${c.textMuted}`}>Search...</span>
+            <kbd className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${isDark ? 'bg-black/30 border-[#28334B] text-slate-400' : 'bg-slate-200 border-slate-300 text-slate-600'}`}>
               ⌘K
             </kbd>
           </button>
-
-          {/* Navigation Pills: Chat, Skills, Canvas */}
-          <div className="flex items-center gap-1 border-l border-gray-200 dark:border-gray-800 pl-2">
-            <button
-              type="button"
-              className="px-2.5 py-1 rounded-lg font-semibold text-xs bg-violet-600 text-white shadow-2xs cursor-pointer"
-            >
-              Chat
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsSkillsModalOpen(true)}
-              className="px-2.5 py-1 rounded-lg font-medium text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <Sparkles className="w-3 h-3 text-violet-500" />
-              <span>Skills</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300">
-                {activeSkillIds.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (activeArtifact) {
-                  setActiveArtifact(null);
-                } else {
-                  setActiveArtifact({
-                    id: 'studio_canvas',
-                    title: 'Interactive Studio Canvas',
-                    language: 'html',
-                    code: `<div style="font-family:system-ui;padding:24px;text-align:center;">
-  <h2 style="color:#7c3aed;margin-bottom:8px;">Live Sandboxed Preview</h2>
-  <p style="color:#64748b;font-size:14px;">Any code generated by Claude can be rendered live here in real time.</p>
-</div>`,
-                    type: 'html',
-                  });
-                }
-              }}
-              className={`px-2.5 py-1 rounded-lg font-medium text-xs transition-colors hidden md:flex items-center gap-1 cursor-pointer ${
-                activeArtifact
-                  ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/30'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              <Layers className="w-3 h-3" />
-              <span>Canvas</span>
-            </button>
-          </div>
         </div>
 
-        {/* Right: Model Selector, API Key Switcher, Thinking, Token-Saver, Theme, Dashboard */}
+        {/* Right: Model Selector Pill, Context Meter, API Key Pill, Tools Menu ▾, Theme Toggle */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Model Selector Trigger Button */}
+          {/* Model Selector Pill */}
           <button
             type="button"
             onClick={() => setModelPickerOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300 font-semibold text-xs hover:bg-violet-500/20 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 font-semibold text-xs transition-all cursor-pointer shadow-2xs"
+            title="Change AI model & inspect capabilities"
           >
-            <Sparkles className="w-3 h-3 text-violet-500" />
-            <span className="truncate max-w-[110px] sm:max-w-none">{getModelDisplayName(activeThread.model)}</span>
-            {isComparingModels && (
-              <span className="hidden lg:inline text-[9px] font-mono px-1 py-0.2 bg-violet-500/20 rounded text-violet-500 font-bold">
-                vs {getModelDisplayName(secondaryModelId).split(' ')[1] || 'Model B'}
+            <Sparkles className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+            <span className="truncate max-w-[120px] sm:max-w-none">{getModelDisplayName(activeThread.model)}</span>
+            {activeModelMeta?.supportsThinking && (
+              <span className="hidden xl:inline text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Thinking
               </span>
             )}
-            <ChevronDown className="w-3 h-3 opacity-60" />
+            <ChevronDown className="w-3 h-3 opacity-60 ml-0.5" />
           </button>
 
-          {/* Key Selector & Balance Button */}
+          {/* Context Meter Gauge */}
+          <div
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono ${c.pillBg}`}
+            title={`Context Window: ${threadTokenStats.totalContextTokens.toLocaleString()} of ${threadTokenStats.contextLimit.toLocaleString()} tokens (${threadTokenStats.contextPercent}%)`}
+          >
+            <div className="w-10 sm:w-14 h-1.5 rounded-full bg-black/20 dark:bg-white/10 overflow-hidden">
+              <div
+                className={`h-full transition-all ${
+                  threadTokenStats.contextPercent > 80
+                    ? 'bg-rose-500'
+                    : threadTokenStats.contextPercent > 50
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-400'
+                }`}
+                style={{ width: `${Math.max(4, Math.min(100, threadTokenStats.contextPercent))}%` }}
+              />
+            </div>
+            <span className={threadTokenStats.contextPercent > 80 ? 'text-rose-400 font-bold' : c.textSecondary}>
+              {threadTokenStats.contextPercent}%
+            </span>
+          </div>
+
+          {/* API Key Selector Pill */}
           <button
             type="button"
             onClick={() => setKeyPickerOpen(true)}
-            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono transition-all cursor-pointer ${
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer ${
               Number(remainingTokens) <= 0
-                ? 'bg-rose-500/10 border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20'
+                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
                 : isDark
-                ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/30 hover:bg-emerald-950/60'
-                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/70'
+                ? 'bg-emerald-950/30 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/50'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
             }`}
-            title="Switch active API Key or view token balance"
+            title="Active API key and token quota"
           >
             <Key className="w-3 h-3 opacity-80" />
-            <span className="font-sans font-semibold max-w-[90px] truncate text-[11px]">
+            <span className="font-sans font-semibold max-w-[80px] truncate text-[11px]">
               {activeKey?.name || activeKey?.displayKey || 'API Key'}
             </span>
             <span className="opacity-40">|</span>
             <span className="font-bold text-[11px]">
               {Number(remainingTokens) <= 0 ? '0' : `${remainingTokensM}M`}
             </span>
-            <ChevronDown className="w-2.5 h-2.5 opacity-60 ml-0.5" />
           </button>
-        </div>
 
-        {/* Right: Theme Toggle, Thinking, Token-Saver, Memory, Canvas, Export */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Theme Toggle */}
+          {/* Consolidated Tools Menu ▾ */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setToolsMenuOpen(!toolsMenuOpen)}
+              className={`px-2.5 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                toolsMenuOpen ? 'bg-violet-600 text-white border-violet-500 shadow-xs' : c.pillBg
+              }`}
+              title="Studio Advanced Tools & Settings"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-violet-400" />
+              <span className="hidden sm:inline">Tools</span>
+              {(activeThread.thinkingEnabled || activeThread.tokenSaverEnabled || activeArtifact) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+              )}
+              <ChevronDown className={`w-3 h-3 transition-transform ${toolsMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Tools Dropdown Flyout */}
+            {toolsMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setToolsMenuOpen(false)} />
+                <div className={`absolute right-0 mt-2 z-40 w-72 rounded-2xl border shadow-2xl p-2 space-y-1 ${c.cardBg} ${c.border} animate-fadeIn`}>
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-black/5 dark:border-white/5">
+                    Studio Capabilities & Controls
+                  </div>
+
+                  {/* Thinking Mode Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!activeModelMeta?.supportsThinking) {
+                        alert(`Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}. Select Claude 3.7 Sonnet or Claude Sonnet 5.5 to enable Thinking.`);
+                        return;
+                      }
+                      updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled });
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                      !activeModelMeta?.supportsThinking ? 'opacity-40 cursor-not-allowed' : 'hover:bg-violet-500/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Brain className={`w-4 h-4 ${activeThread.thinkingEnabled ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                          <span>Thinking Mode</span>
+                          {activeThread.thinkingEnabled && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
+                        </p>
+                        <p className={`text-[10px] ${c.textMuted}`}>Extended deliberative reasoning</p>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      activeThread.thinkingEnabled ? 'bg-amber-500/20 text-amber-300' : 'bg-black/10 dark:bg-white/10 text-slate-400'
+                    }`}>
+                      {activeThread.thinkingEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+
+                  {/* Token-Saver Optimization Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => updateActiveThread({ tokenSaverEnabled: !activeThread.tokenSaverEnabled })}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Zap className={`w-4 h-4 ${activeThread.tokenSaverEnabled ? 'text-emerald-400' : 'text-slate-400'}`} />
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                          <span>Token-Saver</span>
+                          {activeThread.tokenSaverEnabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                        </p>
+                        <p className={`text-[10px] ${c.textMuted}`}>Optimized diffs & concise tokens</p>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      activeThread.tokenSaverEnabled ? 'bg-emerald-500/20 text-emerald-300' : 'bg-black/10 dark:bg-white/10 text-slate-400'
+                    }`}>
+                      {activeThread.tokenSaverEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+
+                  {/* Project Memory Drawer */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToolsMenuOpen(false);
+                      setContextManagerOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <SlidersHorizontal className="w-4 h-4 text-violet-400" />
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">Project Memory</p>
+                        <p className={`text-[10px] ${c.textMuted}`}>{userMemories.length} active persistent facts</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-500/20 text-violet-300">
+                      Manage
+                    </span>
+                  </button>
+
+                  {/* Interactive Artifact Canvas Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToolsMenuOpen(false);
+                      if (activeArtifact) {
+                        setActiveArtifact(null);
+                      } else {
+                        setActiveArtifact({
+                          id: 'studio_canvas',
+                          title: 'Interactive Studio Canvas',
+                          language: 'html',
+                          code: `<div style="font-family:system-ui;padding:24px;text-align:center;">\n  <h2 style="color:#8b5cf6;margin-bottom:8px;">Live Sandboxed Preview</h2>\n  <p style="color:#94a3b8;font-size:14px;">Any code generated by Claude can be rendered live here in real time.</p>\n</div>`,
+                          type: 'html',
+                        });
+                      }
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Eye className="w-4 h-4 text-blue-400" />
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">Artifact Canvas</p>
+                        <p className={`text-[10px] ${c.textMuted}`}>{activeArtifact ? 'Panel currently open' : 'Open sandbox viewer'}</p>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      activeArtifact ? 'bg-blue-500/20 text-blue-300' : 'bg-black/10 dark:bg-white/10 text-slate-400'
+                    }`}>
+                      {activeArtifact ? 'Open' : 'View'}
+                    </span>
+                  </button>
+
+                  {/* Workspace Skills Modal Trigger */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToolsMenuOpen(false);
+                      setIsSkillsModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">Agent Skills</p>
+                        <p className={`text-[10px] ${c.textMuted}`}>{activeSkillIds.length} skills enabled</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                      {activeSkillIds.length}
+                    </span>
+                  </button>
+
+                  {/* Conversation Export Options */}
+                  {activeThread.messages.length > 0 && (
+                    <div className="pt-1 border-t border-black/5 dark:border-white/5 space-y-0.5">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Export Session
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 px-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setToolsMenuOpen(false);
+                            handleExportThread('markdown');
+                          }}
+                          className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
+                        >
+                          .MD
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setToolsMenuOpen(false);
+                            handleExportThread('json');
+                          }}
+                          className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
+                        >
+                          .JSON
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setToolsMenuOpen(false);
+                            handleExportThread('text');
+                          }}
+                          className={`py-1 rounded-lg text-center text-[10px] font-semibold border ${c.pillBg} hover:border-violet-500/50 cursor-pointer`}
+                        >
+                          .TXT
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Theme Toggle Button */}
           <button
             type="button"
             onClick={toggleTheme}
-            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${c.pillBg} hover:opacity-80`}
+            className={`p-1.5 rounded-xl border transition-all cursor-pointer ${c.pillBg}`}
             title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
-            {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-700" />}
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
           </button>
-
-          {/* Thinking Mode Toggle Pill */}
-          <button
-            type="button"
-            onClick={() => {
-              if (!activeModelMeta?.supportsThinking) {
-                alert(`Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}. Select Claude 3.7 Sonnet or Claude Sonnet 5.5 to enable Thinking.`);
-                return;
-              }
-              updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled });
-            }}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
-              !activeModelMeta?.supportsThinking
-                ? `${c.pillBg} opacity-40 cursor-not-allowed`
-                : activeThread.thinkingEnabled
-                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40'
-                : `${c.pillBg} opacity-75 hover:opacity-100`
-            }`}
-            title={
-              !activeModelMeta?.supportsThinking
-                ? `Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}`
-                : activeThread.thinkingEnabled
-                ? 'Extended Reasoning Process is Active (temperature: 1.0)'
-                : 'Enable Extended Reasoning Process'
-            }
-          >
-            <Brain className="w-3 h-3" />
-            <span className="hidden sm:inline">Thinking</span>
-            {activeModelMeta?.supportsThinking && activeThread.thinkingEnabled && (
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            )}
-          </button>
-
-          {/* Token-Saver Diff Mode Pill */}
-          <button
-            type="button"
-            onClick={() => updateActiveThread({ tokenSaverEnabled: !activeThread.tokenSaverEnabled })}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
-              activeThread.tokenSaverEnabled
-                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
-                : `${c.pillBg} opacity-75 hover:opacity-100`
-            }`}
-            title="Token-Saver: Optimizes context window and generates concise code diffs"
-          >
-            <Zap className="w-3 h-3" />
-            <span className="hidden sm:inline">Token-Saver</span>
-            {activeThread.tokenSaverEnabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
-          </button>
-
-          {/* Memory Drawer */}
-          <button
-            type="button"
-            onClick={() => setContextManagerOpen(true)}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${c.pillBg} hover:opacity-100`}
-            title="Open Context & Persistent Project Memory"
-          >
-            <SlidersHorizontal className="w-3 h-3" />
-            <span className="hidden md:inline">Memory</span>
-            {userMemories.length > 0 && (
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-            )}
-          </button>
-
-          {/* Live Artifact Canvas Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              if (activeArtifact) {
-                setActiveArtifact(null);
-              } else {
-                setActiveArtifact({
-                  id: 'studio_canvas',
-                  title: 'Interactive Studio Canvas',
-                  language: 'html',
-                  code: `<div style="font-family:system-ui;padding:24px;text-align:center;">
-  <h2 style="color:#7c3aed;margin-bottom:8px;">Live Sandboxed Preview</h2>
-  <p style="color:#64748b;font-size:14px;">Any code generated by Claude can be rendered live here in real time.</p>
-</div>`,
-                  type: 'html',
-                });
-              }
-            }}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
-              activeArtifact
-                ? 'bg-violet-600 text-white border-violet-500'
-                : `${c.pillBg} hover:opacity-100`
-            }`}
-            title="Open Interactive Artifact Canvas"
-          >
-            <Eye className="w-3 h-3" />
-            <span className="hidden sm:inline">Canvas</span>
-          </button>
-
-          {/* Export Thread Dropdown */}
-          {activeThread.messages.length > 0 && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                className={`px-2 py-1.5 rounded-lg border transition-all cursor-pointer ${c.pillBg} hover:opacity-100 flex items-center gap-1 text-[11px] font-medium`}
-                title="Export Conversation"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Export</span>
-                <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-              </button>
-
-              {exportMenuOpen && (
-                <div className="absolute right-0 mt-1.5 z-40 w-40 rounded-xl bg-[#0c101b] border border-slate-700 shadow-2xl py-1 text-xs animate-fadeIn">
-                  <button
-                    type="button"
-                    onClick={() => handleExportThread('markdown')}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-200 cursor-pointer flex items-center justify-between"
-                  >
-                    <span>Markdown (.md)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleExportThread('json')}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-200 cursor-pointer flex items-center justify-between"
-                  >
-                    <span>JSON (.json)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleExportThread('text')}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-200 cursor-pointer flex items-center justify-between"
-                  >
-                    <span>Plain Text (.txt)</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </header>
 
@@ -2706,9 +2802,7 @@ export const UserChatStudio: React.FC = () => {
                           textareaRef.current?.focus();
                         }}
                         className={`p-3.5 rounded-2xl border transition-all text-left group cursor-pointer ${
-                          isDark
-                            ? 'bg-[#131A2B] border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/40'
-                            : 'bg-white border-slate-200/90 hover:border-violet-500/50 hover:shadow-xs'
+                          isDark ? 'bg-[#141C30] border-[#28334B] hover:border-violet-500/50 hover:bg-[#19233A]' : 'bg-white border-slate-200 hover:border-violet-500/50 hover:shadow-xs'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
@@ -2758,7 +2852,7 @@ export const UserChatStudio: React.FC = () => {
                   <div key={msg.id || idx} className="space-y-2">
                     {isUser ? (
                       /* User Message Bubble */
-                      <div className="flex justify-end">
+                      <div className="flex justify-end items-start gap-2.5">
                         <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-xs space-y-2 ${c.userBubble}`}>
                           {/* Attachments preview */}
                           {msg.attachments && msg.attachments.length > 0 && (
@@ -2827,6 +2921,9 @@ export const UserChatStudio: React.FC = () => {
                               <span>Edit</span>
                             </button>
                           </div>
+                        </div>
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs select-none">
+                          U
                         </div>
                       </div>
                     ) : msg.comparison ? (
@@ -2993,7 +3090,7 @@ export const UserChatStudio: React.FC = () => {
                                 </button>
 
                                 {activeTelemetryMsgId === msg.id && (
-                                  <div className="absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-xl bg-[#0c101b] border border-slate-700 shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn">
+                                  <div className="absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-2xl bg-[#141C30] border border-[#28334B] shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-1 border-b border-slate-800">
                                       <span className="font-bold text-white flex items-center gap-1">
                                         <Activity className="w-3 h-3 text-teal-400" />
@@ -3320,9 +3417,7 @@ export const UserChatStudio: React.FC = () => {
                     type="button"
                     onClick={() => setModelPickerOpen(true)}
                     className={`border font-semibold rounded-xl px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                      isDark
-                        ? 'bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-750'
-                        : 'bg-slate-100 border-slate-200 text-slate-900 hover:bg-slate-200/80 shadow-2xs'
+                      isDark ? 'bg-[#19233A] border-[#28334B] text-[#F3F5FC] hover:bg-[#202c48]' : 'bg-slate-100 border-slate-200 text-slate-900 hover:bg-slate-200 shadow-2xs'
                     }`}
                   >
                     <Sparkles className="w-3 h-3 text-violet-500" />
@@ -3338,9 +3433,7 @@ export const UserChatStudio: React.FC = () => {
                       className={`border font-semibold rounded-xl px-2 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
                         Number(remainingTokens) <= 0
                           ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
-                          : isDark
-                          ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750 hover:text-white'
-                          : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 shadow-2xs'
+                          : isDark ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:bg-[#202c48] hover:text-[#F3F5FC]' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 hover:text-slate-900 shadow-2xs'
                       }`}
                       title="Switch active API Key for billing"
                     >
@@ -3360,9 +3453,7 @@ export const UserChatStudio: React.FC = () => {
                       className={`border font-semibold rounded-xl px-2 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
                         researchMode !== 'standard'
                           ? 'bg-violet-600 text-white border-violet-500 shadow-2xs'
-                          : isDark
-                          ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
-                          : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200/80'
+                          : isDark ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:bg-[#202c48]' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
                       }`}
                       title="Web Research & Automation Tools"
                     >
@@ -3706,7 +3797,7 @@ export const UserChatStudio: React.FC = () => {
 
         {/* Right: Split-Pane Artifact Canvas */}
         {activeArtifact && (
-          <div className={`w-full md:w-[480px] lg:w-[540px] xl:w-[600px] shrink-0 border-l ${c.border} flex flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-[#0E131F] z-10 shadow-xl`}>
+          <div className={`w-full md:w-[480px] lg:w-[540px] xl:w-[600px] shrink-0 border-l ${c.border} flex flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-[#0B1020] z-10 shadow-xl`}>
             <ArtifactCanvas
               artifact={activeArtifact}
               onClose={() => setActiveArtifact(null)}
@@ -4036,26 +4127,28 @@ export const UserChatStudio: React.FC = () => {
   function renderThreadRow(t: ChatThread) {
     const isActive = t.id === activeThread.id;
     const isRenaming = renamingId === t.id;
+    const isMenuOpen = activeMenuThreadId === t.id;
 
     return (
       <div
         key={t.id}
         onClick={() => {
           setActiveThreadId(t.id);
+          setActiveMenuThreadId(null);
           if (window.speechSynthesis) window.speechSynthesis.cancel();
           setSpeakingMsgId(null);
         }}
         className={`group relative p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between border ${
           isActive
             ? isDark
-              ? 'bg-slate-800/80 border-slate-700 text-white font-medium shadow-2xs'
-              : 'bg-white border-slate-300 text-slate-900 font-semibold shadow-xs'
+              ? 'bg-[#19233A] border-violet-500/40 text-[#F3F5FC] font-medium shadow-xs'
+              : 'bg-white border-violet-300 text-slate-900 font-semibold shadow-xs'
             : isDark
-            ? 'border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+            ? 'border-transparent text-[#A5B0C7] hover:bg-[#141C30] hover:text-[#F3F5FC]'
             : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`}
       >
-        <div className="flex-1 min-w-0 pr-2">
+        <div className="flex-1 min-w-0 pr-1">
           {isRenaming ? (
             <input
               type="text"
@@ -4068,12 +4161,15 @@ export const UserChatStudio: React.FC = () => {
               }}
               onBlur={() => handleSaveRename(t.id)}
               onClick={(e) => e.stopPropagation()}
-              className="w-full text-xs font-semibold bg-white dark:bg-slate-900 border border-violet-500 rounded px-1.5 py-0.5 focus:outline-none"
+              className="w-full text-xs font-semibold bg-white dark:bg-[#0B1020] border border-violet-500 rounded px-1.5 py-0.5 focus:outline-none"
             />
           ) : (
             <p className="truncate text-xs leading-snug">{t.title}</p>
           )}
           <div className="flex items-center gap-1.5 mt-0.5">
+            {t.pinned && (
+              <Pin className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+            )}
             {t.project && (
               <span
                 className="w-2 h-2 rounded-full shrink-0"
@@ -4087,51 +4183,95 @@ export const UserChatStudio: React.FC = () => {
           </div>
         </div>
 
-        {/* Action icons on hover */}
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Pin */}
+        {/* Single Contextual 3-dots Menu Button */}
+        <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={(e) => handleTogglePin(t.id, Boolean(t.pinned), e)}
-            className={`p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 ${t.pinned ? 'text-amber-500 opacity-100' : c.textMuted}`}
-            title={t.pinned ? 'Unpin' : 'Pin to top'}
+            onClick={() => setActiveMenuThreadId(isMenuOpen ? null : t.id)}
+            className={`p-1 rounded-md transition-opacity cursor-pointer ${
+              isMenuOpen ? 'opacity-100 bg-black/10 dark:bg-white/10' : 'opacity-0 group-hover:opacity-100'
+            } ${c.textMuted} hover:text-white`}
+            title="Conversation Options"
           >
-            <Pin className="w-3 h-3" />
+            <MoreHorizontal className="w-3.5 h-3.5" />
           </button>
 
-          {/* Archive / Restore */}
-          <button
-            type="button"
-            onClick={(e) => handleToggleArchive(t.id, Boolean(t.archived), e)}
-            className={`p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 ${t.archived ? 'text-violet-400 opacity-100' : c.textMuted}`}
-            title={t.archived ? 'Restore Conversation' : 'Archive Conversation'}
-          >
-            {t.archived ? <ArchiveRestore className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
-          </button>
+          {/* Contextual Dropdown */}
+          {isMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setActiveMenuThreadId(null)} />
+              <div className={`absolute right-0 top-full mt-1 z-40 w-44 rounded-xl border shadow-2xl p-1 space-y-0.5 text-xs ${c.cardBg} ${c.border} animate-fadeIn`}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMenuThreadId(null);
+                    setRenamingId(t.id);
+                    setRenameText(t.title);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 hover:bg-violet-500/10 cursor-pointer"
+                >
+                  <Edit2 className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Rename</span>
+                </button>
 
-          {/* Rename */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setRenamingId(t.id);
-              setRenameText(t.title);
-            }}
-            className={`p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 ${c.textMuted}`}
-            title="Rename"
-          >
-            <Edit2 className="w-3 h-3" />
-          </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    setActiveMenuThreadId(null);
+                    handleTogglePin(t.id, Boolean(t.pinned), e);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 hover:bg-violet-500/10 cursor-pointer"
+                >
+                  {t.pinned ? (
+                    <>
+                      <PinOff className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Unpin</span>
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Pin to Top</span>
+                    </>
+                  )}
+                </button>
 
-          {/* Delete */}
-          <button
-            type="button"
-            onClick={(e) => handleDeleteThread(t.id, e)}
-            className="p-1 rounded hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400"
-            title="Delete Session"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    setActiveMenuThreadId(null);
+                    handleToggleArchive(t.id, Boolean(t.archived), e);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 hover:bg-violet-500/10 cursor-pointer"
+                >
+                  {t.archived ? (
+                    <>
+                      <ArchiveRestore className="w-3.5 h-3.5 text-violet-400" />
+                      <span>Restore Chat</span>
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="w-3.5 h-3.5 text-violet-400" />
+                      <span>Archive Chat</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="my-1 border-t border-black/5 dark:border-white/5" />
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    setActiveMenuThreadId(null);
+                    handleDeleteThread(t.id, e);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 hover:bg-rose-500/10 text-rose-400 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Chat</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );

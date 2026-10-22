@@ -231,12 +231,12 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-4xl bg-white dark:bg-[#18181b] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden text-gray-900 dark:text-gray-100"
+        className="w-full max-w-4xl bg-white dark:bg-[#0E1425] border border-gray-200 dark:border-[#28334B] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden text-gray-900 dark:text-gray-100"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between shrink-0 bg-gray-50/70 dark:bg-[#1f1f23]">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-[#28334B] flex items-center justify-between shrink-0 bg-gray-50/70 dark:bg-[#141C30]">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-violet-600/10 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center border border-violet-500/20">
               <Sparkles className="w-5 h-5" />
@@ -264,7 +264,7 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
         </div>
 
         {/* Toolbar: Search, Category Filters, and Action Buttons */}
-        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#18181b] shrink-0 space-y-3">
+        <div className="px-6 py-3 border-b border-gray-200 dark:border-[#28334B] bg-white dark:bg-[#0E1425] shrink-0 space-y-3">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -273,11 +273,11 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search skills by title, category, or capability..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-gray-50 dark:bg-[#202024] border border-gray-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500 placeholder-gray-400 dark:placeholder-gray-500"
+                className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-gray-50 dark:bg-[#202024] border border-gray-200 dark:border-[#28334B] rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500 placeholder-gray-400 dark:placeholder-gray-500"
               />
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-[#28334B] text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
                 <UploadCloud className="w-3.5 h-3.5 text-violet-500" />
                 <span>Import (.md)</span>
                 <input
@@ -379,7 +379,7 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
                     value={newSkillName}
                     onChange={(e) => setNewSkillName(e.target.value)}
                     placeholder="e.g. FastAPI Backend Specialist"
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#1f1f23] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#141C30] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
                 <div>
@@ -389,7 +389,7 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
                   <select
                     value={newSkillCategory}
                     onChange={(e) => setNewSkillCategory(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#1f1f23] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#141C30] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
                   >
                     <option value="Engineering">Engineering</option>
                     <option value="Testing & QA">Testing & QA</option>
@@ -408,7 +408,7 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
                     value={newSkillBadge}
                     onChange={(e) => setNewSkillBadge(e.target.value)}
                     placeholder="e.g. Python / Async"
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#1f1f23] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#141C30] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
               </div>
@@ -422,7 +422,7 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
                   value={newSkillDescription}
                   onChange={(e) => setNewSkillDescription(e.target.value)}
                   placeholder="Brief summary shown in the workspace skill list..."
-                  className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#1f1f23] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#141C30] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
 
@@ -436,7 +436,7 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
                   value={newSkillInstructions}
                   onChange={(e) => setNewSkillInstructions(e.target.value)}
                   placeholder="You are an expert in... Always write clean code with... Follow these conventions: 1. ... 2. ..."
-                  className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-[#1f1f23] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-[#141C30] border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
 
@@ -475,7 +475,7 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
                   className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
                     isActive
                       ? 'border-violet-500/50 bg-violet-50/30 dark:bg-violet-950/15 shadow-sm'
-                      : 'border-gray-200 dark:border-gray-800/80 bg-white dark:bg-[#1a1a1e] hover:border-gray-300 dark:hover:border-gray-700'
+                      : 'border-gray-200 dark:border-[#28334B]/80 bg-white dark:bg-[#1a1a1e] hover:border-gray-300 dark:hover:border-gray-700'
                   }`}
                 >
                   <div>
@@ -534,14 +534,14 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
 
                     {/* Expandable Prompt Instructions View */}
                     {isExpanded && (
-                      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] text-gray-600 dark:text-gray-300 font-mono bg-gray-50/80 dark:bg-[#141416] p-2.5 rounded-lg whitespace-pre-wrap leading-relaxed">
+                      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-[#28334B] text-[11px] text-gray-600 dark:text-gray-300 font-mono bg-gray-50/80 dark:bg-[#141416] p-2.5 rounded-lg whitespace-pre-wrap leading-relaxed">
                         {skill.instructions}
                       </div>
                     )}
                   </div>
 
                   {/* Card Footer: View instructions button and custom actions */}
-                  <div className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-800/60 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-3 pt-2.5 border-t border-gray-100 dark:border-[#28334B]/60 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <button
                       type="button"
                       onClick={() => setExpandedSkillId(isExpanded ? null : skill.id)}
@@ -587,7 +587,7 @@ export const WorkspaceSkillsModal: React.FC<WorkspaceSkillsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3.5 border-t border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-[#1f1f23] shrink-0 flex items-center justify-between">
+        <div className="px-6 py-3.5 border-t border-gray-200 dark:border-[#28334B] bg-gray-50/70 dark:bg-[#141C30] shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 dark:text-gray-400">
               <strong className="text-gray-900 dark:text-gray-100">{activeSkillIds.length}</strong> of{' '}

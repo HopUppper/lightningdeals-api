@@ -198,9 +198,9 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-xs animate-fadeIn font-sans">
-      <div className="w-full max-w-lg bg-[#0e1424] border-l border-slate-800 h-full flex flex-col shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg bg-[#0E1425] border-l border-[#28334B] h-full flex flex-col shadow-2xl overflow-hidden">
         {/* Drawer Header */}
-        <div className="p-4 px-6 bg-[#131b2e] border-b border-slate-800 flex items-center justify-between shrink-0">
+        <div className="p-4 px-6 bg-[#141C30] border-b border-[#28334B] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-violet-600/30 border border-violet-500/30 flex items-center justify-center text-violet-300">
               <Brain className="w-4 h-4 text-violet-400" />
@@ -228,7 +228,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
         </div>
 
         {/* Real-Time Context Health Gauge Card */}
-        <div className="p-4 mx-6 mt-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2 shrink-0">
+        <div className="p-4 mx-6 mt-4 rounded-xl bg-[#141C30] border border-[#28334B] space-y-2 shrink-0">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-slate-400 flex items-center gap-1.5">
               <Cpu className="w-3.5 h-3.5 text-cyan-400" />
@@ -276,7 +276,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex border-b border-slate-800 px-6 mt-4 gap-4 text-xs font-mono shrink-0">
+        <div className="flex border-b border-[#28334B] px-6 mt-4 gap-4 text-xs font-mono shrink-0">
           {[
             { id: 'memory', label: '🧠 Project Memory', count: memoryItems.length },
             { id: 'persona', label: '🎭 Persona Preset', count: null },
@@ -307,7 +307,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
           {activeTab === 'memory' && (
             <div className="space-y-4">
               {/* Memory Active Toggle Banner */}
-              <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between">
+              <div className="p-3 bg-slate-900 border border-[#28334B] rounded-xl flex items-center justify-between">
                 <div>
                   <span className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
                     <Brain className="w-3.5 h-3.5 text-violet-400" />
@@ -345,7 +345,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
               </div>
 
               {/* Add Memory Fact Form */}
-              <form onSubmit={handleAddMemory} className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2.5">
+              <form onSubmit={handleAddMemory} className="p-3.5 bg-slate-900 border border-[#28334B] rounded-xl space-y-2.5">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
                   Add Persistent Memory Fact
                 </span>
@@ -355,14 +355,14 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                     placeholder="Category (e.g. Stack)"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                    className="p-2 rounded-lg bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
                   />
                   <input
                     type="text"
                     placeholder="Fact (e.g. React 19 + Tailwind v4 + PostgreSQL)"
                     value={newFact}
                     onChange={(e) => setNewFact(e.target.value)}
-                    className="col-span-2 p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                    className="col-span-2 p-2 rounded-lg bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
                   />
                 </div>
                 <button
@@ -418,14 +418,14 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                 )}
 
                 {memoryItems.length === 0 ? (
-                  <div className="p-6 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl font-mono text-[11px]">
+                  <div className="p-6 text-center text-slate-500 border border-dashed border-[#28334B] rounded-xl font-mono text-[11px]">
                     No memory facts defined yet. Add facts above to guide the AI across all turns.
                   </div>
                 ) : (
                   memoryItems.map((item) => (
                     <div
                       key={item.id}
-                      className="p-3 bg-slate-900/80 border border-slate-800/80 rounded-xl space-y-2 group"
+                      className="p-3 bg-slate-900/80 border border-[#28334B]/80 rounded-xl space-y-2 group"
                     >
                       {editingId === item.id ? (
                         /* Inline Edit Form */
@@ -435,13 +435,13 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                               type="text"
                               value={editCategory}
                               onChange={(e) => setEditCategory(e.target.value)}
-                              className="p-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                              className="p-1.5 rounded bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
                             />
                             <input
                               type="text"
                               value={editFact}
                               onChange={(e) => setEditFact(e.target.value)}
-                              className="col-span-2 p-1.5 rounded bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                              className="col-span-2 p-1.5 rounded bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
                             />
                           </div>
                           <div className="flex items-center justify-end gap-2">
@@ -510,7 +510,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                     className={`p-3 rounded-xl border transition-all cursor-pointer ${
                       persona === p.id
                         ? 'bg-violet-950/30 border-violet-500/50 shadow-xs'
-                        : 'bg-slate-900/60 border-slate-800/80 hover:bg-slate-900 hover:border-slate-700'
+                        : 'bg-slate-900/60 border-[#28334B]/80 hover:bg-slate-900 hover:border-slate-700'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -533,7 +533,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                   value={systemPrompt}
                   onChange={(e) => onUpdateSettings({ systemPrompt: e.target.value })}
                   placeholder="Enter custom developer system instructions..."
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 font-mono text-xs focus:outline-none focus:border-violet-500 leading-relaxed"
+                  className="w-full p-3 rounded-xl bg-slate-950 border border-[#28334B] text-slate-200 font-mono text-xs focus:outline-none focus:border-violet-500 leading-relaxed"
                 />
               </div>
             </div>
@@ -542,7 +542,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
           {activeTab === 'parameters' && (
             <div className="space-y-5">
               {/* Temperature Slider */}
-              <div className="space-y-2 p-3 bg-slate-900 border border-slate-800 rounded-xl">
+              <div className="space-y-2 p-3 bg-slate-900 border border-[#28334B] rounded-xl">
                 <div className="flex items-center justify-between">
                   <label className="font-bold text-slate-200 flex items-center gap-1.5">
                     <span>Creativity & Temperature</span>
@@ -568,7 +568,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
               </div>
 
               {/* Max Tokens Slider */}
-              <div className="space-y-2 p-3 bg-slate-900 border border-slate-800 rounded-xl">
+              <div className="space-y-2 p-3 bg-slate-900 border border-[#28334B] rounded-xl">
                 <div className="flex items-center justify-between">
                   <label className="font-bold text-slate-200">
                     Max Output Length
@@ -594,7 +594,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
               </div>
 
               {/* Claude 3.7 Thinking Budget */}
-              <div className="space-y-2 p-3 bg-slate-900 border border-slate-800 rounded-xl">
+              <div className="space-y-2 p-3 bg-slate-900 border border-[#28334B] rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="font-bold text-slate-200 flex items-center gap-1.5">
@@ -641,7 +641,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
         </div>
 
         {/* Drawer Footer */}
-        <div className="p-4 px-6 bg-[#131b2e] border-t border-slate-800 flex items-center justify-between shrink-0">
+        <div className="p-4 px-6 bg-[#141C30] border-t border-[#28334B] flex items-center justify-between shrink-0">
           <span className="text-[11px] text-slate-400 font-mono">
             Settings auto-save to thread
           </span>

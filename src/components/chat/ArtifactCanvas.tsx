@@ -138,12 +138,12 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
 
   return (
     <div
-      className={`flex flex-col h-full bg-[#0b0f19] text-slate-100 font-sans border-l border-slate-800 transition-all ${
+      className={`flex flex-col h-full bg-[#0B1020] text-slate-100 font-sans border-l border-[#28334B] transition-all ${
         isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen' : 'w-full'
       }`}
     >
       {/* Canvas Top Bar */}
-      <div className="h-13 px-4 bg-[#0e1424] border-b border-slate-800 flex items-center justify-between shrink-0 select-none">
+      <div className="h-13 px-4 bg-[#0E1425] border-b border-[#28334B] flex items-center justify-between shrink-0 select-none">
         {/* Left: Artifact metadata */}
         <div className="flex items-center gap-2.5 min-w-0 mr-2">
           <div className="w-6 h-6 rounded-lg bg-violet-600/20 text-violet-400 flex items-center justify-center font-bold text-xs shrink-0">
@@ -161,7 +161,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
 
         {/* Center: Device Viewport Controls (Image 4 style) */}
         {isPreviewable && currentTab === 'preview' && (
-          <div className="hidden sm:flex items-center gap-1 bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+          <div className="hidden sm:flex items-center gap-1 bg-[#141C30] p-0.5 rounded-lg border border-[#28334B]">
             <button
               type="button"
               onClick={() => setViewportMode('desktop')}
@@ -207,7 +207,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
         {/* Tab Controls & Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
           {isPreviewable && (
-            <div className="bg-slate-900/90 p-0.5 rounded-lg border border-slate-800 flex items-center mr-1">
+            <div className="bg-[#141C30] p-0.5 rounded-lg border border-[#28334B] flex items-center mr-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('preview')}
@@ -249,7 +249,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
           <button
             type="button"
             onClick={handleCopy}
-            className="p-1.5 px-2 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
+            className="p-1.5 px-2 rounded-lg bg-[#19233A] hover:bg-slate-800 text-slate-300 hover:text-white border border-[#28334B] text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
             title="Copy code to clipboard"
           >
             {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -292,9 +292,9 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
             <div
               className={`h-full flex flex-col transition-all duration-200 ${
                 viewportMode === 'mobile'
-                  ? 'w-[375px] max-w-full border-x border-slate-800 shadow-2xl'
+                  ? 'w-[375px] max-w-full border-x border-[#28334B] shadow-2xl'
                   : viewportMode === 'tablet'
-                  ? 'w-[768px] max-w-full border-x border-slate-800 shadow-2xl'
+                  ? 'w-[768px] max-w-full border-x border-[#28334B] shadow-2xl'
                   : 'w-full'
               }`}
             >
@@ -305,7 +305,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
                 sandbox="allow-scripts allow-modals"
                 className="w-full flex-1 border-0 bg-slate-950"
               />
-              <div className="px-3 py-1.5 bg-[#0e1424] border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+              <div className="px-3 py-1.5 bg-[#0E1425] border-t border-[#28334B]/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Live Sandboxed Runtime</span>
@@ -323,7 +323,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
               spellCheck={false}
               className="w-full flex-1 font-mono text-xs leading-relaxed p-4 bg-transparent text-slate-100 focus:outline-none resize-none select-text"
             />
-            <div className="px-3 py-1.5 bg-[#0e1424] border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <div className="px-3 py-1.5 bg-[#0E1425] border-t border-[#28334B]/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
               <span className="text-amber-400">Editing Mode Active</span>
               <button
                 type="button"

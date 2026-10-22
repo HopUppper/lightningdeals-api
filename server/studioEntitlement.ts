@@ -1,5 +1,7 @@
 import { prisma } from './db';
 import { mapToUpstreamModel } from './gateway';
+import { calculateCustomerRollingWindow } from './accounting/customerAccounting';
+import { isRollingPlan } from './accounting/tokenReservation';
 
 export interface StudioEntitlement {
   hasAccess: boolean;
@@ -242,11 +244,14 @@ export async function resolveStudioEntitlement(
   let isQuotaExhausted = false;
   let hasValidActiveKey = false;
 
+  let effectiveTokensRemaining = 0n;
   if (keyRecord) {
     if (keyRecord.expiresAt) {
       isExpired = new Date(keyRecord.expiresAt).getTime() <= Date.now();
     }
-    isQuotaExhausted = keyRecord.tokensRemaining <= 0n;
+    const metrics = await calculateCustomerRollingWindow(keyRecord);
+    effectiveTokensRemaining = BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+    isQuotaExhausted = effectiveTokensRemaining <= 0n;
     hasValidActiveKey = keyRecord.status === 'active' && !isExpired && !isQuotaExhausted;
   }
 
@@ -316,7 +321,7 @@ export async function resolveStudioEntitlement(
           type: keyRecord.type,
           status: keyRecord.status,
           plan: keyRecord.plan,
-          tokensRemaining: keyRecord.tokensRemaining.toString(),
+          tokensRemaining: effectiveTokensRemaining.toString(),
           purchasedTokens: keyRecord.purchasedTokens.toString(),
           expiresAt: keyRecord.expiresAt ? keyRecord.expiresAt.toISOString() : null,
           isExpired,

@@ -2,15 +2,23 @@ import { prisma } from './db';
 import { calculateCustomerRollingWindow, CustomerRollingWindowMetrics } from './accounting/customerAccounting';
 import {
   reserveTokens,
+  reserveCustomerQuota,
   releaseReservation,
   settleReservation,
   getActiveCustomerReservations,
+  isRollingPlan,
 } from './accounting/tokenReservation';
 
+export {
+  reserveCustomerQuota,
+  settleReservation,
+  releaseReservation,
+  getActiveCustomerReservations,
+  isRollingPlan,
+};
+
 /**
- * Backward-compatible wrapper around calculateCustomerRollingWindow.
- * Returns the exact fields expected by existing gateway, admin, user, and tool callers,
- * while fixing the bug where rolling window plans permanently depleted tokensRemaining.
+ * Authoritative customer rolling window & quota metrics.
  */
 export async function calculateKeyRollingWindow(keyRecord: any) {
   const metrics = await calculateCustomerRollingWindow(keyRecord);
@@ -35,15 +43,15 @@ export async function calculateKeyRollingWindow(keyRecord: any) {
   };
 }
 
-export function reserveTokensForRequest(keyId: string, estimatedTokens: number, requestId?: string): boolean {
+export async function reserveTokensForRequest(keyId: string, estimatedTokens: number, requestId?: string): Promise<boolean> {
   const reqId = requestId || `req_legacy_${keyId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  reserveTokens({ apiKeyId: keyId, requestId: reqId, estimatedTokens });
-  return true;
+  const res = await reserveCustomerQuota({ apiKeyId: keyId, requestId: reqId, estimatedTokens });
+  return res.success;
 }
 
-export function releaseReservedTokens(keyId: string, estimatedTokens: number, requestId?: string) {
+export async function releaseReservedTokens(keyId: string, estimatedTokens: number, requestId?: string): Promise<void> {
   if (requestId) {
-    releaseReservation(requestId);
+    await releaseReservation(requestId);
   }
 }
 

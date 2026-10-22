@@ -22,6 +22,8 @@ import { buildProviderRequest } from './providerAdapter';
 import { sanitizeErrorMessage, sanitizeModelResponse, getFriendlyModelName } from './gateway';
 import { ReferralEngine } from './referrals/referralEngine';
 import { isModelAuthorizedForKey } from './studioEntitlement';
+import { reserveCustomerQuota, settleReservation, releaseReservation, isRollingPlan } from './accounting/tokenReservation';
+import { calculateCustomerRollingWindow } from './accounting/customerAccounting';
 
 const router = Router();
 
@@ -1326,6 +1328,26 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     const effectiveSystem = typeof system === 'string' && system.trim() ? system.trim() : undefined;
     const effectiveTemperature = typeof temperature === 'number' ? Math.max(0, Math.min(1, temperature)) : undefined;
 
+    // Concurrency-Safe Customer Quota Reservation (Layer B)
+    const testEstimatedTokens = Math.max(100, Math.ceil(JSON.stringify(outboundMessages).length / 3.8)) + effectiveMaxTokens;
+    const testRequestId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const quotaReservation = await reserveCustomerQuota({
+      apiKeyId: keyRecord.id,
+      requestId: testRequestId,
+      estimatedTokens: testEstimatedTokens,
+    });
+
+    if (!quotaReservation.success) {
+      return res.status(429).json({
+        success: false,
+        error: {
+          code: quotaReservation.code || 'QUOTA_EXHAUSTED',
+          message: quotaReservation.message || 'Token quota exceeded for this API key.',
+        },
+      });
+    }
+
     let currentVendor = vendor;
     let currentMasterKey = masterKey;
 
@@ -1390,6 +1412,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     const upstreamRes = probeResult.response;
 
     if (!upstreamRes) {
+      await releaseReservation(testRequestId);
       const rawMsg = probeResult.error?.message || 'Network connection failed.';
       const cleanMsg = sanitizeErrorMessage(rawMsg);
       return res.status(502).json({
@@ -1400,6 +1423,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     }
 
     if (!upstreamRes.ok) {
+      await releaseReservation(testRequestId);
       const errText = await upstreamRes.text();
       let parsedErr: any;
       try { parsedErr = JSON.parse(errText); } catch {}
@@ -1455,6 +1479,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     // Check if upstream returned an auth error or capacity limit
     if (typeof responseText === 'string') {
       if (responseText.includes('Invalid API key') || responseText.includes('invalid_api_key')) {
+        await releaseReservation(testRequestId);
         return res.status(502).json({
           success: false,
           error: {
@@ -1471,6 +1496,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         responseText.includes('quota exceeded') ||
         responseText.includes('rate limit reached')
       ) {
+        await releaseReservation(testRequestId);
         return res.status(429).json({
           success: false,
           error: {
@@ -1489,9 +1515,12 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     const totalTokens = inputTokens + outputTokens;
 
     // Deduct tokens from user's key and record request in db
-    const remainingAfter = keyRecord.tokensRemaining > BigInt(totalTokens)
-      ? keyRecord.tokensRemaining - BigInt(totalTokens)
-      : 0n;
+    await settleReservation(testRequestId);
+
+    const isRolling = isRollingPlan(keyRecord);
+    const remainingAfter = isRolling
+      ? keyRecord.tokensRemaining
+      : (keyRecord.tokensRemaining > BigInt(totalTokens) ? keyRecord.tokensRemaining - BigInt(totalTokens) : 0n);
 
     const platformTag = (typeof clientPlatform === 'string' && clientPlatform.trim()) ? clientPlatform.trim() : 'Interactive Playground';
 
@@ -2032,9 +2061,12 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
       orderBy: { createdAt: 'desc' },
     });
 
-    res.json({
-      isPaidCustomer,
-      keys: keys.map((k) => {
+    const mappedKeys = await Promise.all(
+      keys.map(async (k) => {
+        const metrics = await calculateCustomerRollingWindow(k);
+        const effectiveRemaining = BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+        const isOverAllocated = k.tokensUsed > k.purchasedTokens;
+
         return {
           id: k.id,
           name: k.name,
@@ -2046,7 +2078,10 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           allowedModels: k.allowedModels || 'all',
           purchasedTokens: k.purchasedTokens?.toString() ?? '0',
           tokensUsed: k.tokensUsed?.toString() ?? '0',
-          tokensRemaining: k.tokensRemaining?.toString() ?? '0',
+          tokensRemaining: effectiveRemaining.toString(),
+          rawTokensRemaining: k.tokensRemaining?.toString() ?? '0',
+          activeReservations: metrics.activeReservations.toString(),
+          isOverAllocated,
           totalInputTokens: k.totalInputTokens?.toString() ?? '0',
           totalOutputTokens: k.totalOutputTokens?.toString() ?? '0',
           expiresAt: k.expiresAt,
@@ -2054,7 +2089,12 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           lastUsedAt: k.lastUsedAt || null,
           createdAt: k.createdAt,
         };
-      }),
+      })
+    );
+
+    res.json({
+      isPaidCustomer,
+      keys: mappedKeys,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -2129,11 +2169,12 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
     let totalUsed = 0n;
     let totalRemaining = 0n;
 
-    keys.forEach((k) => {
+    for (const k of keys) {
       totalPurchased += k.purchasedTokens;
       totalUsed += k.tokensUsed;
-      totalRemaining += k.tokensRemaining;
-    });
+      const metrics = await calculateCustomerRollingWindow(k);
+      totalRemaining += BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+    }
 
     // No default allowance for keyless users — must be assigned by admin or purchased
     if (totalPurchased === 0n) {

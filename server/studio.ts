@@ -34,6 +34,7 @@ import {
   DEFAULT_TRIAL_STUDIO_MODELS,
   ALL_STUDIO_MODELS,
 } from './studioEntitlement';
+import { reserveCustomerQuota, settleReservation, releaseReservation, isRollingPlan } from './accounting/tokenReservation';
 
 export function extractTextFromDocx(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -1833,13 +1834,22 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Quota Check
-    if (keyRecord.tokensRemaining <= 0n) {
-      return res.status(403).json({
+    // Concurrency-Safe Customer Quota Reservation (Layer B)
+    const studioEstimatedTokens = Math.max(100, Math.ceil(JSON.stringify({ prompt, messages: clientMessages }).length / 3.8)) + 1024;
+    const studioRequestId = `studio_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const quotaReservation = await reserveCustomerQuota({
+      apiKeyId: keyRecord.id,
+      requestId: studioRequestId,
+      estimatedTokens: studioEstimatedTokens,
+    });
+
+    if (!quotaReservation.success) {
+      return res.status(429).json({
         success: false,
         error: {
-          code: 'QUOTA_EXHAUSTED',
-          message: `The API key "${keyRecord.name || keyRecord.displayKey || 'API Key'}" has depleted its token balance (0 tokens remaining). Please switch to another key with available quota or recharge.`,
+          code: quotaReservation.code || 'QUOTA_EXHAUSTED',
+          message: quotaReservation.message || `The API key "${keyRecord.name || keyRecord.displayKey || 'API Key'}" has insufficient tokens.`,
         },
       });
     }
@@ -1847,6 +1857,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     // Model Authorization & Entitlement Verification (Separation of Studio Access vs Model Access)
     const modelAuth = isModelAuthorizedForKey(requestedModel, keyRecord, isPaidCustomer);
     if (!modelAuth.allowed) {
+      await releaseReservation(studioRequestId);
       return res.status(403).json({
         success: false,
         error: {
@@ -1871,6 +1882,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     }
 
     if (!vendor) {
+      await releaseReservation(studioRequestId);
       return res.status(503).json({
         success: false,
         error: { message: 'AI Gateway conduit is temporarily initializing. Please contact support.' },
@@ -1879,6 +1891,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
 
     const masterKey = vendor.masterApiKeyEncrypted ? decryptText(vendor.masterApiKeyEncrypted) : '';
     if (!masterKey) {
+      await releaseReservation(studioRequestId);
       return res.status(503).json({
         success: false,
         error: { message: 'AI Gateway credentials require configuration. Please contact support.' },
@@ -2200,6 +2213,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       Math.ceil(JSON.stringify(normalizedMessages).length / 4) + Math.ceil(effectiveSystemPrompt.length / 4)
     );
     if (modelMeta && estimatedPromptTokens > modelMeta.contextWindow) {
+      await releaseReservation(studioRequestId);
       sendSse('error', {
         code: 'CONTEXT_LIMIT_EXCEEDED',
         message: `The prompt and conversation history (~${estimatedPromptTokens.toLocaleString()} tokens) exceed the verified context window limit of ${modelMeta.contextWindow.toLocaleString()} tokens for ${modelMeta.name}. Please compress context or reduce prompt length.`,
@@ -2250,6 +2264,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         signal: abortController.signal,
       });
     } catch (fetchErr: any) {
+      await releaseReservation(studioRequestId);
       if (clientDisconnected) return;
       console.warn(`[STUDIO UPSTREAM FETCH FAILED] ${fetchErr.message}`);
       activityTracker.failCurrentStep(`Upstream fetch failed: ${fetchErr.message}`);
@@ -2258,6 +2273,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     }
 
     if (!upstreamRes || !upstreamRes.ok) {
+      await releaseReservation(studioRequestId);
       const errText = upstreamRes ? await upstreamRes.text().catch(() => '') : 'Upstream service unavailable.';
       let parsedErr: any = {};
       try { parsedErr = JSON.parse(errText); } catch {}
@@ -2343,10 +2359,14 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     const multiplier = modelMeta?.tokenMultiplier || 1.0;
     const billedTokens = BigInt(Math.ceil(totalTokens * multiplier));
 
+    // Settle studio reservation
+    await settleReservation(studioRequestId);
+
     // Deduct tokens from user API key in database
-    const remainingAfter = keyRecord.tokensRemaining > billedTokens
-      ? keyRecord.tokensRemaining - billedTokens
-      : 0n;
+    const isRolling = isRollingPlan(keyRecord);
+    const remainingAfter = isRolling
+      ? keyRecord.tokensRemaining
+      : (keyRecord.tokensRemaining > billedTokens ? keyRecord.tokensRemaining - billedTokens : 0n);
 
     await prisma.apiKey.update({
       where: { id: keyRecord.id },

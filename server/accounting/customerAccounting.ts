@@ -1,5 +1,5 @@
 import { prisma } from '../db';
-import { getActiveCustomerReservations } from './tokenReservation';
+import { getActiveCustomerReservations, isRollingPlan } from './tokenReservation';
 
 export interface CustomerRollingWindowMetrics {
   apiKeyId: string;
@@ -35,15 +35,8 @@ export async function calculateCustomerRollingWindow(
   const windowMs = windowHours * 60 * 60 * 1000;
   const windowStart = new Date(nowMs - windowMs);
 
-  // 1. Determine if this key is governed by a rolling window
-  // Rolling plans include "pro", "max", "ultra", or any plan where windowHours is configured
-  const planLower = (keyRecord.plan || '').toLowerCase();
-  const isRollingWindow = keyRecord.windowHours > 0 ||
-    planLower.includes('max') ||
-    planLower.includes('pro') ||
-    planLower.includes('ultra') ||
-    planLower.includes('rolling') ||
-    planLower.includes('claude');
+  // 1. Authoritative Rolling Window Plan Determination
+  const isRollingWindow = isRollingPlan(keyRecord);
 
   // 2. Query aggregate usage strictly within [now - 5h, now]
   const [windowUsageAgg, lifetimeUsageAgg, requestsInWindow] = await Promise.all([

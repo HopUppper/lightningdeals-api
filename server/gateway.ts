@@ -1,7 +1,16 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma, decryptText } from './db';
-import { calculateKeyRollingWindow, reserveTokensForRequest, releaseReservedTokens, getActiveReservedTokens } from './window';
+import {
+  calculateKeyRollingWindow,
+  reserveCustomerQuota,
+  reserveTokensForRequest,
+  releaseReservedTokens,
+  releaseReservation,
+  settleReservation,
+  getActiveReservedTokens,
+  isRollingPlan,
+} from './window';
 import { buildProviderRequest, normalizeProviderResponse } from './providerAdapter';
 import { validateVendorBaseUrl } from './ssrf';
 import { checkMasterCapacity, reserveMasterTokens, releaseMasterReservation, settleMasterUsage } from './masterLedger';
@@ -732,10 +741,9 @@ export async function validateAndExtractApiKey(req: Request) {
   recentTimestamps.push(nowMs);
   rateLimitMap.set(keyRecord.id, recentTimestamps);
 
-  // 2. Authoritative 5-Hour Rolling Window Token Balance Check
+  // 2. Authoritative Token Balance & Entitlement Check (Layer B)
   const windowMetrics = await calculateKeyRollingWindow(keyRecord);
-  const inFlightReserved = getActiveReservedTokens(keyRecord.id);
-  const effectiveRemaining = windowMetrics.remainingNum - inFlightReserved;
+  const effectiveRemaining = Math.max(0, windowMetrics.remainingNum);
 
   if (effectiveRemaining <= 0) {
     recordAuditEvent({
@@ -747,12 +755,13 @@ export async function validateAndExtractApiKey(req: Request) {
       apiKeyId: keyRecord.id,
       result: 'BLOCKED',
       statusCode: 429,
-      failureReason: '5-hour token allowance exhausted (0 tokens remaining)',
+      failureReason: 'Token allowance exhausted (0 tokens remaining)',
       req,
     });
     return {
       errorStatus: 429,
-      errorType: 'quota_exceeded',
+      errorType: 'rate_limit_error',
+      errorCode: 'insufficient_quota',
       errorMessage: `Token allowance exhausted (0 tokens remaining). Please top up your API key balance in your dashboard or contact support.`,
     };
   }
@@ -984,9 +993,51 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
   const estimatedRequiredTokens = Math.max(100, Math.ceil(JSON.stringify({ messages, system }).length / 4)) + Math.min(2048, Number(max_tokens || 1024));
 
-  // MASTER VENDOR CAPACITY CHECK
+  // 1. Concurrency-Safe Customer Quota Reservation (Layer B - Authoritative Customer Entitlement)
+  const customerReservation = await reserveCustomerQuota({
+    apiKeyId: keyRecord.id,
+    requestId,
+    estimatedTokens: estimatedRequiredTokens,
+  });
+
+  if (!customerReservation.success) {
+    await prisma.apiRequest.create({
+      data: {
+        apiKeyId: keyRecord.id,
+        userId: keyRecord.userId,
+        model,
+        endpoint: '/v1/messages',
+        statusCode: 429,
+        errorCode: customerReservation.code || 'rate_limit_error',
+        errorMessage: customerReservation.message || 'Customer token quota exceeded.',
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        latencyMs: Date.now() - startTime,
+        streaming: !!stream,
+        providerId: vendor?.id || null,
+        isEstimated: false,
+        usageSource: 'LOCAL_CALCULATED',
+        clientPlatform: platform,
+        userAgent,
+        ipAddress: clientIp,
+      },
+    });
+
+    return res.status(429).json({
+      type: 'error',
+      error: {
+        type: 'rate_limit_error',
+        message: customerReservation.message || 'Token quota exceeded. Please upgrade your capacity plan.',
+      },
+    });
+  }
+
+  // 2. Upstream Master Provider Capacity Check (Layer A - Ceiling check only, NEVER customer entitlement)
   const masterCheck = await checkMasterCapacity(vendor?.id, estimatedRequiredTokens);
   if (!masterCheck.available) {
+    // Release customer reservation since upstream cannot fulfill request
+    await releaseReservation(requestId);
     await prisma.apiRequest.create({
       data: {
         apiKeyId: keyRecord.id,
@@ -1007,6 +1058,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       },
     });
     return res.status(503).json({
+      type: 'error',
       error: {
         type: 'service_unavailable',
         message: 'LightningDeals is temporarily unable to process this request. Please contact support.',
@@ -1014,8 +1066,6 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     });
   }
 
-  // Reserve capacity
-  reserveTokensForRequest(keyRecord.id, estimatedRequiredTokens);
   if (vendor) reserveMasterTokens(vendor.id, requestId, estimatedRequiredTokens);
 
   let decryptedMasterKey = vendor ? decryptText(vendor.masterApiKeyEncrypted) : '';
@@ -1033,6 +1083,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       // Validate Base URL against SSRF threats
       const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://api.anthropic.com');
       if (!ssrfCheck.safe) {
+        await releaseReservation(requestId);
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
         releaseMasterReservation(requestId);
         await prisma.apiRequest.create({
@@ -1165,6 +1216,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }
 
         if (!upstreamRes!) {
+          await releaseReservation(requestId);
           releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
           releaseMasterReservation(requestId);
 
@@ -1260,6 +1312,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       }
 
       if (!upstreamRes.ok) {
+        await releaseReservation(requestId);
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
         releaseMasterReservation(requestId);
 
@@ -1446,7 +1499,6 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         const outputTokens = (reportedOutputTokens !== null && reportedOutputTokens > 0) ? reportedOutputTokens : fallbackOutputTokens;
         const totalTokens = inputTokens + outputTokens;
 
-        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
         releaseMasterReservation(requestId);
 
         await updateTokensAndLog({
@@ -1457,6 +1509,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           totalTokens,
           latencyMs: Date.now() - startTime,
           streaming: true,
+          requestId,
           vendorId: vendor?.id,
           isEstimated: !isProviderReported,
           usageSource: isProviderReported ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
@@ -1522,7 +1575,6 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           50
         );
 
-        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
         releaseMasterReservation(requestId);
 
         await updateTokensAndLog({
@@ -1533,6 +1585,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           totalTokens: normalized.usage.totalTokens,
           latencyMs: Date.now() - startTime,
           streaming: false,
+          requestId,
           vendorId: vendor?.id,
           isEstimated: normalized.usage.isEstimated,
           usageSource: normalized.usage.usageSource,
@@ -1547,7 +1600,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       }
 
     } catch (err: any) {
-      releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+      await releaseReservation(requestId);
       releaseMasterReservation(requestId);
       console.error('Vendor API Gateway connection error:', err);
       const safeErrMsg = sanitizeErrorMessage(err.message || 'Network error');
@@ -1561,7 +1614,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   }
 
   // If no master key is set or provider is not configured
-  releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+  await releaseReservation(requestId);
   releaseMasterReservation(requestId);
   return res.status(503).json({
     error: {
@@ -1622,14 +1675,13 @@ export async function updateTokensAndLog({
       }
     }
 
-    // 2. Check if key is a rolling window plan
-    const planLower = (keyRecord.plan || '').toLowerCase();
-    const isRolling = keyRecord.windowHours > 0 ||
-      planLower.includes('max') ||
-      planLower.includes('pro') ||
-      planLower.includes('ultra') ||
-      planLower.includes('rolling') ||
-      planLower.includes('claude');
+    // Settle active reservation
+    if (requestId) {
+      await settleReservation(requestId);
+    }
+
+    // 2. Authoritative Rolling Window Plan Determination
+    const isRolling = isRollingPlan(keyRecord);
 
     await prisma.$transaction(async (tx) => {
       // Re-fetch current authoritative key record inside transaction to prevent concurrency lost updates
@@ -1649,12 +1701,19 @@ export async function updateTokensAndLog({
 
       const tokensUsedBig = BigInt(totalTokens);
 
+      // Safe decrement calculation: never drive remaining tokens below 0
+      let newTokensRemaining = currentKey.tokensRemaining;
+      if (!isRolling) {
+        newTokensRemaining = currentKey.tokensRemaining >= tokensUsedBig
+          ? currentKey.tokensRemaining - tokensUsedBig
+          : 0n;
+      }
+
       const updatedKey = await tx.apiKey.update({
         where: { id: keyRecord.id },
         data: {
           tokensUsed: { increment: tokensUsedBig },
-          // For rolling-window plans, do NOT permanently decrement tokensRemaining
-          ...(!isRolling && { tokensRemaining: { decrement: tokensUsedBig } }),
+          ...(!isRolling && { tokensRemaining: newTokensRemaining }),
           totalRequests: { increment: 1 },
           totalInputTokens: { increment: BigInt(inputTokens) },
           totalOutputTokens: { increment: BigInt(outputTokens) },

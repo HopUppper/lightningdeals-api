@@ -151,8 +151,9 @@ export async function getUpstreamMasterAccounting(providerId?: string): Promise<
   }
 
   // 5. System Health Status
-  const warningThresh = Number(provider.warningThresholdTokens || 20000000);
-  const criticalThresh = Number(provider.criticalThresholdTokens || 5000000);
+  const baseLimit = limitTokens || Number(provider.windowAllowance || 5000000);
+  const criticalThresh = Math.min(Number(provider.criticalThresholdTokens || 5000000), Math.max(1000, Math.round(baseLimit * 0.05)));
+  const warningThresh = Math.min(Number(provider.warningThresholdTokens || 20000000), Math.max(2000, Math.round(baseLimit * 0.2)));
 
   let status: 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'DEPLETED' | 'NOT_CONFIGURED' = 'HEALTHY';
   if (provider.status === 'disabled' || !provider.masterApiKeyEncrypted) {

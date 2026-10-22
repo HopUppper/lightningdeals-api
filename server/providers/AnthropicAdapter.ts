@@ -26,6 +26,86 @@ export class AnthropicAdapter implements ProviderAdapter {
     const windowMs = windowHours * 60 * 60 * 1000;
     const windowStart = new Date(now.getTime() - windowMs);
 
+    // Query lifetime usage
+    const lifetimeUsage = await prisma.apiRequest.aggregate({
+      _sum: { totalTokens: true },
+      where: {
+        providerId: provider.id,
+      },
+    });
+    const lifetimeConsumed = lifetimeUsage._sum.totalTokens || 0;
+
+    // 0. Official Quota API Discovery for OpusMax / custom key-status providers
+    if (_decryptedMasterKey && provider.baseUrl && /opusmax/i.test(provider.baseUrl)) {
+      try {
+        const cleanBaseUrl = provider.baseUrl.replace(/\/+$/, '');
+        const opusMaxUrl = `${cleanBaseUrl}/api/key-status?key=${encodeURIComponent(_decryptedMasterKey)}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
+        const resp = await fetch(opusMaxUrl, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (resp.ok) {
+          const data: any = await resp.json();
+          if (data && (data.status === 'found' || data.planName)) {
+            let limitTokens = Number(provider.configuredLimitTokens || provider.windowAllowance || 0);
+            if (data.planName) {
+              const xMatch = data.planName.match(/(\d+)\s*x/i);
+              if (xMatch) {
+                limitTokens = parseInt(xMatch[1], 10) * 1_000_000;
+              }
+            }
+            if (!limitTokens || limitTokens <= 0) {
+              limitTokens = 5_000_000;
+            }
+
+            const usagePercent = typeof data.usagePercent === 'number' ? data.usagePercent : 0;
+            const consumedTokens = Math.round((limitTokens * usagePercent) / 100);
+            const remainingTokens = Math.max(0, limitTokens - consumedTokens);
+
+            const resetAt = data.windowResetAt ? new Date(data.windowResetAt) : null;
+            const resetSeconds = resetAt ? Math.max(0, Math.floor((resetAt.getTime() - now.getTime()) / 1000)) : null;
+
+            return {
+              limitTokens,
+              consumedTokens,
+              remainingTokens,
+              resetAt,
+              resetSeconds,
+              source: 'OFFICIAL_QUOTA_API',
+              status: data.isActive && !data.isExpired ? 'VERIFIED' : 'UNAVAILABLE',
+              confidence: 'HIGH',
+              lastDiscoveredAt: now,
+              metadata: {
+                upstreamPlan: data.planName,
+                keyPrefix: data.keyPrefix,
+                upstreamUsagePercent: data.usagePercent,
+                windowStartedAt: data.windowStartedAt,
+                windowResetAt: data.windowResetAt,
+                windowActive: data.windowActive,
+                totalRequests: data.totalRequests,
+                last24hRequests: data.last24h?.requests || 0,
+                lastUsedAt: data.lastUsedAt,
+                expiresAt: data.expiresAt,
+                rateLimitRpm: data.rateLimit,
+                byModel: data.byModel,
+                recentLogs: Array.isArray(data.recentLogs) ? data.recentLogs.slice(0, 5) : [],
+                lifetimeConsumed,
+                note: 'Official OpusMax Live Quota API (https://api.opusmax.pro/api/key-status). 5-hour rolling window actively synced.',
+              },
+            };
+          }
+        }
+      } catch (err: any) {
+        console.warn(`OpusMax quota discovery failed for provider ${provider.id}:`, err.message);
+      }
+    }
+
     // 1. Check for recent rate-limit headers in metadata
     let storedRateLimits: RateLimitMetadata | null = null;
     if (provider.discoveryDetailsJson) {
@@ -53,14 +133,6 @@ export class AnthropicAdapter implements ProviderAdapter {
     });
     const consumedInWindow = windowUsage._sum.totalTokens || 0;
 
-    // Query lifetime usage
-    const lifetimeUsage = await prisma.apiRequest.aggregate({
-      _sum: { totalTokens: true },
-      where: {
-        providerId: provider.id,
-      },
-    });
-    const lifetimeConsumed = lifetimeUsage._sum.totalTokens || 0;
 
     // 3. Determine limit and remaining tokens
     if (storedRateLimits && storedRateLimits.limitTokens) {

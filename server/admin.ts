@@ -761,6 +761,7 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
       discoveryStatus: aggregate.upstream.discoveryStatus,
       discoveryConfidence: aggregate.upstream.discoveryConfidence,
       lastDiscoveredAt: aggregate.upstream.lastDiscoveredAt ? aggregate.upstream.lastDiscoveredAt.toISOString() : null,
+      discoveryDetails: provider.discoveryDetailsJson ? JSON.parse(provider.discoveryDetailsJson) : null,
       // Layer C Accounting Metrics
       exposure: {
         activeKeyCount: aggregate.activeCustomerCount,

@@ -108,6 +108,7 @@ export const AdminProviders: React.FC = () => {
   const [migrateTargetId, setMigrateTargetId] = useState('');
   const [migrateReason, setMigrateReason] = useState('');
   const [migratingKeys, setMigratingKeys] = useState(false);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>('');
   const [migrateResult, setMigrateResult] = useState<any>(null);
 
   const fetchProviders = async () => {
@@ -116,10 +117,16 @@ export const AdminProviders: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setProviders(data);
-        const primary = data.find((p: any) => p.isPrimary && p.status !== 'disabled' && p.status !== 'invalid_credential') || data.find((p: any) => p.status === 'connected') || data.find((p: any) => p.isPrimary) || data[0];
-        if (primary) {
-          fetchBalanceMetrics(primary.id);
-          fetchLedger(primary.id);
+        const target = (selectedProviderId && data.find((p: any) => p.id === selectedProviderId)) ||
+          data.find((p: any) => p.isDefault && p.status === 'connected') ||
+          data.find((p: any) => p.isPrimary && p.status === 'connected') ||
+          data.find((p: any) => p.isDefault) ||
+          data.find((p: any) => p.isPrimary) ||
+          data[0];
+        if (target) {
+          if (!selectedProviderId) setSelectedProviderId(target.id);
+          fetchBalanceMetrics(target.id);
+          fetchLedger(target.id);
         }
       }
     } catch (e) {
@@ -493,7 +500,13 @@ export const AdminProviders: React.FC = () => {
     return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">{s}</span>;
   };
 
-  const primaryProvider = providers.find((p) => p.isPrimary) || providers[0];
+  const primaryProvider =
+    (selectedProviderId && providers.find((p) => p.id === selectedProviderId)) ||
+    providers.find((p) => p.isDefault && p.status === 'connected') ||
+    providers.find((p) => p.isPrimary && p.status === 'connected') ||
+    providers.find((p) => p.isDefault) ||
+    providers.find((p) => p.isPrimary) ||
+    providers[0];
   const primaryHasKey = Boolean(primaryProvider && primaryProvider.displayMasterKey && primaryProvider.displayMasterKey !== 'Not Set');
 
   return (
@@ -657,9 +670,25 @@ export const AdminProviders: React.FC = () => {
               <h2 className="text-lg font-bold text-fg font-mono">Vendor Master Token Balance</h2>
               {getStatusBadge(balanceMetrics?.status || primaryProvider?.status || 'NOT_CONFIGURED', primaryHasKey)}
             </div>
-            <p className="text-xs text-muted mt-0.5">
-              Active Upstream Provider: <span className="font-semibold text-fg">{primaryProvider?.name || 'No Provider Configured'}</span> ({primaryProvider?.displayMasterKey || 'Not Set'})
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              <span className="text-xs text-muted">Active Upstream Provider:</span>
+              <select
+                value={primaryProvider?.id || ''}
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  setSelectedProviderId(newId);
+                  fetchBalanceMetrics(newId);
+                  fetchLedger(newId);
+                }}
+                className="py-1 px-2.5 text-xs font-semibold text-fg bg-bg border border-border rounded shadow-xs focus:outline-none focus:border-violet-500 font-sans"
+              >
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.displayMasterKey || 'Not Set'}) {p.status === 'connected' ? '✓' : ''} {p.isDefault ? '[DEFAULT]' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -759,6 +788,53 @@ export const AdminProviders: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* Official Upstream Live Quota Telemetry (OpusMax / Provider API) */}
+        {balanceMetrics?.discoveryDetails && (
+          <div className="p-4 rounded-control bg-emerald-500/5 border border-emerald-500/20 font-mono text-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-500/20 pb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span className="font-bold text-fg">Verified Upstream Quota (Official Provider API)</span>
+                {balanceMetrics.discoveryDetails.upstreamPlan && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-700">
+                    {balanceMetrics.discoveryDetails.upstreamPlan}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-muted">
+                Confidence: <strong className="text-emerald-600">{balanceMetrics.discoveryConfidence || 'HIGH'}</strong> · Discovered {balanceMetrics.lastDiscoveredAt ? new Date(balanceMetrics.lastDiscoveredAt).toLocaleTimeString() : 'Just now'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+              <div>
+                <p className="text-muted text-[10px] uppercase">Rolling Window Reset</p>
+                <p className="font-bold text-fg">
+                  {balanceMetrics.nextResetAt ? `${new Date(balanceMetrics.nextResetAt).toLocaleTimeString()} (${Math.floor((balanceMetrics.windowResetSeconds || 0) / 3600)}h ${Math.floor(((balanceMetrics.windowResetSeconds || 0) % 3600) / 60)}m)` : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted text-[10px] uppercase">Rate Limit</p>
+                <p className="font-bold text-fg">
+                  {balanceMetrics.discoveryDetails.rateLimitRpm ? `${balanceMetrics.discoveryDetails.rateLimitRpm} req/min` : '60 req/min'}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted text-[10px] uppercase">Total Requests (Upstream)</p>
+                <p className="font-bold text-fg">
+                  {balanceMetrics.discoveryDetails.totalRequests ?? '—'} all time
+                </p>
+              </div>
+              <div>
+                <p className="text-muted text-[10px] uppercase">Last 24 Hours</p>
+                <p className="font-bold text-fg">
+                  {balanceMetrics.discoveryDetails.last24hRequests ?? 0} requests
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Layer C Business Scenario Explainer Note */}
         <div className="p-3.5 rounded-control bg-violet-500/5 border border-violet-500/20 flex items-start gap-3 text-xs font-mono">
@@ -1034,6 +1110,18 @@ export const AdminProviders: React.FC = () => {
                               title="Edit Configuration"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedProviderId(p.id);
+                                handleSyncVendorBalance(p.id);
+                              }}
+                              disabled={syncing}
+                              className="px-2.5 py-1 rounded text-xs font-semibold border border-blue-500/30 text-blue-600 bg-blue-500/5 hover:bg-blue-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                              title="Discover live upstream limits and rolling-window usage from provider API"
+                            >
+                              <CloudDownload className={`w-3 h-3 ${syncing && primaryProvider?.id === p.id ? 'animate-spin' : ''}`} />
+                              <span>Discover</span>
                             </button>
                             <button
                               onClick={() => handleTestConnection(p.id)}

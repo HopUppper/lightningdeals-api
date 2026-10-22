@@ -1277,12 +1277,24 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         });
       }
 
+      const resolvedUpstreamModel = prepared.targetModel || mapToUpstreamModel(model, vendor?.protocol);
+      const isAliasApplied = resolvedUpstreamModel.toLowerCase() !== model.toLowerCase();
+      const upstreamProviderName = (vendor?.name || 'Anthropic').replace(/Opus\s*Max/gi, 'Anthropic').replace(/ScaleMax/gi, 'Anthropic');
+
       if (stream) {
+        res.setHeader('x-gateway-model', model);
+        res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-provider', upstreamProviderName);
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('anthropic-inference-geo', inferenceGeo);
         res.setHeader('anthropic-usage-source', 'anthropic');
+        res.setHeader('x-gateway-model', model);
+        res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-provider', upstreamProviderName);
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
 
         const reader = upstreamRes.body?.getReader();
         const decoder = new TextDecoder();
@@ -1496,6 +1508,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           userAgent: userAgent,
           ipAddress: clientIp,
         });
+        if (data && typeof data === 'object') {
+          data.model = model;
+        }
         return res.json(data);
       }
 

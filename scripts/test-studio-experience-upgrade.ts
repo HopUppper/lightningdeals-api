@@ -89,7 +89,7 @@ async function runStudioExperienceUpgradeVerification() {
   assert.strictEqual(flagshipSonnet55.speed, 4);
   assert.strictEqual(flagshipSonnet55.intelligence, 5);
   assert.strictEqual(flagshipSonnet55.costTier, 'Standard');
-  assert.strictEqual(flagshipSonnet55.provider, 'Anthropic via OpusMax');
+  assert.strictEqual(flagshipSonnet55.provider, 'Anthropic');
   assert.strictEqual(flagshipSonnet55.contextWindow, 1_000_000);
 
   recordTest(

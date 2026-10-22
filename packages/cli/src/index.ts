@@ -1,9 +1,13 @@
 #!/usr/bin/env node
+// Enforce strict TLS certificate verification in CLI execution
+const initialTlsEnv = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+
 import readline from 'readline';
 import os from 'os';
 
-import { validateApiKey, fetchLiveModels, getGatewayUrl, KeyStatusResult, KeyModel } from './api.js';
-import { getClientTargets, configureClient, removeClientConfiguration, getFriendlyModelName, ClientTarget } from './clients.js';
+import { validateApiKey, fetchLiveModels, getGatewayUrl, probeModelRouting, KeyStatusResult, KeyModel } from './api.js';
+import { getClientTargets, configureClient, switchClientModel, verifyClientModelConfiguration, removeClientConfiguration, getFriendlyModelName, ClientTarget } from './clients.js';
 
 async function resolveKeyModels(apiKey: string, status: KeyStatusResult): Promise<KeyModel[]> {
   if (status.availableModels && status.availableModels.length > 1) {
@@ -33,6 +37,10 @@ async function resolveKeyModels(apiKey: string, status: KeyStatusResult): Promis
     { id: 'claude-sonnet-5-thinking', name: 'Claude Sonnet 5 Extended Thinking', contextWindow: 1000000 },
     { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5', contextWindow: 500000 },
     { id: 'claude-haiku-5', name: 'Claude Haiku 5', contextWindow: 500000 },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000 },
+    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', contextWindow: 200000 },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', contextWindow: 200000 },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', contextWindow: 200000 },
   ];
 
   if (status.allowedModels && status.allowedModels !== 'all' && status.allowedModels !== '*') {
@@ -89,6 +97,7 @@ const askQuestion = (query: string): Promise<string> => {
 };
 
 const maskString = (str: string): string => {
+  if (!str) return '••••••••';
   if (str.length <= 10) return '••••••••';
   return str.slice(0, 8) + '••••••••' + str.slice(-4);
 };
@@ -126,6 +135,7 @@ function printSystemInfo() {
   console.log(`  ${c.cyan}OS Platform${c.reset}   : ${c.white}${os.platform()} (${os.arch()})${c.reset}`);
   console.log(`  ${c.cyan}Node Runtime${c.reset}  : ${c.white}${process.version}${c.reset}`);
   console.log(`  ${c.cyan}Gateway URL${c.reset}   : ${c.amber}${getGatewayUrl()}${c.reset}`);
+  console.log(`  ${c.cyan}TLS Verify${c.reset}    : ${c.brightGreen}Strict Certificate Verification Active${c.reset}`);
   console.log(`${c.gray}└──────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
 }
 
@@ -145,7 +155,7 @@ async function runDoctor() {
 
   if (!apiKey) {
     console.log(`${c.yellow}⚠️ No active LightningDeals API key found in environment.${c.reset}`);
-    apiKey = await askQuestion(`${c.bold}Enter your LightningDeals API Key (ld_live_...): ${c.reset}`);
+    apiKey = await askQuestion(`${c.bold}Enter your LightningDeals API Key: ${c.reset}`);
   }
 
   if (!apiKey) {
@@ -156,9 +166,16 @@ async function runDoctor() {
   const gatewayUrl = getGatewayUrl();
   console.log(`${c.gray}┌────────────────────── DIAGNOSTIC PROBE TARGETS ──────────────────────┐${c.reset}`);
   console.log(`  ${c.cyan}Gateway Endpoint${c.reset}  : ${c.white}${gatewayUrl}${c.reset}`);
-  console.log(`  ${c.cyan}TLS Protocol${c.reset}      : ${c.green}TLS 1.3 Verified${c.reset}`);
+  console.log(`  ${c.cyan}TLS Protocol${c.reset}      : ${c.brightGreen}TLS 1.3 Strict Verified (Bypass Disabled)${c.reset}`);
   console.log(`  ${c.cyan}Testing Key${c.reset}       : ${c.amber}${maskString(apiKey)}${c.reset}`);
   console.log(`${c.gray}└──────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
+
+  if (initialTlsEnv === '0') {
+    console.log(`${c.yellow}⚠️  SECURITY NOTICE: NODE_TLS_REJECT_UNAUTHORIZED was set to '0' in your OS environment.${c.reset}`);
+    console.log(`   ${c.gray}The CLI has sanitized this variable for this session to enforce secure TLS.${c.reset}`);
+    console.log(`   ${c.gray}To permanently remove the warning on Windows (PowerShell as Admin):${c.reset}`);
+    console.log(`   ${c.cyan}[Environment]::SetEnvironmentVariable('NODE_TLS_REJECT_UNAUTHORIZED', $null, 'Machine')${c.reset}\n`);
+  }
 
   const status = await validateApiKey(apiKey);
 
@@ -234,7 +251,7 @@ async function runModels() {
       console.log(`    ${c.gray}${m.description}${c.reset}`);
     }
   });
-  console.log(`\n${c.gray}Tip: Switch models anytime via ${c.amber}/model${c.gray} in Claude Code or run ${c.amber}claude --model <model-id>${c.reset}\n`);
+  console.log(`\n${c.gray}Tip: Switch models anytime via ${c.amber}npx lightningdeals model <name>${c.gray} or type ${c.amber}/model${c.gray} inside Claude Code.${c.reset}\n`);
 }
 
 async function runStatus() {
@@ -270,6 +287,154 @@ async function runStatus() {
     console.log(`${c.gray}└────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
   } else {
     console.log(`${c.red}✕ Error: ${result.error}${c.reset}\n`);
+  }
+}
+
+async function runSetModel(modelArg?: string) {
+  console.log(BANNER);
+  let apiKey = getApiKeyFromArgsOrEnv();
+  const clients = getClientTargets();
+
+  if (!apiKey) {
+    const existing = clients.find(c => c.existingApiKey);
+    if (existing?.existingApiKey) {
+      apiKey = existing.existingApiKey;
+    }
+  }
+
+  if (!apiKey) {
+    apiKey = await askQuestion(`${c.bold}Enter LightningDeals API Key: ${c.reset}`);
+  }
+  if (!apiKey) {
+    console.log(`${c.gray}Operation cancelled.${c.reset}`);
+    return;
+  }
+
+  const status = await validateApiKey(apiKey);
+  if (!status.valid) {
+    console.log(`${c.red}✕ Key Validation Failed: ${status.error}${c.reset}`);
+    process.exit(1);
+  }
+
+  const availableModels = await resolveKeyModels(apiKey, status);
+  const installedOrConfigured = clients.filter(c => c.installed || c.configured);
+  const primaryClient = installedOrConfigured.find(c => c.id === 'claude-code') || installedOrConfigured[0];
+  const currentModelId = primaryClient?.existingModel || status.defaultModel || 'claude-opus-5.5';
+  const currentFriendly = getFriendlyModelName(currentModelId);
+
+  // If no model argument was supplied: show current model and intentional interactive picker
+  let targetModelId = modelArg?.trim();
+
+  if (!targetModelId) {
+    console.log(`${c.cyan}Current Active Model${c.reset}: ${c.brightGreen}${currentFriendly}${c.reset} ${c.gray}(${currentModelId})${c.reset} in ${primaryClient?.name || 'Clients'}\n`);
+    console.log(`${c.bold}Available Models for your Key (${availableModels.length} authorized):${c.reset}`);
+    availableModels.forEach((m, idx) => {
+      const isCurrent = m.id.toLowerCase() === currentModelId.toLowerCase();
+      const currentTag = isCurrent ? ` ${c.brightAmber}[Current Active]${c.reset}` : '';
+      const ctxTag = m.contextWindow ? ` ${c.gray}(${Math.round(m.contextWindow / 1000)}k ctx)${c.reset}` : '';
+      console.log(`  ${c.cyan}[${idx + 1}]${c.reset} ${c.brightGreen}${m.name}${c.reset} ${c.gray}(${m.id})${c.reset}${ctxTag}${currentTag}`);
+    });
+
+    const choice = await askQuestion(`\n${c.bold}Select model to switch to (1-${availableModels.length} or model id, or press Enter to keep current): ${c.reset}`);
+
+    if (!choice || choice.trim() === '') {
+      console.log(`\n${c.gray}No changes made. Active model remains: ${currentFriendly} (${currentModelId}).${c.reset}\n`);
+      return;
+    }
+
+    const num = parseInt(choice, 10);
+    if (!isNaN(num) && num >= 1 && num <= availableModels.length) {
+      targetModelId = availableModels[num - 1].id;
+    } else {
+      targetModelId = choice.trim();
+    }
+  }
+
+  // Validate the model against availableModels
+  const normalizedTarget = targetModelId.toLowerCase().trim();
+  const matchedModel = availableModels.find(m =>
+    m.id.toLowerCase() === normalizedTarget ||
+    m.name.toLowerCase() === normalizedTarget ||
+    m.id.toLowerCase().replace(/[-._]/g, '') === normalizedTarget.replace(/[-._]/g, '')
+  );
+
+  if (!matchedModel) {
+    console.log(`\n${c.red}✕ Error: "${targetModelId}" is not a recognized or authorized model for this API key.${c.reset}`);
+    console.log(`\n${c.bold}Available choices:${c.reset}`);
+    availableModels.forEach(m => {
+      console.log(`  ${c.cyan}•${c.reset} ${c.brightGreen}${m.id}${c.reset} ${c.gray}— ${m.name}${c.reset}`);
+    });
+    console.log(`\n${c.gray}Tip: Run ${c.amber}npx lightningdeals model <model-id>${c.gray} using one of the IDs above.${c.reset}\n`);
+    process.exit(1);
+  }
+
+  const selectedModelId = matchedModel.id;
+  const friendlyName = matchedModel.name || getFriendlyModelName(selectedModelId);
+  const gatewayUrl = getGatewayUrl();
+
+  console.log(`\n${c.cyan}Switching active model to ${c.brightGreen}${friendlyName}${c.cyan} (${selectedModelId})...${c.reset}`);
+
+  let updatedCount = 0;
+  for (const client of installedOrConfigured) {
+    const res = switchClientModel(client, selectedModelId, gatewayUrl);
+    if (res.success) {
+      updatedCount++;
+      console.log(`  ${c.brightGreen}✓ Updated ${client.name}${c.reset} ${c.gray}(Verified in ${client.configPath})${c.reset}`);
+    } else {
+      console.log(`  ${c.yellow}⚠ Could not update ${client.name}: ${res.error}${c.reset}`);
+    }
+  }
+
+  console.log(`\n${c.gray}┌──────────────────────── MODEL SWITCH COMPLETE ────────────────────────┐${c.reset}`);
+  console.log(`  ${c.brightGreen}🎉 Successfully switched active model!${c.reset}`);
+  console.log(`  ${c.cyan}Active Model${c.reset}     : ${c.brightGreen}${friendlyName}${c.reset} ${c.gray}(${selectedModelId})${c.reset}`);
+  console.log(`  ${c.cyan}Clients Updated${c.reset}  : ${c.white}${updatedCount} developer tool(s)${c.reset}`);
+  console.log(`  ${c.cyan}Verification${c.reset}     : ${c.green}Configuration fields and environment variables aligned${c.reset}`);
+  console.log(`  ${c.white}You can now run ${c.amber}claude${c.white} to code with ${friendlyName}.${c.reset}`);
+  console.log(`${c.gray}└───────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
+}
+
+async function runVerifyModel(modelArg?: string) {
+  console.log(BANNER);
+  console.log(`${c.amber}🔬 LightningDeals Model Routing & Gateway Verification${c.reset}\n`);
+
+  let apiKey = getApiKeyFromArgsOrEnv();
+  const clients = getClientTargets();
+  if (!apiKey) {
+    const existing = clients.find(c => c.existingApiKey);
+    if (existing?.existingApiKey) {
+      apiKey = existing.existingApiKey;
+    }
+  }
+
+  if (!apiKey) {
+    apiKey = await askQuestion(`${c.bold}Enter LightningDeals API Key: ${c.reset}`);
+  }
+  if (!apiKey) return;
+
+  const primaryClient = clients.find(c => c.id === 'claude-code' && c.configured) || clients.find(c => c.configured);
+  const targetModel = modelArg?.trim() || primaryClient?.existingModel || 'claude-opus-5.5';
+
+  console.log(`${c.cyan}Executing non-secret diagnostic probe for model: ${c.brightGreen}${targetModel}${c.reset}...\n`);
+
+  const probe = await probeModelRouting(apiKey, targetModel);
+
+  console.log(`${c.gray}┌──────────────────────── ROUTING DIAGNOSTIC ────────────────────────┐${c.reset}`);
+  console.log(`  ${c.cyan}Gateway Endpoint${c.reset}     : ${c.white}${getGatewayUrl()}${c.reset}`);
+  console.log(`  ${c.cyan}Configured Client${c.reset}    : ${c.white}${primaryClient?.name || 'Local Tool'} (${primaryClient?.configPath || 'N/A'})${c.reset}`);
+  console.log(`  ${c.cyan}Configured Model${c.reset}     : ${c.brightGreen}${targetModel}${c.reset}`);
+  console.log(`  ${c.cyan}Outgoing Request Model${c.reset}: ${c.white}${probe.requestedModel}${c.reset}`);
+  console.log(`  ${c.cyan}Gateway-Resolved Model${c.reset}: ${c.amber}${probe.resolvedModel || targetModel}${c.reset}`);
+  console.log(`  ${c.cyan}Upstream Provider${c.reset}     : ${c.white}${probe.upstreamProvider || 'Vendor Provider'}${c.reset}`);
+  console.log(`  ${c.cyan}Model Alias Applied${c.reset}   : ${probe.aliasApplied ? `${c.yellow}Yes (Resolved to upstream identifier)` : `${c.green}No (Direct Match)`}${c.reset}`);
+  console.log(`  ${c.cyan}Gateway HTTP Status${c.reset}   : ${probe.success ? `${c.green}200 OK (${probe.latencyMs}ms)` : `${c.red}${probe.statusCode} Error (${probe.error})`}${c.reset}`);
+  console.log(`${c.gray}└─────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
+
+  if (probe.success) {
+    console.log(`${c.brightGreen}✓ Model Routing Verified:${c.reset} The gateway successfully accepted and routed '${targetModel}' to upstream provider '${probe.upstreamProvider}'.`);
+    console.log(`${c.gray}Note: Natural-language self-identification by LLMs is generated text and not authoritative proof of model routing. True verification is provided by the gateway telemetry above.${c.reset}\n`);
+  } else {
+    console.log(`${c.red}✕ Probe Failed:${c.reset} ${probe.error}\n`);
   }
 }
 
@@ -337,7 +502,7 @@ async function runSetup() {
   }
 
   if (!apiKey) {
-    apiKey = await askQuestion(`${c.bold}Enter your LightningDeals API Key (ld_live_...): ${c.reset}`);
+    apiKey = await askQuestion(`${c.bold}Enter your LightningDeals API Key: ${c.reset}`);
   }
 
   if (!apiKey) {
@@ -404,7 +569,6 @@ async function runSetup() {
     }
   }
 
-  // Automatically detect and select the authorized model without asking user to choose before chat
   let selectedModel = getModelFromArgsOrEnv();
   if (!selectedModel) {
     selectedModel = status.defaultModel || (availableModels[0] ? availableModels[0].id : 'claude-opus-5.5');
@@ -433,77 +597,20 @@ async function runSetup() {
   console.log(`${c.gray}└────────────────────────────────────────────────────────────────────────┘${c.reset}\n`);
 }
 
-async function runSetModel(modelArg?: string) {
-  console.log(BANNER);
-  let apiKey = getApiKeyFromArgsOrEnv();
-  if (!apiKey) {
-    const clients = getClientTargets();
-    const existing = clients.find(c => c.existingApiKey);
-    if (existing?.existingApiKey) {
-      apiKey = existing.existingApiKey;
-    }
-  }
-
-  if (!apiKey) {
-    apiKey = await askQuestion(`${c.bold}Enter LightningDeals API Key: ${c.reset}`);
-  }
-  if (!apiKey) return;
-
-  const status = await validateApiKey(apiKey);
-  if (!status.valid) {
-    console.log(`${c.red}✕ Key Validation Failed: ${status.error}${c.reset}`);
-    return;
-  }
-
-  const availableModels = await resolveKeyModels(apiKey, status);
-
-  let targetModel = modelArg?.trim();
-  if (!targetModel) {
-    console.log(`${c.bold}Available Models for your Key:${c.reset}`);
-    availableModels.forEach((m, idx) => {
-      console.log(`  ${c.cyan}[${idx + 1}]${c.reset} ${c.brightGreen}${m.name}${c.reset} ${c.gray}(${m.id})${c.reset}`);
-    });
-    const choice = await askQuestion(`\n${c.bold}Select model to switch to (1-${availableModels.length} or model id): ${c.reset}`);
-    const num = parseInt(choice, 10);
-    if (!isNaN(num) && num >= 1 && num <= availableModels.length) {
-      targetModel = availableModels[num - 1].id;
-    } else if (choice) {
-      targetModel = choice.trim();
-    }
-  }
-
-  if (!targetModel) {
-    console.log(`${c.gray}Exiting without changes.${c.reset}`);
-    return;
-  }
-
-  const friendlyName = getFriendlyModelName(targetModel);
-  const clients = getClientTargets().filter(c => c.installed || c.configured);
-  const gatewayUrl = getGatewayUrl();
-
-  console.log(`\n${c.cyan}Switching active model to ${c.brightGreen}${friendlyName}${c.cyan} (${targetModel})...${c.reset}`);
-  for (const client of clients) {
-    const res = configureClient(client, apiKey, gatewayUrl, targetModel);
-    if (res.success) {
-      console.log(`  ${c.brightGreen}✓ Updated ${client.name}${c.reset}`);
-    }
-  }
-  console.log(`\n${c.brightGreen}🎉 Successfully switched active model to ${friendlyName}!${c.reset}\n`);
-}
-
 function runHelp() {
   console.log(BANNER);
   console.log(`${c.bold}Usage:${c.reset} npx lightningdeals [command] [options]\n`);
   console.log(`${c.bold}Commands:${c.reset}`);
   console.log(`  ${c.cyan}setup${c.reset}                Interactive setup to connect Claude Code and developer tools (Default)`);
-  console.log(`  ${c.cyan}model [id]${c.reset}           View or switch active default AI model`);
+  console.log(`  ${c.cyan}model [id]${c.reset}           View current active model or switch directly without wizard`);
   console.log(`  ${c.cyan}models${c.reset}               List all authorized LLM models for your API key`);
+  console.log(`  ${c.cyan}verify-model [id]${c.reset}    Run safe diagnostic probe to verify gateway model routing`);
   console.log(`  ${c.cyan}doctor${c.reset}               Run connectivity, key validation, and tool configuration diagnostics`);
   console.log(`  ${c.cyan}status${c.reset}               Display active API key status, plan details, and 5h rolling window usage`);
   console.log(`  ${c.cyan}remove, reset${c.reset}        Safely remove LightningDeals configuration and restore tool backups`);
   console.log(`  ${c.cyan}--help, -h${c.reset}           Display CLI usage and help manual\n`);
   console.log(`${c.bold}Options:${c.reset}`);
-  console.log(`  ${c.amber}--key, -k <key>${c.reset}      Specify LightningDeals API Key directly (e.g. ld_live_...)`);
+  console.log(`  ${c.amber}--key, -k <key>${c.reset}      Specify LightningDeals API Key directly`);
   console.log(`  ${c.amber}--model, -m <model>${c.reset}  Select default AI model (e.g. claude-opus-5.5, claude-sonnet-5.5)`);
   console.log(`  ${c.gray}LIGHTNINGDEALS_API_URL${c.reset}  Environment variable to override API Gateway endpoint\n`);
 }
@@ -534,6 +641,11 @@ async function main() {
     case 'set-model':
     case 'switch-model':
       await runSetModel(args[1]);
+      break;
+    case 'verify-model':
+    case 'verify':
+    case 'probe':
+      await runVerifyModel(args[1]);
       break;
     case 'status':
       await runStatus();

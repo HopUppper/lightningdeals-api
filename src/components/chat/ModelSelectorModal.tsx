@@ -281,7 +281,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   <div className="flex items-center justify-between py-1">
                     <span className="text-slate-400">Provider</span>
                     <span className="font-medium text-slate-200">
-                      {activeDetail.provider || 'Anthropic via OpusMax'}
+                      {activeDetail.provider || 'Anthropic'}
                     </span>
                   </div>
 

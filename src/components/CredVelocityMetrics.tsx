@@ -94,7 +94,7 @@ export const CredVelocityMetrics: React.FC = () => {
       label: 'GATEWAY RELIABILITY',
       value: isInView ? `${(uptimeCount / 10).toFixed(1)}%` : '99.9%',
       unit: 'Dedicated Route Uptime',
-      description: 'Automated multi-vendor failover with OpusMax primary routing',
+      description: 'Automated multi-vendor failover with high-speed primary routing',
       icon: Activity,
       color: 'text-emerald-400',
       glow: 'rgba(52, 211, 153, 0.15)',

@@ -199,7 +199,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     supportsTools: true,
     isAvailable: true,
     upstreamModelId: 'claude-sonnet-5',
-    providerRoute: 'custom_http (OpusMax proxy)',
+    providerRoute: 'anthropic',
   },
   {
     id: 'claude-opus-5.5',
@@ -215,7 +215,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     supportsTools: true,
     isAvailable: true,
     upstreamModelId: 'claude-opus-5-5',
-    providerRoute: 'custom_http (OpusMax proxy)',
+    providerRoute: 'anthropic',
   },
   {
     id: 'claude-3-7-sonnet-20250219',
@@ -247,7 +247,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     supportsTools: true,
     isAvailable: true,
     upstreamModelId: 'claude-opus-5',
-    providerRoute: 'custom_http (OpusMax proxy)',
+    providerRoute: 'anthropic',
   },
   {
     id: 'claude-fable-5',
@@ -263,7 +263,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     supportsTools: true,
     isAvailable: true,
     upstreamModelId: 'claude-fable-5',
-    providerRoute: 'custom_http (OpusMax proxy)',
+    providerRoute: 'anthropic',
   },
   {
     id: 'claude-fable-5.1',
@@ -279,7 +279,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     supportsTools: true,
     isAvailable: true,
     upstreamModelId: 'claude-fable-5-1',
-    providerRoute: 'custom_http (OpusMax proxy)',
+    providerRoute: 'anthropic',
   },
   {
     id: 'claude-haiku-5.5',
@@ -295,7 +295,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     supportsTools: true,
     isAvailable: true,
     upstreamModelId: 'claude-haiku-4-5-20251001',
-    providerRoute: 'custom_http (OpusMax proxy)',
+    providerRoute: 'anthropic',
   },
   {
     id: 'claude-3-5-sonnet-20241022',

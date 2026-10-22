@@ -1,3 +1,6 @@
+// Enforce strict TLS certificate verification in CLI execution
+delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+
 export interface KeyModel {
   id: string;
   name: string;
@@ -20,6 +23,20 @@ export interface KeyStatusResult {
   error?: string;
 }
 
+export interface ModelProbeResult {
+  success: boolean;
+  statusCode: number;
+  latencyMs: number;
+  requestedModel: string;
+  gatewayModel?: string;
+  resolvedModel?: string;
+  upstreamProvider?: string;
+  aliasApplied?: boolean;
+  returnedModel?: string;
+  responseText?: string;
+  error?: string;
+}
+
 export const getGatewayUrl = (): string => {
   const args = process.argv.slice(2);
   const urlIdx = args.findIndex(arg => arg === '--api-url' || arg === '-u');
@@ -31,9 +48,6 @@ export const getGatewayUrl = (): string => {
   }
   return 'https://lightningapi.pro';
 };
-
-
-
 
 export const validateApiKey = async (apiKey: string): Promise<KeyStatusResult> => {
   let cleanKey = apiKey.trim();
@@ -87,7 +101,6 @@ export const validateApiKey = async (apiKey: string): Promise<KeyStatusResult> =
   }
 };
 
-
 export const fetchLiveModels = async (apiKey: string): Promise<any[]> => {
   const cleanKey = apiKey.trim();
   const baseUrl = getGatewayUrl();
@@ -121,7 +134,7 @@ export const testApiRequest = async (apiKey: string): Promise<{ success: boolean
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-opus-5',
+        model: 'claude-opus-5.5',
         max_tokens: 20,
         messages: [{ role: 'user', content: 'Ping test' }],
       }),
@@ -138,5 +151,79 @@ export const testApiRequest = async (apiKey: string): Promise<{ success: boolean
     }
   } catch (err: any) {
     return { success: false, latencyMs: Date.now() - startTime, error: err.message };
+  }
+};
+
+/**
+ * Repeatable, evidence-based diagnostic probe to verify actual model routing,
+ * gateway resolution, and upstream provider handling without secrets or prompt leaks.
+ */
+export const probeModelRouting = async (apiKey: string, model: string): Promise<ModelProbeResult> => {
+  const cleanKey = apiKey.trim();
+  const baseUrl = getGatewayUrl();
+  const startTime = Date.now();
+
+  try {
+    const res = await fetch(`${baseUrl}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': cleanKey,
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 15,
+        messages: [{ role: 'user', content: 'Diagnostic probe ping' }],
+      }),
+    });
+
+    const latencyMs = Date.now() - startTime;
+    const gatewayModel = res.headers.get('x-gateway-model') || undefined;
+    const resolvedModel = res.headers.get('x-gateway-resolved-model') || undefined;
+    const upstreamProvider = res.headers.get('x-upstream-provider') || undefined;
+    const aliasAppliedHeader = res.headers.get('x-model-alias-applied');
+    const aliasApplied = aliasAppliedHeader ? aliasAppliedHeader === 'true' : undefined;
+
+    let bodyData: any = {};
+    try {
+      bodyData = await res.json();
+    } catch {}
+
+    if (res.ok) {
+      const responseText = bodyData.content?.[0]?.text || '';
+      return {
+        success: true,
+        statusCode: res.status,
+        latencyMs,
+        requestedModel: model,
+        gatewayModel: gatewayModel || bodyData.model || model,
+        resolvedModel: resolvedModel || bodyData.model || model,
+        upstreamProvider: upstreamProvider || 'Configured Vendor Provider',
+        aliasApplied: aliasApplied ?? (resolvedModel ? resolvedModel.toLowerCase() !== model.toLowerCase() : false),
+        returnedModel: bodyData.model || model,
+        responseText,
+      };
+    } else {
+      return {
+        success: false,
+        statusCode: res.status,
+        latencyMs,
+        requestedModel: model,
+        gatewayModel,
+        resolvedModel,
+        upstreamProvider,
+        aliasApplied,
+        error: bodyData.error?.message || `HTTP ${res.status} Gateway Probe Failed`,
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      statusCode: 0,
+      latencyMs: Date.now() - startTime,
+      requestedModel: model,
+      error: `Could not connect to Gateway at ${baseUrl}: ${err.message}`,
+    };
   }
 };

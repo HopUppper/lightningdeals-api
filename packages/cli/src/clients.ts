@@ -16,17 +16,19 @@ const getHomeDir = (): string => os.homedir();
 
 export const getFriendlyModelName = (modelId: string): string => {
   const m = (modelId || '').toLowerCase().trim();
+  if (m.includes('3-7-sonnet') || m.includes('3.7-sonnet') || m.includes('3-7') || m.includes('3.7')) return 'Claude 3.7 Sonnet';
   if (m.includes('opus-5.5') || m.includes('opus-5-5')) return 'Claude Opus 5.5';
   if (m.includes('sonnet-5.5') || m.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
   if (m.includes('fable-5-flash') || m.includes('fable-flash')) return 'Claude Fable 5 Flash';
+  if (m.includes('fable-5.1') || m.includes('fable-5-1')) return 'Claude Fable 5.1';
   if (m.includes('fable')) return 'Claude Fable 5';
   if (m.includes('opus') && m.includes('thinking')) return 'Claude Opus 5 Extended Thinking';
   if (m.includes('sonnet') && m.includes('thinking')) return 'Claude Sonnet 5 Extended Thinking';
   if (m.includes('haiku-5.5') || m.includes('haiku-5-5')) return 'Claude Haiku 5.5';
   if (m.includes('haiku-5')) return 'Claude Haiku 5';
   if (m.includes('haiku')) return 'Claude Haiku 4.5';
-  if (m.includes('opus-5') || m.includes('opus-4') || m.includes('opus')) return 'Claude Opus 5';
-  if (m.includes('sonnet-5') || m.includes('sonnet-4') || m.includes('sonnet')) return 'Claude Sonnet 5';
+  if (m.includes('opus-5')) return 'Claude Opus 5';
+  if (m.includes('sonnet-5')) return 'Claude Sonnet 5';
   if (m === 'claude-3-5-sonnet-20241022') return 'Claude 3.5 Sonnet';
   if (m === 'claude-3-opus-20240229') return 'Claude 3 Opus';
   if (m === 'claude-3-5-haiku-20241022') return 'Claude 3.5 Haiku';
@@ -118,13 +120,37 @@ export const getClientTargets = (): ClientTarget[] => {
       try {
         const raw = fs.readFileSync(t.configPath, 'utf8');
         configured = raw.includes('lightningdeals') || raw.includes('ANTHROPIC_BASE_URL') || raw.includes('ld_live_') || raw.includes('sk_live_') || raw.includes('lightningapi.pro');
-        const match = raw.match(/(?:ld|sk)_(?:live|trial)_[a-zA-Z0-9]+/);
-        if (match) {
-          existingApiKey = match[0];
+
+        try {
+          const parsed = JSON.parse(raw);
+          if (t.id === 'claude-code') {
+            existingApiKey = parsed.env?.ANTHROPIC_AUTH_TOKEN || parsed.env?.ANTHROPIC_API_KEY;
+            existingModel = parsed.model || parsed.env?.ANTHROPIC_MODEL || parsed.env?.CLAUDE_MODEL;
+          } else if (t.id === 'cursor') {
+            existingApiKey = parsed['cursor.cpp.overrideAnthropicApiKey'] || parsed['anthropic.apiKey'] || parsed['lightningdeals.apiKey'];
+            existingModel = parsed['cursor.general.model'] || parsed['claude.model'] || parsed['anthropic.model'];
+          } else if (t.id === 'roo-code' || t.id === 'cline') {
+            existingApiKey = parsed['cline.apiKey'] || parsed['roo.apiKey'] || parsed['anthropic.apiKey'];
+            existingModel = parsed['cline.model'] || parsed['roo.model'] || parsed['anthropic.model'];
+          } else {
+            existingApiKey = parsed.apiKey || parsed['anthropic.apiKey'] || parsed['lightningdeals.apiKey'];
+            existingModel = parsed.model || parsed.defaultModel;
+          }
+        } catch {
+          // If JSON parse fails, fallback to regex
         }
-        const modelMatch = raw.match(/"model":\s*"([^"]+)"/) || raw.match(/ANTHROPIC_MODEL":\s*"([^"]+)"/);
-        if (modelMatch) {
-          existingModel = modelMatch[1];
+
+        if (!existingApiKey) {
+          const match = raw.match(/(?:ld|sk)_(?:live|trial)_[a-zA-Z0-9]+/);
+          if (match) {
+            existingApiKey = match[0];
+          }
+        }
+        if (!existingModel) {
+          const modelMatch = raw.match(/"model":\s*"([^"]+)"/) || raw.match(/ANTHROPIC_MODEL":\s*"([^"]+)"/);
+          if (modelMatch) {
+            existingModel = modelMatch[1];
+          }
         }
       } catch (e) {
         configured = false;
@@ -145,7 +171,7 @@ export const configureClient = (
   client: ClientTarget,
   apiKey: string,
   gatewayUrl: string = 'https://lightningapi.pro',
-  selectedModel: string = 'claude-opus-5'
+  selectedModel: string = 'claude-opus-5.5'
 ): { success: boolean; backupPath?: string; error?: string } => {
   try {
     const dir = path.dirname(client.configPath);
@@ -173,7 +199,7 @@ export const configureClient = (
 
     if (client.id === 'claude-code') {
       const cleanEnv = { ...(existingData.env || {}) };
-      
+
       // Remove Bedrock / Vertex overrides
       delete cleanEnv.CLAUDE_CODE_USE_BEDROCK;
       delete cleanEnv.CLAUDE_CODE_USE_VERTEX;
@@ -222,6 +248,7 @@ export const configureClient = (
       cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION_NAME = friendlyModelName;
       cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION = `${friendlyModelName} (LightningDeals)`;
 
+      // Write authoritative model to both top-level and env for 100% precedence guarantee
       updatedData.model = selectedModel;
       updatedData.env = cleanEnv;
 
@@ -305,6 +332,78 @@ export const configureClient = (
 
     fs.writeFileSync(client.configPath, JSON.stringify(updatedData, null, 2), 'utf8');
     return { success: true, backupPath };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
+export const verifyClientModelConfiguration = (
+  client: ClientTarget,
+  expectedModel: string
+): { verified: boolean; configuredModel?: string; error?: string } => {
+  if (!fs.existsSync(client.configPath)) {
+    return { verified: false, error: `Configuration file does not exist: ${client.configPath}` };
+  }
+
+  try {
+    const raw = fs.readFileSync(client.configPath, 'utf8');
+    const data = JSON.parse(raw);
+
+    let configuredModel: string | undefined;
+
+    if (client.id === 'claude-code') {
+      configuredModel = data.model || data.env?.ANTHROPIC_MODEL || data.env?.CLAUDE_MODEL;
+    } else if (client.id === 'cursor') {
+      configuredModel = data['cursor.general.model'] || data['claude.model'] || data['anthropic.model'];
+    } else if (client.id === 'roo-code' || client.id === 'cline') {
+      configuredModel = data['cline.model'] || data['roo.model'] || data['anthropic.model'];
+    } else if (client.id === 'continue') {
+      const m = data.models?.find((item: any) => item.apiBase?.includes('lightningapi.pro'));
+      configuredModel = m?.model;
+    } else {
+      configuredModel = data.model || data.defaultModel;
+    }
+
+    const verified = configuredModel?.toLowerCase().trim() === expectedModel.toLowerCase().trim();
+    return { verified, configuredModel };
+  } catch (err: any) {
+    return { verified: false, error: `Failed to parse config: ${err.message}` };
+  }
+};
+
+export const switchClientModel = (
+  client: ClientTarget,
+  newModel: string,
+  gatewayUrl: string = 'https://lightningapi.pro'
+): { success: boolean; configuredModel?: string; error?: string } => {
+  if (!fs.existsSync(client.configPath)) {
+    return { success: false, error: `Config file not found: ${client.configPath}` };
+  }
+
+  try {
+    const raw = fs.readFileSync(client.configPath, 'utf8');
+    const existing = JSON.parse(raw);
+
+    let apiKey = client.existingApiKey;
+    if (!apiKey) {
+      apiKey = existing.env?.ANTHROPIC_AUTH_TOKEN || existing.env?.ANTHROPIC_API_KEY || existing.apiKey || existing['anthropic.apiKey'];
+    }
+    if (!apiKey) {
+      const match = raw.match(/(?:ld|sk)_(?:live|trial)_[a-zA-Z0-9]+/);
+      if (match) apiKey = match[0];
+    }
+
+    if (!apiKey) {
+      return { success: false, error: `No active API key found in ${client.name} configuration.` };
+    }
+
+    const res = configureClient(client, apiKey, gatewayUrl, newModel);
+    if (!res.success) {
+      return { success: false, error: res.error };
+    }
+
+    const verify = verifyClientModelConfiguration(client, newModel);
+    return { success: verify.verified, configuredModel: verify.configuredModel, error: verify.error };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

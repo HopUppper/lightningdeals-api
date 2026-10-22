@@ -16,7 +16,7 @@ export const UserDashboardLayout: React.FC = () => {
 
   const navItems = [
     { name: 'Overview', path: '/dashboard', icon: LayoutDashboard, end: true },
-    { name: 'AI Chat Studio', path: '/dashboard/studio', icon: Bot, badge: 'PRO' },
+    { name: 'AI Chat Studio', path: '/dashboard/studio', icon: Bot },
     { name: 'API Keys', path: '/dashboard/keys', icon: Key },
     { name: 'API Console', path: '/dashboard/api-test', icon: Play },
     { name: 'Usage & Quota', path: '/dashboard/usage', icon: Activity },

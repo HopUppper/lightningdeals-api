@@ -37,8 +37,11 @@ export const LoginPage: React.FC = () => {
         setError(data.error?.message || 'Login failed.');
       } else {
         login(data.token, data.user);
+        const redirectParam = searchParams.get('redirect');
         if (data.user.role === 'admin') {
           navigate('/admin');
+        } else if (redirectParam && redirectParam.startsWith('/')) {
+          navigate(redirectParam);
         } else {
           navigate('/dashboard');
         }

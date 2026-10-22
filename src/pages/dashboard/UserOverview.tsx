@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles, Gift, Play } from 'lucide-react';
+import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles, Gift, Play, Bot } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { userFetch } from '../../utils/api';
 
@@ -247,6 +247,65 @@ export const UserOverview: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Flagship Feature: AI Chat Studio Hero Banner */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#faf8f5] via-white to-violet-50/50 p-6 sm:p-7 rounded-3xl border border-[#ede8e1] shadow-playful">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-48 h-48 rounded-full bg-violet-400/10 blur-2xl pointer-events-none" />
+        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-2xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-800 border border-violet-200">
+                <Sparkles className="w-3 h-3 text-violet-600" />
+                <span>Flagship Workspace</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <span>Included with Trial & Paid Keys</span>
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[#1e1b2e] tracking-tight">
+                AI Chat Studio
+              </h2>
+              <p className="text-xs sm:text-sm text-[#64607d] leading-relaxed">
+                Interact with Claude Sonnet 5.5, Sonnet 3.7, and Haiku 5.5 in a real-time productivity workspace. Upload documents, analyze code diffs, run multi-turn tasks, and generate exportable files.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-[#4b4763]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-[#ede8e1] text-[11px] font-medium shadow-2xs">
+                ✨ Multi-Turn Conversations
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-[#ede8e1] text-[11px] font-medium shadow-2xs">
+                📄 Document & Code Analysis
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-[#ede8e1] text-[11px] font-medium shadow-2xs">
+                🧠 Extended Deliberative Thinking
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-[#ede8e1] text-[11px] font-medium shadow-2xs">
+                ⚡ Real-time SSE Streaming
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
+            <Link
+              to="/dashboard/studio"
+              className="ui-button-primary text-xs sm:text-sm px-6 py-3 font-bold shadow-xs flex items-center justify-center gap-2"
+            >
+              <Bot className="w-4 h-4" />
+              <span>Open AI Chat Studio</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/dashboard/keys"
+              className="ui-button-secondary text-xs px-4 py-2 font-semibold text-center"
+            >
+              <span>Manage Routing Keys</span>
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {/* Quick Console Shortcuts */}
       <div className="space-y-3.5 pt-2">

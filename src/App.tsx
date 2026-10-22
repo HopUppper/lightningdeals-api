@@ -45,6 +45,7 @@ import { SupportWidget } from './components/SupportWidget';
 import { PromotionalOfferBanner } from './components/PromotionalOfferBanner';
 import { PromotionalOfferModal } from './components/PromotionalOfferModal';
 import { HomePlatformNavigator } from './components/HomePlatformNavigator';
+import { StudioFlagshipSection } from './components/StudioFlagshipSection';
 
 const PageLoader: React.FC = () => (
   <div className="min-h-screen bg-bg text-muted flex flex-col items-center justify-center space-y-3 font-mono text-xs">
@@ -221,7 +222,10 @@ export const LandingPage: React.FC = () => {
         {/* CRED-Style Kinetic Telemetry & Live Hardware Metrics Ticker */}
         <CredVelocityMetrics />
 
-        {/* Section B: Billion-Dollar Platform Portals Navigator */}
+        {/* Section B: Flagship Product Workspace */}
+        <StudioFlagshipSection />
+
+        {/* Section C: Billion-Dollar Platform Portals Navigator */}
         <HomePlatformNavigator />
 
         {/* Section C: Capacity Plans Preview */}
@@ -272,6 +276,8 @@ export function App() {
                 <Route path="/refund" element={<RefundPage />} />
                 <Route path="/refund-policy" element={<RefundPage />} />
                 <Route path="/rewards" element={<Navigate to="/dashboard/rewards" replace />} />
+                <Route path="/studio" element={<Navigate to="/dashboard/studio" replace />} />
+                <Route path="/chat" element={<Navigate to="/dashboard/studio" replace />} />
 
                 {/* Authentication & Verification Routes (Lazy Loaded) */}
                 <Route path="/login" element={<LoginPage />} />

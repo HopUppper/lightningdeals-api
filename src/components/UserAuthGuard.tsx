@@ -1,10 +1,11 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield } from 'lucide-react';
 
 export const UserAuthGuard: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -20,7 +21,9 @@ export const UserAuthGuard: React.FC<{ children: React.ReactElement }> = ({ chil
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const currentPath = location.pathname + location.search;
+    const redirectUrl = currentPath && currentPath !== '/' ? `/login?redirect=${encodeURIComponent(currentPath)}` : '/login';
+    return <Navigate to={redirectUrl} replace />;
   }
 
   return children;

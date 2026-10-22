@@ -1401,8 +1401,20 @@ export const UserChatStudio: React.FC = () => {
   const handleFilesSelected = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    if (!isPaidCustomer) {
-      setUpgradeReason('Uploading images for Vision inspection and code/PDF documents requires an active paid capacity plan.');
+    if (!activeKey) {
+      setUpgradeReason('An active API key is required to analyze files and images. Claim a free 200k trial key or activate a capacity plan.');
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    if (activeKey.expiresAt && new Date(activeKey.expiresAt).getTime() <= Date.now()) {
+      setUpgradeReason('Your API key has expired. Please upgrade your capacity plan to continue inspecting documents.');
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    if (Number(remainingTokens) <= 0) {
+      setUpgradeReason('Your API key has depleted its token balance (0 tokens remaining). Please upgrade your capacity plan or switch to an active key with tokens.');
       setShowUpgradeModal(true);
       return;
     }
@@ -1537,14 +1549,28 @@ export const UserChatStudio: React.FC = () => {
     const promptToSend = customPrompt !== undefined ? customPrompt : inputMessage;
     if ((!promptToSend.trim() && attachments.length === 0) || generating) return;
 
-    if (attachments.length > 0 && !isPaidCustomer) {
-      setUpgradeReason('Vision multimodal and document analysis are exclusive to active paid subscribers.');
+    if (!activeKey) {
+      setUpgradeReason('An active API key is required to use AI Chat Studio. Claim your free 200k trial key or activate a capacity plan.');
       setShowUpgradeModal(true);
       return;
     }
 
-    if (activeThread.messages.length >= 2 && !isPaidCustomer) {
-      setUpgradeReason('Multi-turn conversation history is exclusive to paid plan subscribers.');
+    if (activeKey.expiresAt && new Date(activeKey.expiresAt).getTime() <= Date.now()) {
+      setUpgradeReason('Your API key has expired. Please upgrade your capacity plan to continue prompting in AI Chat Studio.');
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    if (Number(remainingTokens) <= 0) {
+      setUpgradeReason('Your API key has depleted its token balance (0 tokens remaining). Please upgrade your capacity plan or switch to an active key.');
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    // Gate Opus frontier models for trial keys (Trial includes Sonnet 5.5, Sonnet 3.7, Haiku 5.5, Fable 5.1)
+    const isTrialKey = activeKey?.type === 'trial' || activeKey?.plan === 'Free Trial';
+    if (!isPaidCustomer && isTrialKey && activeThread.model.toLowerCase().includes('opus')) {
+      setUpgradeReason('Claude Opus frontier reasoning is exclusive to paid capacity plans. Your trial key includes full access to Claude Sonnet 5.5, Sonnet 3.7, Haiku 5.5, and Fable coding models.');
       setShowUpgradeModal(true);
       return;
     }
@@ -2093,7 +2119,14 @@ export const UserChatStudio: React.FC = () => {
   // Calculate remaining tokens from active key
   const activeKey = keys.find((k) => k.id === selectedKeyId) || keys[0];
   const remainingTokens = activeKey ? BigInt(activeKey.tokensRemaining || 0) : 0n;
+  const isTrialKey = activeKey?.type === 'trial' || activeKey?.plan === 'Free Trial';
   const remainingTokensM = (Number(remainingTokens) / 1000000).toFixed(2);
+  const remainingTokensDisplay = useMemo(() => {
+    const num = Number(remainingTokens);
+    if (num <= 0) return '0';
+    if (num < 1000000) return `${Math.round(num / 1000)}k`;
+    return `${(num / 1000000).toFixed(2)}M`;
+  }, [remainingTokens]);
 
   // Token Intelligence metrics for active thread & draft input
   const threadTokenStats = useMemo(() => {
@@ -2333,7 +2366,7 @@ export const UserChatStudio: React.FC = () => {
             </span>
             <span className="opacity-40">|</span>
             <span className="font-bold text-[11px]">
-              {Number(remainingTokens) <= 0 ? '0' : `${remainingTokensM}M`}
+              {remainingTokensDisplay}
             </span>
           </button>
 

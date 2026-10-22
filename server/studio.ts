@@ -27,6 +27,13 @@ import {
 // @ts-ignore
 import yauzl from 'yauzl';
 import { generateStudioDocument } from './documentGenerator';
+import {
+  resolveStudioEntitlement,
+  isModelAuthorizedForKey,
+  PAID_ONLY_STUDIO_MODELS,
+  DEFAULT_TRIAL_STUDIO_MODELS,
+  ALL_STUDIO_MODELS,
+} from './studioEntitlement';
 
 export function extractTextFromDocx(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -397,12 +404,59 @@ export const VERIFIED_STUDIO_MODELS = [
   },
 ];
 
-// GET /api/user/studio/models - Authoritative Model Catalog
+// GET /api/user/studio/entitlement - Authoritative Studio Entitlement & Key Resolution
+studioRouter.get('/entitlement', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const apiKeyId = req.query.apiKeyId as string | undefined;
+    const entitlement = await resolveStudioEntitlement(userId, apiKeyId);
+    return res.json({
+      success: true,
+      entitlement,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: { message: err.message || 'Failed to resolve Studio entitlement.' },
+    });
+  }
+});
+
+// GET /api/user/studio/models - Authoritative Model Catalog with Entitlement Annotations
 studioRouter.get('/models', async (req: AuthRequest, res: Response) => {
-  return res.json({
-    success: true,
-    models: VERIFIED_STUDIO_MODELS,
-  });
+  try {
+    const userId = req.user?.id;
+    let entitlement = null;
+    if (userId) {
+      const apiKeyId = req.query.apiKeyId as string | undefined;
+      entitlement = await resolveStudioEntitlement(userId, apiKeyId);
+    }
+
+    const annotatedModels = VERIFIED_STUDIO_MODELS.map((m) => {
+      const isPaidOnly = PAID_ONLY_STUDIO_MODELS.includes(m.id);
+      const isAuthorized = entitlement
+        ? entitlement.allowedModels.includes(m.id) || entitlement.allowedModels.includes('*') || entitlement.allowedModels.includes('all')
+        : true;
+
+      return {
+        ...m,
+        isPaidOnly,
+        isAuthorized,
+        accessTier: isPaidOnly ? 'paid' : 'trial_and_paid',
+      };
+    });
+
+    return res.json({
+      success: true,
+      models: annotatedModels,
+      entitlement,
+    });
+  } catch (err: any) {
+    return res.json({
+      success: true,
+      models: VERIFIED_STUDIO_MODELS,
+    });
+  }
 });
 
 // GET /api/user/studio/projects - List user projects
@@ -1768,6 +1822,18 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Expiry Check
+    if (keyRecord.expiresAt && new Date(keyRecord.expiresAt).getTime() <= Date.now()) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'KEY_EXPIRED',
+          message: `The API key "${keyRecord.name || keyRecord.displayKey || 'API Key'}" has expired. Please upgrade or generate a new key to continue prompting.`,
+        },
+      });
+    }
+
+    // Quota Check
     if (keyRecord.tokensRemaining <= 0n) {
       return res.status(403).json({
         success: false,
@@ -1778,15 +1844,14 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 3. Multi-turn & Vision Gate for Free Users
-    const isMultiTurn = Array.isArray(clientMessages) && clientMessages.length > 1;
-    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
-    if ((isMultiTurn || hasAttachments) && !isPaidCustomer) {
+    // Model Authorization & Entitlement Verification (Separation of Studio Access vs Model Access)
+    const modelAuth = isModelAuthorizedForKey(requestedModel, keyRecord, isPaidCustomer);
+    if (!modelAuth.allowed) {
       return res.status(403).json({
         success: false,
         error: {
-          code: 'PRO_TIER_REQUIRED',
-          message: 'Multi-turn chat threads and file/vision analysis are exclusive to active paid subscribers. Please upgrade to unlock full Studio access.',
+          code: modelAuth.code || 'MODEL_NOT_AUTHORIZED',
+          message: modelAuth.message || `Model '${requestedModel}' is not authorized for this API key.`,
         },
       });
     }

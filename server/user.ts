@@ -21,6 +21,7 @@ import { generateProviderApiKey } from './keyService';
 import { buildProviderRequest } from './providerAdapter';
 import { sanitizeErrorMessage, sanitizeModelResponse, getFriendlyModelName } from './gateway';
 import { ReferralEngine } from './referrals/referralEngine';
+import { isModelAuthorizedForKey } from './studioEntitlement';
 
 const router = Router();
 
@@ -1304,13 +1305,14 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         Array.isArray(m.content) && m.content.some((c: any) => c.type === 'image' || c.type === 'document')
       );
 
-      // Gate advanced multi-turn and vision/attachments to paid customers only
-      if ((isMultiTurn || hasAttachments) && !isPaidCustomer) {
+      // Model Authorization & Entitlement Check
+      const modelAuth = isModelAuthorizedForKey(selectedModel, keyRecord, isPaidCustomer);
+      if (!modelAuth.allowed) {
         return res.status(403).json({
           success: false,
           error: {
-            code: 'PRO_TIER_REQUIRED',
-            message: 'Multi-turn chat threads and file/image vision analysis are exclusively available for active paid subscribers. Please upgrade your capacity plan (starting at 1M tokens) to unlock full AI Studio access.',
+            code: modelAuth.code || 'MODEL_NOT_AUTHORIZED',
+            message: modelAuth.message || `Model '${selectedModel}' is not authorized for this API key.`,
           },
         });
       }
@@ -2041,6 +2043,7 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           type: k.type,
           status: k.status,
           plan: k.plan,
+          allowedModels: k.allowedModels || 'all',
           purchasedTokens: k.purchasedTokens?.toString() ?? '0',
           tokensUsed: k.tokensUsed?.toString() ?? '0',
           tokensRemaining: k.tokensRemaining?.toString() ?? '0',

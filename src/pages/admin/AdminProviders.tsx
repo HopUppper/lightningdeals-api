@@ -1,5 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Server, Plus, RefreshCw, CheckCircle2, XCircle, ShieldAlert, Edit2, Code, DollarSign, Activity, Layers, FileText, ArrowUpRight, CloudDownload } from 'lucide-react';
+import {
+  Server,
+  Plus,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  ShieldAlert,
+  Edit2,
+  Code,
+  DollarSign,
+  Activity,
+  Layers,
+  FileText,
+  ArrowUpRight,
+  CloudDownload,
+  Clock,
+  Sliders,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Zap,
+} from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 
 interface VendorProviderItem {
@@ -50,6 +71,10 @@ export const AdminProviders: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingProvider, setEditingProvider] = useState<VendorProviderItem | null>(null);
 
+  // Main navigation tab
+  const [mainTab, setMainTab] = useState<'capacity' | 'providers' | 'routing' | 'ledger'>('capacity');
+  const [showAccountingDetails, setShowAccountingDetails] = useState(false);
+
   // Vendor Form State
   const [name, setName] = useState('');
   const [providerType, setProviderType] = useState('anthropic');
@@ -82,12 +107,10 @@ export const AdminProviders: React.FC = () => {
   // Master Ledger State
   const [ledgerEntries, setLedgerEntries] = useState<any[]>([]);
   const [reconcileResult, setReconcileResult] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'providers' | 'ledger'>('providers');
 
   // Sync Vendor Balance State
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<any | null>(null);
-  const [showProbeLogs, setShowProbeLogs] = useState(false);
 
   // Test Connection State
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -152,21 +175,24 @@ export const AdminProviders: React.FC = () => {
         await fetchProviders();
         await fetchFailoverConfig();
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleUpdateFailover = async (newConfig: any) => {
+  const handleUpdateFailover = async (updatedConfig: any) => {
     setSavingFailover(true);
     try {
       const res = await adminFetch('/api/admin/providers/failover-config', {
         method: 'POST',
-        body: JSON.stringify(newConfig),
+        body: JSON.stringify(updatedConfig),
       });
       if (res.ok) {
-        const data = await res.json();
-        setFailoverConfig(data.config);
+        setFailoverConfig(await res.json());
       }
-    } catch (e) {} finally {
+    } catch (e) {
+      console.error(e);
+    } finally {
       setSavingFailover(false);
     }
   };
@@ -181,15 +207,13 @@ export const AdminProviders: React.FC = () => {
         body: JSON.stringify({
           sourceProviderId: migrateSourceId || undefined,
           targetProviderId: migrateTargetId,
-          reason: migrateReason || 'Admin console migration',
+          reason: migrateReason || 'Admin bulk migration',
         }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setMigrateResult(data);
+      setMigrateResult(data);
+      if (data.success) {
         await fetchProviders();
-      } else {
-        setMigrateResult({ error: data?.error?.message || 'Migration failed' });
       }
     } catch (e: any) {
       setMigrateResult({ error: e.message });
@@ -300,10 +324,62 @@ export const AdminProviders: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleToggleStatus = async (provider: VendorProviderItem) => {
-    const newStatus = provider.status === 'disabled' ? 'connected' : 'disabled';
+  const handleSaveProvider = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setFormError(null);
+
     try {
-      const res = await adminFetch(`/api/admin/providers/${provider.id}`, {
+      const payload: any = {
+        name,
+        providerType,
+        protocol,
+        baseUrl,
+        isPrimary,
+        status,
+        capacityModel,
+        windowHours: parseInt(windowHours) || 5,
+        windowAllowance,
+        warningThresholdTokens,
+        criticalThresholdTokens,
+        availableTokens,
+        modelMappingsJson: modelMappingsJson || null,
+        headersJson: headersJson || null,
+        notes: notes || null,
+      };
+
+      if (masterApiKey.trim()) {
+        payload.masterApiKey = masterApiKey.trim();
+      }
+
+      const url = editingProvider
+        ? `/api/admin/providers/${editingProvider.id}`
+        : '/api/admin/providers';
+      const method = editingProvider ? 'PUT' : 'POST';
+
+      const res = await adminFetch(url, {
+        method,
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setShowModal(false);
+        await fetchProviders();
+      } else {
+        const data = await res.json();
+        setFormError(data.error?.message || 'Failed to save provider configuration.');
+      }
+    } catch (err: any) {
+      setFormError(err.message || 'Network error saving provider.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleStatus = async (p: VendorProviderItem) => {
+    const newStatus = p.status === 'disabled' ? 'connected' : 'disabled';
+    try {
+      const res = await adminFetch(`/api/admin/providers/${p.id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus }),
       });
@@ -315,52 +391,6 @@ export const AdminProviders: React.FC = () => {
     }
   };
 
-  const handleSaveProvider = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setFormError(null);
-
-    const url = editingProvider ? `/api/admin/providers/${editingProvider.id}` : '/api/admin/providers';
-    const method = editingProvider ? 'PUT' : 'POST';
-
-    try {
-      const res = await adminFetch(url, {
-        method,
-        body: JSON.stringify({
-          name: name.trim(),
-          providerType,
-          protocol,
-          masterApiKey: masterApiKey ? masterApiKey.trim() : undefined,
-          baseUrl: baseUrl.trim(),
-          isPrimary,
-          status,
-          capacityModel,
-          windowHours: Number(windowHours || 5),
-          windowAllowance: capacityModel === 'rolling_window' ? windowAllowance : undefined,
-          warningThresholdTokens,
-          criticalThresholdTokens,
-          availableTokens: capacityModel === 'rolling_window' ? windowAllowance : availableTokens,
-          purchasedTokens: capacityModel === 'rolling_window' ? windowAllowance : undefined,
-          modelMappingsJson: modelMappingsJson.trim() || undefined,
-          headersJson: headersJson.trim() || undefined,
-          notes: notes.trim() || undefined,
-        }),
-      });
-
-      const resData = await res.json();
-      if (res.ok) {
-        setShowModal(false);
-        await fetchProviders();
-      } else {
-        setFormError(resData?.error?.message || 'Failed to save vendor configuration.');
-      }
-    } catch (err: any) {
-      setFormError(err.message || 'Network error saving vendor configuration.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleTopUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTopUpSubmitting(true);
@@ -368,18 +398,19 @@ export const AdminProviders: React.FC = () => {
 
     const primary = providers.find((p) => p.isPrimary) || providers[0];
     if (!primary) {
-      setTopUpError('No active vendor provider found to top up.');
+      setTopUpError('No provider available to top up.');
       setTopUpSubmitting(false);
       return;
     }
 
     try {
-      const res = await adminFetch(`/api/admin/providers/${primary.id}/topup`, {
+      const res = await adminFetch('/api/admin/providers/top-up', {
         method: 'POST',
         body: JSON.stringify({
+          providerId: primary.id,
           amountTokens: topUpAmount,
-          reference: topUpReference.trim(),
-          notes: topUpNotes.trim() || undefined,
+          reference: topUpReference,
+          notes: topUpNotes,
         }),
       });
 
@@ -402,7 +433,7 @@ export const AdminProviders: React.FC = () => {
   };
 
   const handleReconcileLedger = async (autoFix = false) => {
-    const primary = providers.find((p) => p.isPrimary) || providers[0];
+    const primary = (selectedProviderId && providers.find((p) => p.id === selectedProviderId)) || providers[0];
     if (!primary) return;
 
     try {
@@ -435,6 +466,7 @@ export const AdminProviders: React.FC = () => {
       setSyncResult(data);
       if (data.synced) {
         await fetchProviders();
+        await fetchBalanceMetrics(providerId);
       }
     } catch (e: any) {
       setSyncResult({ success: false, message: e.message });
@@ -480,22 +512,25 @@ export const AdminProviders: React.FC = () => {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">● CONNECTED</span>;
     }
     if (s === 'AUTHENTICATION_FAILED' || s === 'INVALID_CREDENTIAL' || s === 'INVALID_KEY') {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30">❌ AUTHENTICATION_FAILED</span>;
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30">❌ AUTH_FAILED</span>;
     }
     if (s === 'UNREACHABLE' || s === 'UNAVAILABLE' || s === 'SSRF_BLOCKED') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">⚠️ UNREACHABLE</span>;
     }
     if (s === 'INVALID_RESPONSE' || s === 'PROVIDER_ERROR') {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/30">⚠️ INVALID_RESPONSE</span>;
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/30">⚠️ ERROR</span>;
     }
     if (s === 'DISABLED' || s === 'NOT_CONFIGURED') {
       return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">⚪ DISABLED</span>;
     }
     if (s === 'WARNING') {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">⚠️ WARNING (LOW)</span>;
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">⚠️ WARNING</span>;
+    }
+    if (s === 'DEPLETED') {
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30">⛔ DEPLETED</span>;
     }
     if (s === 'CRITICAL') {
-      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30 font-mono animate-pulse">🚨 CRITICAL</span>;
+      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600 border border-red-500/30 animate-pulse">🚨 CRITICAL</span>;
     }
     return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted/30 text-muted border border-border">{s}</span>;
   };
@@ -511,521 +546,363 @@ export const AdminProviders: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
-            <Server className="w-6 h-6 text-violet-600" />
-            <span>Master Vendor Balance & Capacity Control</span>
-          </h1>
-          <p className="text-xs text-muted mt-1">
-            Authoritative database token ledger, master balance top-ups, customer entitlement exposure, and SSRF-hardened provider routing.
-          </p>
+      {/* 1. Header Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-violet-500/10 text-violet-600 border border-violet-500/20 shadow-xs">
+            <Server className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-fg tracking-tight">Providers & Capacity Hub</h1>
+              {primaryProvider && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1.5 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  {primaryProvider.name} (Active)
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted mt-0.5">
+              Live vendor token quota, rolling-window headroom, and multi-provider failover routing.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 self-start md:self-auto">
           <button
             onClick={() => setShowTopUpModal(true)}
-            className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold bg-gradient-to-tr from-emerald-600 to-teal-600 text-white shadow-xs"
+            className="ui-button-secondary text-xs py-1.5 px-3.5 gap-1.5 font-medium border-border hover:bg-card shadow-xs"
           >
-            <DollarSign className="w-4 h-4" />
-            <span>Top Up Master Balance</span>
+            <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Top Up Balance</span>
           </button>
-          <button onClick={openCreateModal} className="ui-button-secondary text-xs py-2 px-3.5 gap-2 font-bold">
-            <Plus className="w-4 h-4" />
-            <span>Add Custom Vendor</span>
+          <button
+            onClick={openCreateModal}
+            className="ui-button-primary text-xs py-1.5 px-3.5 gap-1.5 font-medium bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Provider</span>
           </button>
         </div>
       </div>
 
-      {/* Universal Multi-Provider Gateway Control Bar */}
-      <div className="bg-gradient-to-r from-violet-950/20 via-background to-indigo-950/20 border border-violet-500/30 rounded-panel p-5 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <h2 className="text-base font-bold text-fg font-sans">Multi-Provider API Gateway Routing</h2>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-violet-500/10 text-violet-600 border border-violet-500/20">
-                OPUS MAX ENTERPRISE
-              </span>
-            </div>
-            <p className="text-xs text-muted">
-              Configure default provider for newly issued keys, monitor connection status, and configure automated zero-downtime failover.
-            </p>
-          </div>
+      {/* 2. Elevated Modern Tab Switcher */}
+      <div className="flex items-center gap-2 border-b border-border pb-3 overflow-x-auto no-scrollbar">
+        <button
+          onClick={() => setMainTab('capacity')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            mainTab === 'capacity'
+              ? 'bg-violet-600 text-white shadow-xs'
+              : 'text-muted hover:text-fg hover:bg-card border border-transparent'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>Live Capacity & Headroom</span>
+          {balanceMetrics?.discoverySource === 'OFFICIAL_QUOTA_API' && (
+            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${mainTab === 'capacity' ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-600'}`}>
+              Verified ✓
+            </span>
+          )}
+        </button>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              onClick={() => {
-                setShowMigrateModal(true);
-                setMigrateResult(null);
-                const op = providers.find((p) => p.name.toLowerCase().includes('opus') || p.isPrimary);
-                if (op) setMigrateTargetId(op.id);
-              }}
-              className="px-3 py-1.5 rounded-control text-xs font-bold border border-indigo-500/30 text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
-            >
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>Bulk Migrate Keys</span>
-            </button>
-          </div>
-        </div>
+        <button
+          onClick={() => setMainTab('providers')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            mainTab === 'providers'
+              ? 'bg-violet-600 text-white shadow-xs'
+              : 'text-muted hover:text-fg hover:bg-card border border-transparent'
+          }`}
+        >
+          <Server className="w-3.5 h-3.5" />
+          <span>Configured Providers</span>
+          <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${mainTab === 'providers' ? 'bg-white/20 text-white' : 'bg-muted/30 text-muted'}`}>
+            {providers.length}
+          </span>
+        </button>
 
-        {/* Provider Status & Routing Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-border/60">
-          {/* Default Provider Switcher */}
-          <div className="p-3.5 rounded-control bg-bg/60 border border-border space-y-2">
-            <span className="text-[11px] font-mono text-muted uppercase font-bold">Default Provider for New Keys</span>
-            <div className="flex items-center gap-2">
-              <select
-                value={failoverConfig.defaultProviderId || providers.find((p) => p.isDefault)?.id || ''}
-                onChange={(e) => handleSetDefaultProvider(e.target.value)}
-                className="w-full text-xs font-mono font-bold py-1.5 px-2.5 rounded border border-border bg-card text-fg focus:outline-none focus:ring-1 focus:ring-violet-500"
-              >
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.status === 'connected' ? '● Online' : '○ ' + p.status}) {p.isDefault ? '★ (Default)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <p className="text-[10px] text-muted">
-              New customer API keys will be provisioned using this upstream provider.
-            </p>
-          </div>
+        <button
+          onClick={() => setMainTab('routing')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            mainTab === 'routing'
+              ? 'bg-violet-600 text-white shadow-xs'
+              : 'text-muted hover:text-fg hover:bg-card border border-transparent'
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+          <span>Gateway Routing & Failover</span>
+          {failoverConfig.enableAutoFailover && (
+            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${mainTab === 'routing' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
+              Auto
+            </span>
+          )}
+        </button>
 
-          {/* Failover Mode */}
-          <div className="p-3.5 rounded-control bg-bg/60 border border-border space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-muted uppercase font-bold">Automated Provider Failover</span>
-              <button
-                disabled={savingFailover}
-                onClick={() => handleUpdateFailover({ ...failoverConfig, enableAutoFailover: !failoverConfig.enableAutoFailover })}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono transition-colors ${
-                  failoverConfig.enableAutoFailover
-                    ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/40'
-                    : 'bg-muted/40 text-muted border border-border'
-                }`}
-              >
-                {failoverConfig.enableAutoFailover ? 'ENABLED' : 'DISABLED'}
-              </button>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="text-muted text-[11px]">Primary:</span>
-              <select
-                value={failoverConfig.primaryProviderId || ''}
-                onChange={(e) => handleUpdateFailover({ ...failoverConfig, primaryProviderId: e.target.value })}
-                className="text-[11px] font-mono py-1 px-2 rounded border border-border bg-card text-fg"
-              >
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="text-muted text-[11px]">Fallback:</span>
-              <select
-                value={failoverConfig.fallbackProviderId || ''}
-                onChange={(e) => handleUpdateFailover({ ...failoverConfig, fallbackProviderId: e.target.value })}
-                className="text-[11px] font-mono py-1 px-2 rounded border border-border bg-card text-fg"
-              >
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Quick Connection Diagnostics */}
-          <div className="p-3.5 rounded-control bg-bg/60 border border-border space-y-2">
-            <span className="text-[11px] font-mono text-muted uppercase font-bold">Live Provider Health</span>
-            <div className="space-y-1.5">
-              {providers.map((p) => {
-                const res = testResults[p.id];
-                return (
-                  <div key={p.id} className="flex items-center justify-between text-xs font-mono">
-                    <span className="font-semibold text-fg flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${p.status === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                      {p.name}
-                    </span>
-                    <button
-                      onClick={() => handleTestConnection(p.id)}
-                      disabled={testingId === p.id}
-                      className="px-2 py-0.5 rounded text-[10px] font-bold border border-border hover:bg-card text-muted hover:text-fg transition-colors inline-flex items-center gap-1"
-                    >
-                      <RefreshCw className={`w-2.5 h-2.5 ${testingId === p.id ? 'animate-spin' : ''}`} />
-                      <span>{testingId === p.id ? 'Pinging...' : res ? `${res.status} (${res.latencyMs || 0}ms)` : 'Ping'}</span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <button
+          onClick={() => setMainTab('ledger')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            mainTab === 'ledger'
+              ? 'bg-violet-600 text-white shadow-xs'
+              : 'text-muted hover:text-fg hover:bg-card border border-transparent'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Token Accounting Ledger</span>
+          <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${mainTab === 'ledger' ? 'bg-white/20 text-white' : 'bg-muted/30 text-muted'}`}>
+            {ledgerEntries.length}
+          </span>
+        </button>
       </div>
 
-      {/* Master Vendor Balance Control Center Card */}
-      <div className="bg-card border border-border rounded-panel p-6 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold text-fg font-mono">Vendor Master Token Balance</h2>
-              {getStatusBadge(balanceMetrics?.status || primaryProvider?.status || 'NOT_CONFIGURED', primaryHasKey)}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 mt-1.5">
-              <span className="text-xs text-muted">Active Upstream Provider:</span>
-              <select
-                value={primaryProvider?.id || ''}
-                onChange={(e) => {
-                  const newId = e.target.value;
-                  setSelectedProviderId(newId);
-                  fetchBalanceMetrics(newId);
-                  fetchLedger(newId);
-                }}
-                className="py-1 px-2.5 text-xs font-semibold text-fg bg-bg border border-border rounded shadow-xs focus:outline-none focus:border-violet-500 font-sans"
-              >
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.displayMasterKey || 'Not Set'}) {p.status === 'connected' ? '✓' : ''} {p.isDefault ? '[DEFAULT]' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Sync / Diagnostic Toast Feedback */}
+      {syncResult && (
+        <div className={`p-3.5 rounded-control border text-xs font-mono flex items-center justify-between gap-3 ${
+          syncResult.synced || syncResult.success
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700'
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-700'
+        }`}>
+          <div className="flex items-center gap-2">
+            {syncResult.synced || syncResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <XCircle className="w-4 h-4 shrink-0" />}
+            <span>{syncResult.message || 'Provider discovery completed.'}</span>
           </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            {primaryProvider && (
-              <button
-                onClick={() => handleSyncVendorBalance(primaryProvider.id)}
-                disabled={syncing}
-                className="ui-button-primary text-xs py-1.5 px-3 gap-1.5 font-mono bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs disabled:opacity-50"
-              >
-                <CloudDownload className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? 'Discovering...' : 'Discover Provider Limits'}</span>
-              </button>
-            )}
-            <button
-              onClick={() => handleReconcileLedger(false)}
-              className="ui-button-secondary text-xs py-1.5 px-3 gap-1.5 font-mono"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Audit Reconcile Ledger</span>
-            </button>
-          </div>
+          <button onClick={() => setSyncResult(null)} className="text-muted hover:text-fg font-bold">✕</button>
         </div>
+      )}
 
-        {/* Master Balance KPIs: Three-Layer Accurate Accounting */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
-          {/* Layer A Card 1: Master Upstream Limit */}
-          <div className="p-4 rounded-control bg-bg border border-border space-y-1">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-muted uppercase font-bold">Master Upstream Limit</p>
-              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                balanceMetrics?.discoverySource === 'RATE_LIMIT_HEADERS' || balanceMetrics?.discoverySource === 'OFFICIAL_QUOTA_API'
-                  ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                  : balanceMetrics?.discoverySource === 'LOCALLY_TRACKED'
-                  ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                  : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-              }`}>
-                {balanceMetrics?.discoverySource || 'NOT_DISCOVERED'}
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-fg">
-              {formatTokens(balanceMetrics?.windowAllowance || primaryProvider?.windowAllowance || 0)}
-            </p>
-            <p className="text-[10px] text-muted">
-              Confidence: <span className="font-semibold">{balanceMetrics?.discoveryConfidence || 'UNKNOWN'}</span>{balanceMetrics?.lastDiscoveredAt ? ` · Discovered ${new Date(balanceMetrics.lastDiscoveredAt).toLocaleTimeString()}` : ''}
-            </p>
-          </div>
-
-          {/* Layer A Card 2: Known Remaining Upstream Capacity */}
-          <div className="p-4 rounded-control bg-bg border border-border space-y-1">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-muted uppercase font-bold">Remaining Master Headroom</p>
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                LAYER A HEADROOM
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-emerald-600">
-              {formatTokens(balanceMetrics?.exposure?.upstreamRemainingMasterCapacity || balanceMetrics?.availableTokens || 0)}
-            </p>
-            <p className="text-[10px] text-muted">
-              Upstream Limit minus verified consumption in current window
-            </p>
-          </div>
-
-          {/* Layer C Card 3: Active 5h Customer Entitlement Exposure */}
-          <div className="p-4 rounded-control bg-bg border border-border space-y-1">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-muted uppercase font-bold">Active 5H Exposure</p>
-              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                (balanceMetrics?.exposure?.exposureRatioPercent || 0) > 100
-                  ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                  : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'
-              }`}>
-                {balanceMetrics?.exposure?.exposureRatioPercent ?? 0}% RATIO
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-violet-600">
-              {formatTokens(balanceMetrics?.exposure?.active5hWindowAllowance || '0')}
-            </p>
-            <p className="text-[10px] text-muted">
-              Potential concurrent customer demand (Headroom: {formatTokens(balanceMetrics?.exposure?.exposureHeadroomTokens || 0)})
-            </p>
-          </div>
-
-          {/* Layer A & B Card 4: Consumed Upstream Tokens */}
-          <div className="p-4 rounded-control bg-bg border border-border space-y-1">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-muted uppercase font-bold">Consumed Tokens</p>
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                ACTUAL USAGE
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-amber-600">
-              {formatTokens(balanceMetrics?.windowTokensUsed || 0)}
-            </p>
-            <p className="text-[10px] text-muted">
-              In 5h window · Lifetime: {formatTokens(balanceMetrics?.consumedTokens ?? primaryProvider?.consumedTokens ?? 0)}
-            </p>
-          </div>
-        </div>
-
-        {/* Official Upstream Live Quota Telemetry (OpusMax / Provider API) */}
-        {balanceMetrics?.discoveryDetails && (
-          <div className="p-4 rounded-control bg-emerald-500/5 border border-emerald-500/20 font-mono text-xs space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-500/20 pb-2">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span className="font-bold text-fg">Verified Upstream Quota (Official Provider API)</span>
-                {balanceMetrics.discoveryDetails.upstreamPlan && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-700">
-                    {balanceMetrics.discoveryDetails.upstreamPlan}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] text-muted">
-                Confidence: <strong className="text-emerald-600">{balanceMetrics.discoveryConfidence || 'HIGH'}</strong> · Discovered {balanceMetrics.lastDiscoveredAt ? new Date(balanceMetrics.lastDiscoveredAt).toLocaleTimeString() : 'Just now'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
-              <div>
-                <p className="text-muted text-[10px] uppercase">Rolling Window Reset</p>
-                <p className="font-bold text-fg">
-                  {balanceMetrics.nextResetAt ? `${new Date(balanceMetrics.nextResetAt).toLocaleTimeString()} (${Math.floor((balanceMetrics.windowResetSeconds || 0) / 3600)}h ${Math.floor(((balanceMetrics.windowResetSeconds || 0) % 3600) / 60)}m)` : 'N/A'}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted text-[10px] uppercase">Rate Limit</p>
-                <p className="font-bold text-fg">
-                  {balanceMetrics.discoveryDetails.rateLimitRpm ? `${balanceMetrics.discoveryDetails.rateLimitRpm} req/min` : '60 req/min'}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted text-[10px] uppercase">Total Requests (Upstream)</p>
-                <p className="font-bold text-fg">
-                  {balanceMetrics.discoveryDetails.totalRequests ?? '—'} all time
-                </p>
-              </div>
-              <div>
-                <p className="text-muted text-[10px] uppercase">Last 24 Hours</p>
-                <p className="font-bold text-fg">
-                  {balanceMetrics.discoveryDetails.last24hRequests ?? 0} requests
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Layer C Business Scenario Explainer Note */}
-        <div className="p-3.5 rounded-control bg-violet-500/5 border border-violet-500/20 flex items-start gap-3 text-xs font-mono">
-          <Layers className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <p className="font-bold text-fg">Three-Layer Token Accounting Separation Active</p>
-            <p className="text-muted leading-relaxed font-sans text-[11px]">
-              Active 5H Entitlement Exposure ({formatTokens(balanceMetrics?.exposure?.active5hWindowAllowance || '0')}) represents maximum potential concurrent demand across all active customer keys. It is monitored for capacity planning and headroom (<strong className="text-fg">{formatTokens(balanceMetrics?.exposure?.exposureHeadroomTokens || 0)} headroom remaining</strong>), and is strictly independent of Upstream Master Consumption. Remaining Upstream Master Headroom is calculated from actual verified requests ({formatTokens(balanceMetrics?.windowTokensUsed || 0)} consumed in window).
-            </p>
-          </div>
-        </div>
-
-        {/* Vendor Master Key 5-Hour Refresh Cycle Explainer & Telemetry Banner */}
-        {(primaryProvider?.capacityModel === 'rolling_window' || balanceMetrics?.capacityModel === 'rolling_window') && (
-          <div className="p-4 rounded-control bg-gradient-to-r from-violet-500/10 via-card to-indigo-500/10 border border-violet-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono text-xs shadow-xs">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-bold text-fg uppercase text-[11px]">
-                  Vendor 5-Hour Continuous Rolling Window Active
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-600 text-white">
-                  Refreshes Every 5 Hours
-                </span>
-              </div>
-              <p className="text-[11px] text-muted font-sans leading-relaxed">
-                Your vendor key supplies an allocation of <strong className="text-fg">{formatTokens(balanceMetrics?.windowAllowance || primaryProvider?.windowAllowance || 5000000)} tokens</strong> that continuously rolls every 5 hours (300 minutes). Tokens consumed roll off exactly 5 hours after completion, continually restoring your master headroom.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-4 shrink-0 bg-bg p-3 rounded-control border border-border">
-              <div className="text-right">
-                <p className="text-[10px] text-muted uppercase">Window Used / Headroom</p>
-                <p className="font-bold text-fg text-sm">
-                  <span className="text-amber-600">{formatTokens(balanceMetrics?.windowTokensUsed || 0)}</span>
-                  <span className="text-muted mx-1">/</span>
-                  <span className="text-emerald-600">{formatTokens(balanceMetrics?.availableTokens ?? primaryProvider?.availableTokens ?? 0)}</span>
-                </p>
-              </div>
-              <div className="h-8 w-px bg-border" />
-              <div>
-                <p className="text-[10px] text-muted uppercase">Refresh Cadence</p>
-                <p className="font-bold text-violet-600 text-sm">Every {balanceMetrics?.windowHours || primaryProvider?.windowHours || 5} Hours</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-
-        {reconcileResult && (
-          <div className={`p-3.5 rounded-control border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-            reconcileResult.isReconciled ? 'bg-emerald-500/5 border-emerald-500/30 text-emerald-700' : 'bg-red-500/5 border-red-500/30 text-red-700'
-          }`}>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>
-                {reconcileResult.fixed
-                  ? `✅ Ledger auto-reconciled! Database balance adjusted to ${formatTokens(reconcileResult.dbBalance)} with verified ledger records.`
-                  : reconcileResult.isReconciled
-                  ? `Ledger Reconciled Perfectly! Database Balance: ${formatTokens(reconcileResult.dbBalance)} matches sum of ${reconcileResult.transactionCount} transactions.`
-                  : `Ledger Discrepancy Detected! DB: ${formatTokens(reconcileResult.dbBalance)}, Calculated: ${formatTokens(reconcileResult.calculatedBalance)}.`}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              {!reconcileResult.isReconciled && !reconcileResult.fixed && (
-                <button
-                  onClick={() => handleReconcileLedger(true)}
-                  className="px-2.5 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs font-bold font-mono transition-colors shadow-xs"
-                >
-                  ⚡ Auto-Fix Discrepancy
-                </button>
-              )}
-              <button onClick={() => setReconcileResult(null)} className="text-muted hover:text-fg font-mono text-xs">✕</button>
-            </div>
-          </div>
-        )}
-
-        {/* Upstream Key Expired / Actionable Warning Alert */}
-        {syncResult?.probeResults?.some((p: any) => p.body && typeof p.body === 'object' && p.body.error?.code === 'key_expired') && (
-          <div className="p-4 rounded-control border border-amber-500/40 bg-amber-500/10 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs">
-            <div className="space-y-1">
-              <p className="font-bold flex items-center gap-2 text-amber-800">
-                <ShieldAlert className="w-4 h-4 text-amber-600" />
-                <span>Upstream Master API Key Expired on Provider ({primaryProvider?.name})</span>
-              </p>
-              <p className="text-[11px] text-amber-700">
-                The master vendor key (<code className="bg-amber-500/20 px-1 py-0.5 rounded">{primaryProvider?.displayMasterKey}</code>) returned <code>403 key_expired</code> from {primaryProvider?.baseUrl}. Click &quot;Edit Vendor&quot; below to update the master API key.
-              </p>
-            </div>
-            <button
-              onClick={() => primaryProvider && openEditModal(primaryProvider)}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-xs shrink-0 self-start sm:self-auto"
-            >
-              Update Master Key
-            </button>
-          </div>
-        )}
-
-        {syncResult && (
-          <div className="space-y-2">
-            <div className={`p-3.5 rounded-control border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-              syncResult.synced ? 'bg-blue-500/5 border-blue-500/30 text-blue-700' : 'bg-amber-500/5 border-amber-500/30 text-amber-700'
-            }`}>
-              <div className="flex items-center gap-2">
-                <CloudDownload className="w-4 h-4 shrink-0" />
-                <span>
-                  {syncResult.synced
-                    ? `✅ Vendor balance synced! Total: ${formatTokens(syncResult.balance?.totalTokens || '0')}, Available: ${formatTokens(syncResult.balance?.availableTokens || '0')}, Used: ${formatTokens(syncResult.balance?.usedTokens || '0')} (source: ${syncResult.balance?.source || 'vendor API'})`
-                    : `⚠️ ${syncResult.message}`}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                {syncResult.probeResults && (
-                  <button
-                    onClick={() => setShowProbeLogs(!showProbeLogs)}
-                    className="px-2 py-1 rounded text-xs font-bold bg-muted/50 hover:bg-muted text-fg border border-border flex items-center gap-1 font-mono"
+      {/* ============================================================== */}
+      {/* TAB 1: LIVE CAPACITY & ROLLING-WINDOW HEADROOM                   */}
+      {/* ============================================================== */}
+      {mainTab === 'capacity' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Hero Rolling Window Card */}
+          <div className="bg-card border border-border rounded-panel p-6 shadow-sm space-y-6">
+            {/* Card Header & Provider Switcher */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-bold text-fg font-sans">Active Upstream Master Balance</h2>
+                  {getStatusBadge(balanceMetrics?.status || primaryProvider?.status || 'NOT_CONFIGURED', primaryHasKey)}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                  <span>Selected Vendor:</span>
+                  <select
+                    value={primaryProvider?.id || ''}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      setSelectedProviderId(newId);
+                      fetchBalanceMetrics(newId);
+                      fetchLedger(newId);
+                    }}
+                    className="py-1 px-2.5 text-xs font-semibold text-fg bg-bg border border-border rounded shadow-xs focus:outline-none focus:border-violet-500 font-sans"
                   >
-                    <Code className="w-3 h-3" />
-                    <span>{showProbeLogs ? 'Hide Diagnostics' : `View Diagnostics (${syncResult.probeResults.length} probes)`}</span>
+                    {providers.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.displayMasterKey || 'Not Set'}) {p.status === 'connected' ? '✓' : ''} {p.isDefault ? '[DEFAULT]' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-muted font-mono">· {primaryProvider?.baseUrl}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                {primaryProvider && (
+                  <button
+                    onClick={() => handleSyncVendorBalance(primaryProvider.id)}
+                    disabled={syncing}
+                    className="ui-button-primary text-xs py-2 px-3.5 gap-2 font-mono bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs disabled:opacity-50"
+                  >
+                    <CloudDownload className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                    <span>{syncing ? 'Discovering...' : 'Discover Provider Limits'}</span>
                   </button>
                 )}
-                <button onClick={() => { setSyncResult(null); setShowProbeLogs(false); }} className="text-muted hover:text-fg font-mono text-xs">✕</button>
+                <button
+                  onClick={() => handleReconcileLedger(false)}
+                  className="ui-button-secondary text-xs py-2 px-3.5 gap-2 font-mono"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Audit Reconcile</span>
+                </button>
               </div>
             </div>
 
-            {showProbeLogs && syncResult.probeResults && (
-              <div className="p-4 rounded-control border border-border bg-black/90 text-emerald-400 font-mono text-[11px] space-y-2 max-h-80 overflow-y-auto">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2 text-white font-bold">
-                  <span>⚡ Upstream Vendor Diagnostic Probe Log ({syncResult.probeResults.length} Endpoints Tested)</span>
-                  <span className="text-[10px] text-muted font-normal">Base URL: {primaryProvider?.baseUrl}</span>
-                </div>
-                {syncResult.probeResults.map((pr: any, idx: number) => (
-                  <div key={idx} className="border-b border-white/5 pb-1.5 pt-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                        pr.status === 200 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
-                        pr.status === 401 || pr.status === 403 ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-muted'
-                      }`}>
-                        {pr.method || 'GET'} {pr.status || 'ERR'}
-                      </span>
-                      <span className="font-bold text-white">{pr.path}</span>
-                    </div>
-                    {pr.headers && Object.keys(pr.headers).length > 0 && (
-                      <div className="text-[10px] text-violet-300 pl-4 mt-0.5">
-                        Headers: {JSON.stringify(pr.headers)}
-                      </div>
-                    )}
-                    {pr.body && (
-                      <div className="text-[10px] text-gray-400 pl-4 mt-0.5 truncate">
-                        Body: {typeof pr.body === 'object' ? JSON.stringify(pr.body) : String(pr.body)}
-                      </div>
-                    )}
+            {/* Visual Capacity & Rolling Window Progress Gauge */}
+            <div className="p-5 rounded-control bg-gradient-to-r from-violet-500/5 via-card to-indigo-500/5 border border-violet-500/20 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono">
+                <div>
+                  <p className="text-[11px] text-muted uppercase font-bold tracking-wider">5-Hour Rolling Master Capacity</p>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-3xl font-extrabold text-fg">
+                      {formatTokens(balanceMetrics?.exposure?.upstreamRemainingMasterCapacity || balanceMetrics?.availableTokens || primaryProvider?.availableTokens || 0)}
+                    </span>
+                    <span className="text-xs text-muted">
+                      / {formatTokens(balanceMetrics?.windowAllowance || primaryProvider?.windowAllowance || 5000000)} Tokens Available
+                    </span>
                   </div>
-                ))}
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  {balanceMetrics?.nextResetAt ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20 text-xs font-bold font-mono">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>
+                        Resets in {Math.floor((balanceMetrics.windowResetSeconds || 0) / 3600)}h {Math.floor(((balanceMetrics.windowResetSeconds || 0) % 3600) / 60)}m ({new Date(balanceMetrics.nextResetAt).toLocaleTimeString()})
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-xs font-bold font-mono">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Full Capacity Ready (0 Consumed)</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* Modern Progress Bar */}
+              <div className="space-y-1.5">
+                <div className="w-full h-3 rounded-full bg-bg border border-border overflow-hidden p-0.5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, 100 - (Number(balanceMetrics?.windowTokensUsed || 0) / Math.max(1, Number(balanceMetrics?.windowAllowance || 5000000))) * 100))}%`
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] font-mono text-muted">
+                  <span>Used in 5h: <strong className="text-amber-600">{formatTokens(balanceMetrics?.windowTokensUsed || 0)}</strong></span>
+                  <span>Remaining: <strong className="text-emerald-600">{formatTokens(balanceMetrics?.exposure?.upstreamRemainingMasterCapacity || balanceMetrics?.availableTokens || 0)} ({(100 - (Number(balanceMetrics?.windowTokensUsed || 0) / Math.max(1, Number(balanceMetrics?.windowAllowance || 5000000))) * 100).toFixed(1)}%)</strong></span>
+                </div>
+              </div>
+
+              {/* Verified Upstream Quota Telemetry (OpusMax API) */}
+              {balanceMetrics?.discoveryDetails && (
+                <div className="pt-3 border-t border-violet-500/20 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                  <div>
+                    <span className="text-[10px] text-muted uppercase block">Upstream Plan</span>
+                    <span className="font-bold text-fg flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-amber-500" />
+                      {balanceMetrics.discoveryDetails.upstreamPlan || 'Max 5x Trial'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted uppercase block">Rate Limit</span>
+                    <span className="font-bold text-fg">
+                      {balanceMetrics.discoveryDetails.rateLimitRpm ? `${balanceMetrics.discoveryDetails.rateLimitRpm} req/min` : '60 req/min'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted uppercase block">Total Upstream Requests</span>
+                    <span className="font-bold text-fg">
+                      {balanceMetrics.discoveryDetails.totalRequests ?? '—'} all time
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted uppercase block">Last 24 Hours</span>
+                    <span className="font-bold text-fg">
+                      {balanceMetrics.discoveryDetails.last24hRequests ?? 0} requests
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3 Clear Metric KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
+              {/* Card 1: Master Upstream Headroom */}
+              <div className="p-4 rounded-control bg-bg border border-border space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-muted uppercase font-bold">Remaining Headroom</p>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                    LAYER A HEADROOM
+                  </span>
+                </div>
+                <p className="text-2xl font-bold text-emerald-600">
+                  {formatTokens(balanceMetrics?.exposure?.upstreamRemainingMasterCapacity || balanceMetrics?.availableTokens || 0)}
+                </p>
+                <p className="text-[10px] text-muted">
+                  5H limit ({formatTokens(balanceMetrics?.windowAllowance || 5000000)}) minus current window consumption
+                </p>
+              </div>
+
+              {/* Card 2: Active Customer Entitlement Exposure */}
+              <div className="p-4 rounded-control bg-bg border border-border space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-muted uppercase font-bold">Customer 5H Exposure</p>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                    LAYER C EXPOSURE
+                  </span>
+                </div>
+                <p className="text-2xl font-bold text-violet-600">
+                  {formatTokens(balanceMetrics?.exposure?.active5hWindowAllowance || '0')}
+                </p>
+                <p className="text-[10px] text-muted">
+                  Total potential concurrent ceiling across {balanceMetrics?.exposure?.activeKeyCount || 0} active keys
+                </p>
+              </div>
+
+              {/* Card 3: Upstream Consumption */}
+              <div className="p-4 rounded-control bg-bg border border-border space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-muted uppercase font-bold">Consumed Upstream</p>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                    ACTUAL USAGE
+                  </span>
+                </div>
+                <p className="text-2xl font-bold text-amber-600">
+                  {formatTokens(balanceMetrics?.windowTokensUsed || 0)}
+                </p>
+                <p className="text-[10px] text-muted">
+                  In 5h window · Lifetime: {formatTokens(balanceMetrics?.consumedTokens ?? primaryProvider?.consumedTokens ?? 0)}
+                </p>
+              </div>
+            </div>
+
+            {/* Clean Collapsible Accounting Principles Accordion */}
+            <div className="border border-border rounded-control overflow-hidden">
+              <button
+                onClick={() => setShowAccountingDetails(!showAccountingDetails)}
+                className="w-full py-2.5 px-4 bg-muted/5 hover:bg-muted/10 transition-colors flex items-center justify-between text-xs font-medium text-muted hover:text-fg font-sans"
+              >
+                <div className="flex items-center gap-2">
+                  <Info className="w-3.5 h-3.5 text-violet-500" />
+                  <span>Understanding 5-Hour Rolling Window & Entitlement Exposure</span>
+                </div>
+                {showAccountingDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {showAccountingDetails && (
+                <div className="p-4 bg-bg text-xs space-y-2 border-t border-border text-muted font-sans leading-relaxed">
+                  <p>
+                    <strong className="text-fg">Layer A (Upstream Master Headroom):</strong> Your vendor key supplies an allocation of {formatTokens(balanceMetrics?.windowAllowance || 5000000)} tokens that rolls continuously every 5 hours. Tokens consumed roll off 5 hours after request completion, constantly replenishing master capacity.
+                  </p>
+                  <p>
+                    <strong className="text-fg">Layer B (Customer Quotas):</strong> Each customer API key has an independent 5-hour rolling allowance (e.g. 5M or 20M tokens).
+                  </p>
+                  <p>
+                    <strong className="text-fg">Layer C (Entitlement Exposure):</strong> {formatTokens(balanceMetrics?.exposure?.active5hWindowAllowance || '0')} is the theoretical concurrent demand ceiling if every active customer utilized 100% of their quota simultaneously. It is tracked for capacity planning and never subtracted from upstream available tokens.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Subtab Toggle Buttons */}
-      <div className="flex items-center gap-2 border-b border-border pb-3">
-        <button
-          onClick={() => setActiveTab('providers')}
-          className={`px-4 py-2 text-xs font-bold rounded-control transition-all flex items-center gap-2 ${
-            activeTab === 'providers' ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'bg-white text-muted hover:text-fg border border-border'
-          }`}
-        >
-          <Server className="w-4 h-4" />
-          <span>Vendor Providers ({providers.length})</span>
-        </button>
+      {/* ============================================================== */}
+      {/* TAB 2: CONFIGURED PROVIDERS LIST                                 */}
+      {/* ============================================================== */}
+      {mainTab === 'providers' && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-fg font-sans">Configured Upstream Providers</h2>
+              <p className="text-xs text-muted">Manage master API keys, health status, and test connection latency.</p>
+            </div>
+            <button onClick={openCreateModal} className="ui-button-primary text-xs py-1.5 px-3.5 gap-1.5 font-medium">
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Provider</span>
+            </button>
+          </div>
 
-        <button
-          onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 text-xs font-bold rounded-control transition-all flex items-center gap-2 ${
-            activeTab === 'ledger' ? 'bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xs' : 'bg-white text-muted hover:text-fg border border-border'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Master Token Accounting Ledger ({ledgerEntries.length})</span>
-        </button>
-      </div>
-
-      {/* Subtab Content */}
-      {activeTab === 'providers' ? (
-        <div className="bg-white border border-border rounded-panel overflow-hidden shadow-xs">
-          {loading ? (
-            <div className="py-12 text-center text-xs text-muted font-mono">Loading vendor providers...</div>
-          ) : providers.length === 0 ? (
-            <div className="py-12 text-center text-xs text-muted font-mono">No vendor providers configured yet.</div>
-          ) : (
+          <div className="bg-white border border-border rounded-panel overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
@@ -1034,11 +911,10 @@ export const AdminProviders: React.FC = () => {
                     <th className="py-3 px-3 font-bold">Status</th>
                     <th className="py-3 px-3 font-bold">Protocol</th>
                     <th className="py-3 px-3 font-bold">Host</th>
-                    <th className="py-3 px-3 font-bold text-center">Keys</th>
+                    <th className="py-3 px-3 font-bold text-center">Active Keys</th>
                     <th className="py-3 px-3 font-bold text-center">Requests</th>
-                    <th className="py-3 px-3 font-bold text-center">Error Rate</th>
                     <th className="py-3 px-3 font-bold text-center">Latency</th>
-                    <th className="py-3 px-3 font-bold">Tokens (Avail / Consumed)</th>
+                    <th className="py-3 px-3 font-bold">Tokens (Avail / Used)</th>
                     <th className="py-3 px-3 font-bold text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1080,11 +956,6 @@ export const AdminProviders: React.FC = () => {
                           </td>
                           <td className="py-3.5 px-3 text-center text-fg font-bold">{p.activeKeyCount ?? 0}</td>
                           <td className="py-3.5 px-3 text-center text-fg">{p.requestCount ?? 0}</td>
-                          <td className="py-3.5 px-3 text-center">
-                            <span className={Number(p.errorRate || 0) > 5 ? 'text-red-600 font-bold' : 'text-muted'}>
-                              {p.errorRate !== undefined ? `${p.errorRate}%` : '0%'}
-                            </span>
-                          </td>
                           <td className="py-3.5 px-3 text-center text-muted">
                             {p.avgLatencyMs !== undefined && p.avgLatencyMs > 0 ? `${p.avgLatencyMs}ms` : '—'}
                           </td>
@@ -1094,31 +965,13 @@ export const AdminProviders: React.FC = () => {
                           </td>
                           <td className="py-3.5 px-3 text-right space-x-1.5 whitespace-nowrap">
                             <button
-                              onClick={() => handleToggleStatus(p)}
-                              className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors ${
-                                p.status === 'disabled'
-                                  ? 'border-emerald-500/30 text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/15'
-                                  : 'border-muted text-muted hover:text-fg hover:bg-bg'
-                              }`}
-                              title={p.status === 'disabled' ? 'Enable Provider' : 'Disable Provider'}
-                            >
-                              {p.status === 'disabled' ? 'Enable' : 'Disable'}
-                            </button>
-                            <button
-                              onClick={() => openEditModal(p)}
-                              className="p-1.5 rounded border border-border text-muted hover:text-fg hover:bg-bg transition-colors inline-flex items-center"
-                              title="Edit Configuration"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
                               onClick={() => {
                                 setSelectedProviderId(p.id);
                                 handleSyncVendorBalance(p.id);
                               }}
                               disabled={syncing}
                               className="px-2.5 py-1 rounded text-xs font-semibold border border-blue-500/30 text-blue-600 bg-blue-500/5 hover:bg-blue-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
-                              title="Discover live upstream limits and rolling-window usage from provider API"
+                              title="Discover live upstream limits from provider API"
                             >
                               <CloudDownload className={`w-3 h-3 ${syncing && primaryProvider?.id === p.id ? 'animate-spin' : ''}`} />
                               <span>Discover</span>
@@ -1131,11 +984,29 @@ export const AdminProviders: React.FC = () => {
                               <RefreshCw className={`w-3 h-3 ${testingId === p.id ? 'animate-spin' : ''}`} />
                               <span>{testingId === p.id ? 'Testing...' : 'Test'}</span>
                             </button>
+                            <button
+                              onClick={() => openEditModal(p)}
+                              className="p-1.5 rounded border border-border text-muted hover:text-fg hover:bg-bg transition-colors inline-flex items-center"
+                              title="Edit Configuration"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleStatus(p)}
+                              className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors ${
+                                p.status === 'disabled'
+                                  ? 'border-emerald-500/30 text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500/15'
+                                  : 'border-muted text-muted hover:text-fg hover:bg-bg'
+                              }`}
+                              title={p.status === 'disabled' ? 'Enable Provider' : 'Disable Provider'}
+                            >
+                              {p.status === 'disabled' ? 'Enable' : 'Disable'}
+                            </button>
                           </td>
                         </tr>
                         {testRes && (
                           <tr className="bg-muted/5 border-b border-border/40">
-                            <td colSpan={10} className="py-2 px-4 text-xs font-mono">
+                            <td colSpan={9} className="py-2.5 px-4 text-xs font-mono">
                               <span className={`font-bold mr-2 ${testRes.status === 'CONNECTED' ? 'text-emerald-600' : 'text-red-600'}`}>
                                 [{testRes.status}]
                               </span>
@@ -1149,54 +1020,237 @@ export const AdminProviders: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white border border-border rounded-panel overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
-                  <th className="py-3 px-4 font-bold">Transaction Type</th>
-                  <th className="py-3 px-4 font-bold">Amount</th>
-                  <th className="py-3 px-4 font-bold">Master Balance After</th>
-                  <th className="py-3 px-4 font-bold">Reference</th>
-                  <th className="py-3 px-4 font-bold">Notes</th>
-                  <th className="py-3 px-4 font-bold">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60 font-mono">
-                {ledgerEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted">No master token ledger transactions recorded yet.</td>
-                  </tr>
-                ) : (
-                  ledgerEntries.map((e) => (
-                    <tr key={e.id} className="hover:bg-bg/40">
-                      <td className="py-3.5 px-4 font-bold uppercase">
-                        <span className={`px-2 py-0.5 rounded text-[10px] ${
-                          e.type === 'TOP_UP' || e.type === 'INITIAL_ALLOCATION'
-                            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30'
-                            : 'bg-amber-500/10 text-amber-600 border border-amber-500/30'
-                        }`}>
-                          {e.type}
-                        </span>
-                      </td>
-                      <td className={`py-3.5 px-4 font-bold ${Number(e.amount) >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        {Number(e.amount) >= 0 ? `+${formatTokens(e.amount)}` : formatTokens(e.amount)}
-                      </td>
-                      <td className="py-3.5 px-4 text-fg font-bold">{formatTokens(e.balanceAfter)}</td>
-                      <td className="py-3.5 px-4 text-fg font-semibold">{e.reference || '—'}</td>
-                      <td className="py-3.5 px-4 text-muted max-w-xs truncate">{e.notes || '—'}</td>
-                      <td className="py-3.5 px-4 text-muted">{new Date(e.createdAt).toLocaleString()}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
       )}
+
+      {/* ============================================================== */}
+      {/* TAB 3: GATEWAY ROUTING & AUTOMATED FAILOVER                      */}
+      {/* ============================================================== */}
+      {mainTab === 'routing' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          <div className="bg-card border border-border rounded-panel p-6 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+              <div>
+                <h2 className="text-base font-bold text-fg font-sans flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-violet-600" />
+                  <span>Gateway Provider Routing & Failover</span>
+                </h2>
+                <p className="text-xs text-muted mt-0.5">
+                  Configure default provider for newly issued keys, monitor live connection status, and configure automated zero-downtime failover.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowMigrateModal(true);
+                  setMigrateResult(null);
+                  const op = providers.find((p) => p.name.toLowerCase().includes('opus') || p.isPrimary);
+                  if (op) setMigrateTargetId(op.id);
+                }}
+                className="px-3.5 py-1.5 rounded-control text-xs font-bold border border-indigo-500/30 text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5 self-start sm:self-auto"
+              >
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                <span>Bulk Migrate Keys</span>
+              </button>
+            </div>
+
+            {/* Provider Status & Routing Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Default Provider Switcher */}
+              <div className="p-4 rounded-control bg-bg border border-border space-y-2">
+                <span className="text-[11px] font-mono text-muted uppercase font-bold">Default Provider for New Keys</span>
+                <select
+                  value={failoverConfig.defaultProviderId || providers.find((p) => p.isDefault)?.id || ''}
+                  onChange={(e) => handleSetDefaultProvider(e.target.value)}
+                  className="w-full text-xs font-mono font-bold py-2 px-2.5 rounded border border-border bg-card text-fg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                >
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.status === 'connected' ? '● Online' : '○ ' + p.status}) {p.isDefault ? '★ (Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted">
+                  New customer API keys will be provisioned using this upstream provider.
+                </p>
+              </div>
+
+              {/* Failover Mode */}
+              <div className="p-4 rounded-control bg-bg border border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono text-muted uppercase font-bold">Automated Provider Failover</span>
+                  <button
+                    disabled={savingFailover}
+                    onClick={() => handleUpdateFailover({ ...failoverConfig, enableAutoFailover: !failoverConfig.enableAutoFailover })}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono transition-colors ${
+                      failoverConfig.enableAutoFailover
+                        ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/40'
+                        : 'bg-muted/40 text-muted border border-border'
+                    }`}
+                  >
+                    {failoverConfig.enableAutoFailover ? 'ENABLED' : 'DISABLED'}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-mono">
+                  <span className="text-muted text-[11px] w-16">Primary:</span>
+                  <select
+                    value={failoverConfig.primaryProviderId || ''}
+                    onChange={(e) => handleUpdateFailover({ ...failoverConfig, primaryProviderId: e.target.value })}
+                    className="flex-1 text-[11px] font-mono py-1.5 px-2 rounded border border-border bg-card text-fg"
+                  >
+                    {providers.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-mono">
+                  <span className="text-muted text-[11px] w-16">Fallback:</span>
+                  <select
+                    value={failoverConfig.fallbackProviderId || ''}
+                    onChange={(e) => handleUpdateFailover({ ...failoverConfig, fallbackProviderId: e.target.value })}
+                    className="flex-1 text-[11px] font-mono py-1.5 px-2 rounded border border-border bg-card text-fg"
+                  >
+                    {providers.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Quick Connection Diagnostics */}
+              <div className="p-4 rounded-control bg-bg border border-border space-y-2.5">
+                <span className="text-[11px] font-mono text-muted uppercase font-bold">Live Provider Health</span>
+                <div className="space-y-2">
+                  {providers.map((p) => {
+                    const res = testResults[p.id];
+                    return (
+                      <div key={p.id} className="flex items-center justify-between text-xs font-mono p-1.5 rounded bg-card border border-border/50">
+                        <span className="font-semibold text-fg flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${p.status === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          {p.name}
+                        </span>
+                        <button
+                          onClick={() => handleTestConnection(p.id)}
+                          disabled={testingId === p.id}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold text-muted hover:text-fg hover:bg-bg border border-border/60 transition-colors flex items-center gap-1"
+                        >
+                          <RefreshCw className={`w-2.5 h-2.5 ${testingId === p.id ? 'animate-spin' : ''}`} />
+                          <span>{testingId === p.id ? 'Pinging...' : res ? `${res.status} (${res.latencyMs || 0}ms)` : 'Ping'}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 4: TOKEN ACCOUNTING LEDGER                                  */}
+      {/* ============================================================== */}
+      {mainTab === 'ledger' && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-fg font-sans">Authoritative Token Accounting Ledger</h2>
+              <p className="text-xs text-muted">Immutable transaction log of master top-ups and customer allocations.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleReconcileLedger(false)}
+                className="ui-button-secondary text-xs py-1.5 px-3 gap-1.5 font-mono"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Audit Reconcile</span>
+              </button>
+              <button
+                onClick={() => setShowTopUpModal(true)}
+                className="ui-button-primary text-xs py-1.5 px-3 gap-1.5 font-mono bg-gradient-to-tr from-emerald-600 to-teal-600 text-white"
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Top Up Master Balance</span>
+              </button>
+            </div>
+          </div>
+
+          {reconcileResult && (
+            <div className={`p-3.5 rounded-control border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              reconcileResult.isReconciled ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700' : 'bg-red-500/10 border-red-500/30 text-red-700'
+            }`}>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>
+                  {reconcileResult.fixed
+                    ? `✅ Ledger auto-reconciled! Database balance adjusted to ${formatTokens(reconcileResult.dbBalance)} with verified ledger records.`
+                    : reconcileResult.isReconciled
+                    ? `Ledger Reconciled Perfectly! Database Balance: ${formatTokens(reconcileResult.dbBalance)} matches sum of ${reconcileResult.transactionCount} transactions.`
+                    : `Ledger Discrepancy Detected! DB: ${formatTokens(reconcileResult.dbBalance)}, Calculated: ${formatTokens(reconcileResult.calculatedBalance)}.`}
+                </span>
+              </div>
+              {!reconcileResult.isReconciled && !reconcileResult.fixed && (
+                <button
+                  onClick={() => handleReconcileLedger(true)}
+                  className="px-2.5 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs font-bold font-mono transition-colors shadow-xs"
+                >
+                  Auto-Fix Discrepancy
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="bg-white border border-border rounded-panel overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-border text-muted font-mono uppercase bg-bg">
+                    <th className="py-3 px-4 font-bold">Transaction Type</th>
+                    <th className="py-3 px-4 font-bold">Amount</th>
+                    <th className="py-3 px-4 font-bold">Master Balance After</th>
+                    <th className="py-3 px-4 font-bold">Reference</th>
+                    <th className="py-3 px-4 font-bold">Notes</th>
+                    <th className="py-3 px-4 font-bold">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60 font-mono">
+                  {ledgerEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-muted">No master token ledger transactions recorded yet.</td>
+                    </tr>
+                  ) : (
+                    ledgerEntries.map((e) => (
+                      <tr key={e.id} className="hover:bg-bg/40">
+                        <td className="py-3.5 px-4 font-bold uppercase">
+                          <span className={`px-2 py-0.5 rounded text-[10px] ${
+                            e.type === 'TOP_UP' || e.type === 'INITIAL_ALLOCATION'
+                              ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30'
+                              : 'bg-amber-500/10 text-amber-600 border border-amber-500/30'
+                          }`}>
+                            {e.type}
+                          </span>
+                        </td>
+                        <td className={`py-3.5 px-4 font-bold ${Number(e.amount) >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {Number(e.amount) >= 0 ? `+${formatTokens(e.amount)}` : formatTokens(e.amount)}
+                        </td>
+                        <td className="py-3.5 px-4 text-fg font-bold">{formatTokens(e.balanceAfter)}</td>
+                        <td className="py-3.5 px-4 text-fg font-semibold">{e.reference || '—'}</td>
+                        <td className="py-3.5 px-4 text-muted max-w-xs truncate">{e.notes || '—'}</td>
+                        <td className="py-3.5 px-4 text-muted">{new Date(e.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODALS: TOP-UP, EDIT/ADD PROVIDER, BULK MIGRATION              */}
+      {/* ============================================================== */}
 
       {/* Top Up Master Balance Modal */}
       {showTopUpModal && (
@@ -1401,102 +1455,61 @@ export const AdminProviders: React.FC = () => {
                       <input
                         type="number"
                         min="1"
-                        max="168"
+                        max="72"
                         value={windowHours}
                         onChange={(e) => setWindowHours(e.target.value)}
                         className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono font-bold"
                       />
-                      <span className="text-xs text-muted font-bold">Hours</span>
+                      <span className="text-muted font-bold">Hours</span>
                     </div>
-                    <p className="text-[10px] text-muted mt-0.5 font-sans">Tokens replenish continuously after window</p>
                   </div>
                 ) : (
                   <div>
-                    <label className="block font-bold text-fg mb-1 uppercase">Pool Management</label>
-                    <div className="px-3 py-2 text-xs text-muted bg-muted/10 border border-border rounded-control">
-                      Requires manual top-ups
-                    </div>
+                    <label className="block font-bold text-fg mb-1 uppercase">Purchased Tokens</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={availableTokens}
+                      onChange={(e) => setAvailableTokens(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono font-bold"
+                    />
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block font-bold text-fg mb-1 uppercase">Base URL (HTTPS Only) *</label>
+                <label className="block font-bold text-fg mb-1 uppercase">Provider Base URL *</label>
                 <input
                   type="url"
                   required
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="https://api.upstream-provider.com"
+                  placeholder="https://api.opusmax.pro"
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
               </div>
 
               <div>
                 <label className="block font-bold text-fg mb-1 uppercase">
-                  {editingProvider ? 'Update Master API Key (Leave blank to keep existing)' : 'Master API Key *'}
+                  Master API Key {editingProvider ? '(Leave blank to keep existing encrypted key)' : '*'}
                 </label>
                 <input
                   type="password"
-                  autoComplete="new-password"
-                  data-1p-ignore
-                  data-lpignore="true"
+                  required={!editingProvider}
                   value={masterApiKey}
                   onChange={(e) => setMasterApiKey(e.target.value)}
-                  placeholder={editingProvider ? '•••••••• (Encrypted in DB - leave blank to keep)' : 'sm_live_•••••••• or sk-ant-•••••••• (Vendor Master Key)'}
-                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
-                />
-                <p className="text-[10px] text-muted mt-1 font-sans">
-                  Encrypted at rest with AES-256-GCM. Never exposed in API responses or customer telemetry.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-fg mb-1 uppercase">Warning Threshold</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={warningThresholdTokens}
-                    onChange={(e) => setWarningThresholdTokens(e.target.value)}
-                    placeholder="20000000"
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-fg mb-1 uppercase">Critical Threshold</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={criticalThresholdTokens}
-                    onChange={(e) => setCriticalThresholdTokens(e.target.value)}
-                    placeholder="5000000"
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block font-bold text-fg uppercase">Model Mappings (JSON Format)</label>
-                  <span className="text-[10px] text-muted font-sans">Maps LightningAPI model to upstream model ID</span>
-                </div>
-                <textarea
-                  rows={4}
-                  value={modelMappingsJson}
-                  onChange={(e) => setModelMappingsJson(e.target.value)}
-                  placeholder={'{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}'}
+                  placeholder={editingProvider ? '••••••••••••••••' : 'sk-ant-api03-...'}
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-fg mb-1 uppercase">Notes / Internal Context</label>
-                <textarea
-                  rows={2}
+                <label className="block font-bold text-fg mb-1 uppercase">Internal Notes</label>
+                <input
+                  type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Primary enterprise upstream provider configuration..."
+                  placeholder="Primary upstream vendor account"
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-sans"
                 />
               </div>

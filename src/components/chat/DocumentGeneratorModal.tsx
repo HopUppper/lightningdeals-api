@@ -23,7 +23,7 @@ export interface DocumentGeneratorModalProps {
   initialContent?: string;
 }
 
-type SupportedFormat = 'docx' | 'xlsx' | 'pdf' | 'csv' | 'md' | 'txt';
+type SupportedFormat = 'docx' | 'xlsx' | 'pptx' | 'pdf' | 'csv' | 'md' | 'txt' | 'html';
 
 interface FormatMeta {
   id: SupportedFormat;
@@ -58,6 +58,16 @@ const SUPPORTED_FORMATS: FormatMeta[] = [
     description: 'Multi-column financial tables, token metrics, budget sheets, and tabular datasets.',
   },
   {
+    id: 'pptx',
+    name: 'PowerPoint Slides',
+    ext: '.pptx',
+    mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    icon: Layers,
+    badge: 'OpenXML Deck',
+    color: 'text-orange-500 bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/40',
+    description: 'Structured presentation slides, executive briefings, and bullet-point decks.',
+  },
+  {
     id: 'pdf',
     name: 'PDF Document',
     ext: '.pdf',
@@ -76,6 +86,16 @@ const SUPPORTED_FORMATS: FormatMeta[] = [
     badge: 'RFC 4180 / UTF-8',
     color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/40',
     description: 'Universal delimited values with UTF-8 BOM, compatible with all spreadsheet tools.',
+  },
+  {
+    id: 'html',
+    name: 'Web Document',
+    ext: '.html',
+    mime: 'text/html; charset=utf-8',
+    icon: FileText,
+    badge: 'HTML5 Standalone',
+    color: 'text-cyan-500 bg-cyan-50 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-800/40',
+    description: 'Self-contained styled HTML document with typography and clean CSS tables.',
   },
   {
     id: 'md',

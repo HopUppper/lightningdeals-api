@@ -26,7 +26,24 @@ import {
 } from './studioActivity';
 // @ts-ignore
 import yauzl from 'yauzl';
-import { generateStudioDocument } from './documentGenerator';
+import {
+  generateStudioDocument,
+  saveArtifact,
+  getArtifactById,
+  listArtifactsByUser,
+  DocumentFormat,
+} from './documentGenerator';
+import { resolveStudioCapabilities } from './studioCapabilities';
+import {
+  ingestUploadedFile,
+  formatUntrustedAttachmentDirective,
+  extractTextFromXlsx,
+} from './fileIngestion';
+import {
+  parseDelimitedTable,
+  analyzeDataGrid,
+  cleanAndReviseDataset,
+} from './dataAnalysis';
 import {
   resolveStudioEntitlement,
   isModelAuthorizedForKey,
@@ -1488,98 +1505,37 @@ studioRouter.delete('/skills/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/user/studio/upload - Secure File Attachment Parser
+// POST /api/user/studio/upload - Secure File Attachment Parser with Magic Byte Validation
 studioRouter.post('/upload', async (req: AuthRequest, res: Response) => {
   try {
     const { fileName, mimeType, base64Data, size } = req.body;
+    const user = req.user!;
 
-    if (!fileName || !base64Data) {
-      return res.status(400).json({ success: false, error: { message: 'Filename and file data are required.' } });
-    }
+    // Resolve entitlement size limits (25MB paid, 10MB trial)
+    const activeKey = await prisma.apiKey.findFirst({
+      where: { userId: user.id, status: 'ACTIVE' },
+    });
+    const maxSizeBytes = (activeKey && !activeKey.isTrial) ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
 
-    const sanitizedFileName = String(fileName).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-    const byteSize = Number(size) || Math.round((base64Data.length * 3) / 4);
+    const result = await ingestUploadedFile({
+      fileName,
+      mimeType,
+      base64Data,
+      size,
+      maxSizeBytes,
+    });
 
-    if (byteSize > 25 * 1024 * 1024) {
-      return res.status(413).json({ success: false, error: { message: 'File exceeds maximum allowed size of 25MB.' } });
-    }
-
-    const lowerExt = sanitizedFileName.split('.').pop()?.toLowerCase() || '';
-    const cleanMime = String(mimeType || '').toLowerCase();
-
-    // 1. Text & Code files
-    const textExtensions = ['txt', 'md', 'ts', 'tsx', 'js', 'jsx', 'py', 'json', 'csv', 'html', 'css', 'yaml', 'yml', 'sql', 'sh', 'env', 'prisma', 'xml'];
-    if (textExtensions.includes(lowerExt) || cleanMime.startsWith('text/') || cleanMime === 'application/json' || cleanMime === 'text/csv') {
-      const buffer = Buffer.from(base64Data, 'base64');
-      const textContent = buffer.toString('utf-8');
-      const textSnippet = textContent.slice(0, 150000); // 150k chars max
-
-      return res.json({
-        success: true,
-        attachment: {
-          name: sanitizedFileName,
-          type: 'file',
-          mimeType: cleanMime || 'text/plain',
-          size: byteSize,
-          textSnippet,
-        },
+    if (!result.success || !result.attachment) {
+      const statusCode = result.error?.code === 'FILE_TOO_LARGE' ? 413 : 415;
+      return res.status(statusCode).json({
+        success: false,
+        error: { message: result.error?.message || 'File processing failed.' },
       });
     }
 
-    // 2. Word (.docx) Documents
-    if (lowerExt === 'docx' || cleanMime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      const buffer = Buffer.from(base64Data, 'base64');
-      const docxText = await extractTextFromDocx(buffer);
-      const textSnippet = docxText.slice(0, 150000);
-
-      return res.json({
-        success: true,
-        attachment: {
-          name: sanitizedFileName,
-          type: 'file',
-          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          size: byteSize,
-          textSnippet,
-        },
-      });
-    }
-
-    // 3. Vision Images
-    const imageExtensions = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
-    if (imageExtensions.includes(lowerExt) || cleanMime.startsWith('image/')) {
-      const supportedImageMime = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(cleanMime)
-        ? cleanMime
-        : lowerExt === 'png' ? 'image/png' : lowerExt === 'webp' ? 'image/webp' : 'image/jpeg';
-
-      return res.json({
-        success: true,
-        attachment: {
-          name: sanitizedFileName,
-          type: 'image',
-          mimeType: supportedImageMime,
-          size: byteSize,
-          dataBase64: base64Data,
-        },
-      });
-    }
-
-    // 4. PDF Documents
-    if (lowerExt === 'pdf' || cleanMime === 'application/pdf') {
-      return res.json({
-        success: true,
-        attachment: {
-          name: sanitizedFileName,
-          type: 'document',
-          mimeType: 'application/pdf',
-          size: byteSize,
-          dataBase64: base64Data,
-        },
-      });
-    }
-
-    return res.status(415).json({
-      success: false,
-      error: { message: `Unsupported file format (.${lowerExt}). Supported formats: Word (.docx), PDF, Images (PNG, JPG, WEBP), and Code/Text (TXT, MD, TS, JS, PY, JSON, CSV).` },
+    return res.json({
+      success: true,
+      attachment: result.attachment,
     });
   } catch (err: any) {
     console.error('[STUDIO FILE UPLOAD ERROR]', err);
@@ -1587,30 +1543,44 @@ studioRouter.post('/upload', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/user/studio/documents/generate - Server-side OpenXML/PDF/CSV/MD/TXT Generator
+// POST /api/user/studio/documents/generate - Server-side OpenXML/PDF/CSV/MD/TXT/HTML/PPTX Generator
 studioRouter.post('/documents/generate', async (req: AuthRequest, res: Response) => {
   try {
-    const { title, format = 'docx', content = '', tableData, category } = req.body;
+    const { title, format = 'docx', content = '', tableData, category, conversationId, projectId } = req.body;
+    const userId = req.user!.id;
     const isDirectDownload = req.query.download === '1' || req.body.download === true;
 
     if (!title || typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({ success: false, error: { message: 'Document title is required.' } });
     }
 
-    const validFormats = ['docx', 'xlsx', 'pdf', 'csv', 'md', 'txt'];
-    const chosenFormat = validFormats.includes(format) ? format : 'docx';
+    const validFormats: DocumentFormat[] = ['docx', 'xlsx', 'pptx', 'pdf', 'csv', 'md', 'txt', 'html'];
+    const chosenFormat = validFormats.includes(format as DocumentFormat) ? (format as DocumentFormat) : 'docx';
 
     const safeTitle = title.trim().slice(0, 100);
     const generated = generateStudioDocument({
       title: safeTitle,
-      format: chosenFormat as any,
+      format: chosenFormat,
       content: typeof content === 'string' ? content : '',
       tableData: Array.isArray(tableData) ? tableData : undefined,
-      author: 'LightningAPI Studio 2.0',
+      author: 'LightningAPI Studio',
       category: category || 'General',
     });
 
     const safeFilename = `${safeTitle.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().replace(/\s+/g, '_') || 'document'}.${generated.extension}`;
+
+    // Persist to user-owned artifact cache
+    const artifact = saveArtifact({
+      userId,
+      conversationId: typeof conversationId === 'string' ? conversationId : undefined,
+      projectId: typeof projectId === 'string' ? projectId : undefined,
+      title: safeTitle,
+      format: generated.extension,
+      filename: safeFilename,
+      mimeType: generated.mimeType,
+      sizeBytes: generated.buffer.length,
+      buffer: generated.buffer,
+    });
 
     if (isDirectDownload) {
       res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
@@ -1622,16 +1592,165 @@ studioRouter.post('/documents/generate', async (req: AuthRequest, res: Response)
     return res.json({
       success: true,
       document: {
+        id: artifact.id,
         filename: safeFilename,
         extension: generated.extension,
         mimeType: generated.mimeType,
         sizeBytes: generated.buffer.length,
         base64: generated.buffer.toString('base64'),
+        downloadUrl: `/api/user/studio/artifacts/${artifact.id}/download`,
       },
     });
   } catch (err: any) {
     console.error('[STUDIO DOCUMENT GENERATION ERROR]', err);
     return res.status(500).json({ success: false, error: { message: err.message || 'Failed to generate document.' } });
+  }
+});
+
+// GET /api/user/studio/artifacts - List User's Generated Artifacts
+studioRouter.get('/artifacts', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const artifacts = listArtifactsByUser(userId);
+    return res.json({ success: true, artifacts });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to list artifacts.' } });
+  }
+});
+
+// GET /api/user/studio/artifacts/:id/download - Secure Authenticated Artifact Download
+studioRouter.get('/artifacts/:id/download', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const artifact = getArtifactById(id, userId);
+
+    if (!artifact) {
+      return res.status(404).json({ success: false, error: { message: 'Artifact not found or access denied.' } });
+    }
+
+    res.setHeader('Content-Disposition', `attachment; filename="${artifact.filename}"`);
+    res.setHeader('Content-Type', artifact.mimeType);
+    res.setHeader('Content-Length', artifact.sizeBytes);
+    return res.send(artifact.buffer);
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Artifact download failed.' } });
+  }
+});
+
+// GET /api/user/studio/capabilities - Centralized Capability Registry & Entitlement State
+studioRouter.get('/capabilities', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const model = (req.query.model as string) || 'gemini-2.5-flash';
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        apiKeys: {
+          where: { status: 'ACTIVE' },
+          take: 1,
+        },
+      },
+    });
+
+    const activeKey = user?.apiKeys?.[0];
+    const isPaid = activeKey ? !activeKey.isTrial : false;
+
+    const capabilities = resolveStudioCapabilities(
+      {
+        id: userId,
+        isPaid,
+        activeKey,
+      },
+      model
+    );
+
+    return res.json({ success: true, capabilities });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to resolve capabilities.' } });
+  }
+});
+
+// POST /api/user/studio/data/analyze - Deterministic CSV & Excel Data Analysis
+studioRouter.post('/data/analyze', async (req: AuthRequest, res: Response) => {
+  try {
+    const { rawText, base64Data, format = 'csv' } = req.body;
+
+    let contentToAnalyze = rawText;
+    if (!contentToAnalyze && base64Data) {
+      const buf = Buffer.from(base64Data, 'base64');
+      if (format === 'xlsx') {
+        const xlsx = await extractTextFromXlsx(buf);
+        contentToAnalyze = xlsx.text;
+      } else {
+        contentToAnalyze = buf.toString('utf-8');
+      }
+    }
+
+    if (!contentToAnalyze || typeof contentToAnalyze !== 'string') {
+      return res.status(400).json({ success: false, error: { message: 'Data content is required for analysis.' } });
+    }
+
+    const grid = parseDelimitedTable(contentToAnalyze);
+    if (grid.headers.length === 0 || grid.rows.length === 0) {
+      return res.status(400).json({ success: false, error: { message: 'No tabular records found in provided data.' } });
+    }
+
+    const report = analyzeDataGrid(grid);
+    return res.json({ success: true, report });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Data analysis failed.' } });
+  }
+});
+
+// POST /api/user/studio/data/revise - Clean, Deduplicate & Generate Revised Workbook
+studioRouter.post('/data/revise', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { rawText, dropDuplicates = true, fillMissingNumeric = 'mean', title = 'Revised Dataset' } = req.body;
+
+    if (!rawText || typeof rawText !== 'string') {
+      return res.status(400).json({ success: false, error: { message: 'Raw tabular text is required.' } });
+    }
+
+    const grid = parseDelimitedTable(rawText);
+    if (grid.headers.length === 0 || grid.rows.length === 0) {
+      return res.status(400).json({ success: false, error: { message: 'No tabular records found.' } });
+    }
+
+    const revised = cleanAndReviseDataset(grid, {
+      dropDuplicates: Boolean(dropDuplicates),
+      fillMissingNumeric: fillMissingNumeric === 'zero' ? 'zero' : 'mean',
+    });
+
+    const safeTitle = String(title).slice(0, 80);
+    const safeFilename = `${safeTitle.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().replace(/\s+/g, '_') || 'revised_data'}.xlsx`;
+
+    const artifact = saveArtifact({
+      userId,
+      title: safeTitle,
+      format: 'xlsx',
+      filename: safeFilename,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      sizeBytes: revised.revisedExcelBuffer.length,
+      buffer: revised.revisedExcelBuffer,
+    });
+
+    return res.json({
+      success: true,
+      rowsRemoved: revised.rowsRemoved,
+      missingValuesImputed: revised.missingValuesImputed,
+      cleanedRowCount: revised.cleanedGrid.rows.length,
+      artifact: {
+        id: artifact.id,
+        filename: artifact.filename,
+        sizeBytes: artifact.sizeBytes,
+        downloadUrl: `/api/user/studio/artifacts/${artifact.id}/download`,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Data revision failed.' } });
   }
 });
 

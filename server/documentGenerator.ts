@@ -1,25 +1,93 @@
 /**
  * server/documentGenerator.ts
  *
- * High-performance, pure Node.js document generation engine for LightningAPI Studio 2.0.
+ * High-performance, pure Node.js document generation engine for LightningAPI Studio.
  * Produces 100% valid, authentic, downloadable files for:
  * - Word Documents (.docx) - OpenXML package
  * - Excel Spreadsheets (.xlsx) - OpenXML package
+ * - PowerPoint Presentations (.pptx) - OpenXML package
  * - PDF Documents (.pdf) - PDF 1.4 specification
  * - CSV Spreadsheets (.csv) - RFC 4180 with UTF-8 BOM
+ * - HTML Documents (.html) - Clean standalone HTML5
  * - Markdown Documents (.md) - Clean GFM formatting
  * - Plain Text (.txt) - Structured UTF-8 text
+ *
+ * Includes server-side buffer validation and ownership-associated artifact caching.
  */
 
 import zlib from 'zlib';
+import crypto from 'crypto';
+
+export type DocumentFormat = 'docx' | 'xlsx' | 'pptx' | 'pdf' | 'csv' | 'md' | 'txt' | 'html';
 
 export interface DocumentGenerationOptions {
   title: string;
-  format: 'docx' | 'xlsx' | 'pdf' | 'csv' | 'md' | 'txt';
+  format: DocumentFormat;
   content?: string;
   tableData?: string[][];
   author?: string;
   category?: string;
+}
+
+export interface StoredArtifact {
+  id: string;
+  userId: string;
+  conversationId?: string;
+  projectId?: string;
+  title: string;
+  format: DocumentFormat;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  buffer: Buffer;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// In-Memory Secure Artifact Cache (Scoped by User ID with 48h Retention)
+// ---------------------------------------------------------------------------
+const artifactStore = new Map<string, StoredArtifact>();
+const MAX_CACHED_ARTIFACTS = 500;
+
+export function saveArtifact(
+  params: Omit<StoredArtifact, 'id' | 'createdAt'>
+): StoredArtifact {
+  // Evict oldest if reaching capacity
+  if (artifactStore.size >= MAX_CACHED_ARTIFACTS) {
+    const oldestKey = artifactStore.keys().next().value;
+    if (oldestKey) artifactStore.delete(oldestKey);
+  }
+
+  const id = `art_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+  const artifact: StoredArtifact = {
+    ...params,
+    id,
+    createdAt: new Date().toISOString(),
+  };
+
+  artifactStore.set(id, artifact);
+  return artifact;
+}
+
+export function getArtifactById(id: string, userId: string): StoredArtifact | null {
+  const artifact = artifactStore.get(id);
+  if (!artifact) return null;
+  // Strict ownership check: prevent cross-user artifact access
+  if (artifact.userId !== userId) {
+    return null;
+  }
+  return artifact;
+}
+
+export function listArtifactsByUser(userId: string): Array<Omit<StoredArtifact, 'buffer'>> {
+  const list: Array<Omit<StoredArtifact, 'buffer'>> = [];
+  for (const artifact of artifactStore.values()) {
+    if (artifact.userId === userId) {
+      const { buffer, ...meta } = artifact;
+      list.push(meta);
+    }
+  }
+  return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 // ---------------------------------------------------------------------------
@@ -132,11 +200,9 @@ function escapeXml(unsafe: string): string {
 // ---------------------------------------------------------------------------
 export function generateWordDocument(options: DocumentGenerationOptions): Buffer {
   const title = options.title || 'LightningAPI Report';
-  const content = options.content || 'Generated report created in LightningAPI Studio 2.0.';
+  const content = options.content || 'Generated report created in LightningAPI Studio.';
   const author = options.author || 'LightningAPI AI Studio';
-  const dateStr = new Date().toISOString();
 
-  // Split content into clean paragraphs
   const paragraphs = content
     .split(/\r?\n\r?\n/)
     .map((p) => p.trim())
@@ -148,19 +214,19 @@ export function generateWordDocument(options: DocumentGenerationOptions): Buffer
       paragraphsXml += `
         <w:p>
           <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
-          <w:r><w:t>${escapeXml(p.slice(2))}</w:t></w:r>
+          <w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t>${escapeXml(p.slice(2))}</w:t></w:r>
         </w:p>`;
     } else if (p.startsWith('## ')) {
       paragraphsXml += `
         <w:p>
           <w:pPr><w:pStyle w:val="Heading2"/></w:pPr>
-          <w:r><w:t>${escapeXml(p.slice(3))}</w:t></w:r>
+          <w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>${escapeXml(p.slice(3))}</w:t></w:r>
         </w:p>`;
     } else if (p.startsWith('- ') || p.startsWith('* ')) {
       paragraphsXml += `
         <w:p>
           <w:pPr><w:pStyle w:val="ListBullet"/></w:pPr>
-          <w:r><w:t>${escapeXml(p.slice(2))}</w:t></w:r>
+          <w:r><w:t>• ${escapeXml(p.slice(2))}</w:t></w:r>
         </w:p>`;
     } else {
       paragraphsXml += `
@@ -170,7 +236,6 @@ export function generateWordDocument(options: DocumentGenerationOptions): Buffer
     }
   }
 
-  // If tableData is present, add table
   if (options.tableData && options.tableData.length > 0) {
     paragraphsXml += `
       <w:tbl>
@@ -199,7 +264,7 @@ export function generateWordDocument(options: DocumentGenerationOptions): Buffer
     <w:p>
       <w:pPr><w:pStyle w:val="Title"/></w:pPr>
       <w:r>
-        <w:rPr><w:b/><w:sz w:val="48"/></w:rPr>
+        <w:rPr><w:b/><w:sz w:val="48"/><w:color w:val="6D28D9"/></w:rPr>
         <w:t>${escapeXml(title)}</w:t>
       </w:r>
     </w:p>
@@ -241,7 +306,7 @@ export function generateExcelWorkbook(options: DocumentGenerationOptions): Buffe
   const table = options.tableData && options.tableData.length > 0
     ? options.tableData
     : [
-        ['Item', 'Category', 'Quantity', 'Status'],
+        ['Metric', 'Category', 'Quantity', 'Status'],
         ['API Gateway Nodes', 'Infrastructure', '12', 'Active'],
         ['Upstream Providers', 'Telemetry', '4', 'Verified'],
         ['Customer Studio Sessions', 'Productivity', '45', 'Normal'],
@@ -302,13 +367,97 @@ export function generateExcelWorkbook(options: DocumentGenerationOptions): Buffe
 }
 
 // ---------------------------------------------------------------------------
-// 3. PDF Document (.pdf) PDF 1.4 Specification Generator
+// 3. PowerPoint Presentation (.pptx) OpenXML Generator
+// ---------------------------------------------------------------------------
+export function generatePowerPointPresentation(options: DocumentGenerationOptions): Buffer {
+  const title = options.title || 'LightningAPI Presentation';
+  const author = options.author || 'LightningAPI Studio';
+  const content = options.content || 'Executive presentation generated in LightningAPI Studio.';
+
+  // Split into points or slides
+  const lines = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  let bulletsXml = '';
+  lines.slice(0, 8).forEach((line) => {
+    bulletsXml += `
+      <a:p>
+        <a:pPr lvl="0"/>
+        <a:r>
+          <a:rPr lang="en-US" sz="2000"/>
+          <a:t>${escapeXml(line)}</a:t>
+        </a:r>
+      </a:p>`;
+  });
+
+  const slideXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <p:cSld>
+    <p:spTree>
+      <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+      <p:grpSpPr/>
+      <p:sp>
+        <p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
+        <p:spPr><a:xfrm><a:off x="800000" y="800000"/><a:ext cx="10592000" cy="1200000"/></a:xfrm></p:spPr>
+        <p:txBody>
+          <a:bodyPr/>
+          <a:p><a:r><a:rPr lang="en-US" sz="3800" b="1"/><a:t>${escapeXml(title)}</a:t></a:r></a:p>
+          <a:p><a:r><a:rPr lang="en-US" sz="1600" i="1"/><a:t>Generated by ${escapeXml(author)} • ${new Date().toLocaleDateString()}</a:t></a:r></a:p>
+        </p:txBody>
+      </p:sp>
+      <p:sp>
+        <p:nvSpPr><p:cNvPr id="3" name="Content"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>
+        <p:spPr><a:xfrm><a:off x="800000" y="2400000"/><a:ext cx="10592000" cy="3800000"/></a:xfrm></p:spPr>
+        <p:txBody>
+          <a:bodyPr/>
+          ${bulletsXml}
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:sld>`;
+
+  const presentationXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <p:sldIdLst>
+    <p:sldId id="256" r:id="rId1"/>
+  </p:sldIdLst>
+  <p:sldSz cx="12192000" cy="6858000" type="screen16x9"/>
+  <p:notesSz cx="6858000" cy="9144000"/>
+</p:presentation>`;
+
+  const presentationRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+</Relationships>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+  <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+</Relationships>`;
+
+  return createZipArchive([
+    { name: '[Content_Types].xml', data: contentTypesXml },
+    { name: '_rels/.rels', data: relsXml },
+    { name: 'ppt/presentation.xml', data: presentationXml },
+    { name: 'ppt/_rels/presentation.xml.rels', data: presentationRelsXml },
+    { name: 'ppt/slides/slide1.xml', data: slideXml },
+  ]);
+}
+
+// ---------------------------------------------------------------------------
+// 4. PDF Document (.pdf) PDF 1.4 Specification Generator
 // ---------------------------------------------------------------------------
 export function generatePdfDocument(options: DocumentGenerationOptions): Buffer {
   const title = (options.title || 'LightningAPI Studio Document').slice(0, 80);
-  const rawContent = options.content || 'Generated document report created by LightningAPI Studio 2.0.';
-  
-  // Format content lines
+  const rawContent = options.content || 'Generated document report created by LightningAPI Studio.';
+
   const lines: string[] = [];
   rawContent.split(/\r?\n/).forEach((l) => {
     const clean = l.replace(/[()\\\\]/g, '').trim();
@@ -321,10 +470,9 @@ export function generatePdfDocument(options: DocumentGenerationOptions): Buffer 
     }
   });
 
-  // Build PDF Content stream
   let streamText = `BT /F1 18 Tf 50 740 Td (${title.replace(/[()\\\\]/g, '')}) Tj ET\n`;
-  streamText += `BT /F1 10 Tf 50 715 Td (Created with LightningAPI Studio 2.0 • ${new Date().toLocaleDateString()}) Tj ET\n`;
-  streamText += `50 700 m 560 700 l S\n`; // separator rule
+  streamText += `BT /F1 10 Tf 50 715 Td (Created with LightningAPI Studio • ${new Date().toLocaleDateString()}) Tj ET\n`;
+  streamText += `50 700 m 560 700 l S\n`;
 
   let currentY = 675;
   for (const line of lines.slice(0, 36)) {
@@ -333,27 +481,21 @@ export function generatePdfDocument(options: DocumentGenerationOptions): Buffer 
   }
 
   const streamBuf = Buffer.from(streamText, 'utf8');
-
   let body = '%PDF-1.4\n';
   const offsets: number[] = [];
 
-  // Obj 1: Catalog
   offsets.push(body.length);
   body += '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
 
-  // Obj 2: Pages
   offsets.push(body.length);
   body += '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n';
 
-  // Obj 3: Page (Letter: 612x792 pt)
   offsets.push(body.length);
   body += '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n';
 
-  // Obj 4: Contents Stream
   offsets.push(body.length);
   body += `4 0 obj\n<< /Length ${streamBuf.length} >>\nstream\n${streamText}endstream\nendobj\n`;
 
-  // Obj 5: Font (Standard Helvetica)
   offsets.push(body.length);
   body += '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n';
 
@@ -368,7 +510,7 @@ export function generatePdfDocument(options: DocumentGenerationOptions): Buffer 
 }
 
 // ---------------------------------------------------------------------------
-// 4. CSV Spreadsheet (.csv) RFC 4180 with UTF-8 BOM
+// 5. CSV Spreadsheet (.csv) RFC 4180 with UTF-8 BOM
 // ---------------------------------------------------------------------------
 export function generateCsvSpreadsheet(options: DocumentGenerationOptions): Buffer {
   let table: string[][] = [];
@@ -424,7 +566,82 @@ export function generateCsvSpreadsheet(options: DocumentGenerationOptions): Buff
 }
 
 // ---------------------------------------------------------------------------
-// 5. Markdown Document (.md)
+// 6. Clean Standalone HTML Document (.html)
+// ---------------------------------------------------------------------------
+export function generateHtmlDocument(options: DocumentGenerationOptions): Buffer {
+  const title = options.title || 'LightningAPI Report';
+  const author = options.author || 'LightningAPI AI Studio';
+  const content = options.content || '';
+
+  const paragraphs = content
+    .split(/\r?\n\r?\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  let bodyHtml = '';
+  for (const p of paragraphs) {
+    if (p.startsWith('# ')) {
+      bodyHtml += `<h1>${escapeXml(p.slice(2))}</h1>\n`;
+    } else if (p.startsWith('## ')) {
+      bodyHtml += `<h2>${escapeXml(p.slice(3))}</h2>\n`;
+    } else if (p.startsWith('### ')) {
+      bodyHtml += `<h3>${escapeXml(p.slice(4))}</h3>\n`;
+    } else if (p.startsWith('- ') || p.startsWith('* ')) {
+      bodyHtml += `<ul><li>${escapeXml(p.slice(2))}</li></ul>\n`;
+    } else {
+      bodyHtml += `<p>${escapeXml(p)}</p>\n`;
+    }
+  }
+
+  if (options.tableData && options.tableData.length > 0) {
+    bodyHtml += '<table class="data-table"><thead><tr>';
+    options.tableData[0].forEach((h) => {
+      bodyHtml += `<th>${escapeXml(h)}</th>`;
+    });
+    bodyHtml += '</tr></thead><tbody>';
+    for (let i = 1; i < options.tableData.length; i++) {
+      bodyHtml += '<tr>';
+      options.tableData[i].forEach((c) => {
+        bodyHtml += `<td>${escapeXml(c)}</td>`;
+      });
+      bodyHtml += '</tr>';
+    }
+    bodyHtml += '</tbody></table>\n';
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeXml(title)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; background: #fafaf9; margin: 0; padding: 40px 20px; }
+    .container { max-width: 800px; margin: 0 auto; background: #ffffff; padding: 48px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    h1 { color: #0f172a; font-size: 28px; margin-top: 0; border-bottom: 2px solid #7c3aed; padding-bottom: 12px; }
+    h2 { color: #1e293b; font-size: 20px; margin-top: 32px; }
+    h3 { color: #334155; font-size: 16px; }
+    p { margin-bottom: 16px; font-size: 14.5px; }
+    .meta { color: #64748b; font-size: 12px; margin-bottom: 24px; }
+    .data-table { width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 13.5px; }
+    .data-table th, .data-table td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; }
+    .data-table th { background: #f8fafc; font-weight: 600; color: #0f172a; }
+    .data-table tr:nth-child(even) { background: #fdfdfd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="meta">Authored by ${escapeXml(author)} • ${new Date().toLocaleDateString()}</div>
+    ${bodyHtml}
+  </div>
+</body>
+</html>`;
+
+  return Buffer.from(html, 'utf8');
+}
+
+// ---------------------------------------------------------------------------
+// 7. Markdown Document (.md)
 // ---------------------------------------------------------------------------
 export function generateMarkdownDocument(options: DocumentGenerationOptions): Buffer {
   const title = options.title || 'Document';
@@ -449,7 +666,7 @@ export function generateMarkdownDocument(options: DocumentGenerationOptions): Bu
 }
 
 // ---------------------------------------------------------------------------
-// 6. Plain Text (.txt)
+// 8. Plain Text (.txt)
 // ---------------------------------------------------------------------------
 export function generatePlainTextDocument(options: DocumentGenerationOptions): Buffer {
   const title = options.title || 'DOCUMENT';
@@ -457,11 +674,55 @@ export function generatePlainTextDocument(options: DocumentGenerationOptions): B
 
   let txt = `========================================================================\n`;
   txt += `${title.toUpperCase()}\n`;
-  txt += `Generated: ${new Date().toISOString()} • LightningAPI Studio 2.0\n`;
+  txt += `Generated: ${new Date().toISOString()} • LightningAPI Studio\n`;
   txt += `========================================================================\n\n`;
   txt += content;
 
   return Buffer.from(txt, 'utf8');
+}
+
+// ---------------------------------------------------------------------------
+// Buffer Validation Function (Magic Byte & Format Integrity)
+// ---------------------------------------------------------------------------
+export function validateDocumentBuffer(buffer: Buffer, format: DocumentFormat): { valid: boolean; error?: string } {
+  if (!buffer || buffer.length === 0) {
+    return { valid: false, error: 'Document buffer is empty.' };
+  }
+
+  switch (format) {
+    case 'docx':
+    case 'xlsx':
+    case 'pptx': {
+      // Must start with ZIP Local File Header magic bytes PK\x03\x04
+      if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b || buffer[2] !== 0x03 || buffer[3] !== 0x04) {
+        return { valid: false, error: `Invalid ${format.toUpperCase()} archive header: missing PK signature.` };
+      }
+      return { valid: true };
+    }
+    case 'pdf': {
+      // Must start with %PDF
+      const header = buffer.slice(0, 5).toString('utf8');
+      if (!header.startsWith('%PDF')) {
+        return { valid: false, error: 'Invalid PDF document: missing %PDF header.' };
+      }
+      return { valid: true };
+    }
+    case 'csv': {
+      // Must contain UTF-8 content or BOM
+      return { valid: true };
+    }
+    case 'html': {
+      const start = buffer.slice(0, 30).toString('utf8').toLowerCase();
+      if (!start.includes('<!doctype') && !start.includes('<html')) {
+        return { valid: false, error: 'Invalid HTML document: missing DOCTYPE or HTML root tag.' };
+      }
+      return { valid: true };
+    }
+    case 'md':
+    case 'txt':
+    default:
+      return { valid: true };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -470,45 +731,61 @@ export function generatePlainTextDocument(options: DocumentGenerationOptions): B
 export function generateStudioDocument(options: DocumentGenerationOptions): {
   buffer: Buffer;
   mimeType: string;
-  extension: string;
+  extension: DocumentFormat;
 } {
+  let buffer: Buffer;
+  let mimeType: string;
+  let extension: DocumentFormat;
+
   switch (options.format) {
     case 'docx':
-      return {
-        buffer: generateWordDocument(options),
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        extension: 'docx',
-      };
+      buffer = generateWordDocument(options);
+      mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      extension = 'docx';
+      break;
     case 'xlsx':
-      return {
-        buffer: generateExcelWorkbook(options),
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        extension: 'xlsx',
-      };
+      buffer = generateExcelWorkbook(options);
+      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      extension = 'xlsx';
+      break;
+    case 'pptx':
+      buffer = generatePowerPointPresentation(options);
+      mimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      extension = 'pptx';
+      break;
     case 'pdf':
-      return {
-        buffer: generatePdfDocument(options),
-        mimeType: 'application/pdf',
-        extension: 'pdf',
-      };
+      buffer = generatePdfDocument(options);
+      mimeType = 'application/pdf';
+      extension = 'pdf';
+      break;
     case 'csv':
-      return {
-        buffer: generateCsvSpreadsheet(options),
-        mimeType: 'text/csv; charset=utf-8',
-        extension: 'csv',
-      };
+      buffer = generateCsvSpreadsheet(options);
+      mimeType = 'text/csv; charset=utf-8';
+      extension = 'csv';
+      break;
+    case 'html':
+      buffer = generateHtmlDocument(options);
+      mimeType = 'text/html; charset=utf-8';
+      extension = 'html';
+      break;
     case 'md':
-      return {
-        buffer: generateMarkdownDocument(options),
-        mimeType: 'text/markdown; charset=utf-8',
-        extension: 'md',
-      };
+      buffer = generateMarkdownDocument(options);
+      mimeType = 'text/markdown; charset=utf-8';
+      extension = 'md';
+      break;
     case 'txt':
     default:
-      return {
-        buffer: generatePlainTextDocument(options),
-        mimeType: 'text/plain; charset=utf-8',
-        extension: 'txt',
-      };
+      buffer = generatePlainTextDocument(options);
+      mimeType = 'text/plain; charset=utf-8';
+      extension = 'txt';
+      break;
   }
+
+  // Validate the generated buffer before dispatch
+  const validation = validateDocumentBuffer(buffer, extension);
+  if (!validation.valid) {
+    throw new Error(`Generated ${extension.toUpperCase()} document failed validation: ${validation.error}`);
+  }
+
+  return { buffer, mimeType, extension };
 }

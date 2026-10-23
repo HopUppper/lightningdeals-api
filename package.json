@@ -17,6 +17,7 @@
     "test:quota": "tsx scripts/test-token-quota-enforcement.ts",
     "test:admin": "tsx scripts/test-secure-admin-access.ts",
     "test:studio": "tsx scripts/test-studio-ux-overhaul.ts",
+    "test:studio:phase2": "tsx scripts/test-studio-phase2-productivity.ts",
     "test:security": "tsx scripts/test-phase1-security-regression.ts",
     "test:security:phase2": "tsx scripts/test-phase2-security-regression.ts",
     "test:security:phase3": "tsx scripts/test-phase3-infrastructure-regression.ts",

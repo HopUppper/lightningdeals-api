@@ -414,3 +414,36 @@ export function cleanAndReviseDataset(
     revisedCsvBuffer,
   };
 }
+
+/**
+ * Convenience wrapper: parse and analyze raw delimited text in one call.
+ */
+export function analyzeDelimitedData(raw: string): DatasetAnalysisReport {
+  const grid = parseDelimitedTable(raw);
+  return analyzeDataGrid(grid);
+}
+
+/**
+ * Convenience wrapper: clean raw delimited text and return cleaned CSV string.
+ */
+export function cleanAndTransformDataset(
+  raw: string,
+  options: { removeDuplicates?: boolean; imputeMissingNumeric?: 'mean' | 'median' | 'zero' } = {}
+): { cleanedCsv: string; rowsRemoved: number; missingValuesImputed: number } {
+  const grid = parseDelimitedTable(raw);
+  const result = cleanAndReviseDataset(grid, {
+    dropDuplicates: options.removeDuplicates,
+    fillMissingNumeric: options.imputeMissingNumeric === 'zero' ? 'zero' : 'mean',
+  });
+
+  const lines = [
+    result.cleanedGrid.headers.join(','),
+    ...result.cleanedGrid.rows.map((r) => r.join(',')),
+  ];
+
+  return {
+    cleanedCsv: lines.join('\n'),
+    rowsRemoved: result.rowsRemoved,
+    missingValuesImputed: result.missingValuesImputed,
+  };
+}

@@ -2471,6 +2471,33 @@ export const UserChatStudio: React.FC = () => {
                         Studio
                       </span>
                     </button>
+
+                    {/* Task Agent Workflow */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToolsMenuOpen(false);
+                        setPrompt('Research Agent: Conduct an in-depth investigation and produce a verified research report with sources on ');
+                        textareaRef.current?.focus();
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Sparkles className="w-4 h-4 text-emerald-500" />
+                        <div>
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <span>Research Agent</span>
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              Phase 3
+                            </span>
+                          </p>
+                          <p className={`text-[10px] ${c.textMuted}`}>Multi-step cited research & DOCX export</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        Agent
+                      </span>
+                    </button>
                   </div>
 
                   <div className="border-t border-black/5 dark:border-white/5" />
@@ -2505,6 +2532,29 @@ export const UserChatStudio: React.FC = () => {
                         researchMode === 'web_search' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-black/10 dark:bg-white/10 text-slate-400'
                       }`}>
                         {researchMode === 'web_search' ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+
+                    {/* Side-by-Side Model Comparison Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setIsComparingModels(!isComparingModels)}
+                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Scale className={`w-4 h-4 ${isComparingModels ? 'text-indigo-500' : 'text-slate-400'}`} />
+                        <div>
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <span>Compare Models</span>
+                            {isComparingModels && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />}
+                          </p>
+                          <p className={`text-[10px] ${c.textMuted}`}>Side-by-side dual model comparison</p>
+                        </div>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        isComparingModels ? 'bg-indigo-500/20 text-indigo-500' : 'bg-black/10 dark:bg-white/10 text-slate-400'
+                      }`}>
+                        {isComparingModels ? 'ON' : 'OFF'}
                       </span>
                     </button>
 
@@ -3712,6 +3762,40 @@ export const UserChatStudio: React.FC = () => {
                 </div>
               )}
 
+              {/* Dual Model Comparison Active Bar */}
+              {isComparingModels && (
+                <div className="mx-4 mt-2 p-2 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                      <Scale className="w-3.5 h-3.5" />
+                      <span>Comparing Side-by-Side:</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-black/40 border border-indigo-200 dark:border-indigo-800/40 font-semibold text-slate-800 dark:text-slate-200">
+                      Model A: {activeModelMeta?.name || activeThread.model}
+                    </span>
+                    <span className="text-slate-400 font-bold">vs</span>
+                    <select
+                      value={secondaryModelId}
+                      onChange={(e) => setSecondaryModelId(e.target.value)}
+                      className="px-2 py-0.5 rounded-lg bg-white dark:bg-black/40 border border-indigo-200 dark:border-indigo-800/40 font-semibold text-xs focus:outline-none cursor-pointer text-slate-800 dark:text-slate-200"
+                    >
+                      {availableModels.map((m: any) => (
+                        <option key={m.id} value={m.id}>
+                          Model B: {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsComparingModels(false)}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer font-medium px-2 py-0.5 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  >
+                    Exit Compare ✕
+                  </button>
+                </div>
+              )}
+
               {/* Textarea */}
               <div className="px-4 pt-3 pb-2">
                 <textarea
@@ -3807,6 +3891,22 @@ export const UserChatStudio: React.FC = () => {
                     <Globe className={`w-3.5 h-3.5 ${researchMode === 'web_search' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
                     <span className="hidden sm:inline">Web Search</span>
                     {researchMode === 'web_search' && <Check className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
+                  </button>
+
+                  {/* Model Comparison Toggle Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setIsComparingModels(!isComparingModels)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                      isComparingModels
+                        ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-600 dark:text-indigo-400 font-semibold'
+                        : c.pillBg
+                    }`}
+                    title="Toggle Side-by-Side Dual Model Comparison"
+                  >
+                    <Scale className={`w-3.5 h-3.5 ${isComparingModels ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                    <span className="hidden sm:inline">Compare</span>
+                    {isComparingModels && <Check className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
                   </button>
 
                   {/* Thinking Mode Toggle Pill (when model supports it) */}

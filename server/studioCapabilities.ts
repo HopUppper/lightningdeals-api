@@ -437,3 +437,154 @@ export function resolveStudioCapabilities(
     systemNotice,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Model Categorization & Capability-Aware Recommendations
+// ---------------------------------------------------------------------------
+export type ModelPrimaryCategory =
+  | 'coding'
+  | 'reasoning'
+  | 'multimodal_vision'
+  | 'long_context'
+  | 'fast_general';
+
+export interface ModelRecommendation {
+  recommendedModelId: string;
+  displayName: string;
+  primaryCategory: ModelPrimaryCategory;
+  categoryLabel: string;
+  reason: string;
+  alternativeModelId?: string;
+  alternativeDisplayName?: string;
+}
+
+export function categorizeModel(modelId: string): { category: ModelPrimaryCategory; label: string } {
+  const norm = modelId.toLowerCase().trim();
+  if (norm.includes('claude-3-7') || norm.includes('deepseek-v3') || norm.includes('sonnet')) {
+    return { category: 'coding', label: 'Coding & Software Architecture' };
+  }
+  if (norm.includes('o3-mini') || norm.includes('deepseek-r1') || norm.includes('r1')) {
+    return { category: 'reasoning', label: 'Deep Reasoning & Logic' };
+  }
+  if (norm === 'gpt-4o') {
+    return { category: 'multimodal_vision', label: 'Multimodal Vision & Documents' };
+  }
+  if (norm.includes('gemini-2.5-pro') || norm.includes('gemini-2.5-flash')) {
+    return { category: 'long_context', label: 'Massive Context (1M+ Tokens)' };
+  }
+  return { category: 'fast_general', label: 'Fast General Conversation' };
+}
+
+export function recommendModelForTask(
+  promptOrTask: string,
+  isPaidCustomer: boolean
+): ModelRecommendation {
+  const text = (promptOrTask || '').toLowerCase().trim();
+
+  // 1. Coding & Software Architecture
+  const isCoding = /\b(code|function|debug|refactor|typescript|javascript|python|api|sql|component|bug|algorithm|repo|git|docker|css|html)\b/i.test(text);
+  if (isCoding) {
+    if (isPaidCustomer) {
+      return {
+        recommendedModelId: 'claude-3-7-sonnet',
+        displayName: 'Claude 3.7 Sonnet',
+        primaryCategory: 'coding',
+        categoryLabel: 'Coding & Software Architecture',
+        reason: 'Recommended for exceptional code generation, refactoring, and complex architectural debugging.',
+        alternativeModelId: 'deepseek-v3',
+        alternativeDisplayName: 'DeepSeek V3',
+      };
+    } else {
+      return {
+        recommendedModelId: 'deepseek-v3',
+        displayName: 'DeepSeek V3',
+        primaryCategory: 'coding',
+        categoryLabel: 'Coding & Software Architecture',
+        reason: 'Top-tier trial-accessible coding model for programming tasks and script generation.',
+        alternativeModelId: 'gemini-2.5-flash',
+        alternativeDisplayName: 'Gemini 2.5 Flash',
+      };
+    }
+  }
+
+  // 2. Deep Mathematical / Logic Reasoning
+  const isReasoning = /\b(math|calculate|theorem|proof|step[- ]by[- ]step|solve|logic|deduction|puzzle|optimize|trade-off)\b/i.test(text);
+  if (isReasoning) {
+    if (isPaidCustomer) {
+      return {
+        recommendedModelId: 'o3-mini',
+        displayName: 'OpenAI o3-mini',
+        primaryCategory: 'reasoning',
+        categoryLabel: 'Deep Reasoning & Logic',
+        reason: 'Deep chain-of-thought reasoning engine optimized for complex mathematical, logic, and scientific problems.',
+        alternativeModelId: 'deepseek-r1',
+        alternativeDisplayName: 'DeepSeek R1',
+      };
+    } else {
+      return {
+        recommendedModelId: 'gemini-2.5-flash',
+        displayName: 'Gemini 2.5 Flash',
+        primaryCategory: 'reasoning',
+        categoryLabel: 'Fast Reasoning',
+        reason: 'Fast, capable model supporting structured step-by-step reasoning on the trial tier.',
+      };
+    }
+  }
+
+  // 3. Vision & Image Analysis
+  const isVision = /\b(image|picture|diagram|screenshot|photo|visual|ocr|inspect image)\b/i.test(text);
+  if (isVision) {
+    if (isPaidCustomer) {
+      return {
+        recommendedModelId: 'gpt-4o',
+        displayName: 'GPT-4o Omnimodal',
+        primaryCategory: 'multimodal_vision',
+        categoryLabel: 'Multimodal Vision & Documents',
+        reason: 'Flagship vision model with high-resolution image analysis and document OCR capabilities.',
+        alternativeModelId: 'gemini-2.5-flash',
+        alternativeDisplayName: 'Gemini 2.5 Flash',
+      };
+    } else {
+      return {
+        recommendedModelId: 'gemini-2.5-flash',
+        displayName: 'Gemini 2.5 Flash',
+        primaryCategory: 'multimodal_vision',
+        categoryLabel: 'Multimodal Vision & Documents',
+        reason: 'High-speed multimodal vision analysis accessible on the trial tier.',
+      };
+    }
+  }
+
+  // 4. Massive Context / Long Research / Large Documents
+  const isLongContext = /\b(analyze file|entire document|large text|book|summarize all|100 pages|dataset|massive)\b/i.test(text);
+  if (isLongContext) {
+    if (isPaidCustomer) {
+      return {
+        recommendedModelId: 'gemini-2.5-pro',
+        displayName: 'Gemini 2.5 Pro',
+        primaryCategory: 'long_context',
+        categoryLabel: 'Massive Context (2M Tokens)',
+        reason: 'Industry-leading 2,000,000 token context window capable of ingesting massive codebases and long documents.',
+        alternativeModelId: 'gemini-2.5-flash',
+        alternativeDisplayName: 'Gemini 2.5 Flash',
+      };
+    } else {
+      return {
+        recommendedModelId: 'gemini-2.5-flash',
+        displayName: 'Gemini 2.5 Flash',
+        primaryCategory: 'long_context',
+        categoryLabel: 'Massive Context (1M Tokens)',
+        reason: 'Generous 1,000,000 token context window on trial tier for processing lengthy documents and prompts.',
+      };
+    }
+  }
+
+  // 5. Default Fast General
+  return {
+    recommendedModelId: isPaidCustomer ? 'claude-3-5-sonnet' : 'gemini-2.5-flash',
+    displayName: isPaidCustomer ? 'Claude 3.5 Sonnet' : 'Gemini 2.5 Flash',
+    primaryCategory: 'fast_general',
+    categoryLabel: 'Fast General Conversation',
+    reason: 'Balanced speed, intelligence, and token efficiency for general chat and creative writing.',
+  };
+}

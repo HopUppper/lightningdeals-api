@@ -57,6 +57,11 @@ import {
   ALL_STUDIO_MODELS,
 } from './studioEntitlement';
 import { reserveCustomerQuota, settleReservation, releaseReservation, isRollingPlan } from './accounting/tokenReservation';
+import { STUDIO_TOOL_REGISTRY, executeStudioTool } from './studioTools';
+import { executeModelComparison } from './studioCompare';
+import { generateStudioImage, getTechnicalVideoAssessment } from './imageService';
+import { executeAgentWorkflow, getAgentRun, cancelAgentRun } from './studioAgents';
+import { recommendModelForTask } from './studioCapabilities';
 
 export function extractTextFromDocx(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -1913,6 +1918,183 @@ studioRouter.post('/browser/cancel', async (req: AuthRequest, res: Response) => 
   cancelBrowserSession(session);
   return res.json({ success: true, message: 'Browser session terminated.' });
 });
+// ---------------------------------------------------------------------------
+// Phase 3: Tool Orchestration Endpoints
+// ---------------------------------------------------------------------------
+// GET /api/user/studio/tools - List authoritative available tools
+studioRouter.get('/tools', async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const userRecord = await prisma.user.findUnique({ where: { id: userId }, select: { hasStudioAccess: true } });
+  const paidOrder = await prisma.order.findFirst({ where: { userId, paymentStatus: 'PAID' } });
+  const paidSub = await prisma.subscription.findFirst({ where: { userId, status: 'ACTIVE' } });
+  const isPaidCustomer = Boolean(paidOrder || paidSub || userRecord?.hasStudioAccess);
+
+  const tools = Object.values(STUDIO_TOOL_REGISTRY).map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    permissionTier: t.permissionTier,
+    available: t.permissionTier === 'trial' || isPaidCustomer,
+    parameters: t.parameters,
+  }));
+
+  return res.json({ success: true, tools });
+});
+
+// POST /api/user/studio/tools/execute - Controlled server-side tool execution
+studioRouter.post('/tools/execute', async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { toolId, parameters = {}, selectedModel, conversationId } = req.body;
+
+  if (!toolId) {
+    return res.status(400).json({ success: false, error: { message: 'toolId is required.' } });
+  }
+
+  const userRecord = await prisma.user.findUnique({ where: { id: userId }, select: { hasStudioAccess: true } });
+  const paidOrder = await prisma.order.findFirst({ where: { userId, paymentStatus: 'PAID' } });
+  const paidSub = await prisma.subscription.findFirst({ where: { userId, status: 'ACTIVE' } });
+  const isPaidCustomer = Boolean(paidOrder || paidSub || userRecord?.hasStudioAccess);
+
+  const result = await executeStudioTool({
+    toolId,
+    parameters,
+    userId,
+    isPaidCustomer,
+    selectedModel,
+    conversationId,
+  });
+
+  return res.json(result);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3: Side-by-Side Model Comparison
+// ---------------------------------------------------------------------------
+// POST /api/user/studio/compare - Multi-model parallel comparison
+studioRouter.post('/compare', async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { prompt, modelIds, apiKeyId, temperature, systemPrompt } = req.body;
+
+  const userRecord = await prisma.user.findUnique({ where: { id: userId }, select: { hasStudioAccess: true } });
+  const paidOrder = await prisma.order.findFirst({ where: { userId, paymentStatus: 'PAID' } });
+  const paidSub = await prisma.subscription.findFirst({ where: { userId, status: 'ACTIVE' } });
+  const isPaidCustomer = Boolean(paidOrder || paidSub || userRecord?.hasStudioAccess);
+
+  const comparison = await executeModelComparison({
+    userId,
+    isPaidCustomer,
+    apiKeyId,
+    prompt,
+    modelIds,
+    temperature,
+    systemPrompt,
+  });
+
+  if (!comparison.success) {
+    return res.status(400).json(comparison);
+  }
+
+  return res.json(comparison);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3: Multimodal Image Synthesis & Video Feasibility
+// ---------------------------------------------------------------------------
+// POST /api/user/studio/media/image - Generate image from prompt
+studioRouter.post('/media/image', async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { prompt, aspectRatio, stylePreset, seed, conversationId } = req.body;
+
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ success: false, error: { message: 'Image prompt is required.' } });
+  }
+
+  try {
+    const result = await generateStudioImage({
+      userId,
+      conversationId,
+      prompt,
+      aspectRatio,
+      stylePreset,
+      seed,
+    });
+    return res.json({ success: true, image: result });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Image generation failed.' } });
+  }
+});
+
+// GET /api/user/studio/media/video-assessment - Video generation feasibility report
+studioRouter.get('/media/video-assessment', async (_req: AuthRequest, res: Response) => {
+  const assessment = getTechnicalVideoAssessment();
+  return res.json({ success: true, assessment });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3: Bounded AI Task Agents
+// ---------------------------------------------------------------------------
+// POST /api/user/studio/agent/run - Run specialized task agent
+studioRouter.post('/agent/run', async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { agentType, prompt, conversationId, parameters } = req.body;
+
+  if (!agentType || !prompt) {
+    return res.status(400).json({ success: false, error: { message: 'agentType and prompt are required.' } });
+  }
+
+  const userRecord = await prisma.user.findUnique({ where: { id: userId }, select: { hasStudioAccess: true } });
+  const paidOrder = await prisma.order.findFirst({ where: { userId, paymentStatus: 'PAID' } });
+  const paidSub = await prisma.subscription.findFirst({ where: { userId, status: 'ACTIVE' } });
+  const isPaidCustomer = Boolean(paidOrder || paidSub || userRecord?.hasStudioAccess);
+
+  const runResult = await executeAgentWorkflow({
+    agentType,
+    prompt,
+    userId,
+    isPaidCustomer,
+    conversationId,
+    parameters,
+  });
+
+  return res.json({ success: runResult.status === 'completed', run: runResult });
+});
+
+// GET /api/user/studio/agent/:runId - Check status of an agent run
+studioRouter.get('/agent/:runId', async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { runId } = req.params;
+  const run = getAgentRun(runId, userId);
+  if (!run) {
+    return res.status(404).json({ success: false, error: { message: 'Agent run not found or access denied.' } });
+  }
+  return res.json({ success: true, run });
+});
+
+// POST /api/user/studio/agent/:runId/cancel - Cancel active agent run
+studioRouter.post('/agent/:runId/cancel', async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { runId } = req.params;
+  const cancelled = cancelAgentRun(runId, userId);
+  return res.json({ success: cancelled, message: cancelled ? 'Agent run cancelled.' : 'Could not cancel agent run.' });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3: Model Recommendations
+// ---------------------------------------------------------------------------
+// GET /api/user/studio/models/recommend - Capability-aware model recommendation
+studioRouter.get('/models/recommend', async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.id;
+  const taskQuery = String(req.query.q || req.query.task || '');
+
+  const userRecord = await prisma.user.findUnique({ where: { id: userId }, select: { hasStudioAccess: true } });
+  const paidOrder = await prisma.order.findFirst({ where: { userId, paymentStatus: 'PAID' } });
+  const paidSub = await prisma.subscription.findFirst({ where: { userId, status: 'ACTIVE' } });
+  const isPaidCustomer = Boolean(paidOrder || paidSub || userRecord?.hasStudioAccess);
+
+  const recommendation = recommendModelForTask(taskQuery, isPaidCustomer);
+  return res.json({ success: true, recommendation });
+});
+
 
 // POST /api/user/studio/chat/stream - Real-time SSE Streaming Chat
 studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {

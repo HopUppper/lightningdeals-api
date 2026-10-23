@@ -19,9 +19,9 @@ export const AdminOverview: React.FC = () => {
     setUpdateError(null);
     try {
       const [res, acRes, smRes] = await Promise.all([
-        adminFetch('/api/deez/overview'),
-        adminFetch('/api/deez/action-center').catch(() => null),
-        adminFetch('/api/deez/subscriptions/metrics').catch(() => null),
+        adminFetch('/api/admin/overview'),
+        adminFetch('/api/admin/action-center').catch(() => null),
+        adminFetch('/api/admin/subscriptions/metrics').catch(() => null),
       ]);
 
       if (res.ok) {

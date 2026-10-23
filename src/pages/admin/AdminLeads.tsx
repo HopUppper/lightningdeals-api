@@ -9,7 +9,7 @@ export const AdminLeads: React.FC = () => {
 
   const fetchLeads = async () => {
     try {
-      const res = await adminFetch('/api/deez/leads');
+      const res = await adminFetch('/api/admin/leads');
       if (res.ok) {
         setLeads(await res.json());
       }
@@ -26,7 +26,7 @@ export const AdminLeads: React.FC = () => {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await adminFetch(`/api/deez/leads/${id}`, {
+      const res = await adminFetch(`/api/admin/leads/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus }),
       });

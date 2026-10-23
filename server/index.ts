@@ -271,6 +271,14 @@ app.use('/api/admin/ai', adminAIRouter);
 app.use('/api/admin/fulfillment', adminFulfillmentRouter);
 app.use('/api/admin/referrals', adminReferralRouter);
 app.use('/api/admin/rewards', adminRewardsRouter);
+
+// Backward-compatible & alias routes for /api/deez
+app.use('/api/deez/auth', adminAuthRouter);
+app.use('/api/deez/whatsapp', adminWhatsAppRouter);
+app.use('/api/deez/ai', adminAIRouter);
+app.use('/api/deez/fulfillment', adminFulfillmentRouter);
+app.use('/api/deez/referrals', adminReferralRouter);
+app.use('/api/deez/rewards', adminRewardsRouter);
 app.use('/api/user/notifications', notificationsRouter);
 app.use('/api/user/rewards', customerRewardsRouter);
 app.use('/api/rewards', customerRewardsRouter);
@@ -289,6 +297,7 @@ app.use('/api/user/studio', studioRouter);
 app.use('/api/user', userRouter);
 app.use('/api', userRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/deez', adminRouter);
 
 // 5. One-line Terminal Setup Scripts
 app.get('/setup.sh', (req, res) => {

@@ -36,7 +36,7 @@ export const AdminLayout: React.FC = () => {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await adminFetch(`/api/deez/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        const res = await adminFetch(`/api/admin/search?q=${encodeURIComponent(searchQuery.trim())}`);
         if (res.ok) {
           setSearchResults(await res.json());
           setShowSearchDropdown(true);

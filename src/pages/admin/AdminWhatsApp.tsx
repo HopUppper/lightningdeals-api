@@ -78,8 +78,8 @@ export const AdminWhatsApp: React.FC = () => {
       });
 
       const [resConv, resAnalytics] = await Promise.all([
-        adminFetch(`/api/deez/whatsapp/conversations?${q.toString()}`),
-        adminFetch('/api/deez/whatsapp/analytics'),
+        adminFetch(`/api/admin/whatsapp/conversations?${q.toString()}`),
+        adminFetch('/api/admin/whatsapp/analytics'),
       ]);
 
       if (resConv.ok) {
@@ -105,7 +105,7 @@ export const AdminWhatsApp: React.FC = () => {
   const fetchDetail = async (id: string, silent = false) => {
     if (!silent) setLoadingDetail(true);
     try {
-      const res = await adminFetch(`/api/deez/whatsapp/conversations/${id}`);
+      const res = await adminFetch(`/api/admin/whatsapp/conversations/${id}`);
       if (res.ok) {
         const data = await res.json();
         setActiveConv(data.conversation);
@@ -121,7 +121,7 @@ export const AdminWhatsApp: React.FC = () => {
 
   const fetchTelemetry = async () => {
     try {
-      const res = await adminFetch('/api/deez/whatsapp/bot-telemetry');
+      const res = await adminFetch('/api/admin/whatsapp/bot-telemetry');
       if (res.ok) {
         setBotTelemetry(await res.json());
       }
@@ -162,7 +162,7 @@ export const AdminWhatsApp: React.FC = () => {
 
     setSendingMsg(true);
     try {
-      const res = await adminFetch(`/api/deez/whatsapp/conversations/${selectedId}/messages`, {
+      const res = await adminFetch(`/api/admin/whatsapp/conversations/${selectedId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: chatMessage.trim() }),
@@ -186,7 +186,7 @@ export const AdminWhatsApp: React.FC = () => {
     if (!selectedId || !activeConv) return;
     const isCurrentlyHandoff = activeConv.status === 'HUMAN_HANDOFF';
     try {
-      const res = await adminFetch(`/api/deez/whatsapp/conversations/${selectedId}/toggle-handoff`, {
+      const res = await adminFetch(`/api/admin/whatsapp/conversations/${selectedId}/toggle-handoff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enableHandoff: !isCurrentlyHandoff }),
@@ -208,7 +208,7 @@ export const AdminWhatsApp: React.FC = () => {
     setSubmittingPrice(true);
     setActionNotice(null);
     try {
-      const res = await adminFetch('/api/deez/whatsapp/negotiate-price', {
+      const res = await adminFetch('/api/admin/whatsapp/negotiate-price', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -243,7 +243,7 @@ export const AdminWhatsApp: React.FC = () => {
     if (!confirm('Generate PayU payment link and send directly to customer on WhatsApp?')) return;
 
     try {
-      const res = await adminFetch('/api/deez/whatsapp/create-order', {
+      const res = await adminFetch('/api/admin/whatsapp/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ negotiatedPriceId }),

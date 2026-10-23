@@ -1836,15 +1836,35 @@ export const UserChatStudio: React.FC = () => {
       }
 
       if (!response.ok) {
-        const errorJson = await response.json().catch(() => ({}));
-        if (errorJson.error?.code === 'PRO_TIER_REQUIRED') {
-          setUpgradeReason(errorJson.error.message);
+        const errorText = await response.text().catch(() => '');
+        let errorJson: any = {};
+        try { errorJson = JSON.parse(errorText); } catch {}
+        const code = errorJson.error?.code || errorJson.code || '';
+        const rawMessage =
+          errorJson.error?.message ||
+          errorJson.message ||
+          (typeof errorJson.error === 'string' ? errorJson.error : '') ||
+          (errorText && errorText.length < 150 ? errorText : '');
+
+        let errorMessage = rawMessage;
+        if (!errorMessage) {
+          if (response.status === 403) {
+            errorMessage = 'Gateway access limit reached or key window expired. Please click "Switch Key" to select an active production key.';
+          } else if (response.status === 429) {
+            errorMessage = 'Rate limit or token allocation exceeded. Please switch to another key or try again in a moment.';
+          } else {
+            errorMessage = `Gateway error (${response.status})`;
+          }
+        }
+
+        if (code === 'PRO_TIER_REQUIRED') {
+          setUpgradeReason(errorMessage);
           setShowUpgradeModal(true);
         }
-        if (errorJson.error?.code === 'QUOTA_EXHAUSTED') {
+        if (code === 'QUOTA_EXHAUSTED' || code === 'KEY_EXPIRED' || response.status === 403) {
           setKeyPickerOpen(true);
         }
-        throw new Error(errorJson.error?.message || `Gateway error (${response.status})`);
+        throw new Error(errorMessage);
       }
 
       const reader = response.body?.getReader();

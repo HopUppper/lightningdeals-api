@@ -199,17 +199,20 @@ async function main() {
     if (!existingPlan) {
       await prisma.plan.create({ data: p });
     } else {
+      // Preserve existing prices set by admin in the admin panel
       await prisma.plan.update({
         where: { id: existingPlan.id },
         data: {
-          featuresJson: p.featuresJson,
-          tagline: p.tagline,
-          priceInr: p.priceInr,
-          originalPriceInr: p.originalPriceInr,
-          sortOrder: p.sortOrder,
-          tokenDisplay: p.tokenDisplay,
-          displayName: p.displayName,
-          badge: p.badge,
+          featuresJson: existingPlan.featuresJson || p.featuresJson,
+          tagline: existingPlan.tagline || p.tagline,
+          priceInr: existingPlan.priceInr ?? p.priceInr,
+          originalPriceInr: existingPlan.originalPriceInr !== null && existingPlan.originalPriceInr !== undefined ? existingPlan.originalPriceInr : p.originalPriceInr,
+          annualPriceInr: existingPlan.annualPriceInr !== null && existingPlan.annualPriceInr !== undefined ? existingPlan.annualPriceInr : p.annualPriceInr,
+          annualOriginalPriceInr: existingPlan.annualOriginalPriceInr !== null && existingPlan.annualOriginalPriceInr !== undefined ? existingPlan.annualOriginalPriceInr : p.annualOriginalPriceInr,
+          sortOrder: existingPlan.sortOrder ?? p.sortOrder,
+          tokenDisplay: existingPlan.tokenDisplay || p.tokenDisplay,
+          displayName: existingPlan.displayName || p.displayName,
+          badge: existingPlan.badge || p.badge,
         },
       });
     }

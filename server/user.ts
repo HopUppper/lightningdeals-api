@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma, encryptText, decryptText } from './db';
-import { generateToken, authenticateJwt, requireVerifiedEmail, AuthRequest, hashPasswordScrypt, verifyPasswordScrypt } from './auth';
+import { generateToken, authenticateJwt, optionalAuthenticateJwt, requireVerifiedEmail, AuthRequest, hashPasswordScrypt, verifyPasswordScrypt } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { authLimiter, trialLimiter } from './rateLimit';
 import { sendVerificationEmail, sendPasswordResetEmail, getEmailProviderStatus } from './email';
@@ -1757,7 +1757,7 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
     if (killswitch?.value === 'true') {
       return res.status(403).json({
         success: false,
-        error: { message: 'Free trial claims are temporarily suspended for system maintenance.' },
+        isPaused: true, error: { message: 'Free trial is currently paused for all customers.' },
       });
     }
 
@@ -1964,6 +1964,8 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
     res.json({
       success: true,
       message: 'Free Trial activated successfully!',
+      key: rawKeySecret,
+      rawKeySecret,
       trial: {
         apiKeyDisplay: displayKey,
         rawKeySecret,
@@ -1977,20 +1979,45 @@ router.post('/trial/claim', authenticateJwt, async (req: AuthRequest, res: Respo
   }
 });
 
-// GET /api/user/trial/status
-router.get('/trial/status', authenticateJwt, async (req: AuthRequest, res: Response) => {
+// GET /api/user/trial/status (supports both authenticated and unauthenticated queries)
+router.get('/trial/status', optionalAuthenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
-    const user = req.user!;
-
-    // Check emergency killswitch
     const killswitch = await prisma.systemSetting.findUnique({ where: { key: 'trials_disabled' } });
-    if (killswitch?.value === 'true') {
+    const isPaused = killswitch?.value === 'true';
+
+    // If caller is unauthenticated, return global trial availability
+    if (!req.user) {
       return res.json({
-        isEligible: false,
+        success: true,
+        isPaused,
+        trialsDisabled: isPaused,
+        isEligible: !isPaused,
         hasClaimed: false,
+        canClaim: !isPaused,
+        status: isPaused ? 'PAUSED' : 'ACTIVE_AVAILABLE',
+        message: isPaused
+          ? 'Free trial is currently paused for all customers.'
+          : 'Free trial is live and available for new accounts.',
+      });
+    }
+
+    const user = req.user;
+
+    // Check emergency killswitch when authenticated
+    if (isPaused) {
+      const claim = await prisma.trialClaim.findFirst({
+        where: { userId: user.id },
+        include: { apiKey: true },
+      });
+      return res.json({
+        success: true,
+        isPaused: true,
         trialsDisabled: true,
+        isEligible: false,
+        hasClaimed: !!claim,
+        canClaim: false,
         status: 'PAUSED',
-        message: 'Free trial claims are temporarily suspended for system maintenance.',
+        message: 'Free trial is currently paused for all customers.',
       });
     }
 
@@ -1998,6 +2025,10 @@ router.get('/trial/status', authenticateJwt, async (req: AuthRequest, res: Respo
     const claim = await prisma.trialClaim.findFirst({
       where: { userId: user.id },
       include: { apiKey: true },
+    });
+
+    const existingSub = await prisma.subscription.findFirst({
+      where: { userId: user.id },
     });
 
     if (!claim) {
@@ -2008,18 +2039,40 @@ router.get('/trial/status', authenticateJwt, async (req: AuthRequest, res: Respo
         });
         if (ipClaim) {
           return res.json({
+            success: true,
+            isPaused: false,
+            trialsDisabled: false,
             isEligible: false,
             hasClaimed: true,
+            canClaim: false,
             status: 'IP_ALREADY_CLAIMED',
             message: 'A trial key has already been issued from this network/IP address.',
           });
         }
       }
 
+      if (existingSub) {
+        return res.json({
+          success: true,
+          isPaused: false,
+          trialsDisabled: false,
+          isEligible: false,
+          hasClaimed: false,
+          canClaim: false,
+          status: 'HAS_EXISTING_SUBSCRIPTION',
+          message: 'Account already has an active or previous subscription.',
+        });
+      }
+
       return res.json({
+        success: true,
+        isPaused: false,
+        trialsDisabled: false,
         isEligible: true,
         hasClaimed: false,
+        canClaim: true,
         status: 'NOT_CLAIMED',
+        message: 'Ready to claim.',
       });
     }
 
@@ -2030,11 +2083,16 @@ router.get('/trial/status', authenticateJwt, async (req: AuthRequest, res: Respo
     const isExpired = sub ? new Date() > sub.expiryTime : false;
 
     res.json({
+      success: true,
+      isPaused: false,
+      trialsDisabled: false,
       isEligible: false,
       hasClaimed: true,
+      canClaim: false,
       status: isExpired ? 'EXPIRED' : 'ACTIVE',
       expiryTime: sub?.expiryTime || null,
       claimedAt: claim.createdAt,
+      message: isExpired ? 'Your Free Trial has expired.' : 'Your Free Trial is currently active.',
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

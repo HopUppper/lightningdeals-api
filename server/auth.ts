@@ -123,6 +123,40 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
   }
 }
 
+// Optional Server-Side JWT Authenticator (attaches user if valid, otherwise proceeds anonymously)
+export async function optionalAuthenticateJwt(req: AuthRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  const token = authHeader;
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as any;
+    if (decoded && decoded.id && typeof decoded.id === 'string') {
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+      });
+
+      if (user && user.status !== 'suspended') {
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          name: user.name,
+          phone: user.phone,
+          emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
+        };
+      }
+    }
+  } catch {
+    // Silently continue for public optional endpoints
+  }
+  next();
+}
+
 // Strict Server-Side Email Verification Guard
 export function requireVerifiedEmail(req: AuthRequest, res: Response, next: NextFunction) {
   if (!req.user) {

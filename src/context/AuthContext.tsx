@@ -41,11 +41,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [adminLoading, setAdminLoading] = useState(true);
 
   const getStoredToken = () => {
-    return sessionStorage.getItem('apexscale_token') || '';
+    return sessionStorage.getItem('apexscale_token') || localStorage.getItem('apexscale_token') || '';
   };
 
   const getStoredAdminToken = () => {
-    return sessionStorage.getItem('ld_admin_token') || '';
+    return sessionStorage.getItem('ld_admin_token') || localStorage.getItem('ld_admin_token') || '';
   };
 
   const refreshUser = async () => {
@@ -95,9 +95,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Clear legacy persistent localStorage tokens to enforce strict session login
-    localStorage.removeItem('apexscale_token');
-    localStorage.removeItem('ld_admin_token');
+    // Synchronize localStorage and sessionStorage across tabs
+    const userTok = localStorage.getItem('apexscale_token');
+    if (userTok && !sessionStorage.getItem('apexscale_token')) {
+      sessionStorage.setItem('apexscale_token', userTok);
+    }
+    const adminTok = localStorage.getItem('ld_admin_token');
+    if (adminTok && !sessionStorage.getItem('ld_admin_token')) {
+      sessionStorage.setItem('ld_admin_token', adminTok);
+    }
     refreshUser();
     refreshAdmin();
 
@@ -115,13 +121,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = (token: string, userData: User) => {
     sessionStorage.setItem('apexscale_token', token);
-    localStorage.removeItem('apexscale_token');
+    localStorage.setItem('apexscale_token', token);
     setUser(userData);
   };
 
   const adminLogin = (token: string, userData: User) => {
     sessionStorage.setItem('ld_admin_token', token);
-    localStorage.removeItem('ld_admin_token');
+    localStorage.setItem('ld_admin_token', token);
     setAdminUser(userData);
     window.location.href = '/deez';
   };

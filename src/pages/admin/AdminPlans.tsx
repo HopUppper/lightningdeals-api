@@ -27,6 +27,8 @@ import { adminFetch } from '../../utils/api';
 export const AdminPlans: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'plans' | 'coupons' | 'subscriptions' | 'trials'>('plans');
   const [loading, setLoading] = useState(true);
+  const [trialsDisabled, setTrialsDisabled] = useState(false);
+  const [togglingTrials, setTogglingTrials] = useState(false);
 
   // Plans State
   const [plans, setPlans] = useState<any[]>([]);
@@ -95,12 +97,13 @@ export const AdminPlans: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [plansRes, couponsRes, ovRes, subRes, trialRes] = await Promise.all([
+      const [plansRes, couponsRes, ovRes, subRes, trialRes, emergencyRes] = await Promise.all([
         adminFetch('/api/admin/plans-catalog').catch(() => null),
         adminFetch('/api/admin/coupons').catch(() => null),
         adminFetch('/api/admin/claude-plans/overview').catch(() => null),
         adminFetch(`/api/admin/subscriptions?search=${encodeURIComponent(searchQuery)}&planFilter=${planFilter}&statusFilter=${statusFilter}`).catch(() => null),
         adminFetch('/api/admin/trials').catch(() => null),
+        adminFetch('/api/admin/emergency/status').catch(() => null),
       ]);
 
       if (plansRes && plansRes.ok) {
@@ -120,6 +123,10 @@ export const AdminPlans: React.FC = () => {
         const tData = await trialRes.json();
         setTrials(tData.trials || []);
       }
+      if (emergencyRes && emergencyRes.ok) {
+        const eData = await emergencyRes.json();
+        setTrialsDisabled(!!eData.trialsDisabled);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -132,6 +139,24 @@ export const AdminPlans: React.FC = () => {
   }, [planFilter, statusFilter]);
 
   // Plan Management Handlers
+  const handleToggleTrials = async () => {
+    setTogglingTrials(true);
+    try {
+      const res = await adminFetch('/api/admin/emergency/toggle-trials', {
+        method: 'POST',
+        body: JSON.stringify({ disabled: !trialsDisabled }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTrialsDisabled(!!data.trialsDisabled);
+      }
+    } catch (err) {
+      console.error('Error toggling trials:', err);
+    } finally {
+      setTogglingTrials(false);
+    }
+  };
+
   const handleOpenNewPlanModal = () => {
     setSelectedPlanForEdit(null);
     setPlanForm({
@@ -830,6 +855,48 @@ export const AdminPlans: React.FC = () => {
       {/* TAB 4: FREE TRIAL CLAIMS */}
       {activeTab === 'trials' && (
         <div className="space-y-4">
+          {/* Free Trial Platform Control Card */}
+          <div className={`p-4 rounded-panel border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+            trialsDisabled
+              ? 'bg-amber-50/80 border-amber-300 text-amber-950'
+              : 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-control ${
+                trialsDisabled ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'
+              }`}>
+                <Power className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm tracking-tight">Free Trial Platform Status:</span>
+                  <span className={`text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full ${
+                    trialsDisabled ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'
+                  }`}>
+                    {trialsDisabled ? 'PAUSED FOR ALL CUSTOMERS' : 'LIVE & ACCEPTING CLAIMS'}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {trialsDisabled
+                    ? 'All customers visiting /trial or the customer dashboard are currently shown the paused notice.'
+                    : 'Eligible customer accounts can claim 200,000 complimentary evaluation tokens.'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleTrials}
+              disabled={togglingTrials}
+              className={`px-4 py-2 rounded-control font-mono font-bold text-xs uppercase flex items-center gap-2 cursor-pointer transition-all shadow-xs ${
+                trialsDisabled
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-amber-600 hover:bg-amber-700 text-white'
+              }`}
+            >
+              {togglingTrials ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
+              <span>{trialsDisabled ? 'Resume Free Trials' : 'Pause Free Trials'}</span>
+            </button>
+          </div>
           <div className="overflow-x-auto rounded-panel border border-border shadow-xs bg-card">
             <table className="w-full text-left border-collapse">
               <thead>

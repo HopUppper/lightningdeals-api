@@ -77,13 +77,20 @@ export const UserPlan: React.FC = () => {
       const resData = await res.json();
       if (!res.ok || !resData.success) {
         setTrialError(resData.error?.message || 'Failed to claim trial.');
+        if (resData.isPaused) {
+          setTrialStatus((prev: any) => ({ ...prev, isPaused: true, trialsDisabled: true, status: 'PAUSED' }));
+        }
       } else {
-        setRevealedKeyData({
-          key: resData.key,
-          planName: '1-Day Free Trial',
-          quotaDisplay: '200K Tokens / 5h Window',
-          windowHours: 5,
-        });
+        const rawKey = resData.trial?.rawKeySecret || resData.trial?.apiKey || resData.key || resData.rawKeySecret;
+        if (rawKey) {
+          setRevealedKeyData({
+            key: rawKey,
+            planName: '1-Day Free Trial',
+            quotaDisplay: '200K Tokens / 5h Window',
+            windowHours: 5,
+          });
+        }
+        fetchSubscriptions();
       }
     } catch (err: any) {
       setTrialError(err.message || 'Network error claiming trial.');
@@ -183,6 +190,41 @@ export const UserPlan: React.FC = () => {
           <span>Purchase / Upgrade Plan</span>
         </button>
       </div>
+
+      {/* Free Trial Paused Notice */}
+      {!activeSub && (trialStatus?.isPaused || trialStatus?.trialsDisabled || trialStatus?.status === 'PAUSED') && (
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 border border-amber-300/80 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-playful">
+          <div className="space-y-1.5 text-center sm:text-left">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-200/80 text-amber-900 text-[10.5px] font-bold uppercase tracking-wider border border-amber-300">
+              <Clock className="w-3.5 h-3.5 text-amber-800" />
+              <span>FREE TRIALS TEMPORARILY PAUSED</span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-extrabold text-[#1e1b2e]">Free Trial Activations Paused for All Customers</h2>
+            <p className="text-xs text-[#64607d] max-w-xl">
+              Complimentary trial activations are temporarily on hold to safeguard gateway bandwidth and guarantee ultra-low latency for active subscriptions. You can activate any capacity plan instantly below.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const planToSelect = (availablePlans.length > 0 ? availablePlans.find((p: any) => p.priceInr > 0) : null) || {
+                id: 'pro',
+                name: 'Max 5x',
+                priceInr: 2499,
+                tokenDisplay: '5M TOKENS / 5 HOURS',
+                windowHours: 5,
+                validityDays: 30,
+              };
+              setSelectedPlanForCheckout(planToSelect);
+            }}
+            className="ui-button-primary text-xs px-6 py-3 font-bold shrink-0 self-stretch sm:self-auto shadow-md cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
+            <span>Explore Capacity Plans</span>
+          </button>
+        </div>
+      )}
 
       {/* Free Trial Eligibility Card */}
       {!activeSub && trialStatus?.isEligible && (

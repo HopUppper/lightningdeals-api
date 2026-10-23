@@ -150,6 +150,7 @@ export interface ChatMessage {
   sources?: WebSourceItem[];
   researchMode?: 'standard' | 'web_search' | 'deep_research' | 'open_link' | 'browser_task';
   inspectedUrl?: string;
+  provider?: string;
   activities?: StudioActivityEvent[];
   currentActivity?: StudioActivityEvent;
 }
@@ -1953,6 +1954,7 @@ export const UserChatStudio: React.FC = () => {
               } else if (eventType === 'sources') {
                 const receivedSources = parsed.sources || [];
                 const inspectedUrl = parsed.inspectedUrl;
+                const provider = parsed.provider;
                 setThreads((prev) =>
                   prev.map((t) =>
                     t.id === boundThreadId
@@ -1965,6 +1967,7 @@ export const UserChatStudio: React.FC = () => {
                                   sources: receivedSources,
                                   inspectedUrl: inspectedUrl || m.inspectedUrl,
                                   researchMode: parsed.researchMode || m.researchMode,
+                                  provider: provider || m.provider,
                                 }
                               : m
                           ),
@@ -3605,6 +3608,7 @@ export const UserChatStudio: React.FC = () => {
                           <WebResearchSources
                             sources={msg.sources || []}
                             researchMode={msg.researchMode}
+                            provider={msg.provider}
                             inspectedUrl={msg.inspectedUrl}
                             isDarkTheme={isDark}
                             defaultExpanded={false}

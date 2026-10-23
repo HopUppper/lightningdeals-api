@@ -14,6 +14,7 @@ export interface WebSourceItem {
 interface WebResearchSourcesProps {
   sources: WebSourceItem[];
   researchMode?: string;
+  provider?: string;
   inspectedUrl?: string;
   isDarkTheme?: boolean;
   defaultExpanded?: boolean;
@@ -22,6 +23,7 @@ interface WebResearchSourcesProps {
 export const WebResearchSources: React.FC<WebResearchSourcesProps> = ({
   sources,
   researchMode,
+  provider,
   inspectedUrl,
   isDarkTheme = true,
   defaultExpanded = false,
@@ -72,6 +74,11 @@ export const WebResearchSources: React.FC<WebResearchSourcesProps> = ({
               <span className="font-bold text-violet-700 dark:text-violet-300">
                 {modeLabel} ({sources.length} sources)
               </span>
+              {provider && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-violet-500/15 text-violet-600 dark:text-violet-300 border border-violet-500/30">
+                  {provider}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">

@@ -12,6 +12,11 @@ import {
   WebSearchResult,
 } from './webResearch';
 import {
+  searchTavily,
+  isTavilyConfigured,
+  getTavilyUsageStats,
+} from './tavilySearch';
+import {
   checkBrowserCapability,
   createBrowserSession,
   getBrowserSession,
@@ -1754,6 +1759,41 @@ studioRouter.post('/data/revise', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST /api/user/studio/research/tavily - Protected Official Tavily Search API
+studioRouter.post('/research/tavily', async (req: AuthRequest, res: Response) => {
+  const { query, maxResults = 5, searchDepth = 'basic', includeAnswer = false } = req.body;
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ success: false, error: { message: 'Search query is required.' } });
+  }
+
+  try {
+    const searchRes = await searchTavily(query.trim(), {
+      maxResults: Number(maxResults),
+      searchDepth: searchDepth === 'advanced' ? 'advanced' : 'basic',
+      includeAnswer: Boolean(includeAnswer),
+    });
+
+    if (!searchRes.success) {
+      const statusCode = searchRes.code === 'MISSING_API_KEY' ? 503 : searchRes.code === 'RATE_LIMITED' ? 429 : 500;
+      return res.status(statusCode).json({ success: false, error: { message: searchRes.error, code: searchRes.code } });
+    }
+
+    return res.json({ success: true, ...searchRes });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Tavily search execution failed.' } });
+  }
+});
+
+// GET /api/user/studio/research/tavily/stats - Tavily Usage Telemetry (Operator Monitoring)
+studioRouter.get('/research/tavily/stats', async (_req: AuthRequest, res: Response) => {
+  try {
+    const stats = getTavilyUsageStats();
+    return res.json({ success: true, stats });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to retrieve usage stats.' } });
+  }
+});
+
 // POST /api/user/studio/research/search - Real-time Web Search
 studioRouter.post('/research/search', async (req: AuthRequest, res: Response) => {
   const { query, maxResults = 5 } = req.body;
@@ -2366,7 +2406,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
 
     // Stream research sources immediately so client UI populates source cards
     if (researchSources.length > 0) {
-      sendSse('sources', { sources: researchSources, researchMode, inspectedUrl: analyzedUrl });
+      sendSse('sources', { sources: researchSources, researchMode, inspectedUrl: analyzedUrl, provider: isTavilyConfigured() ? 'Tavily Search API' : undefined });
     }
 
     // Live Activity: Transition into model generation

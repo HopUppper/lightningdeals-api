@@ -238,15 +238,22 @@ export function analyzePromptTaskContext(
     };
   }
 
-  // 5. Standard Web Search Context
-  if (researchMode === 'web_search') {
+  // 5. Standard Web Search Context (Explicit toggle or Automatic Search Intent)
+  const isSearchIntent =
+    researchMode === 'web_search' ||
+    (/\b(search web|search online|search for|google|browse|lookup|find online|web search)\b/i.test(lower)) ||
+    (/\b(latest|recent|recently|news|today|yesterday|this week|this month|this year|2025|2026)\b/i.test(lower) &&
+      !lower.includes('code') && !lower.includes('function') && !lower.includes('bug')) ||
+    (/\b(who is currently|current price|weather in|who won|score of|release date of)\b/i.test(lower));
+
+  if (isSearchIntent) {
     return {
       category: 'web_search',
       detectedUrls: urlsInText,
       plannedStages: [
         {
           type: 'searching_web',
-          title: 'Searching the web',
+          title: 'Searching the web via Tavily',
           detail: `Querying authoritative sources for "${cleanPrompt.substring(0, 50)}"...`,
         },
         {

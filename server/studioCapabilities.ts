@@ -9,6 +9,8 @@
  * 4. Customer Plan Constraints (Trial vs Paid access, token quotas, upload size limits)
  */
 
+import { isTavilyConfigured } from './tavilySearch';
+
 export interface ModelCapabilityProfile {
   id: string;
   displayName: string;
@@ -71,7 +73,7 @@ export interface StudioNativeCapabilities {
 export interface ExternalIntegrations {
   webResearch: {
     enabled: boolean;
-    provider: 'duckduckgo' | 'searxng' | 'hybrid';
+    provider: 'tavily' | 'duckduckgo' | 'searxng' | 'hybrid';
     traceableCitations: boolean;
     ssrfGuarded: boolean;
   };
@@ -418,11 +420,19 @@ export function resolveStudioCapabilities(
     systemNotice = `Model ${selectedModel.displayName} requires a paid subscription. Please select a trial model or upgrade your plan.`;
   }
 
+  const externalIntegrations: ExternalIntegrations = {
+    ...STUDIO_EXTERNAL_INTEGRATIONS,
+    webResearch: {
+      ...STUDIO_EXTERNAL_INTEGRATIONS.webResearch,
+      provider: isTavilyConfigured() ? 'tavily' : 'hybrid',
+    },
+  };
+
   return {
     selectedModel,
     availableModels,
     nativeCapabilities: STUDIO_NATIVE_CAPABILITIES,
-    externalIntegrations: STUDIO_EXTERNAL_INTEGRATIONS,
+    externalIntegrations,
     entitlements,
     systemNotice,
   };

@@ -2463,6 +2463,8 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     res.write(`event: done\ndata: ${JSON.stringify({
       result: accumulatedText,
       thinking: accumulatedThinking || null,
+      modelUsed: selectedModel,
+      friendlyModelName: friendlyModel,
       sources: researchSources.length > 0 ? researchSources : undefined,
       activities: activityTracker.getActivities(),
       usage: {

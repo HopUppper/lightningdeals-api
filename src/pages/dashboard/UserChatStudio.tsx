@@ -368,37 +368,31 @@ export const getModelDisplayName = (modelId: string): string => {
   return modelId;
 };
 
-// Phase 2.3 Starting Prompt Cards
+// Phase 1 Essential Starter Cards
 const STARTING_WORKFLOW_CARDS = [
   {
-    icon: FileText,
-    title: 'Explain or summarize a document',
-    prompt: 'Please analyze this technical document or text: extract the key takeaways, structural architecture, important data points, and actionable next steps.',
-    category: 'Document Analysis',
-  },
-  {
     icon: Bug,
-    title: 'Debug a piece of code',
-    prompt: 'Review this code for bugs, race conditions, edge-case failures, or performance bottlenecks. Provide the root-cause diagnosis and a clean minimal fix.',
-    category: 'Debugging & Fixes',
+    title: 'Code & Debug Fixes',
+    prompt: 'Review this code for edge cases, race conditions, or memory leaks, and provide a clean production fix with explanation.',
+    category: 'Code & Debug',
   },
   {
     icon: Scale,
-    title: 'Compare two approaches',
-    prompt: 'Compare two architectural approaches for solving this problem: evaluate performance, scalability, development velocity, and operational trade-offs.',
+    title: 'System Architecture Design',
+    prompt: 'Design a high-throughput webhook delivery system with exponential backoff retries, idempotency keys, and telemetry.',
     category: 'Architecture',
   },
   {
-    icon: BookOpen,
-    title: 'Help draft or improve writing',
-    prompt: 'Help draft and refine this technical explanation or executive summary with high clarity, concise structure, and professional tone.',
-    category: 'Writing & Docs',
+    icon: FileText,
+    title: 'Explain & Analyze Algorithms',
+    prompt: 'Explain the difference between rolling token windows and fixed bucket quotas, and provide a Python demonstration script.',
+    category: 'Analysis & Logic',
   },
   {
-    icon: Table,
-    title: 'Analyse spreadsheet or CSV data',
-    prompt: 'Analyze this tabular CSV data or dataset: summarize core statistical trends, highlight anomalies, and generate key actionable insights.',
-    category: 'Data & Analytics',
+    icon: Sparkles,
+    title: 'Interactive UI in HTML & Tailwind',
+    prompt: 'Build a modern responsive pricing table component in HTML and Tailwind CSS with monthly and annual billing toggles.',
+    category: 'UI & Preview',
   },
 ];
 
@@ -461,6 +455,16 @@ export const UserChatStudio: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+
+  // Auto-resize composer textarea smoothly up to 220px
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollH = textareaRef.current.scrollHeight;
+      const nextHeight = Math.min(220, Math.max(48, scrollH));
+      textareaRef.current.style.height = `${nextHeight}px`;
+    }
+  }, [inputMessage]);
 
   // Model & Key Picker Modals
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
@@ -2033,6 +2037,7 @@ export const UserChatStudio: React.FC = () => {
                                     usage: parsed.usage,
                                     latencyMs: parsed.latencyMs,
                                     multiplier: parsed.multiplier,
+                                    modelUsed: parsed.modelUsed || parsed.model || activeThread.model,
                                   }
                               : m
                           ),
@@ -2221,6 +2226,17 @@ export const UserChatStudio: React.FC = () => {
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4 text-violet-400" /> : <PanelLeft className="w-4 h-4 text-violet-400" />}
           </button>
 
+          {!sidebarOpen && (
+            <button
+              type="button"
+              onClick={() => handleCreateNewThread()}
+              className="sm:hidden p-1.5 rounded-lg border bg-violet-600 text-white border-violet-500 cursor-pointer shadow-2xs shrink-0"
+              title="New Chat"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Session Title (Inline Editable) */}
           <div className="flex items-center gap-1.5 min-w-0 max-w-[200px] sm:max-w-[280px] md:max-w-[360px]">
             {isEditingTitle ? (
@@ -2331,7 +2347,7 @@ export const UserChatStudio: React.FC = () => {
 
           {/* Context Meter Gauge */}
           <div
-            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono ${c.pillBg}`}
+            className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono ${c.pillBg}`}
             title={`Context Window: ${threadTokenStats.totalContextTokens.toLocaleString()} of ${threadTokenStats.contextLimit.toLocaleString()} tokens (${threadTokenStats.contextPercent}%)`}
           >
             <div className="w-10 sm:w-14 h-1.5 rounded-full bg-black/20 dark:bg-white/10 overflow-hidden">
@@ -3096,15 +3112,15 @@ export const UserChatStudio: React.FC = () => {
 
                   <div className="space-y-1.5 max-w-xl mx-auto">
                     <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      What are we building today?
+                      LightningAPI AI Chat Studio
                     </h2>
                     <p className={`text-xs sm:text-sm leading-relaxed ${c.textMuted}`}>
-                      Ask a coding question, analyze documents, preview UI components live, or draft full-stack projects.
+                      Frontier reasoning, instant code downloads, and sandboxed previews.
                     </p>
                   </div>
 
                   {/* 5 Functional Suggested Prompt Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-left max-w-3xl mx-auto pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-left max-w-2xl mx-auto pt-1">
                     {STARTING_WORKFLOW_CARDS.map((card, idx) => (
                       <button
                         key={idx}

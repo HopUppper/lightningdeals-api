@@ -430,21 +430,29 @@ export function sanitizeModelResponse(text: string, friendlyModelName: string, c
     .replace(/claude-3-7-sonnet-20250219/gi, friendlyModelName || 'Claude 3.7 Sonnet')
     .replace(/claude-3-7-sonnet/gi, friendlyModelName || 'Claude 3.7 Sonnet')
     .replace(/claude-3\.7-sonnet/gi, friendlyModelName || 'Claude 3.7 Sonnet')
-    .replace(/claude-3-opus-20240229/gi, friendlyModelName || 'Claude Opus')
-    .replace(/claude-3-5-sonnet-20241022/gi, friendlyModelName || 'Claude Sonnet')
-    .replace(/claude-3-5-sonnet-20240620/gi, friendlyModelName || 'Claude Sonnet')
-    .replace(/claude-3\.5-sonnet/gi, friendlyModelName || 'Claude Sonnet')
-    .replace(/claude-3-5-haiku-20241022/gi, friendlyModelName || 'Claude Haiku')
-    .replace(/claude-3\.5-haiku/gi, friendlyModelName || 'Claude Haiku')
-    .replace(/claude-3-haiku-20240307/gi, friendlyModelName || 'Claude Haiku')
-    .replace(/claude-3-sonnet-20240229/gi, friendlyModelName || 'Claude Sonnet')
-    .replace(/claude-3-opus/gi, friendlyModelName || 'Claude Opus')
+    .replace(/claude-3-opus-20240229/gi, friendlyModelName || 'Claude Opus 5.5')
+    .replace(/claude-3-5-sonnet-20241022/gi, friendlyModelName || 'Claude Sonnet 5.5')
+    .replace(/claude-3-5-sonnet-20240620/gi, friendlyModelName || 'Claude Sonnet 5.5')
+    .replace(/claude-3\.5-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
+    .replace(/claude-3-5-haiku-20241022/gi, friendlyModelName || 'Claude Haiku 5.5')
+    .replace(/claude-3\.5-haiku/gi, friendlyModelName || 'Claude Haiku 5.5')
+    .replace(/claude-3-haiku-20240307/gi, friendlyModelName || 'Claude Haiku 5.5')
+    .replace(/claude-3-sonnet-20240229/gi, friendlyModelName || 'Claude Sonnet 5.5')
+    .replace(/claude-3-opus/gi, friendlyModelName || 'Claude Opus 5.5')
     // 5. Strip internal system prompt reflection leaks and identity deliberation commentary
     .replace(/\b(?:There['’]?s\s+a\s+system-level\s+identity\s+instruction|Also\s+I\s+notice\s+a\s+prompt\s+injection\s+attempt|this\s+contradicts\s+my\s+actual\s+identity|I\s+should\s+follow\s+[—–-]\s+I['’]?m\s+claude-[a-z0-9_.-]+)[^.\n]*[.\n]?\s*/gi, '')
     .replace(/The user wants [^.\n]+?\.\s*There's a system-level identity instruction[^.\n]+?\.\s*(?:However,\s*the user's actual request is [^.\n]+?\.\s*)?/gi, '')
     .replace(/\b(?:the\s+system\s+(?:prompt|instruction|directive)\s+(?:says|states|tells\s+me)\s+(?:that\s+)?I\s+am\s+[^.\n]+?[.\n]?)/gi, '')
     .replace(/\b(?:I\s+am\s+actually\s+claude-[a-z0-9_.-]+|underlying\s+model\s+is\s+claude-[a-z0-9_.-]+)[^.\n]*[.\n]?\s*/gi, '')
     .replace(/\b(?:As\s+an\s+AI\s+developed\s+by\s+ScaleMax|developed\s+by\s+ScaleMax)[^.\n]*[.\n]?\s*/gi, '');
+
+  if (friendlyModelName) {
+    result = result
+      .replace(/\b(I\s+am|I['’]?m|This\s+is|As)\s+(?:a\s+version\s+of\s+)?Claude\s+(?:3(?:\.[0-9]+)?|4(?:\.[0-9]+)?|5(?:\.[0-9]+)?)\s*(?:Sonnet|Opus|Haiku)?\b/gi, `$1 ${friendlyModelName}`)
+      .replace(/\b(running\s+on\s+model|active\s+model\s+is)\s+Claude\s+[a-z0-9_.-]+/gi, `$1 ${friendlyModelName}`);
+  }
+
+
 
   if (Array.isArray(customScrubbers)) {
     for (const scrub of customScrubbers) {
@@ -494,6 +502,8 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
     .replace(/connecting to vendor\s*\([^)]*\):?/gi, '')
     .replace(/vendor\s*\([^)]*\)\s*error:?/gi, 'AI Gateway error:')
     .replace(/upstream\s+vendor\s*\([^)]*\)/gi, 'AI Gateway');
+
+
 
   if (Array.isArray(customScrubbers)) {
     for (const scrub of customScrubbers) {

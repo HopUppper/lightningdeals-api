@@ -71,6 +71,12 @@ export const AdminProviders: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingProvider, setEditingProvider] = useState<VendorProviderItem | null>(null);
 
+  // Live Auto-Refresh State (defaults to 3s per user specification)
+  const [autoRefreshSecs, setAutoRefreshSecs] = useState<number>(3);
+  const [isPolling, setIsPolling] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
+  const [now, setNow] = useState<Date>(new Date());
+
   // Main navigation tab
   const [mainTab, setMainTab] = useState<'capacity' | 'providers' | 'routing' | 'ledger'>('capacity');
   const [showAccountingDetails, setShowAccountingDetails] = useState(false);
@@ -222,14 +228,20 @@ export const AdminProviders: React.FC = () => {
     }
   };
 
-  const fetchBalanceMetrics = async (providerId: string) => {
+  const fetchBalanceMetrics = async (providerId: string, isLive = false, isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
-      const res = await adminFetch(`/api/admin/providers/${providerId}/balance`);
+      const url = `/api/admin/providers/${providerId}/balance${isLive ? '?live=true' : ''}`;
+      const res = await adminFetch(url);
       if (res.ok) {
-        setBalanceMetrics(await res.json());
+        const data = await res.json();
+        setBalanceMetrics(data);
+        setLastRefreshedAt(new Date());
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -243,6 +255,30 @@ export const AdminProviders: React.FC = () => {
       console.error(e);
     }
   };
+
+  // 1-second countdown ticker for live rolling window and validity timers
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Live Auto-Refresh Polling Effect (queries live provider every 2 to 5 seconds)
+  useEffect(() => {
+    if (autoRefreshSecs <= 0) return;
+    const targetId = selectedProviderId || (providers.find(p => p.isPrimary || p.isDefault) || providers[0])?.id;
+    if (!targetId) return;
+
+    const interval = setInterval(async () => {
+      setIsPolling(true);
+      try {
+        await fetchBalanceMetrics(targetId, true, true);
+      } finally {
+        setIsPolling(false);
+      }
+    }, autoRefreshSecs * 1000);
+
+    return () => clearInterval(interval);
+  }, [autoRefreshSecs, selectedProviderId, providers]);
 
   useEffect(() => {
     fetchProviders();
@@ -498,6 +534,20 @@ export const AdminProviders: React.FC = () => {
     }
   };
 
+  const formatRelativeTime = (isoString?: string | null) => {
+    if (!isoString) return 'Never';
+    const diff = Math.max(0, now.getTime() - new Date(isoString).getTime());
+    const hours = Math.floor(diff / 3600000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return `${days}d ${hours % 24}h ago`;
+    }
+    if (hours > 0) return `${hours}h ${minutes}m ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'Just now';
+  };
+
   const formatTokens = (val: string | number) => {
     const num = Number(val || 0);
     if (num >= 1000000000) return `${(num / 1000000000).toFixed(2)}B`;
@@ -704,20 +754,59 @@ export const AdminProviders: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                {/* Live Auto-Refresh Speed Controls (2s, 3s, 5s, Pause) */}
+                <div className="flex items-center gap-1.5 bg-subtle/80 border border-border rounded-lg p-1">
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono font-bold">
+                    <span className={`w-2 h-2 rounded-full ${autoRefreshSecs > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-stone-400'}`} />
+                    <span className={autoRefreshSecs > 0 ? 'text-emerald-700' : 'text-muted'}>
+                      {autoRefreshSecs > 0 ? `LIVE: ${autoRefreshSecs}s` : 'PAUSED'}
+                    </span>
+                    {isPolling && <RefreshCw className="w-3 h-3 text-emerald-600 animate-spin ml-0.5" />}
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] font-mono font-bold">
+                    {[2, 3, 5].map((sec) => (
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => setAutoRefreshSecs(sec)}
+                        className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                          autoRefreshSecs === sec
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-muted hover:text-fg hover:bg-card'
+                        }`}
+                        title={`Refresh live provider every ${sec} seconds`}
+                      >
+                        {sec}s
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setAutoRefreshSecs(autoRefreshSecs === 0 ? 3 : 0)}
+                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                        autoRefreshSecs === 0
+                          ? 'bg-stone-700 text-white'
+                          : 'text-muted hover:text-fg hover:bg-card'
+                      }`}
+                    >
+                      {autoRefreshSecs === 0 ? 'Resume' : 'Pause'}
+                    </button>
+                  </div>
+                </div>
+
                 {primaryProvider && (
                   <button
                     onClick={() => handleSyncVendorBalance(primaryProvider.id)}
                     disabled={syncing}
-                    className="ui-button-primary text-xs py-2 px-3.5 gap-2 font-mono bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs disabled:opacity-50"
+                    className="ui-button-primary text-xs py-2 px-3 gap-1.5 font-mono bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs disabled:opacity-50"
                   >
                     <CloudDownload className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                    <span>{syncing ? 'Discovering...' : 'Discover Provider Limits'}</span>
+                    <span>{syncing ? 'Discovering...' : 'Discover Limits'}</span>
                   </button>
                 )}
                 <button
                   onClick={() => handleReconcileLedger(false)}
-                  className="ui-button-secondary text-xs py-2 px-3.5 gap-2 font-mono"
+                  className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Audit Reconcile</span>
@@ -725,11 +814,16 @@ export const AdminProviders: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual Capacity & Rolling Window Progress Gauge */}
+            {/* Visual Capacity & Live Rolling Window Progress Gauge */}
             <div className="p-5 rounded-control bg-gradient-to-r from-violet-500/5 via-card to-indigo-500/5 border border-violet-500/20 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono">
                 <div>
-                  <p className="text-[11px] text-muted uppercase font-bold tracking-wider">5-Hour Rolling Master Capacity</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-muted uppercase font-bold tracking-wider">5-Hour Rolling Master Capacity</p>
+                    <span className="text-[10px] text-muted font-sans flex items-center gap-1">
+                      (Live synced with {primaryProvider?.name || 'Upstream'})
+                    </span>
+                  </div>
                   <div className="flex items-baseline gap-2 mt-0.5">
                     <span className="text-3xl font-extrabold text-fg">
                       {formatTokens(balanceMetrics?.exposure?.upstreamRemainingMasterCapacity || balanceMetrics?.availableTokens || primaryProvider?.availableTokens || 0)}
@@ -740,69 +834,150 @@ export const AdminProviders: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Live 1-Second Countdown for Rolling 5h Window */}
                 <div className="flex items-center gap-2 self-start sm:self-auto">
-                  {balanceMetrics?.nextResetAt ? (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20 text-xs font-bold font-mono">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>
-                        Resets in {Math.floor((balanceMetrics.windowResetSeconds || 0) / 3600)}h {Math.floor(((balanceMetrics.windowResetSeconds || 0) % 3600) / 60)}m ({new Date(balanceMetrics.nextResetAt).toLocaleTimeString()})
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-xs font-bold font-mono">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Full Capacity Ready (0 Consumed)</span>
-                    </div>
-                  )}
+                  {(() => {
+                    const wReset = balanceMetrics?.nextResetAt || balanceMetrics?.discoveryDetails?.windowResetAt;
+                    const wActive = balanceMetrics?.windowActive ?? balanceMetrics?.discoveryDetails?.windowActive;
+
+                    if (wActive === false || !wReset) {
+                      return (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-700 border border-blue-500/20 text-xs font-bold font-mono">
+                          <Clock className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Not started / Begins on first request</span>
+                        </div>
+                      );
+                    }
+
+                    const diff = Math.max(0, new Date(wReset).getTime() - now.getTime());
+                    if (diff <= 0) {
+                      return (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/20 text-xs font-bold font-mono">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                          <span>Window Resetting...</span>
+                        </div>
+                      );
+                    }
+
+                    const hours = Math.floor(diff / 3600000);
+                    const minutes = Math.floor((diff % 3600000) / 60000);
+                    const seconds = Math.floor((diff % 60000) / 1000);
+
+                    return (
+                      <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-violet-500/10 text-violet-700 border border-violet-500/30 text-xs font-bold font-mono shadow-xs">
+                        <Clock className="w-3.5 h-3.5 text-violet-600 animate-pulse" />
+                        <span>
+                          Resets in {hours}h {minutes.toString().padStart(2, '0')}m {seconds.toString().padStart(2, '0')}s ({new Date(wReset).toLocaleTimeString()})
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
-              {/* Modern Progress Bar */}
-              <div className="space-y-1.5">
-                <div className="w-full h-3 rounded-full bg-bg border border-border overflow-hidden p-0.5">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, 100 - (Number(balanceMetrics?.windowTokensUsed || 0) / Math.max(1, Number(balanceMetrics?.windowAllowance || 5000000))) * 100))}%`
-                    }}
-                  />
+              {/* Modern Progress Bar with Live Percentages */}
+              {(() => {
+                const allowance = Number(balanceMetrics?.windowAllowance || primaryProvider?.windowAllowance || 5000000);
+                const upstreamPercent = balanceMetrics?.upstreamUsagePercent ?? balanceMetrics?.discoveryDetails?.upstreamUsagePercent;
+                const usagePercent = typeof upstreamPercent === 'number'
+                  ? upstreamPercent
+                  : Math.min(100, Math.max(0, (Number(balanceMetrics?.windowTokensUsed || 0) / Math.max(1, allowance)) * 100));
+                const remainingPercent = Math.max(0, 100 - usagePercent);
+                const remainingTokens = balanceMetrics?.exposure?.upstreamRemainingMasterCapacity || balanceMetrics?.availableTokens || primaryProvider?.availableTokens || Math.round((allowance * remainingPercent) / 100);
+                const usedTokens = balanceMetrics?.windowTokensUsed || Math.round((allowance * usagePercent) / 100);
+
+                return (
+                  <div className="space-y-1.5 font-mono">
+                    <div className="w-full h-3.5 rounded-full bg-bg border border-border overflow-hidden p-0.5">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+                        style={{ width: `${remainingPercent}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[11px] text-muted">
+                      <span>Used in 5h: <strong className="text-amber-600">{usagePercent.toFixed(1)}% ({formatTokens(usedTokens)} tokens)</strong></span>
+                      <span>Remaining: <strong className="text-emerald-600">{remainingPercent.toFixed(1)}% ({formatTokens(remainingTokens)} tokens)</strong></span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* OpusMax Style Live Telemetry Grid (Validity, Expiry, Plan, Rate Limit, Traffic) */}
+              <div className="pt-3 border-t border-violet-500/20 grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono">
+                {/* 1. Validity / Expiry */}
+                <div className="p-2.5 rounded-control bg-card/70 border border-border space-y-1">
+                  <span className="text-[10px] text-muted uppercase font-bold block">Validity / Expires</span>
+                  {(() => {
+                    const expIso = balanceMetrics?.expiresAt || balanceMetrics?.discoveryDetails?.expiresAt;
+                    if (!expIso) return <span className="font-bold text-fg">Permanent</span>;
+                    const diff = new Date(expIso).getTime() - now.getTime();
+                    if (diff <= 0) return <span className="font-bold text-rose-600">Expired</span>;
+                    const days = Math.floor(diff / (24 * 3600000));
+                    const hours = Math.floor((diff % (24 * 3600000)) / 3600000);
+                    const minutes = Math.floor((diff % 3600000) / 60000);
+                    const seconds = Math.floor((diff % 60000) / 1000);
+                    const isUrgent = days < 2;
+
+                    return (
+                      <div>
+                        <span className={`font-bold ${isUrgent ? 'text-amber-600' : 'text-emerald-600'} block`}>
+                          {days > 0 ? `${days}d ${hours}h remaining` : `${hours}h ${minutes}m ${seconds}s`}
+                        </span>
+                        <span className="text-[10px] text-muted block mt-0.5 truncate">
+                          {new Date(expIso).toLocaleDateString()} {new Date(expIso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
-                <div className="flex justify-between text-[11px] font-mono text-muted">
-                  <span>Used in 5h: <strong className="text-amber-600">{formatTokens(balanceMetrics?.windowTokensUsed || 0)}</strong></span>
-                  <span>Remaining: <strong className="text-emerald-600">{formatTokens(balanceMetrics?.exposure?.upstreamRemainingMasterCapacity || balanceMetrics?.availableTokens || 0)} ({(100 - (Number(balanceMetrics?.windowTokensUsed || 0) / Math.max(1, Number(balanceMetrics?.windowAllowance || 5000000))) * 100).toFixed(1)}%)</strong></span>
+
+                {/* 2. Upstream Plan & Creation Date */}
+                <div className="p-2.5 rounded-control bg-card/70 border border-border space-y-1">
+                  <span className="text-[10px] text-muted uppercase font-bold block">Upstream Plan</span>
+                  <span className="font-bold text-fg flex items-center gap-1 truncate">
+                    <Zap className="w-3.5 h-3.5 fill-current text-amber-500 shrink-0" />
+                    {balanceMetrics?.discoveryDetails?.upstreamPlan || balanceMetrics?.upstreamPlan || 'Max 5x Trial Plan'}
+                  </span>
+                  <span className="text-[10px] text-muted block mt-0.5 truncate">
+                    Created: {new Date(balanceMetrics?.createdAt || balanceMetrics?.discoveryDetails?.createdAt || Date.now()).toLocaleDateString()}
+                  </span>
+                </div>
+
+                {/* 3. Rate Limit */}
+                <div className="p-2.5 rounded-control bg-card/70 border border-border space-y-1">
+                  <span className="text-[10px] text-muted uppercase font-bold block">Rate Limit</span>
+                  <span className="font-bold text-fg block">
+                    {balanceMetrics?.rateLimitRpm || balanceMetrics?.discoveryDetails?.rateLimitRpm || 60} req/min
+                  </span>
+                  <span className="text-[10px] text-muted block mt-0.5">
+                    ~{(((balanceMetrics?.rateLimitRpm || balanceMetrics?.discoveryDetails?.rateLimitRpm || 60)) / 60).toFixed(1)} req/sec
+                  </span>
+                </div>
+
+                {/* 4. Request Volume (24h & Total) */}
+                <div className="p-2.5 rounded-control bg-card/70 border border-border space-y-1">
+                  <span className="text-[10px] text-muted uppercase font-bold block">Requests (24h / Total)</span>
+                  <span className="font-bold text-fg block">
+                    {balanceMetrics?.discoveryDetails?.last24hRequests ?? balanceMetrics?.last24hRequests ?? 0} in 24h
+                  </span>
+                  <span className="text-[10px] text-muted block mt-0.5">
+                    {balanceMetrics?.discoveryDetails?.totalRequests ?? balanceMetrics?.totalRequests ?? '—'} all time
+                  </span>
+                </div>
+
+                {/* 5. Last Used Activity */}
+                <div className="p-2.5 rounded-control bg-card/70 border border-border space-y-1">
+                  <span className="text-[10px] text-muted uppercase font-bold block">Last Activity</span>
+                  <span className="font-bold text-fg block truncate">
+                    {formatRelativeTime(balanceMetrics?.lastUsedAt || balanceMetrics?.discoveryDetails?.lastUsedAt)}
+                  </span>
+                  <span className="text-[10px] text-muted block mt-0.5 truncate">
+                    {balanceMetrics?.lastUsedAt || balanceMetrics?.discoveryDetails?.lastUsedAt
+                      ? new Date(balanceMetrics.lastUsedAt || balanceMetrics.discoveryDetails.lastUsedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : 'No recent traffic'}
+                  </span>
                 </div>
               </div>
-
-              {/* Verified Upstream Quota Telemetry (OpusMax API) */}
-              {balanceMetrics?.discoveryDetails && (
-                <div className="pt-3 border-t border-violet-500/20 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-                  <div>
-                    <span className="text-[10px] text-muted uppercase block">Upstream Plan</span>
-                    <span className="font-bold text-fg flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-amber-500" />
-                      {balanceMetrics.discoveryDetails.upstreamPlan || 'Max 5x Trial'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted uppercase block">Rate Limit</span>
-                    <span className="font-bold text-fg">
-                      {balanceMetrics.discoveryDetails.rateLimitRpm ? `${balanceMetrics.discoveryDetails.rateLimitRpm} req/min` : '60 req/min'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted uppercase block">Total Upstream Requests</span>
-                    <span className="font-bold text-fg">
-                      {balanceMetrics.discoveryDetails.totalRequests ?? '—'} all time
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted uppercase block">Last 24 Hours</span>
-                    <span className="font-bold text-fg">
-                      {balanceMetrics.discoveryDetails.last24hRequests ?? 0} requests
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* 3 Clear Metric KPI Cards */}

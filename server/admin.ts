@@ -721,8 +721,23 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
 router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   try {
-    const provider = await prisma.vendorProvider.findUnique({ where: { id } });
+    let provider = await prisma.vendorProvider.findUnique({ where: { id } });
     if (!provider) return res.status(404).json({ error: { message: 'Vendor provider not found.' } });
+
+    // Live sync check: if live=true or live refresh requested, discover if cached older than 2.0s
+    const isLive = req.query.live === 'true' || req.query.live === '1';
+    const lastDiscovered = provider.lastDiscoveredAt ? new Date(provider.lastDiscoveredAt).getTime() : 0;
+    const cacheAgeMs = Date.now() - lastDiscovered;
+
+    if (isLive && cacheAgeMs > 2000 && provider.status !== 'disabled') {
+      try {
+        await ProviderDiscoveryRegistry.discoverProvider(id);
+        const reloaded = await prisma.vendorProvider.findUnique({ where: { id } });
+        if (reloaded) provider = reloaded;
+      } catch (discErr) {
+        // Fall back to existing cached db record if upstream ping times out
+      }
+    }
 
     const aggregate = await calculateAggregateAccounting(id);
 
@@ -740,6 +755,17 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
       orderBy: { createdAt: 'desc' },
     });
 
+    const discoveryDetails = provider.discoveryDetailsJson ? JSON.parse(provider.discoveryDetailsJson) : null;
+
+    // Use live reset from discovery if available
+    const nextResetAt = discoveryDetails?.windowResetAt
+      ? new Date(discoveryDetails.windowResetAt)
+      : (aggregate.upstream.discoveredResetAt || null);
+
+    const windowResetSeconds = nextResetAt
+      ? Math.max(0, Math.floor((nextResetAt.getTime() - Date.now()) / 1000))
+      : null;
+
     res.json({
       providerId: provider.id,
       providerName: provider.name,
@@ -755,8 +781,17 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
       windowHours: provider.windowHours,
       windowAllowance: (aggregate.upstream.upstreamLimit !== null ? aggregate.upstream.upstreamLimit : provider.windowAllowance).toString(),
       windowTokensUsed: aggregate.upstream.upstreamConsumedWindow,
-      nextResetAt: aggregate.upstream.discoveredResetAt ? aggregate.upstream.discoveredResetAt.toISOString() : null,
-      windowResetSeconds: aggregate.upstream.discoveredResetSeconds,
+      nextResetAt: nextResetAt ? nextResetAt.toISOString() : null,
+      windowResetSeconds,
+      windowActive: discoveryDetails?.windowActive ?? (nextResetAt !== null),
+      windowStartedAt: discoveryDetails?.windowStartedAt || null,
+      upstreamUsagePercent: discoveryDetails?.upstreamUsagePercent ?? null,
+      expiresAt: discoveryDetails?.expiresAt || null,
+      createdAt: discoveryDetails?.createdAt || provider.createdAt.toISOString(),
+      lastUsedAt: discoveryDetails?.lastUsedAt || null,
+      rateLimitRpm: discoveryDetails?.rateLimitRpm || 60,
+      totalRequests: discoveryDetails?.totalRequests ?? null,
+      last24hRequests: discoveryDetails?.last24hRequests ?? null,
       warningThresholdTokens: provider.warningThresholdTokens.toString(),
       criticalThresholdTokens: provider.criticalThresholdTokens.toString(),
       // Discovery metadata
@@ -764,7 +799,7 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
       discoveryStatus: aggregate.upstream.discoveryStatus,
       discoveryConfidence: aggregate.upstream.discoveryConfidence,
       lastDiscoveredAt: aggregate.upstream.lastDiscoveredAt ? aggregate.upstream.lastDiscoveredAt.toISOString() : null,
-      discoveryDetails: provider.discoveryDetailsJson ? JSON.parse(provider.discoveryDetailsJson) : null,
+      discoveryDetails,
       // Layer C Accounting Metrics
       exposure: {
         activeKeyCount: aggregate.activeCustomerCount,

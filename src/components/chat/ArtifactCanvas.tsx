@@ -17,7 +17,10 @@ import {
   Monitor,
   Tablet,
   Smartphone,
+  ArrowLeft,
+  Info,
 } from 'lucide-react';
+import { triggerFileDownload, sanitizeFilename, getExtensionForLanguage } from '../../utils/fileExport';
 
 export interface ArtifactData {
   id: string;
@@ -50,15 +53,15 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
   if (!artifact) return null;
 
   const effectiveCode = isEditing ? editedCode : artifact.code;
+  const cleanLang = (artifact.language || 'text').toLowerCase();
 
   const isPreviewable =
-    artifact.language === 'html' ||
-    artifact.language === 'svg' ||
-    artifact.language === 'xml' ||
+    cleanLang === 'html' ||
+    cleanLang === 'svg' ||
+    cleanLang === 'xml' ||
     artifact.type === 'html' ||
     artifact.type === 'svg';
 
-  // Automatically fall back to 'code' if not previewable
   const currentTab = isPreviewable ? activeTab : 'code';
 
   const handleCopy = () => {
@@ -67,31 +70,10 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getExtension = (lang: string) => {
-    switch (lang.toLowerCase()) {
-      case 'html': return 'html';
-      case 'svg': return 'svg';
-      case 'typescript': case 'ts': return 'ts';
-      case 'tsx': return 'tsx';
-      case 'javascript': case 'js': return 'js';
-      case 'jsx': return 'jsx';
-      case 'python': case 'py': return 'py';
-      case 'json': return 'json';
-      case 'markdown': case 'md': return 'md';
-      case 'css': return 'css';
-      default: return 'txt';
-    }
-  };
-
   const handleDownload = () => {
-    const ext = getExtension(artifact.language);
-    const blob = new Blob([effectiveCode], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${artifact.title.replace(/[^a-z0-9_.-]/gi, '_').toLowerCase() || 'artifact'}.${ext}`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const ext = getExtensionForLanguage(cleanLang);
+    const filename = sanitizeFilename(artifact.title || `artifact.${ext}`, ext);
+    triggerFileDownload(filename, effectiveCode);
   };
 
   const handleApplyAndPreview = () => {
@@ -104,7 +86,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
 
   // Generate safe sandboxed HTML for live preview
   const generatePreviewDoc = () => {
-    if (artifact.language === 'svg' || artifact.type === 'svg') {
+    if (cleanLang === 'svg' || artifact.type === 'svg') {
       return `<!DOCTYPE html>
 <html>
 <head>
@@ -143,15 +125,25 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
       }`}
     >
       {/* Canvas Top Bar */}
-      <div className="h-13 px-4 bg-[#0E1425] border-b border-[#28334B] flex items-center justify-between shrink-0 select-none">
-        {/* Left: Artifact metadata */}
-        <div className="flex items-center gap-2.5 min-w-0 mr-2">
+      <div className="h-13 px-3 sm:px-4 bg-[#0E1425] border-b border-[#28334B] flex items-center justify-between shrink-0 select-none gap-2">
+        {/* Left: Mobile Back Button & Artifact metadata */}
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="md:hidden p-1.5 rounded-lg text-slate-300 hover:text-white bg-slate-800 text-xs flex items-center gap-1 cursor-pointer shrink-0"
+            title="Return to conversation"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Chat</span>
+          </button>
+
           <div className="w-6 h-6 rounded-lg bg-violet-600/20 text-violet-400 flex items-center justify-center font-bold text-xs shrink-0">
             <Layers className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-xs text-white truncate">{artifact.title}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-xs text-white truncate max-w-[140px] sm:max-w-xs">{artifact.title}</span>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30 uppercase shrink-0">
                 {artifact.language}
               </span>
@@ -159,7 +151,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
           </div>
         </div>
 
-        {/* Center: Device Viewport Controls (Image 4 style) */}
+        {/* Center: Device Viewport Controls for Previewable HTML */}
         {isPreviewable && currentTab === 'preview' && (
           <div className="hidden sm:flex items-center gap-1 bg-[#141C30] p-0.5 rounded-lg border border-[#28334B]">
             <button
@@ -211,55 +203,57 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
               <button
                 type="button"
                 onClick={() => setActiveTab('preview')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  currentTab === 'preview'
+                className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'preview'
                     ? 'bg-violet-600 text-white shadow-xs'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Eye className="w-3 h-3" />
-                <span>Preview</span>
+                <span className="hidden sm:inline">Preview</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('code')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  currentTab === 'code'
+                className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'code'
                     ? 'bg-violet-600 text-white shadow-xs'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Code className="w-3 h-3" />
-                <span>Code</span>
+                <span className="hidden sm:inline">Code</span>
               </button>
             </div>
           )}
 
-          {isPreviewable && currentTab === 'preview' && (
-            <button
-              type="button"
-              onClick={() => setPreviewKey((k) => k + 1)}
-              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-              title="Refresh Live Preview"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setIsEditing(!isEditing)}
+            className={`p-1.5 rounded-lg border transition-all text-xs flex items-center gap-1 cursor-pointer ${
+              isEditing
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                : 'border-[#28334B] hover:bg-slate-800 text-slate-300'
+            }`}
+            title="Edit code directly"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isEditing ? 'Editing' : 'Edit'}</span>
+          </button>
 
           <button
             type="button"
             onClick={handleCopy}
-            className="p-1.5 px-2 rounded-lg bg-[#19233A] hover:bg-slate-800 text-slate-300 hover:text-white border border-[#28334B] text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
-            title="Copy code to clipboard"
+            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            title="Copy code"
           >
-            {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-            <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
 
           <button
             type="button"
             onClick={handleDownload}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title="Download file"
           >
             <Download className="w-3.5 h-3.5" />
@@ -268,7 +262,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
           <button
             type="button"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            className="hidden sm:inline-flex p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -308,7 +302,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
               <div className="px-3 py-1.5 bg-[#0E1425] border-t border-[#28334B]/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Live Sandboxed Runtime</span>
+                  <span>Isolated Sandbox Runtime (Zero Credential Access)</span>
                 </span>
                 <span>{lines.length} lines</span>
               </div>
@@ -324,13 +318,41 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
               className="w-full flex-1 font-mono text-xs leading-relaxed p-4 bg-transparent text-slate-100 focus:outline-none resize-none select-text"
             />
             <div className="px-3 py-1.5 bg-[#0E1425] border-t border-[#28334B]/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-              <span className="text-amber-400">Editing Mode Active</span>
+              <span className="text-amber-400 font-semibold">Editing Mode Active</span>
               <button
                 type="button"
                 onClick={handleApplyAndPreview}
-                className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] cursor-pointer"
+                className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] cursor-pointer"
               >
                 Apply & Preview
+              </button>
+            </div>
+          </div>
+        ) : !isPreviewable && activeTab === 'preview' ? (
+          /* Honest Sandbox Boundary Notice when language cannot be previewed in browser */
+          <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-900/60 text-slate-300">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-3">
+              <Info className="w-6 h-6 text-amber-400" />
+            </div>
+            <h4 className="font-bold text-sm text-white mb-1.5">Browser Sandbox Preview Unavailable</h4>
+            <p className="text-xs text-slate-400 max-w-sm mb-4 leading-relaxed">
+              Live browser sandboxing is supported for web components (HTML, SVG, and CSS). Code written in <strong className="text-amber-300 font-mono">{artifact.language.toUpperCase()}</strong> cannot be executed safely inside a browser sandbox.
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('code')}
+                className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs cursor-pointer"
+              >
+                View Source Code
+              </button>
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download File</span>
               </button>
             </div>
           </div>
@@ -358,7 +380,7 @@ export const ArtifactCanvas: React.FC<ArtifactCanvasProps> = ({ artifact, onClos
                         {idx + 1}
                       </td>
                       <td className="py-0.5 whitespace-pre font-mono text-slate-200">
-                        {line || ' '}
+                        {line || '\n'}
                       </td>
                     </tr>
                   );

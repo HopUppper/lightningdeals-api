@@ -149,7 +149,7 @@ async function main() {
       const { user } = await createTestAdmin('admin-session-test@lightningapi.test', 'InitialPassword123!');
 
       // Create session 1 (current device)
-      const token1 = jwt.sign({ id: user.id, email: user.email, role: 'admin' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: '24h' });
+      const token1 = jwt.sign({ id: user.id, email: user.email, role: 'admin', session: 'desktop' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: '24h' });
       const hash1 = hashSecret(token1);
       const sess1 = await prisma.userSession.create({
         data: {
@@ -163,7 +163,7 @@ async function main() {
       });
 
       // Create session 2 (mobile phone)
-      const token2 = jwt.sign({ id: user.id, email: user.email, role: 'admin' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: '24h' });
+      const token2 = jwt.sign({ id: user.id, email: user.email, role: 'admin', session: 'mobile' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: '24h' });
       const hash2 = hashSecret(token2);
       const sess2 = await prisma.userSession.create({
         data: {

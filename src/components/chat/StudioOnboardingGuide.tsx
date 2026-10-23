@@ -1,317 +1,209 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Sparkles,
-  Compass,
-  Cpu,
-  Brain,
-  FileSpreadsheet,
-  Layers,
-  ChevronRight,
-  ChevronLeft,
-  X,
+  Bot,
+  Paperclip,
+  Download,
+  Eye,
   CheckCircle2,
-  Zap,
+  Terminal,
+  HelpCircle,
+  ExternalLink,
+  X,
+  Code,
+  ShieldCheck,
 } from 'lucide-react';
 
 export interface StudioOnboardingGuideProps {
-  open: boolean;
+  open?: boolean;
   onClose: () => void;
   isDarkTheme?: boolean;
+  isInline?: boolean;
+  onSelectPrompt?: (prompt: string) => void;
 }
-
-interface StepItem {
-  icon: React.ElementType;
-  badge: string;
-  badgeColor: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  highlights: string[];
-}
-
-const ONBOARDING_STEPS: StepItem[] = [
-  {
-    icon: Sparkles,
-    badge: 'Welcome to Studio 2.0',
-    badgeColor: 'text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-950/50 border-violet-200 dark:border-violet-800/40',
-    title: 'Your Workspace for Thinking, Creating & Building',
-    subtitle: 'A unified AI workspace engineered for speed, high-precision engineering, and complex documents.',
-    description:
-      'LightningAPI Studio 2.0 brings together frontier Claude models, sandboxed interactive artifacts, automated context memory, and instant document generation in a serene, approachable interface.',
-    highlights: [
-      'Warm light-first design matching the LightningAPI dashboard',
-      'Real-time token metrics, savings indicators, and audit logging',
-      'Direct, zero-lag streaming with transparent model provenance',
-    ],
-  },
-  {
-    icon: Compass,
-    badge: 'Effortless Navigation',
-    badgeColor: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800/40',
-    title: 'Organized into 3 Simple Spaces',
-    subtitle: 'Sidebar designed for focus: Create, Workspace, and Library.',
-    description:
-      'Keep your workflow clean and uncluttered. Easily start new tasks, group chats by project, and access previously generated documents or archives.',
-    highlights: [
-      'Create: Instant new blank chat or project-assigned workspace',
-      'Workspace: Active conversations categorized by project and recent activity',
-      'Library: Searchable archived conversations and generated file deliverables',
-    ],
-  },
-  {
-    icon: Cpu,
-    badge: 'Frontier Intelligence',
-    badgeColor: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800/40',
-    title: 'Capability-Aware Model Switching',
-    subtitle: 'Claude Sonnet 5.5, Claude Opus 5.5 & Claude 3.7 Sonnet at your fingertips.',
-    description:
-      'Switch models mid-thread or compare responses side-by-side. Enable Extended Thinking for complex architecture and multi-step logic.',
-    highlights: [
-      'Claude Sonnet 5.5: Fast, agentic coding and multi-file refactoring',
-      'Claude Opus 5.5: Deep logic, math, and system design',
-      'Extended Thinking: Inspectable step-by-step reasoning buffer',
-    ],
-  },
-  {
-    icon: Brain,
-    badge: 'Automatic Memory',
-    badgeColor: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800/40',
-    title: 'Learns Your Preferences Automatically',
-    subtitle: 'Zero tedious configuration. Studio extracts guidelines and tech stacks as you chat.',
-    description:
-      'Tell the assistant "I prefer TypeScript" or "we use Tailwind and Next.js" and Studio retains the preference across conversations with automatic secret and PII redaction.',
-    highlights: [
-      'Automatic preference extraction without manual forms',
-      'Bounded retrieval (max 5 items / 500 chars) prevents context bloat',
-      'Full user control: inspect, edit, clear, or toggle off at any time',
-    ],
-  },
-  {
-    icon: FileSpreadsheet,
-    badge: 'Authentic Outputs',
-    badgeColor: 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800/40',
-    title: 'Direct Document & Spreadsheet Generator',
-    subtitle: 'Export real Word (.docx), Excel (.xlsx), PDF, CSV, and Markdown files.',
-    description:
-      'Generate authentic OpenXML Word documents and Excel workbooks directly from your conversation data with one click—no third-party converters or mock placeholders.',
-    highlights: [
-      'Real .docx documents with styled headings and tables',
-      'Real .xlsx spreadsheets with multiple tabs and formatted cells',
-      'Production-ready PDF, CSV, and Markdown exports',
-    ],
-  },
-  {
-    icon: Layers,
-    badge: 'Interactive Canvas',
-    badgeColor: 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/50 border-purple-200 dark:border-purple-800/40',
-    title: 'Artifacts, Web Research & Skills',
-    subtitle: 'Live sandboxed preview, web research, and expert agent personas.',
-    description:
-      'Render HTML and React components live side-by-side in the Artifact Canvas. Run real-time web searches or activate custom engineering skills.',
-    highlights: [
-      'Live sandbox preview for HTML, SVG, and interactive UI components',
-      'Deep research and live web search with citations',
-      'Curated personas: Senior Architect, Security Auditor, Test Specialist',
-    ],
-  },
-];
 
 export const StudioOnboardingGuide: React.FC<StudioOnboardingGuideProps> = ({
-  open,
+  open = true,
   onClose,
   isDarkTheme = false,
+  isInline = false,
+  onSelectPrompt,
 }) => {
-  const [currentStep, setCurrentStep] = useState(0);
-
   if (!open) return null;
 
-  const step = ONBOARDING_STEPS[currentStep];
-  const StepIcon = step.icon;
-  const isLast = currentStep === ONBOARDING_STEPS.length - 1;
+  const samplePrompts = [
+    {
+      title: 'Responsive UI Component',
+      prompt: 'Build a modern responsive pricing card component in HTML and Tailwind CSS with monthly and annual billing toggles.',
+      badge: 'HTML / Preview',
+    },
+    {
+      title: 'Full-Stack API Client',
+      prompt: 'Write a TypeScript client library for an Anthropic-compatible chat completion API with streaming SSE support and exponential backoff retry.',
+      badge: 'TypeScript / Code',
+    },
+    {
+      title: 'Algorithm & Analysis',
+      prompt: 'Explain the difference between a rolling token window and a fixed daily quota, and write a Python script demonstrating rolling window calculation.',
+      badge: 'Python / Logic',
+    },
+  ];
 
-  const handleFinish = () => {
-    localStorage.setItem('lightning_studio_onboarding_completed_v2', 'true');
-    onClose();
-  };
-
-  const handleNext = () => {
-    if (isLast) {
-      handleFinish();
-    } else {
-      setCurrentStep((prev) => Math.min(prev + 1, ONBOARDING_STEPS.length - 1));
-    }
-  };
-
-  const handlePrev = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-      <div
-        className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden transition-all flex flex-col ${
-          isDarkTheme
-            ? 'bg-[#141C30] border-[#28334B] text-[#F3F5FC]'
-            : 'bg-white border-[#E9E4DD] text-[#171717]'
-        }`}
-      >
-        {/* Header Bar */}
-        <div
-          className={`px-6 py-4 border-b flex items-center justify-between shrink-0 ${
-            isDarkTheme ? 'border-[#28334B] bg-[#0E1425]/60' : 'border-[#E9E4DD] bg-[#FAF8F5]'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <span
-              className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border tracking-wide uppercase ${step.badgeColor}`}
-            >
-              {step.badge}
-            </span>
-            <span
-              className={`text-xs font-mono font-medium ${
-                isDarkTheme ? 'text-[#77839E]' : 'text-[#8E8A83]'
-              }`}
-            >
-              Step {currentStep + 1} of {ONBOARDING_STEPS.length}
-            </span>
+  const content = (
+    <div className="space-y-4 text-xs">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center font-bold shadow-xs">
+            <Sparkles className="w-4 h-4 text-violet-200" />
           </div>
-
-          <button
-            type="button"
-            onClick={handleFinish}
-            className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
-              isDarkTheme
-                ? 'border-[#28334B] hover:bg-[#19233A] text-[#A5B0C7]'
-                : 'border-[#E9E4DD] hover:bg-[#F5F2EE] text-[#625F5A]'
-            }`}
-            title="Skip Tour"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-6 sm:p-8 space-y-6 flex-1 min-h-[300px] flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
-                  isDarkTheme
-                    ? 'bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-violet-900/30'
-                    : 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-500/20'
-                }`}
-              >
-                <StepIcon className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-xl sm:text-2xl font-bold tracking-tight">{step.title}</h3>
-                <p
-                  className={`text-xs sm:text-sm font-medium ${
-                    isDarkTheme ? 'text-[#A5B0C7]' : 'text-[#625F5A]'
-                  }`}
-                >
-                  {step.subtitle}
-                </p>
-              </div>
-            </div>
-
-            <p
-              className={`text-xs sm:text-sm leading-relaxed ${
-                isDarkTheme ? 'text-[#A5B0C7]' : 'text-[#625F5A]'
-              }`}
-            >
-              {step.description}
+          <div>
+            <h3 className="font-bold text-sm text-[#111827] dark:text-white">
+              Getting Started with AI Chat Studio
+            </h3>
+            <p className="text-[11px] text-[#6b7280] dark:text-slate-400">
+              High-speed frontier intelligence with instant code downloads and sandboxed previews
             </p>
-
-            <div
-              className={`p-4 rounded-2xl border space-y-2.5 ${
-                isDarkTheme
-                  ? 'bg-[#0E1425]/50 border-[#28334B]'
-                  : 'bg-[#FAF8F5] border-[#E9E4DD]'
-              }`}
-            >
-              <p
-                className={`text-[11px] font-bold uppercase tracking-wider ${
-                  isDarkTheme ? 'text-[#77839E]' : 'text-[#8E8A83]'
-                }`}
-              >
-                Key Highlights
-              </p>
-              <div className="space-y-2">
-                {step.highlights.map((hl, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className={isDarkTheme ? 'text-[#F3F5FC]' : 'text-[#171717]'}>{hl}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Progress Dots */}
-          <div className="flex items-center justify-center gap-1.5 pt-2">
-            {ONBOARDING_STEPS.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setCurrentStep(i)}
-                className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                  i === currentStep
-                    ? 'w-6 bg-violet-600'
-                    : isDarkTheme
-                    ? 'w-2 bg-[#28334B] hover:bg-[#3d4c6d]'
-                    : 'w-2 bg-[#E9E4DD] hover:bg-[#c8c2b9]'
-                }`}
-                title={`Go to step ${i + 1}`}
-              />
-            ))}
           </div>
         </div>
-
-        {/* Footer Navigation */}
-        <div
-          className={`px-6 py-4 border-t flex items-center justify-between shrink-0 ${
-            isDarkTheme ? 'border-[#28334B] bg-[#0E1425]/40' : 'border-[#E9E4DD] bg-[#FAF8F5]'
-          }`}
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          title="Dismiss guide"
         >
-          <button
-            type="button"
-            onClick={handleFinish}
-            className={`text-xs font-semibold cursor-pointer transition-colors ${
-              isDarkTheme
-                ? 'text-[#77839E] hover:text-[#F3F5FC]'
-                : 'text-[#8E8A83] hover:text-[#171717]'
-            }`}
-          >
-            Skip Walkthrough
-          </button>
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-          <div className="flex items-center gap-2">
-            {currentStep > 0 && (
-              <button
-                type="button"
-                onClick={handlePrev}
-                className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-1 cursor-pointer transition-all ${
-                  isDarkTheme
-                    ? 'border-[#28334B] bg-[#19233A] text-[#F3F5FC] hover:bg-[#202b47]'
-                    : 'border-[#E9E4DD] bg-white text-[#171717] hover:bg-[#F5F2EE]'
-                }`}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleNext}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-1.5 cursor-pointer shadow-md shadow-violet-600/20 transition-all"
-            >
-              <span>{isLast ? 'Get Started' : 'Continue'}</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+      {/* 5-Step Workflow Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 pt-1">
+        <div className="p-2.5 rounded-xl bg-white dark:bg-[#151D2F] border border-[#e5e7eb] dark:border-[#28334B] space-y-1">
+          <div className="w-6 h-6 rounded-lg bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-400 flex items-center justify-center font-bold text-[11px]">
+            1
           </div>
+          <p className="font-semibold text-[11.5px] text-[#111827] dark:text-slate-100">Choose Model</p>
+          <p className="text-[10.5px] text-[#6b7280] dark:text-slate-400 leading-normal">
+            Switch between Claude 3.7 Sonnet, Claude Opus 5.5, or Sonnet 5.5 anytime.
+          </p>
         </div>
+
+        <div className="p-2.5 rounded-xl bg-white dark:bg-[#151D2F] border border-[#e5e7eb] dark:border-[#28334B] space-y-1">
+          <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 flex items-center justify-center font-bold text-[11px]">
+            2
+          </div>
+          <p className="font-semibold text-[11.5px] text-[#111827] dark:text-slate-100">Type Prompt</p>
+          <p className="text-[10.5px] text-[#6b7280] dark:text-slate-400 leading-normal">
+            Ask for code, multi-file projects, bug fixes, or architecture design.
+          </p>
+        </div>
+
+        <div className="p-2.5 rounded-xl bg-white dark:bg-[#151D2F] border border-[#e5e7eb] dark:border-[#28334B] space-y-1">
+          <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-[11px]">
+            3
+          </div>
+          <p className="font-semibold text-[11.5px] text-[#111827] dark:text-slate-100">Attach Files</p>
+          <p className="text-[10.5px] text-[#6b7280] dark:text-slate-400 leading-normal">
+            Upload screenshots, PDFs, documents, or code for multimodal inspection.
+          </p>
+        </div>
+
+        <div className="p-2.5 rounded-xl bg-white dark:bg-[#151D2F] border border-[#e5e7eb] dark:border-[#28334B] space-y-1">
+          <div className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center font-bold text-[11px]">
+            4
+          </div>
+          <p className="font-semibold text-[11.5px] text-[#111827] dark:text-slate-100">Download Code</p>
+          <p className="text-[10.5px] text-[#6b7280] dark:text-slate-400 leading-normal">
+            Download individual files or grab all files as a single safe ZIP archive.
+          </p>
+        </div>
+
+        <div className="p-2.5 rounded-xl bg-white dark:bg-[#151D2F] border border-[#e5e7eb] dark:border-[#28334B] space-y-1">
+          <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 flex items-center justify-center font-bold text-[11px]">
+            5
+          </div>
+          <p className="font-semibold text-[11.5px] text-[#111827] dark:text-slate-100">Sandboxed Preview</p>
+          <p className="text-[10.5px] text-[#6b7280] dark:text-slate-400 leading-normal">
+            Preview HTML & SVG in an isolated sandbox with zero access to credentials.
+          </p>
+        </div>
+      </div>
+
+      {/* Honest Feature Boundaries Notice */}
+      <div className="p-3 rounded-xl bg-[#f4f4f0] dark:bg-[#141C30] border border-[#e5e7eb] dark:border-[#28334B] text-[11px] text-[#4b5563] dark:text-slate-300 space-y-1">
+        <p className="font-semibold text-[#111827] dark:text-white flex items-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+          <span>Capability & Feature Boundaries</span>
+        </p>
+        <p className="leading-relaxed">
+          • <strong>Inside Chat Studio:</strong> Real-time streaming, web research with citations, live HTML/SVG sandboxed preview, and multi-file ZIP downloads.
+        </p>
+        <p className="leading-relaxed">
+          • <strong>In Your Terminal / IDE:</strong> To run local shell commands, execute Python/Node scripts, or edit git repositories on disk, use our CLI integration (<code>npx lightningdeals</code>) with Claude Code CLI, Cursor, or Windsurf.
+        </p>
+      </div>
+
+      {/* Suggested Quick Prompts */}
+      <div className="space-y-1.5 pt-1">
+        <p className="text-[11px] font-semibold text-[#6b7280] dark:text-slate-400 uppercase tracking-wider">
+          Try a sample prompt to start:
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {samplePrompts.map((item, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                if (onSelectPrompt) onSelectPrompt(item.prompt);
+                onClose();
+              }}
+              className="text-left p-2.5 rounded-xl bg-white dark:bg-[#151D2F] border border-[#e5e7eb] dark:border-[#28334B] hover:border-violet-500 hover:shadow-xs transition-all cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold text-[11.5px] text-[#111827] dark:text-slate-200 group-hover:text-violet-600 dark:group-hover:text-violet-400">
+                  {item.title}
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  {item.badge}
+                </span>
+              </div>
+              <p className="text-[10.5px] text-[#6b7280] dark:text-slate-400 line-clamp-2">
+                {item.prompt}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bottom Dismiss */}
+      <div className="flex items-center justify-between pt-2 border-t border-[#e5e7eb] dark:border-[#28334B]">
+        <span className="text-[10px] text-[#9ca3af]">
+          You can reopen this guide anytime by clicking <strong>?</strong> in the top header.
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-3 py-1.5 rounded-xl bg-[#111827] hover:bg-[#1f2937] text-white font-semibold text-xs cursor-pointer transition-colors"
+        >
+          Got it, let's start
+        </button>
+      </div>
+    </div>
+  );
+
+  if (isInline) {
+    return (
+      <div className="w-full max-w-4xl mx-auto my-4 p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0f172a] border border-[#e5e7eb] dark:border-[#28334B] shadow-xs animate-fadeIn">
+        {content}
+      </div>
+    );
+  }
+
+  // Slide-over / Modal for Help trigger
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
+      <div className="w-full max-w-2xl bg-white dark:bg-[#0f172a] border border-[#e5e7eb] dark:border-[#28334B] rounded-2xl shadow-xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+        {content}
       </div>
     </div>
   );

@@ -563,13 +563,15 @@ export const UserChatStudio: React.FC = () => {
   const [isComparingModels, setIsComparingModels] = useState(false);
   const [secondaryModelId, setSecondaryModelId] = useState('claude-3-5-sonnet-20241022');
 
-  // Jump to latest button
+  // Scroll tracking & Jump to latest button
+  const isNearBottomRef = useRef(true);
   const [showJumpButton, setShowJumpButton] = useState(false);
 
   const handleChatScroll = () => {
     const el = chatScrollContainerRef.current;
     if (!el) return;
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isNearBottomRef.current = distFromBottom <= 140;
     setShowJumpButton(distFromBottom > 140);
   };
 
@@ -1163,16 +1165,18 @@ export const UserChatStudio: React.FC = () => {
     }
   }, [activeThreadId, generating]);
 
-  // Auto-scroll chat to bottom
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    if (chatScrollContainerRef.current) {
+  // Auto-scroll chat to bottom (preserves scroll position if user scrolls up)
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth', force = false) => {
+    if (chatScrollContainerRef.current && (force || isNearBottomRef.current)) {
       const { scrollHeight, clientHeight } = chatScrollContainerRef.current;
       chatScrollContainerRef.current.scrollTo({ top: scrollHeight - clientHeight, behavior });
     }
   };
 
   useEffect(() => {
-    scrollToBottom('smooth');
+    if (isNearBottomRef.current) {
+      scrollToBottom('smooth');
+    }
   }, [activeThread?.messages?.length, generating]);
 
   // Elapsed time tracker during generation
@@ -1655,6 +1659,8 @@ export const UserChatStudio: React.FC = () => {
     setAttachments([]);
     setShowSlashMenu(false);
     setGenerating(true);
+    isNearBottomRef.current = true;
+    scrollToBottom('smooth', true);
 
     const ctrl = new AbortController();
     setAbortController(ctrl);
@@ -2158,28 +2164,28 @@ export const UserChatStudio: React.FC = () => {
     };
   }, [activeThread.messages, inputMessage, activeModelMeta]);
 
-  // Style Tokens & Palettes - Studio 2.0 Warm Ivory & Obsidian Dark
+  // Style Tokens & Palettes - Studio Light Style & Obsidian Dark
   const c = {
-    bg: isDark ? 'bg-[#0B1020]' : 'bg-[#FAF8F5]',
-    text: isDark ? 'text-[#F3F5FC]' : 'text-[#0f172a]',
-    textSecondary: isDark ? 'text-[#A5B0C7]' : 'text-[#334155]',
-    textMuted: isDark ? 'text-[#77839E]' : 'text-[#475569]',
+    bg: isDark ? 'bg-[#0B1020]' : 'bg-[#FAF9F6]',
+    text: isDark ? 'text-[#F3F5FC]' : 'text-[#111827]',
+    textSecondary: isDark ? 'text-[#A5B0C7]' : 'text-[#374151]',
+    textMuted: isDark ? 'text-[#77839E]' : 'text-[#6b7280]',
     headerBg: isDark
       ? 'bg-[#0E1425]/95 border-b border-[#28334B]'
-      : 'bg-white/95 border-b border-[#E2DCD3] shadow-2xs',
-    sidebarBg: isDark ? 'bg-[#0E1425]' : 'bg-[#F4F1EA]',
-    sidebarBorder: isDark ? 'border-[#28334B]' : 'border-[#E2DCD3]',
+      : 'bg-white/95 border-b border-[#E5E7EB] shadow-2xs',
+    sidebarBg: isDark ? 'bg-[#0E1425]' : 'bg-[#F9FAFB]',
+    sidebarBorder: isDark ? 'border-[#28334B]' : 'border-[#E5E7EB]',
     cardBg: isDark ? 'bg-[#141C30]' : 'bg-[#FFFFFF]',
-    elevatedBg: isDark ? 'bg-[#19233A]' : 'bg-[#EDE8E0]',
-    border: isDark ? 'border-[#28334B]' : 'border-[#DCD5C9]',
-    borderSubtle: isDark ? 'border-[#28334B]/60' : 'border-[#E5DFD4]',
+    elevatedBg: isDark ? 'bg-[#19233A]' : 'bg-[#F3F4F6]',
+    border: isDark ? 'border-[#28334B]' : 'border-[#E5E7EB]',
+    borderSubtle: isDark ? 'border-[#28334B]/60' : 'border-[#F3F4F6]',
     inputBg: isDark ? 'bg-[#141C30]' : 'bg-[#FFFFFF]',
     pillBg: isDark
       ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:text-[#F3F5FC] hover:border-violet-500/40'
-      : 'bg-[#EFEAE2] border-[#D8D2C5] text-[#1E293B] hover:text-[#0F172A] hover:border-violet-500/50 hover:bg-[#E8E2D6]',
+      : 'bg-[#F3F4F6] border-[#E5E7EB] text-[#1F2937] hover:text-[#111827] hover:border-violet-400 hover:bg-[#EEF2F6]',
     userBubble: isDark
       ? 'bg-[#19233A] border border-violet-500/30 text-[#F3F5FC] shadow-sm'
-      : 'bg-[#F3ECFF] border border-[#DDD0FA] text-[#0f172a] shadow-2xs',
+      : 'bg-[#F5F3FF] border border-[#DDD6FE] text-[#111827] shadow-2xs',
   };
 
   return (
@@ -2720,6 +2726,16 @@ export const UserChatStudio: React.FC = () => {
             )}
           </div>
 
+          {/* Studio Guide Help Button */}
+          <button
+            type="button"
+            onClick={() => setIsOnboardingOpen(true)}
+            className={`p-1.5 rounded-xl border transition-all cursor-pointer ${c.pillBg}`}
+            title="Getting Started & Capability Guide (?)"
+          >
+            <HelpCircle className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+          </button>
+
           {/* Theme Toggle Button */}
           <button
             type="button"
@@ -3056,22 +3072,39 @@ export const UserChatStudio: React.FC = () => {
             <div className="max-w-4xl mx-auto w-full space-y-6">
               {/* Phase 2.3 New Chat Landing State */}
               {activeThread.messages.length === 0 && !generating && (
-                <div className="py-8 sm:py-14 text-center space-y-6">
-                  <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/20">
-                    <Sparkles className="w-7 h-7" />
+                <div className="py-6 sm:py-10 text-center space-y-6">
+                  {/* Inline Dismissible Onboarding Guide */}
+                  {isOnboardingOpen && (
+                    <StudioOnboardingGuide
+                      open={isOnboardingOpen}
+                      onClose={() => {
+                        localStorage.setItem('lightning_studio_onboarding_completed_v2', 'true');
+                        setIsOnboardingOpen(false);
+                      }}
+                      isDarkTheme={isDark}
+                      isInline={true}
+                      onSelectPrompt={(p) => {
+                        setPrompt(p);
+                        textareaRef.current?.focus();
+                      }}
+                    />
+                  )}
+
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-violet-500/20">
+                    <Sparkles className="w-6 h-6" />
                   </div>
 
-                  <div className="space-y-2 max-w-xl mx-auto">
-                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                      What are we working on today?
+                  <div className="space-y-1.5 max-w-xl mx-auto">
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                      What are we building today?
                     </h2>
                     <p className={`text-xs sm:text-sm leading-relaxed ${c.textMuted}`}>
-                      Ask a question, analyse a document, write code, or explore an idea with the models available through LightningAPI.
+                      Ask a coding question, analyze documents, preview UI components live, or draft full-stack projects.
                     </p>
                   </div>
 
                   {/* 5 Functional Suggested Prompt Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-left max-w-3xl mx-auto pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-left max-w-3xl mx-auto pt-1">
                     {STARTING_WORKFLOW_CARDS.map((card, idx) => (
                       <button
                         key={idx}
@@ -3081,14 +3114,14 @@ export const UserChatStudio: React.FC = () => {
                           textareaRef.current?.focus();
                         }}
                         className={`p-3.5 rounded-2xl border transition-all text-left group cursor-pointer ${
-                          isDark ? 'bg-[#141C30] border-[#28334B] hover:border-violet-500/50 hover:bg-[#19233A]' : 'bg-white border-[#D8D2C5] hover:border-violet-500 hover:shadow-md'
+                          isDark ? 'bg-[#141C30] border-[#28334B] hover:border-violet-500/50 hover:bg-[#19233A]' : 'bg-white border-[#E5E7EB] hover:border-violet-500 hover:shadow-xs'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
                             isDark
                               ? 'bg-[#19233A] border-[#28334B] text-violet-300'
-                              : 'bg-violet-100/90 border-violet-200 text-violet-950 font-bold'
+                              : 'bg-violet-50 border-violet-200 text-violet-900 font-semibold'
                           }`}>
                             {card.category}
                           </span>
@@ -3103,6 +3136,19 @@ export const UserChatStudio: React.FC = () => {
                       </button>
                     ))}
                   </div>
+
+                  {!isOnboardingOpen && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsOnboardingOpen(true)}
+                        className="inline-flex items-center gap-1.5 text-xs text-violet-600 dark:text-violet-400 hover:underline font-medium cursor-pointer"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                        <span>View Studio guide & capabilities</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3575,7 +3621,10 @@ export const UserChatStudio: React.FC = () => {
           {showJumpButton && (
             <button
               type="button"
-              onClick={() => scrollToBottom('smooth')}
+              onClick={() => {
+                isNearBottomRef.current = true;
+                scrollToBottom('smooth', true);
+              }}
               className="absolute bottom-28 right-8 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1f1f23] border border-gray-300 dark:border-gray-700 shadow-xl text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
             >
               <ArrowDown className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
@@ -3698,193 +3747,10 @@ export const UserChatStudio: React.FC = () => {
               )}
 
               {/* Bottom Action Bar inside Composer */}
-              <div className="px-3 pb-2.5 pt-1 flex items-center justify-between border-t border-black/5 dark:border-white/5">
-                {/* Left controls: Model Selector, Attach, Enhance */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {/* Model Switcher Button */}
-                  <button
-                    type="button"
-                    onClick={() => setModelPickerOpen(true)}
-                    className={`border font-semibold rounded-xl px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                      isDark ? 'bg-[#19233A] border-[#28334B] text-[#F3F5FC] hover:bg-[#202c48]' : 'bg-[#F0ECE4] border-[#D8D2C5] text-slate-900 hover:bg-[#E8E2D6] shadow-2xs'
-                    }`}
-                  >
-                    <Sparkles className="w-3 h-3 text-violet-500" />
-                    <span>{getModelDisplayName(activeThread.model)}</span>
-                    <ChevronDown className="w-3 h-3 opacity-60" />
-                  </button>
-
-                  {/* API Key Quick Switcher Button */}
-                  {keys.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setKeyPickerOpen(true)}
-                      className={`border font-semibold rounded-xl px-2 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                        Number(remainingTokens) <= 0
-                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
-                          : isDark ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:bg-[#202c48] hover:text-[#F3F5FC]' : 'bg-[#F0ECE4] border-[#D8D2C5] text-slate-800 hover:bg-[#E8E2D6] hover:text-slate-950 shadow-2xs font-semibold'
-                      }`}
-                      title="Switch active API Key for billing"
-                    >
-                      <Key className="w-3 h-3 text-violet-500" />
-                      <span className="truncate max-w-[85px] sm:max-w-[120px] font-sans text-[11px]">
-                        {keys.length === 0 ? 'No Key' : activeKey?.name || activeKey?.displayKey || 'API Key'}
-                      </span>
-                      <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-                    </button>
-                  )}
-
-                  {/* Web Research & Automation Tools Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowResearchMenu(!showResearchMenu)}
-                      className={`border font-semibold rounded-xl px-2 py-1.5 text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                        researchMode !== 'standard'
-                          ? 'bg-violet-600 text-white border-violet-500 shadow-2xs'
-                          : isDark ? 'bg-[#19233A] border-[#28334B] text-[#A5B0C7] hover:bg-[#202c48]' : 'bg-[#F0ECE4] border-[#D8D2C5] text-slate-800 hover:bg-[#E8E2D6] font-semibold'
-                      }`}
-                      title="Web Research & Automation Tools"
-                    >
-                      {researchMode === 'web_search' ? (
-                        <>
-                          <Globe className="w-3 h-3 text-white" />
-                          <span className="text-[11px]">Web Search</span>
-                        </>
-                      ) : researchMode === 'deep_research' ? (
-                        <>
-                          <Sparkles className="w-3 h-3 text-white" />
-                          <span className="text-[11px]">Deep Research</span>
-                        </>
-                      ) : researchMode === 'open_link' ? (
-                        <>
-                          <ExternalLink className="w-3 h-3 text-white" />
-                          <span className="text-[11px]">Open Link</span>
-                        </>
-                      ) : researchMode === 'browser_task' ? (
-                        <>
-                          <Terminal className="w-3 h-3 text-white" />
-                          <span className="text-[11px]">Browser</span>
-                        </>
-                      ) : (
-                        <>
-                          <Globe className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`} />
-                          <span className="text-[11px]">Web Tools</span>
-                        </>
-                      )}
-                      <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-                    </button>
-
-                    {showResearchMenu && (
-                      <div className={`absolute bottom-full left-0 mb-2 w-64 rounded-2xl border shadow-2xl p-1.5 space-y-1 z-30 ${c.cardBg} ${c.border} animate-in fade-in slide-in-from-bottom-2 duration-150`}>
-                        <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Web Research & Automation
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setResearchMode('standard');
-                            setTargetUrlToAnalyze(null);
-                            setShowResearchMenu(false);
-                          }}
-                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                            researchMode === 'standard' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold' : 'hover:bg-violet-500/10'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Bot className="w-4 h-4 text-violet-500 shrink-0" />
-                            <div>
-                              <p className="font-semibold text-gray-900 dark:text-gray-100">Standard Chat</p>
-                              <p className={`text-[10px] ${c.textMuted}`}>Fast multi-model inference</p>
-                            </div>
-                          </div>
-                          {researchMode === 'standard' && <Check className="w-3.5 h-3.5 text-violet-500" />}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setResearchMode('web_search');
-                            setShowResearchMenu(false);
-                          }}
-                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                            researchMode === 'web_search' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold' : 'hover:bg-violet-500/10'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Globe className="w-4 h-4 text-blue-500 shrink-0" />
-                            <div>
-                              <p className="font-semibold text-gray-900 dark:text-gray-100">Web Search</p>
-                              <p className={`text-[10px] ${c.textMuted}`}>Live internet search with citations</p>
-                            </div>
-                          </div>
-                          {researchMode === 'web_search' && <Check className="w-3.5 h-3.5 text-blue-500" />}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setResearchMode('deep_research');
-                            setShowResearchMenu(false);
-                          }}
-                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                            researchMode === 'deep_research' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold' : 'hover:bg-violet-500/10'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
-                            <div>
-                              <p className="font-semibold text-gray-900 dark:text-gray-100">Deep Research</p>
-                              <p className={`text-[10px] ${c.textMuted}`}>Multi-round search & report</p>
-                            </div>
-                          </div>
-                          {researchMode === 'deep_research' && <Check className="w-3.5 h-3.5 text-purple-500" />}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setResearchMode('open_link');
-                            setShowResearchMenu(false);
-                          }}
-                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                            researchMode === 'open_link' ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold' : 'hover:bg-violet-500/10'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <ExternalLink className="w-4 h-4 text-emerald-500 shrink-0" />
-                            <div>
-                              <p className="font-semibold text-gray-900 dark:text-gray-100">Open Link</p>
-                              <p className={`text-[10px] ${c.textMuted}`}>Extract & analyze page</p>
-                            </div>
-                          </div>
-                          {researchMode === 'open_link' && <Check className="w-3.5 h-3.5 text-emerald-500" />}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowResearchMenu(false);
-                            handleOpenBrowserWorkspace();
-                          }}
-                          className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Terminal className="w-4 h-4 text-amber-500 shrink-0" />
-                            <div>
-                              <p className="font-semibold text-gray-900 dark:text-gray-100">Browser Workspace</p>
-                              <p className={`text-[10px] ${c.textMuted}`}>Controlled web actions & timeline</p>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                            Interactive
-                          </span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
+              <div className="px-3 pb-2.5 pt-1.5 flex items-center justify-between border-t border-black/5 dark:border-white/5">
+                {/* Left controls: Attach, Web Search, Thinking toggle, Mic */}
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  {/* Hidden File Input */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -3894,134 +3760,91 @@ export const UserChatStudio: React.FC = () => {
                     onChange={(e) => handleFilesSelected(e.target.files)}
                   />
 
-                  {/* Attachment '+' Popover Menu */}
-                  <div className="relative">
+                  {/* Primary 1-Click Attach Button */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${c.pillBg}`}
+                    title="Attach documents, code files, or images (.pdf, .docx, .ts, .py, .png, etc.)"
+                  >
+                    <Paperclip className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                    <span className="hidden sm:inline">Attach</span>
+                  </button>
+
+                  {/* Web Search Toggle Pill */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResearchMode(researchMode === 'web_search' ? 'standard' : 'web_search');
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                      researchMode === 'web_search'
+                        ? 'bg-blue-500/15 border-blue-500/40 text-blue-600 dark:text-blue-400 font-semibold'
+                        : c.pillBg
+                    }`}
+                    title="Toggle Web Search for live citations & up-to-date data"
+                  >
+                    <Globe className={`w-3.5 h-3.5 ${researchMode === 'web_search' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                    <span className="hidden sm:inline">Web Search</span>
+                    {researchMode === 'web_search' && <Check className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
+                  </button>
+
+                  {/* Thinking Mode Toggle Pill (when model supports it) */}
+                  {activeModelMeta?.supportsThinking && (
                     <button
                       type="button"
-                      onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-                      className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                        showAttachmentMenu
-                          ? 'bg-violet-600 text-white border-violet-500 shadow-2xs'
-                          : `${c.pillBg} hover:opacity-100`
+                      onClick={() => updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled })}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                        activeThread.thinkingEnabled
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 font-semibold'
+                          : c.pillBg
                       }`}
-                      title="Add document, image, or open tools"
+                      title="Toggle Extended Thinking (Deep reasoning before responding)"
                     >
-                      <Plus className={`w-4 h-4 transition-transform duration-200 ${showAttachmentMenu ? 'rotate-45' : ''}`} />
+                      <Brain className={`w-3.5 h-3.5 ${activeThread.thinkingEnabled ? 'text-amber-500' : 'text-slate-400'}`} />
+                      <span className="hidden sm:inline">Thinking</span>
+                      {activeThread.thinkingEnabled && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
                     </button>
-
-                    {showAttachmentMenu && (
-                      <div className={`absolute bottom-full left-0 mb-2 w-56 rounded-2xl border shadow-2xl p-1.5 space-y-1 z-30 ${c.cardBg} ${c.border} animate-in fade-in slide-in-from-bottom-2 duration-150`}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachmentMenu(false);
-                            fileInputRef.current?.click();
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 hover:bg-violet-500/10 cursor-pointer transition-colors"
-                        >
-                          <FileText className="w-4 h-4 text-violet-500 shrink-0" />
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">Upload Document</p>
-                            <p className={`text-[10px] ${c.textMuted}`}>Word .docx, PDF, Code, CSV, TXT</p>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachmentMenu(false);
-                            fileInputRef.current?.click();
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 hover:bg-violet-500/10 cursor-pointer transition-colors"
-                        >
-                          <ImageIcon className="w-4 h-4 text-emerald-500 shrink-0" />
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">Upload Photos / Vision</p>
-                            <p className={`text-[10px] ${c.textMuted}`}>PNG, JPG, WEBP screenshots</p>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachmentMenu(false);
-                            if (!activeArtifact) {
-                              setActiveArtifact({
-                                id: 'canvas_quick',
-                                title: 'Scratchpad Canvas',
-                                language: 'typescript',
-                                code: '// Interactive coding & document canvas\n',
-                                type: 'code',
-                              });
-                            } else {
-                              setActiveArtifact(null);
-                            }
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 hover:bg-violet-500/10 cursor-pointer transition-colors"
-                        >
-                          <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">Toggle Canvas</p>
-                            <p className={`text-[10px] ${c.textMuted}`}>Split code & doc preview</p>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttachmentMenu(false);
-                            setContextManagerOpen(true);
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 hover:bg-violet-500/10 cursor-pointer transition-colors"
-                        >
-                          <SlidersHorizontal className="w-4 h-4 text-amber-500 shrink-0" />
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">Token & Cost Inspector</p>
-                            <p className={`text-[10px] ${c.textMuted}`}>View usage, savings & memory</p>
-                          </div>
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   {/* Voice Dictation (Mic) */}
                   <button
                     type="button"
                     onClick={toggleVoiceDictation}
-                    className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                    className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
                       isListening
                         ? 'bg-rose-500/20 border-rose-500 text-rose-500 animate-pulse'
-                        : `${c.pillBg} hover:opacity-100`
+                        : c.pillBg
                     }`}
                     title={isListening ? 'Listening... click to stop' : 'Voice Dictation (Speech-to-Text)'}
                   >
-                    <Mic className={`w-4 h-4 ${isListening ? 'fill-current text-rose-500' : ''}`} />
+                    <Mic className={`w-3.5 h-3.5 ${isListening ? 'fill-current text-rose-500' : 'text-slate-400'}`} />
                   </button>
 
-                  {/* Prompt Enhancer (✨) */}
-                  <button
-                    type="button"
-                    onClick={handleEnhancePrompt}
-                    disabled={!inputMessage.trim()}
-                    className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
-                      inputMessage.trim()
-                        ? 'text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10'
-                        : `${c.pillBg} opacity-50 cursor-not-allowed`
-                    }`}
-                    title="1-Click Prompt Enhancer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Enhance</span>
-                  </button>
+                  {/* Prompt Enhancer (✨) - only visible when user types */}
+                  {inputMessage.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleEnhancePrompt}
+                      className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-semibold text-violet-600 dark:text-violet-400 border border-violet-500/30 hover:bg-violet-500/10 transition-all cursor-pointer animate-fadeIn"
+                      title="Enhance prompt with structured instructions"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Enhance</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Right controls: Stop Generation or Send Button */}
                 <div className="flex items-center gap-2">
+                  <span className="hidden lg:inline text-[11px] text-slate-400 dark:text-slate-500 font-mono pr-1 select-none">
+                    Enter ↵
+                  </span>
                   {generating ? (
                     <button
                       type="button"
                       onClick={handleStopGeneration}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-500/20 cursor-pointer animate-pulse"
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-rose-500/20 cursor-pointer animate-pulse"
                       title="Stop Generation"
                     >
                       <Square className="w-3 h-3 fill-current" />
@@ -4032,14 +3855,15 @@ export const UserChatStudio: React.FC = () => {
                       type="button"
                       onClick={() => handleSendMessage()}
                       disabled={!inputMessage.trim() && attachments.length === 0}
-                      className={`p-2 rounded-xl transition-all cursor-pointer ${
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
                         inputMessage.trim() || attachments.length > 0
-                          ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-500/25'
-                          : 'bg-black/10 dark:bg-white/10 text-black/30 dark:text-white/30 cursor-not-allowed'
+                          ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-sm shadow-violet-500/25'
+                          : 'bg-black/5 dark:bg-white/5 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-black/5 dark:border-white/5'
                       }`}
                       title="Send message (Enter)"
                     >
-                      <Send className="w-4 h-4" />
+                      <span>Send</span>
+                      <Send className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -4414,11 +4238,18 @@ export const UserChatStudio: React.FC = () => {
         isDarkTheme={isDark}
       />
 
-      {/* Studio 2.0 Guided Onboarding Walkthrough */}
+      {/* Studio 2.0 Guided Onboarding Walkthrough (Modal triggered via ? button when chat has messages) */}
       <StudioOnboardingGuide
-        open={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
+        open={isOnboardingOpen && activeThread?.messages?.length > 0}
+        onClose={() => {
+          localStorage.setItem('lightning_studio_onboarding_completed_v2', 'true');
+          setIsOnboardingOpen(false);
+        }}
         isDarkTheme={isDark}
+        onSelectPrompt={(p) => {
+          setPrompt(p);
+          textareaRef.current?.focus();
+        }}
       />
 
       {/* Studio 2.0 Pure-Engine Document Generator Modal */}

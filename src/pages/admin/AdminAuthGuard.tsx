@@ -25,7 +25,7 @@ export const AdminAuthGuard: React.FC<{ children: React.ReactElement }> = ({ chi
   }
 
   if (!adminUser || adminUser.role !== 'admin') {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/deez/login" replace />;
   }
 
   return children;

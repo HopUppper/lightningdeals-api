@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import readline from 'readline';
 import { prisma } from '../server/db';
 import { hashPasswordScrypt } from '../server/auth';
 import { recordAuditEvent } from '../server/auditLogger';
@@ -16,6 +17,19 @@ import { recordAuditEvent } from '../server/auditLogger';
  *     and updates passwordChangedAt.
  *   - Strictly logs an audit event for accountability.
  */
+
+function promptPassword(query: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    rl.question(query, (ans) => {
+      rl.close();
+      resolve(ans.trim());
+    });
+  });
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -48,6 +62,12 @@ async function main() {
 
   // If no password provided, generate cryptographically secure 24-char password
   let wasGenerated = false;
+  if (!password && process.stdin.isTTY) {
+    const entered = await promptPassword('Enter chosen admin password (or press Enter to auto-generate secure 24-character password): ');
+    if (entered) {
+      password = entered;
+    }
+  }
   if (!password) {
     password = crypto.randomBytes(18).toString('base64').replace(/[+/=]/g, 'x').substring(0, 24);
     wasGenerated = true;

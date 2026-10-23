@@ -57,6 +57,150 @@ export function hashPassword(password: string): string {
   return hashPasswordScrypt(password);
 }
 
+// GET /api/admin/auth/setup-status - Check if initial administrator exists
+router.get('/setup-status', async (req: Request, res: Response) => {
+  try {
+    const adminCount = await prisma.user.count({
+      where: { role: 'admin', status: 'active' },
+    });
+    return res.json({ isConfigured: adminCount > 0 });
+  } catch (err: any) {
+    return res.status(500).json({ error: { message: 'Failed to verify admin status.' } });
+  }
+});
+
+// POST /api/admin/auth/bootstrap - One-time initial owner admin setup (only allowed when 0 admins exist)
+router.post('/bootstrap', adminLoginLimiter, async (req: Request, res: Response) => {
+  const { email, password, name } = req.body;
+  const clientIp = (req.ip || (req.headers['x-forwarded-for'] as string || '').split(',')[0].trim() || req.socket.remoteAddress || '127.0.0.1');
+
+  try {
+    const adminCount = await prisma.user.count({
+      where: { role: 'admin', status: 'active' },
+    });
+
+    if (adminCount > 0) {
+      return res.status(403).json({
+        error: {
+          type: 'initial_setup_disabled',
+          message: 'Initial administrator setup is disabled. An active administrator account already exists.',
+        },
+      });
+    }
+
+    if (!email || !password || !email.includes('@') || !email.includes('.')) {
+      return res.status(400).json({
+        error: {
+          type: 'invalid_request',
+          message: 'A valid administrator email and password are required.',
+        },
+      });
+    }
+
+    if (password.length < 12) {
+      return res.status(400).json({
+        error: {
+          type: 'weak_password',
+          message: 'Administrator password must be at least 12 characters long.',
+        },
+      });
+    }
+
+    if (BANNED_COMPROMISED_PASSWORDS.has(password.toLowerCase())) {
+      return res.status(400).json({
+        error: {
+          type: 'banned_password',
+          message: 'The chosen password is too common or compromised. Please choose a strong, unique password.',
+        },
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = (name && typeof name === 'string' && name.trim()) ? name.trim() : 'System Administrator';
+    const passwordHash = hashPasswordScrypt(password);
+
+    const newAdmin = await prisma.user.upsert({
+      where: { email: cleanEmail },
+      create: {
+        email: cleanEmail,
+        name: cleanName,
+        passwordHash,
+        role: 'admin',
+        status: 'active',
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+        passwordChangedAt: new Date(),
+      },
+      update: {
+        name: cleanName,
+        passwordHash,
+        role: 'admin',
+        status: 'active',
+        passwordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+
+    // Generate Admin JWT Token
+    const token = jwt.sign(
+      {
+        id: newAdmin.id,
+        email: newAdmin.email,
+        role: 'admin',
+        authType: 'ADMIN_SESSION',
+      },
+      getJwtSecret(),
+      { algorithm: 'HS256', expiresIn: '24h' }
+    );
+
+    const tokenHash = hashSecret(token);
+    await prisma.userSession.create({
+      data: {
+        userId: newAdmin.id,
+        sessionTokenHash: tokenHash,
+        ipAddress: clientIp,
+        userAgent: (req.headers['user-agent'] || 'Admin Console Setup').substring(0, 200),
+        device: 'Admin Console Initial Setup',
+        expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+      },
+    });
+
+    await recordAuditEvent({
+      eventType: 'ADMIN_INITIAL_PROVISIONED',
+      severity: 'HIGH',
+      actorType: 'ADMIN',
+      actorId: newAdmin.id,
+      actorEmail: newAdmin.email,
+      adminId: newAdmin.id,
+      action: 'BOOTSTRAP_ADMIN',
+      result: 'SUCCESS',
+      statusCode: 200,
+      req,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Administrator account configured successfully.',
+      token,
+      user: {
+        id: newAdmin.id,
+        email: newAdmin.email,
+        name: newAdmin.name,
+        role: newAdmin.role,
+      },
+    });
+  } catch (err: any) {
+    console.error('[AdminBootstrap] Error configuring admin:', err);
+    return res.status(500).json({
+      error: {
+        type: 'internal_error',
+        message: 'An error occurred during initial administrator setup.',
+      },
+    });
+  }
+});
+
 // POST /api/admin/auth/login
 router.post('/login', adminLoginLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body;

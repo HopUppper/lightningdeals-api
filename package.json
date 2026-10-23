@@ -15,6 +15,7 @@
     "supabase:connect": "tsx scripts/configure-supabase.ts",
     "test:api": "tsx scripts/test-api-contract.ts",
     "test:quota": "tsx scripts/test-token-quota-enforcement.ts",
+    "test:admin": "tsx scripts/test-secure-admin-access.ts",
     "test:security": "tsx scripts/test-phase1-security-regression.ts",
     "test:security:phase2": "tsx scripts/test-phase2-security-regression.ts",
     "test:security:phase3": "tsx scripts/test-phase3-infrastructure-regression.ts",

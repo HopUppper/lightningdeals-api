@@ -1,6 +1,9 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { prisma, encryptText, decryptText } from './db';
+import jwt from 'jsonwebtoken';
+import { getJwtSecret } from './jwtConfig';
+import { hashSecret } from './authSecurity';
 import { AuthRequest, authenticateJwt, requireAdmin, hashPasswordScrypt, verifyPasswordScrypt } from './auth';
 import { calculateKeyRollingWindow } from './window';
 import { checkMasterCapacity, topUpMasterBalance, reconcileMasterLedger, calculateActiveEntitlementExposure } from './masterLedger';
@@ -3250,57 +3253,134 @@ router.post('/emergency/purge-tempmail-trials', async (req: AuthRequest, res: Re
 });
 
 router.put('/password', async (req: AuthRequest, res: Response) => {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
 
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: { message: 'Current and new passwords are required.' } });
-  }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: { message: 'New password must be at least 6 characters long.' } });
-  }
-
-  try {
-    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
-    if (!user) {
-      return res.status(404).json({ error: { message: 'Admin user record not found.' } });
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: { message: 'Current and new passwords are required.' } });
     }
 
-    const isCurrentValid = verifyPasswordScrypt(currentPassword, user.passwordHash);
-
-    if (!isCurrentValid) {
-      return res.status(401).json({ error: { message: 'Current password provided is incorrect.' } });
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return res.status(400).json({ error: { message: 'New password and confirmation do not match.' } });
     }
 
-    const newHash = hashPasswordScrypt(newPassword);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash: newHash,
-        passwordChangedAt: new Date(),
-      },
-    });
+    // Security policy: at least 12 characters
+    if (newPassword.length < 12) {
+      return res.status(400).json({ error: { message: 'New password must be at least 12 characters long.' } });
+    }
 
-    // Invalidate all existing sessions for this administrator
-    await prisma.userSession.updateMany({
-      where: { userId: user.id },
-      data: { isRevoked: true },
-    }).catch(() => {});
+    // Banned common/compromised passwords
+    const BANNED_PASSWORDS = new Set(['love9002', '9002', 'admin123', 'password', 'password123', 'lightning2026']);
+    if (BANNED_PASSWORDS.has(newPassword.toLowerCase())) {
+      return res.status(400).json({ error: { message: 'Chosen password is too common or compromised. Please choose a strong password.' } });
+    }
 
-    await prisma.adminLog.create({
-      data: {
-        adminUserId: user.id,
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: { message: 'New password must be different from current password.' } });
+    }
+
+    try {
+      const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+      if (!user) {
+        return res.status(404).json({ error: { message: 'Admin user record not found.' } });
+      }
+
+      const isCurrentValid = verifyPasswordScrypt(currentPassword, user.passwordHash);
+      if (!isCurrentValid) {
+        await recordAuditEvent({
+          eventType: 'ADMIN_PASSWORD_CHANGE_FAILED',
+          severity: 'MEDIUM',
+          actorType: 'ADMIN',
+          actorId: user.id,
+          actorEmail: user.email,
+          result: 'DENIED',
+          statusCode: 401,
+          failureReason: 'Incorrect current password provided',
+          req,
+        });
+        return res.status(401).json({ error: { message: 'Current password provided is incorrect.' } });
+      }
+
+      const newHash = hashPasswordScrypt(newPassword);
+      const now = new Date();
+
+      // 1. Update passwordHash and passwordChangedAt in DB
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: newHash,
+          passwordChangedAt: now,
+          failedLoginAttempts: 0,
+        },
+      });
+
+      // 2. Revoke other active sessions for this administrator
+      const currentToken = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+      const currentTokenHash = currentToken ? hashSecret(currentToken) : null;
+
+      await prisma.userSession.updateMany({
+        where: {
+          userId: user.id,
+          ...(currentTokenHash ? { sessionTokenHash: { not: currentTokenHash } } : {}),
+        },
+        data: { isRevoked: true },
+      }).catch(() => {});
+
+      // 3. Issue a fresh JWT token for current session so owner stays seamlessly logged in
+      const freshToken = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          role: 'admin',
+          authType: 'ADMIN_SESSION',
+        },
+        getJwtSecret(),
+        { algorithm: 'HS256', expiresIn: '24h' }
+      );
+
+      const freshTokenHash = hashSecret(freshToken);
+      await prisma.userSession.create({
+        data: {
+          userId: user.id,
+          sessionTokenHash: freshTokenHash,
+          ipAddress: req.ip || '127.0.0.1',
+          userAgent: (req.headers['user-agent'] || 'Admin Console').substring(0, 200),
+          device: 'Admin Console (Password Changed)',
+          expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+        },
+      }).catch(() => {});
+
+      await prisma.adminLog.create({
+        data: {
+          adminUserId: user.id,
+          action: 'UPDATE_ADMIN_PASSWORD',
+          targetType: 'User',
+          targetId: user.id,
+          ipAddress: req.ip || '127.0.0.1',
+        },
+      });
+
+      await recordAuditEvent({
+        eventType: 'ADMIN_PASSWORD_CHANGED',
+        severity: 'HIGH',
+        actorType: 'ADMIN',
+        actorId: user.id,
+        actorEmail: user.email,
+        adminId: user.id,
         action: 'UPDATE_ADMIN_PASSWORD',
-        targetType: 'User',
-        targetId: user.id,
-        ipAddress: req.ip || '127.0.0.1',
-      },
-    });
+        result: 'SUCCESS',
+        statusCode: 200,
+        req,
+      });
 
-    res.json({ success: true, message: 'Password updated successfully. Existing sessions have been revoked.' });
-  } catch (err: any) {
-    res.status(500).json({ error: { message: err.message } });
-  }
-});
+      res.json({
+        success: true,
+        message: 'Admin password updated successfully. All other active sessions have been revoked.',
+        freshToken,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: { message: err.message } });
+    }
+  });
 
 // GET /admin/search — Global Search across Customers, Keys, Orders, Tickets & Security Logs
 router.get('/search', async (req: AuthRequest, res: Response) => {

@@ -9,7 +9,7 @@ export const AdminLeads: React.FC = () => {
 
   const fetchLeads = async () => {
     try {
-      const res = await adminFetch('/api/admin/leads');
+      const res = await adminFetch('/api/deez/leads');
       if (res.ok) {
         setLeads(await res.json());
       }
@@ -26,7 +26,7 @@ export const AdminLeads: React.FC = () => {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await adminFetch(`/api/admin/leads/${id}`, {
+      const res = await adminFetch(`/api/deez/leads/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus }),
       });
@@ -49,7 +49,7 @@ export const AdminLeads: React.FC = () => {
           </p>
         </div>
 
-        <Link to="/admin/keys" className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold">
+        <Link to="/deez/keys" className="ui-button-primary text-xs py-2 px-4 gap-2 font-bold">
           + Issue Custom API Key
         </Link>
       </div>

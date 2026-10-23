@@ -85,7 +85,7 @@ export const Footer: React.FC = () => {
               <li><Link to="/privacy" className="hover:text-[#6d28d9] transition-colors">Privacy Policy</Link></li>
               <li><Link to="/refund" className="hover:text-[#6d28d9] transition-colors">Refund Policy</Link></li>
               <li><Link to="/request-quote" className="hover:text-[#6d28d9] transition-colors">Enterprise Inquiries</Link></li>
-              <li><Link to="/admin/login" className="hover:text-[#6d28d9] transition-colors">Admin Console</Link></li>
+
             </ul>
           </div>
 

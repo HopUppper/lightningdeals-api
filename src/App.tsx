@@ -317,12 +317,12 @@ export function App() {
                 </Route>
                 <Route path="/account/*" element={<Navigate to="/dashboard" replace />} />
 
-                {/* Admin Authentication Route */}
-                <Route path="/admin/login" element={<AdminLoginPage />} />
+                {/* Private Admin Authentication Route */}
+                <Route path="/deez/login" element={<AdminLoginPage />} />
 
-                {/* Admin Control Center — Protected via AdminAuthGuard */}
+                {/* Private Admin Control Center — Protected via AdminAuthGuard */}
                 <Route
-                  path="/admin/*"
+                  path="/deez/*"
                   element={
                     <AdminAuthGuard>
                       <AdminLayout />

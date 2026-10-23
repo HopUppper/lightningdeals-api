@@ -36,7 +36,7 @@ export const AdminLayout: React.FC = () => {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await adminFetch(`/api/admin/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        const res = await adminFetch(`/api/deez/search?q=${encodeURIComponent(searchQuery.trim())}`);
         if (res.ok) {
           setSearchResults(await res.json());
           setShowSearchDropdown(true);
@@ -52,25 +52,25 @@ export const AdminLayout: React.FC = () => {
   }, [searchQuery]);
 
   const primaryNavItems: NavItem[] = [
-    { name: 'Overview', path: '/admin', icon: LayoutDashboard, end: true },
-    { name: 'Fulfillment', path: '/admin/fulfillment', icon: CheckCircle2, badge: 'SLA' },
-    { name: 'Customer Feedback', path: '/admin/feedback', icon: Star, badge: 'FEEDBACK' },
-    { name: 'Subscriptions', path: '/admin/subscriptions', icon: Layers, badge: 'CYCLES' },
-    { name: 'Plans & Offers', path: '/admin/plans', icon: Zap },
-    { name: 'Orders & Sales', path: '/admin/orders', icon: ShoppingBag },
-    { name: 'WhatsApp Desk', path: '/admin/whatsapp', icon: MessageSquare },
-    { name: 'AI Control', path: '/admin/ai-control', icon: Bot },
-    { name: 'Rewards', path: '/admin/rewards', icon: Award },
-    { name: 'Referrals', path: '/admin/referrals', icon: Gift },
-    { name: 'Customers', path: '/admin/customers', icon: Users },
-    { name: 'Live Analytics', path: '/admin/analytics', icon: Globe },
-    { name: 'Support Tickets', path: '/admin/support', icon: LifeBuoy },
-    { name: 'API Keys', path: '/admin/keys', icon: Key },
-    { name: 'Providers', path: '/admin/providers', icon: Server },
-    { name: 'Usage', path: '/admin/usage', icon: Activity },
-    { name: 'Audit Logs', path: '/admin/logs', icon: FileText },
-    { name: 'Emergency Controls', path: '/admin/emergency', icon: ShieldAlert },
-    { name: 'Settings', path: '/admin/settings', icon: Settings },
+    { name: 'Overview', path: '/deez', icon: LayoutDashboard, end: true },
+    { name: 'Fulfillment', path: '/deez/fulfillment', icon: CheckCircle2, badge: 'SLA' },
+    { name: 'Customer Feedback', path: '/deez/feedback', icon: Star, badge: 'FEEDBACK' },
+    { name: 'Subscriptions', path: '/deez/subscriptions', icon: Layers, badge: 'CYCLES' },
+    { name: 'Plans & Offers', path: '/deez/plans', icon: Zap },
+    { name: 'Orders & Sales', path: '/deez/orders', icon: ShoppingBag },
+    { name: 'WhatsApp Desk', path: '/deez/whatsapp', icon: MessageSquare },
+    { name: 'AI Control', path: '/deez/ai-control', icon: Bot },
+    { name: 'Rewards', path: '/deez/rewards', icon: Award },
+    { name: 'Referrals', path: '/deez/referrals', icon: Gift },
+    { name: 'Customers', path: '/deez/customers', icon: Users },
+    { name: 'Live Analytics', path: '/deez/analytics', icon: Globe },
+    { name: 'Support Tickets', path: '/deez/support', icon: LifeBuoy },
+    { name: 'API Keys', path: '/deez/keys', icon: Key },
+    { name: 'Providers', path: '/deez/providers', icon: Server },
+    { name: 'Usage', path: '/deez/usage', icon: Activity },
+    { name: 'Audit Logs', path: '/deez/logs', icon: FileText },
+    { name: 'Emergency Controls', path: '/deez/emergency', icon: ShieldAlert },
+    { name: 'Settings', path: '/deez/settings', icon: Settings },
   ];
 
   return (
@@ -78,7 +78,7 @@ export const AdminLayout: React.FC = () => {
       {/* Top Bar */}
       <header className="h-16 border-b border-[#e5e7eb] bg-white sticky top-0 z-40 px-5 sm:px-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link to="/admin" className="flex items-center gap-2.5">
+          <Link to="/deez" className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-[#0f172a] text-white flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 fill-current text-white" />
             </div>
@@ -132,7 +132,7 @@ export const AdminLayout: React.FC = () => {
                     <div
                       key={c.id}
                       onClick={() => {
-                        navigate('/admin/customers');
+                        navigate('/deez/customers');
                         setShowSearchDropdown(false);
                       }}
                       className="p-2 hover:bg-[#f4f4f0] rounded-lg cursor-pointer flex justify-between items-center transition-colors"
@@ -151,7 +151,7 @@ export const AdminLayout: React.FC = () => {
                     <div
                       key={k.id}
                       onClick={() => {
-                        navigate('/admin/keys');
+                        navigate('/deez/keys');
                         setShowSearchDropdown(false);
                       }}
                       className="p-2 hover:bg-[#f4f4f0] rounded-lg cursor-pointer flex justify-between items-center transition-colors font-mono"

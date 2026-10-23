@@ -316,6 +316,14 @@ Write-Host "Run 'claude' to start coding with LightningDeals."
 
 import fs from 'fs';
 
+// Legacy /admin web route protection: return 404 immediately for web access while preserving /api/admin APIs
+app.all(['/admin', '/admin/*'], (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (req.path.startsWith('/api/admin')) {
+    return next();
+  }
+  res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>');
+});
+
 // 6. Static Web Application & High-Performance Asset Serving
 const distPath = path.resolve(import.meta.dirname, '../dist');
 console.log('⚡ Static web assets path:', distPath);

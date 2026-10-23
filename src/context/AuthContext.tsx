@@ -123,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.setItem('ld_admin_token', token);
     localStorage.removeItem('ld_admin_token');
     setAdminUser(userData);
-    window.location.href = '/admin';
+    window.location.href = '/deez';
   };
 
   const logout = async () => {

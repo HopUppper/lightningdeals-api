@@ -19,9 +19,9 @@ export const AdminOverview: React.FC = () => {
     setUpdateError(null);
     try {
       const [res, acRes, smRes] = await Promise.all([
-        adminFetch('/api/admin/overview'),
-        adminFetch('/api/admin/action-center').catch(() => null),
-        adminFetch('/api/admin/subscriptions/metrics').catch(() => null),
+        adminFetch('/api/deez/overview'),
+        adminFetch('/api/deez/action-center').catch(() => null),
+        adminFetch('/api/deez/subscriptions/metrics').catch(() => null),
       ]);
 
       if (res.ok) {
@@ -123,19 +123,19 @@ export const AdminOverview: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
-          <Link to="/admin/fulfillment" className="ui-button-primary text-xs py-2 px-3 gap-1.5 font-mono font-bold">
+          <Link to="/deez/fulfillment" className="ui-button-primary text-xs py-2 px-3 gap-1.5 font-mono font-bold">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>⚡ Fulfillment Queue</span>
           </Link>
-          <Link to="/admin/subscriptions" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
+          <Link to="/deez/subscriptions" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
             <Layers className="w-3.5 h-3.5" />
             <span>Subscriptions</span>
           </Link>
-          <Link to="/admin/plans" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
+          <Link to="/deez/plans" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
             <Zap className="w-3.5 h-3.5" />
             <span>Plans</span>
           </Link>
-          <Link to="/admin/keys" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
+          <Link to="/deez/keys" className="ui-button-secondary text-xs py-2 px-3 gap-1.5 font-mono font-semibold">
             <span>+ Create Key</span>
           </Link>
         </div>
@@ -234,7 +234,7 @@ export const AdminOverview: React.FC = () => {
               <Zap className="w-3.5 h-3.5 text-accent" />
               <span>Fulfillment Pipeline & Subscription Lifecycle</span>
             </h2>
-            <Link to="/admin/fulfillment" className="text-xs text-accent font-mono font-bold hover:underline">
+            <Link to="/deez/fulfillment" className="text-xs text-accent font-mono font-bold hover:underline">
               Open Fulfillment Queue →
             </Link>
           </div>
@@ -319,7 +319,7 @@ export const AdminOverview: React.FC = () => {
             </div>
 
             <Link
-              to="/admin/providers"
+              to="/deez/providers"
               className="text-xs font-mono font-bold text-accent hover:underline flex items-center gap-1 self-start sm:self-auto"
             >
               <span>Manage Upstream Providers</span>

@@ -39,7 +39,7 @@ export const LoginPage: React.FC = () => {
         login(data.token, data.user);
         const redirectParam = searchParams.get('redirect');
         if (data.user.role === 'admin') {
-          navigate('/admin');
+          navigate('/deez');
         } else if (redirectParam && redirectParam.startsWith('/')) {
           navigate(redirectParam);
         } else {

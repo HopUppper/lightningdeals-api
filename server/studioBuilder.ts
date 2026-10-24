@@ -16,8 +16,19 @@
 
 import { Router, Response } from 'express';
 import JSZip from 'jszip';
-import { prisma } from './db';
+import { prisma, decryptText } from './db';
 import { AuthRequest } from './auth';
+import { buildProviderRequest } from './providerAdapter';
+import { findCatalogModel, getFriendlyModelName } from './gateway';
+import {
+  synthesizeByArchetype,
+  detectProjectArchetype,
+  synthesizeRestaurantWebsite,
+  synthesizeSaaSLandingPage,
+  synthesizePortfolioWebsite,
+  synthesizeDashboardApp,
+  synthesizeStorefrontWebsite,
+} from './studioBuilderArchetypes';
 
 export const builderRouter = Router();
 
@@ -1081,42 +1092,229 @@ Built with **LightningAPI Studio AI Website Builder**.
 ];
 
 // ============================================================================
-// Helper: Synthesize Custom Project from Brief
+// Rendered Preview Validation & Error Boundary Guard
+// ============================================================================
+
+export function validateProjectBundle(files: ProjectFile[]): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const htmlFile = files.find((f) => f.path.endsWith('.html') || f.path === 'index.html');
+  if (!htmlFile || !htmlFile.content || !htmlFile.content.trim()) {
+    errors.push('Missing or empty index.html file.');
+  } else {
+    if (!htmlFile.content.includes('<html') && !htmlFile.content.includes('<!DOCTYPE')) {
+      errors.push('index.html lacks standard HTML5 document structure.');
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+// ============================================================================
+// AI Model Gateway Generation Pipeline (Claude Integration)
+// ============================================================================
+
+export async function generateWebsiteWithAI(
+  brief: string,
+  modelId: string = 'claude-sonnet-5.5'
+): Promise<{ title: string; category: string; files: ProjectFile[] } | null> {
+  try {
+    const vendor = (await prisma.vendorProvider.findFirst({
+      where: { isPrimary: true, status: { not: 'disabled' } },
+    })) || (await prisma.vendorProvider.findFirst({
+      where: { status: { not: 'disabled' } },
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+    }));
+
+    if (!vendor || !vendor.masterApiKeyEncrypted) return null;
+    const masterKey = decryptText(vendor.masterApiKeyEncrypted);
+    if (!masterKey) return null;
+
+    const systemPrompt = `You are an elite Frontend Architect & Creative Director building production-quality websites.
+Given a user's brief, synthesize a cohesive, responsive, multi-file web application with modern aesthetics, purposeful sections, and interactive vanilla JavaScript without external libraries.
+
+Required File Architecture:
+- index.html: Semantic HTML5 structure with responsive header, hero, domain-specific sections, interactive elements, and footer.
+- styles/theme.css: Clean CSS design tokens (colors, typography, radii, shadows, breakpoints).
+- assets/site.css: Modular component styles and responsive layouts.
+- assets/site.js: Functional interactivity (modals, tabs, drawer, filters, or accordions).
+- README.md: Documentation on project design tokens and setup.
+
+Output MUST be strictly valid JSON with no markdown wrapping:
+{
+  "title": "Clean Project Title",
+  "category": "restaurant | saas | portfolio | dashboard | store | general",
+  "files": [
+    { "path": "index.html", "content": "..." },
+    { "path": "styles/theme.css", "content": "..." },
+    { "path": "assets/site.css", "content": "..." },
+    { "path": "assets/site.js", "content": "..." },
+    { "path": "README.md", "content": "..." }
+  ]
+}`;
+
+    const payload: any = {
+      messages: [{ role: 'user', content: `Build a complete, responsive, and interactive website for this brief: "${brief.trim()}"` }],
+      max_tokens: 4096,
+      stream: false,
+      temperature: 0.2,
+      system: systemPrompt,
+    };
+
+    const prep = buildProviderRequest(vendor, masterKey, modelId, payload);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    const res = await fetch(prep.url, {
+      method: 'POST',
+      headers: prep.headers,
+      body: JSON.stringify(prep.body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    let text = '';
+    if (Array.isArray(data.content)) {
+      text = data.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n');
+    } else if (data.choices && data.choices[0]?.message?.content) {
+      text = data.choices[0].message.content;
+    }
+
+    if (!text) return null;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    if (Array.isArray(parsed.files) && parsed.files.length >= 3) {
+      const hasStyles = parsed.files.some((f: any) => f.path === 'styles.css');
+      const hasApp = parsed.files.some((f: any) => f.path === 'app.js');
+      const themeFile = parsed.files.find((f: any) => f.path.includes('theme.css')) || parsed.files[1];
+      const siteCss = parsed.files.find((f: any) => f.path.includes('site.css') || f.path.endsWith('.css'));
+      const siteJs = parsed.files.find((f: any) => f.path.endsWith('.js'));
+
+      if (!hasStyles && (themeFile || siteCss)) {
+        parsed.files.push({
+          path: 'styles.css',
+          language: 'css',
+          content: `${themeFile?.content || ''}\n\n${siteCss?.content || ''}`,
+        });
+      }
+      if (!hasApp && siteJs) {
+        parsed.files.push({
+          path: 'app.js',
+          language: 'javascript',
+          content: siteJs.content,
+        });
+      }
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// AI Model Gateway Refinement Pipeline (Claude Integration)
+// ============================================================================
+
+export async function refineWebsiteWithAI(
+  project: any,
+  files: ProjectFile[],
+  modificationPrompt: string,
+  modelId: string = 'claude-sonnet-5.5'
+): Promise<{ summary: string; files: ProjectFile[] } | null> {
+  try {
+    const vendor = (await prisma.vendorProvider.findFirst({
+      where: { isPrimary: true, status: { not: 'disabled' } },
+    })) || (await prisma.vendorProvider.findFirst({
+      where: { status: { not: 'disabled' } },
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+    }));
+
+    if (!vendor || !vendor.masterApiKeyEncrypted) return null;
+    const masterKey = decryptText(vendor.masterApiKeyEncrypted);
+    if (!masterKey) return null;
+
+    const filesSummary = files
+      .map((f) => `File: ${f.path}\n\`\`\`\n${f.content.slice(0, 3200)}\n\`\`\``)
+      .join('\n\n');
+
+    const systemPrompt = `You are an elite Frontend Architect performing conversational iterative modifications on an existing web project.
+User modification request: "${modificationPrompt}"
+Current project files:
+${filesSummary}
+
+Instructions:
+1. Modify ONLY the files that need changes based on the user's request. Preserve all other code and functionality.
+2. Return strictly valid JSON with no markdown wrapping:
+{
+  "summary": "Concise 1-sentence description of the updates applied",
+  "updatedFiles": [
+    { "path": "path/to/file", "content": "full updated content" }
+  ]
+}`;
+
+    const payload: any = {
+      messages: [{ role: 'user', content: `Please apply this refinement to the project: "${modificationPrompt}"` }],
+      max_tokens: 4096,
+      stream: false,
+      temperature: 0.2,
+      system: systemPrompt,
+    };
+
+    const prep = buildProviderRequest(vendor, masterKey, modelId, payload);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    const res = await fetch(prep.url, {
+      method: 'POST',
+      headers: prep.headers,
+      body: JSON.stringify(prep.body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    let text = '';
+    if (Array.isArray(data.content)) {
+      text = data.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n');
+    } else if (data.choices && data.choices[0]?.message?.content) {
+      text = data.choices[0].message.content;
+    }
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    if (Array.isArray(parsed.updatedFiles) && parsed.updatedFiles.length > 0) {
+      const mergedFiles = files.map((f) => {
+        const replacement = parsed.updatedFiles.find((u: any) => u.path === f.path);
+        return replacement ? { ...f, content: replacement.content } : f;
+      });
+      for (const u of parsed.updatedFiles) {
+        if (!mergedFiles.some((f) => f.path === u.path)) {
+          mergedFiles.push({ path: u.path, content: u.content });
+        }
+      }
+      return {
+        summary: parsed.summary || 'Applied requested refinements to project files.',
+        files: mergedFiles,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// Helper: Synthesize Custom Project from Brief (Multi-Archetype Engine)
 // ============================================================================
 
 export function synthesizeProjectFiles(brief: string, category: string = 'landing_page'): ProjectFile[] {
-  const cleanTitle = brief.replace(/^(build|create|make|design)\s+(a|an)?\s*/i, '').trim();
-  const title = cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1, 40);
-
-  // Match closest template archetype for solid scaffolding
-  const base = STARTER_TEMPLATES.find((t) => t.category === category) || STARTER_TEMPLATES[0];
-
-  return [
-    {
-      path: 'index.html',
-      language: 'html',
-      content: base.files[0].content
-        .replace(/Pulse/g, title)
-        .replace(/Aarav Mehta/g, title)
-        .replace(/Masala Lane/g, title)
-        .replace(/LedgerLeaf/g, title),
-    },
-    {
-      path: 'styles.css',
-      language: 'css',
-      content: base.files[1].content,
-    },
-    {
-      path: 'app.js',
-      language: 'javascript',
-      content: base.files[2].content,
-    },
-    {
-      path: 'README.md',
-      language: 'markdown',
-      content: `# ${title}\n\nGenerated with **LightningAPI Studio AI Website Builder**.\n\n## Project Brief\n> ${brief}\n\n## Running the Project\nDouble-click \`index.html\` in any web browser, or serve locally with \`npx serve .\`.`,
-    },
-  ];
+  return synthesizeByArchetype(brief, category);
 }
 
 // ============================================================================
@@ -1237,7 +1435,12 @@ builderRouter.get('/projects', async (req: AuthRequest, res: Response) => {
       },
     });
 
-    return res.json({ success: true, projects });
+    const projectsWithFriendly = projects.map((p) => ({
+      ...p,
+      friendlyModelName: getFriendlyModelName(p.modelId),
+    }));
+
+    return res.json({ success: true, projects: projectsWithFriendly });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -1278,6 +1481,7 @@ builderRouter.get('/projects/:id', async (req: AuthRequest, res: Response) => {
         brief: project.brief,
         category: project.category,
         modelId: project.modelId,
+        friendlyModelName: getFriendlyModelName(project.modelId),
         currentVersion: project.currentVersion,
         lastWorkingVersion: project.lastWorkingVersion,
         buildStatus: project.buildStatus,
@@ -1300,10 +1504,18 @@ builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
-  const { brief, templateId, category = 'landing_page', modelId = 'claude-sonnet-5.5' } = req.body;
+  let { brief, templateId, category, modelId = 'claude-sonnet-5.5' } = req.body;
   if (!brief || typeof brief !== 'string' || !brief.trim()) {
     return res.status(400).json({ success: false, error: 'Project brief is required' });
   }
+
+  // Model resolution: ensure verified model or fallback to claude-sonnet-5.5
+  const verifiedModel = findCatalogModel(modelId);
+  const effectiveModelId = verifiedModel ? verifiedModel.id : (modelId.startsWith('claude-') ? modelId : 'claude-sonnet-5.5');
+  const friendlyModelName = getFriendlyModelName(effectiveModelId);
+
+  // Archetype auto-detection if category not provided or generic
+  const detectedCategory = detectProjectArchetype(brief, category || 'landing_page');
 
   try {
     let files: ProjectFile[] = [];
@@ -1318,7 +1530,30 @@ builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
     }
 
     if (files.length === 0) {
-      files = synthesizeProjectFiles(brief.trim(), category);
+      // 1. Try AI Generation via Claude Gateway
+      try {
+        const aiResult = await generateWebsiteWithAI(brief.trim(), effectiveModelId);
+        if (aiResult && aiResult.files && aiResult.files.length >= 2) {
+          const check = validateProjectBundle(aiResult.files);
+          if (check.valid) {
+            files = aiResult.files;
+            if (aiResult.title) title = aiResult.title;
+          }
+        }
+      } catch (aiErr) {
+        console.warn('[Builder AI Generation Failed, falling back to archetype engine]:', aiErr);
+      }
+
+      // 2. Deterministic Fallback to Rich Archetype Design System
+      if (files.length === 0) {
+        files = synthesizeProjectFiles(brief.trim(), detectedCategory);
+      }
+    }
+
+    // Safety validation
+    const validation = validateProjectBundle(files);
+    if (!validation.valid) {
+      files = synthesizeProjectFiles(brief.trim(), detectedCategory);
     }
 
     const initialSnapshot: ProjectVersionSnapshot = {
@@ -1333,8 +1568,8 @@ builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
         userId,
         title,
         brief: brief.trim(),
-        category,
-        modelId,
+        category: detectedCategory,
+        modelId: effectiveModelId,
         filesJson: JSON.stringify(files),
         currentVersion: 1,
         lastWorkingVersion: 1,
@@ -1350,6 +1585,7 @@ builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
       success: true,
       project: {
         ...project,
+        friendlyModelName,
         files,
         previewHtml,
       },
@@ -1387,67 +1623,97 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
       versions = JSON.parse(project.versionsJson || '[]');
     } catch {}
 
-    // Targeted iterative file manipulation based on user's instruction
-    const lower = modificationPrompt.toLowerCase();
-    const updatedFiles = files.map((f) => ({ ...f }));
+    let updatedFiles: ProjectFile[] = [];
+    let changedSummary = `Applied refinement: "${modificationPrompt.slice(0, 50)}"`;
 
-    let changedSummary = 'Refined project files';
-
-    if (lower.includes('color') || lower.includes('violet') || lower.includes('theme') || lower.includes('dark')) {
-      const cssFile = updatedFiles.find((f) => f.path.endsWith('.css'));
-      if (cssFile) {
-        if (lower.includes('violet')) {
-          cssFile.content = cssFile.content
-            .replace(/--primary:\s*#[a-fA-F0-9]{3,6}/g, '--primary: #8b5cf6')
-            .replace(/--primary-hover:\s*#[a-fA-F0-9]{3,6}/g, '--primary-hover: #7c3aed');
+    // 1. Attempt AI-guided refinement first
+    try {
+      const aiRefined = await refineWebsiteWithAI(project, files, modificationPrompt, project.modelId);
+      if (aiRefined && aiRefined.files && aiRefined.files.length > 0) {
+        const check = validateProjectBundle(aiRefined.files);
+        if (check.valid) {
+          updatedFiles = aiRefined.files;
+          changedSummary = aiRefined.summary || changedSummary;
         }
-        if (lower.includes('dark')) {
-          cssFile.content = cssFile.content
-            .replace(/--bg-main:\s*#[a-fA-F0-9]{3,6}/g, '--bg-main: #0c0e14')
-            .replace(/--text-main:\s*#[a-fA-F0-9]{3,6}/g, '--text-main: #f4f4f5');
-        }
-        changedSummary = 'Updated color scheme and theme variables in styles.css';
       }
-    } else if (lower.includes('testimonial') || lower.includes('review')) {
-      const htmlFile = updatedFiles.find((f) => f.path.endsWith('.html'));
-      if (htmlFile && !htmlFile.content.includes('id="testimonials"')) {
-        const testimonialBlock = `
+    } catch (aiErr) {
+      console.warn('[Builder AI Refinement Failed, falling back to rule engine]:', aiErr);
+    }
+
+    // 2. Fallback to targeted semantic rule engine if AI didn't return
+    if (updatedFiles.length === 0) {
+      updatedFiles = files.map((f) => ({ ...f }));
+      const lower = modificationPrompt.toLowerCase();
+
+      if (lower.includes('color') || lower.includes('violet') || lower.includes('purple') || lower.includes('theme') || lower.includes('dark')) {
+        const cssFiles = updatedFiles.filter((f) => f.path.endsWith('.css'));
+        for (const cssFile of cssFiles) {
+          if (lower.includes('violet') || lower.includes('purple')) {
+            cssFile.content = cssFile.content
+              .replace(/--primary:\s*#[a-fA-F0-9]{3,6}/g, '--primary: #8b5cf6')
+              .replace(/--primary-hover:\s*#[a-fA-F0-9]{3,6}/g, '--primary-hover: #7c3aed');
+          }
+          if (lower.includes('dark')) {
+            cssFile.content = cssFile.content
+              .replace(/--bg-main:\s*#[a-fA-F0-9]{3,6}/g, '--bg-main: #0c0e14')
+              .replace(/--text-main:\s*#[a-fA-F0-9]{3,6}/g, '--text-main: #f4f4f5')
+              .replace(/--bg-card:\s*#[a-fA-F0-9]{3,6}/g, '--bg-card: #18181b');
+          }
+        }
+        changedSummary = 'Updated visual theme and color variables in CSS';
+      } else if (lower.includes('testimonial') || lower.includes('review')) {
+        const htmlFile = updatedFiles.find((f) => f.path.endsWith('.html'));
+        if (htmlFile && !htmlFile.content.includes('id="testimonials"')) {
+          const testimonialBlock = `
   <!-- Testimonials Section (Added via Refinement) -->
   <section id="testimonials" class="section">
     <div class="container">
-      <div class="section-header">
-        <span class="section-tag">Social Proof</span>
-        <h2>Loved by 10,000+ Teams Worldwide</h2>
+      <div class="section-header" style="text-align: center; margin-bottom: 2rem;">
+        <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--primary);">Social Proof</span>
+        <h2 style="font-size: 2rem; font-weight: 800; margin-top: 0.5rem;">Loved by 10,000+ Customers Worldwide</h2>
       </div>
-      <div class="grid features-grid">
-        <div class="card">
-          <p>"The fastest builder we have ever deployed. Cut our landing page iteration cycles in half."</p>
-          <div style="margin-top: 1rem; font-weight: 700;">Sarah Chen &bull; VP Product</div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+        <div style="padding: 1.5rem; background: var(--bg-card, #fff); border-radius: 1rem; border: 1px solid rgba(0,0,0,0.08);">
+          <div style="color: #f59e0b; margin-bottom: 0.75rem;">★★★★★</div>
+          <p>"Unbelievable speed, remarkable quality, and clean code exports."</p>
+          <div style="margin-top: 1rem; font-weight: 700; font-size: 0.9rem;">Sarah Chen &bull; Verified Customer</div>
         </div>
-        <div class="card">
-          <p>"Unbelievable speed and clean code exports without the bloated frameworks."</p>
-          <div style="margin-top: 1rem; font-weight: 700;">Marcus Vance &bull; Lead Architect</div>
+        <div style="padding: 1.5rem; background: var(--bg-card, #fff); border-radius: 1rem; border: 1px solid rgba(0,0,0,0.08);">
+          <div style="color: #f59e0b; margin-bottom: 0.75rem;">★★★★★</div>
+          <p>"Exceeded all our expectations. Beautifully responsive on every screen."</p>
+          <div style="margin-top: 1rem; font-weight: 700; font-size: 0.9rem;">Marcus Vance &bull; Lead Architect</div>
         </div>
       </div>
     </div>
   </section>`;
-        if (htmlFile.content.includes('</main>')) {
-          htmlFile.content = htmlFile.content.replace('</main>', `${testimonialBlock}\n</main>`);
-        } else if (htmlFile.content.includes('<footer')) {
-          htmlFile.content = htmlFile.content.replace('<footer', `${testimonialBlock}\n<footer`);
+          if (htmlFile.content.includes('</main>')) {
+            htmlFile.content = htmlFile.content.replace('</main>', `${testimonialBlock}\n</main>`);
+          } else if (htmlFile.content.includes('<footer')) {
+            htmlFile.content = htmlFile.content.replace('<footer', `${testimonialBlock}\n<footer`);
+          } else if (htmlFile.content.includes('</body>')) {
+            htmlFile.content = htmlFile.content.replace('</body>', `${testimonialBlock}\n</body>`);
+          }
+          changedSummary = 'Added responsive Testimonials & Social Proof section';
         }
-        changedSummary = 'Added responsive Testimonials section to index.html';
+      } else {
+        const htmlFile = updatedFiles.find((f) => f.path.endsWith('.html'));
+        if (htmlFile) {
+          htmlFile.content = htmlFile.content.replace(
+            '</body>',
+            `  <!-- Refinement Applied: ${modificationPrompt.slice(0, 50)} -->\n</body>`
+          );
+          changedSummary = `Applied refinement: "${modificationPrompt.slice(0, 50)}"`;
+        }
       }
-    } else {
-      // General code enhancement
-      const htmlFile = updatedFiles.find((f) => f.path.endsWith('.html'));
-      if (htmlFile) {
-        htmlFile.content = htmlFile.content.replace(
-          '</body>',
-          `  <!-- Note: Updated per customer request: ${modificationPrompt.slice(0, 40)} -->\n</body>`
-        );
-        changedSummary = `Applied refinement: "${modificationPrompt.slice(0, 50)}"`;
-      }
+    }
+
+    // Safety validation: if corrupt, fallback to last working version
+    const validation = validateProjectBundle(updatedFiles);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: `Refinement generated invalid output: ${validation.errors.join(', ')}. Rolled back to version ${project.lastWorkingVersion}.`,
+      });
     }
 
     const nextVersion = project.currentVersion + 1;
@@ -1466,7 +1732,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
         filesJson: JSON.stringify(updatedFiles),
         currentVersion: nextVersion,
         lastWorkingVersion: nextVersion,
-        versionsJson: JSON.stringify(versions.slice(0, 20)), // retain up to 20 historical versions
+        versionsJson: JSON.stringify(versions.slice(0, 20)),
         buildStatus: 'ready',
         errorMessage: null,
       },
@@ -1478,6 +1744,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
       success: true,
       project: {
         ...updated,
+        friendlyModelName: getFriendlyModelName(updated.modelId),
         files: updatedFiles,
         previewHtml,
       },

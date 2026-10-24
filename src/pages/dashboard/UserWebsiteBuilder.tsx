@@ -72,6 +72,7 @@ interface BuilderProject {
   brief: string;
   category: string;
   modelId: string;
+  friendlyModelName?: string;
   currentVersion: number;
   lastWorkingVersion: number;
   buildStatus: 'planning' | 'writing' | 'building' | 'ready' | 'error';
@@ -82,6 +83,14 @@ interface BuilderProject {
   previewHtml: string;
   createdAt: string;
   updatedAt: string;
+}
+
+interface StudioModelOption {
+  id: string;
+  name: string;
+  badge?: string;
+  category?: string;
+  isAvailable?: boolean;
 }
 
 interface TemplateOption {
@@ -137,7 +146,8 @@ export const UserWebsiteBuilder: React.FC = () => {
   const [buildProgress, setBuildProgress] = useState(0);
   const [promptInput, setPromptInput] = useState('');
   const [refineInput, setRefineInput] = useState('');
-  const [selectedModel, setSelectedModel] = useState('DeepSeek V4 Pro');
+  const [availableModels, setAvailableModels] = useState<StudioModelOption[]>([]);
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-5.5');
   const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
 
   // Modals & Feedback
@@ -170,9 +180,34 @@ export const UserWebsiteBuilder: React.FC = () => {
 
   // 1. Initial Load
   useEffect(() => {
+    loadModels();
     loadTemplates();
     loadProjects();
   }, []);
+
+  // API: Load Authorized Models (Strictly Claude 4/5/5.5 catalog, zero Claude 3)
+  const loadModels = async () => {
+    try {
+      const res = await userFetch('/api/user/studio/models');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.models)) {
+          const claudeModels = data.models.filter((m: any) => {
+            const id = (m.id || '').toLowerCase();
+            const name = (m.name || '').toLowerCase();
+            const isClaude = id.startsWith('claude-') || name.includes('claude');
+            const isClaude3 = id.includes('claude-3') || name.includes('claude 3') || id.includes('3-5') || id.includes('3.5');
+            return isClaude && !isClaude3;
+          });
+          if (claudeModels.length > 0) {
+            setAvailableModels(claudeModels);
+            const defaultModel = claudeModels.find((m: any) => m.id === 'claude-sonnet-5.5') || claudeModels[0];
+            setSelectedModel(defaultModel.id);
+          }
+        }
+      }
+    } catch {}
+  };
 
   // 2. Handle URL prompt query param
   useEffect(() => {
@@ -590,6 +625,11 @@ export const UserWebsiteBuilder: React.FC = () => {
             <span className="font-bold text-white truncate max-w-[180px] sm:max-w-[280px]">
               {activeProject ? activeProject.title : 'Sunscreen Brand Landing Page'}
             </span>
+            {activeProject && (
+              <span className="text-[10px] bg-[#1a2336] text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono hidden md:inline">
+                {activeProject.friendlyModelName || activeProject.modelId}
+              </span>
+            )}
           </div>
         </div>
 
@@ -781,18 +821,32 @@ export const UserWebsiteBuilder: React.FC = () => {
               />
 
               <div className="flex items-center justify-between pt-1 border-t border-[#1c263b]">
-                {/* Model Selector Dropdown (Zero Claude 3 family!) */}
+                {/* Model Selector Dropdown (Zero Claude 3 family, strictly Claude 4/5/5.5) */}
                 <div className="relative">
                   <select
                     value={selectedModel}
                     onChange={(e) => setSelectedModel(e.target.value)}
                     className="appearance-none bg-[#101522] border border-[#1f2b3f] hover:border-[#2d3d59] text-[11px] font-medium text-slate-300 rounded-lg px-2.5 py-1 pr-6 focus:outline-none cursor-pointer"
                   >
-                    <option value="DeepSeek V4 Pro">DeepSeek V4 Pro &bull; billed per token</option>
-                    <option value="Claude Sonnet 5.5">Claude Sonnet 5.5 &bull; billed per token</option>
-                    <option value="Claude Opus 4.6">Claude Opus 4.6 &bull; billed per token</option>
-                    <option value="GPT-5 Turbo">GPT-5 Turbo &bull; billed per token</option>
-                    <option value="Gemini 2.5 Pro">Gemini 2.5 Pro &bull; billed per token</option>
+                    {availableModels.length > 0 ? (
+                      availableModels.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} &bull; {m.badge || 'billed per token'}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="claude-sonnet-5.5">Claude Sonnet 5.5 &bull; Recommended</option>
+                        <option value="claude-opus-5.5">Claude Opus 5.5 &bull; Frontier Intelligence</option>
+                        <option value="claude-sonnet-5">Claude Sonnet 5 &bull; Architecture & Systems</option>
+                        <option value="claude-opus-5">Claude Opus 5 &bull; Deep Reasoning</option>
+                        <option value="claude-fable-5">Claude Fable 5 &bull; Creative & Spec</option>
+                        <option value="claude-haiku-5.5">Claude Haiku 5.5 &bull; Rapid Synthesis</option>
+                        <option value="claude-opus-4.6">Claude Opus 4.6 &bull; Advanced Engineering</option>
+                        <option value="claude-sonnet-4.6">Claude Sonnet 4.6 &bull; High-Performance</option>
+                        <option value="claude-haiku-4.5">Claude Haiku 4.5 &bull; High-Speed Iteration</option>
+                      </>
+                    )}
                   </select>
                   <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2 pointer-events-none" />
                 </div>

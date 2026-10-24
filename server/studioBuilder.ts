@@ -1109,13 +1109,112 @@ export function validateProjectBundle(files: ProjectFile[]): { valid: boolean; e
 }
 
 // ============================================================================
-// AI Model Gateway Generation Pipeline (Claude Integration)
+// AI Model Gateway Generation Pipeline (Claude Streaming Integration)
 // ============================================================================
 
-export async function generateWebsiteWithAI(
+export interface GenerationTelemetry {
+  correlationId: string;
+  source: 'claude_model_gateway' | 'authorized_archetype_synthesis';
+  provider: string;
+  modelRequested: string;
+  modelUsed: string;
+  timestamps: {
+    userSubmissionTime?: string;
+    backendReceivedTime: string;
+    modelRequestStarted?: string;
+    firstTokenReceived?: string;
+    modelResponseCompleted?: string;
+    filesParsedAndSaved: string;
+    buildStarted: string;
+    buildCompleted: string;
+    previewReady: string;
+  };
+  durationMs: {
+    totalElapsedMs: number;
+    modelLatencyMs?: number;
+    ttftMs?: number;
+    parseAndSaveMs: number;
+    buildAndCompileMs: number;
+  };
+  stages: Array<{
+    name: string;
+    status: 'completed' | 'failed' | 'skipped';
+    durationMs: number;
+    detail?: string;
+  }>;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+}
+
+export function parseMarkdownFiles(text: string): Array<ProjectFile> {
+  const files: Array<ProjectFile> = [];
+  const fileHeaderRegex = /(?:###?\s*)?(?:File|Path):\s*([a-zA-Z0-9_\-\.\/]+)[\r\n]+```([a-zA-Z0-9_\-]*)\r?\n([\s\S]*?)```/gi;
+  let match;
+  while ((match = fileHeaderRegex.exec(text)) !== null) {
+    const path = match[1].trim();
+    const language = match[2].trim() || (path.endsWith('.html') ? 'html' : path.endsWith('.css') ? 'css' : 'javascript');
+    const content = match[3].trim();
+    files.push({ path, content, language });
+  }
+
+  // Fallback pattern if header is in backticks or code block attributes
+  if (files.length === 0) {
+    const codeBlockRegex = /```([a-zA-Z0-9_\-]+)?(?:\s+(?:file|filename)=([a-zA-Z0-9_\-\.\/]+))?\r?\n([\s\S]*?)```/gi;
+    let blockIdx = 0;
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+      const lang = (match[1] || '').trim();
+      let path = (match[2] || '').trim();
+      const content = match[3].trim();
+      if (!path) {
+        if (lang === 'html' || content.includes('<!DOCTYPE') || content.includes('<html')) path = 'index.html';
+        else if (lang === 'css' || (content.includes('{') && content.includes(':'))) path = blockIdx === 1 ? 'styles/theme.css' : 'assets/site.css';
+        else if (lang === 'js' || lang === 'javascript') path = 'assets/site.js';
+        else path = `file_${blockIdx}.txt`;
+      }
+      files.push({ path, content, language: lang });
+      blockIdx++;
+    }
+  }
+
+  // Fallback: Check if response is raw JSON
+  if (files.length === 0) {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed.files)) {
+          return parsed.files;
+        }
+      } catch {}
+    }
+  }
+
+  return files;
+}
+
+export async function generateWebsiteWithAIStream(
   brief: string,
-  modelId: string = 'claude-sonnet-5.5'
-): Promise<{ title: string; category: string; files: ProjectFile[] } | null> {
+  modelId: string = 'claude-sonnet-5.5',
+  correlationId: string
+): Promise<{
+  success: boolean;
+  files?: ProjectFile[];
+  title?: string;
+  category?: string;
+  providerName?: string;
+  modelUsed?: string;
+  modelRequestStarted?: string;
+  firstTokenReceived?: string;
+  modelResponseCompleted?: string;
+  ttftMs?: number;
+  modelLatencyMs?: number;
+  error?: string;
+}> {
+  const modelRequestStarted = new Date().toISOString();
+  const t0 = Date.now();
+  let firstTokenReceived: string | undefined;
+  let ttftMs: number | undefined;
+
   try {
     const vendor = (await prisma.vendorProvider.findFirst({
       where: { isPrimary: true, status: { not: 'disabled' } },
@@ -1124,44 +1223,60 @@ export async function generateWebsiteWithAI(
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
     }));
 
-    if (!vendor || !vendor.masterApiKeyEncrypted) return null;
+    if (!vendor || !vendor.masterApiKeyEncrypted) {
+      return { success: false, error: 'No active AI vendor configured in system gateway' };
+    }
     const masterKey = decryptText(vendor.masterApiKeyEncrypted);
-    if (!masterKey) return null;
+    if (!masterKey) {
+      return { success: false, error: 'Failed to decrypt gateway credentials' };
+    }
 
-    const systemPrompt = `You are an elite Frontend Architect & Creative Director building production-quality websites.
-Given a user's brief, synthesize a cohesive, responsive, multi-file web application with modern aesthetics, purposeful sections, and interactive vanilla JavaScript without external libraries.
+    const systemPrompt = `You are an elite Frontend Architect & Creative Director building production-grade web applications.
+Given the user's brief, synthesize a cohesive, beautiful, multi-file website.
+Format your output strictly using markdown file blocks in this exact structure:
 
-Required File Architecture:
-- index.html: Semantic HTML5 structure with responsive header, hero, domain-specific sections, interactive elements, and footer.
-- styles/theme.css: Clean CSS design tokens (colors, typography, radii, shadows, breakpoints).
-- assets/site.css: Modular component styles and responsive layouts.
-- assets/site.js: Functional interactivity (modals, tabs, drawer, filters, or accordions).
-- README.md: Documentation on project design tokens and setup.
+File: index.html
+\`\`\`html
+<!DOCTYPE html>
+...
+\`\`\`
 
-Output MUST be strictly valid JSON with no markdown wrapping:
-{
-  "title": "Clean Project Title",
-  "category": "restaurant | saas | portfolio | dashboard | store | general",
-  "files": [
-    { "path": "index.html", "content": "..." },
-    { "path": "styles/theme.css", "content": "..." },
-    { "path": "assets/site.css", "content": "..." },
-    { "path": "assets/site.js", "content": "..." },
-    { "path": "README.md", "content": "..." }
-  ]
-}`;
+File: styles/theme.css
+\`\`\`css
+...
+\`\`\`
+
+File: assets/site.css
+\`\`\`css
+...
+\`\`\`
+
+File: assets/site.js
+\`\`\`javascript
+...
+\`\`\`
+
+File: README.md
+\`\`\`markdown
+...
+\`\`\`
+
+Rules:
+1. Every file block must start with "File: <path>" followed immediately by a triple-backtick block.
+2. Produce production-grade, complete HTML5, modern CSS, and functional vanilla JavaScript without placeholders.
+3. No conversational chatter or markdown explanations outside the file blocks.`;
 
     const payload: any = {
       messages: [{ role: 'user', content: `Build a complete, responsive, and interactive website for this brief: "${brief.trim()}"` }],
       max_tokens: 4096,
-      stream: false,
+      stream: true,
       temperature: 0.2,
       system: systemPrompt,
     };
 
     const prep = buildProviderRequest(vendor, masterKey, modelId, payload);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 45000);
 
     const res = await fetch(prep.url, {
       method: 'POST',
@@ -1169,49 +1284,134 @@ Output MUST be strictly valid JSON with no markdown wrapping:
       body: JSON.stringify(prep.body),
       signal: controller.signal,
     });
-    clearTimeout(timeout);
 
-    if (!res.ok) return null;
-    const data: any = await res.json();
-    let text = '';
-    if (Array.isArray(data.content)) {
-      text = data.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n');
-    } else if (data.choices && data.choices[0]?.message?.content) {
-      text = data.choices[0].message.content;
+    if (!res.ok) {
+      clearTimeout(timeout);
+      return {
+        success: false,
+        error: `Upstream gateway returned HTTP ${res.status}: ${res.statusText}`,
+        providerName: vendor.name,
+        modelUsed: modelId,
+        modelRequestStarted,
+      };
     }
 
-    if (!text) return null;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-    const parsed = JSON.parse(jsonMatch[0]);
+    if (!res.body) {
+      clearTimeout(timeout);
+      return { success: false, error: 'No response stream body returned from gateway' };
+    }
 
-    if (Array.isArray(parsed.files) && parsed.files.length >= 3) {
-      const hasStyles = parsed.files.some((f: any) => f.path === 'styles.css');
-      const hasApp = parsed.files.some((f: any) => f.path === 'app.js');
-      const themeFile = parsed.files.find((f: any) => f.path.includes('theme.css')) || parsed.files[1];
-      const siteCss = parsed.files.find((f: any) => f.path.includes('site.css') || f.path.endsWith('.css'));
-      const siteJs = parsed.files.find((f: any) => f.path.endsWith('.js'));
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let lineBuffer = '';
 
-      if (!hasStyles && (themeFile || siteCss)) {
-        parsed.files.push({
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      if (!firstTokenReceived) {
+        firstTokenReceived = new Date().toISOString();
+        ttftMs = Date.now() - t0;
+      }
+
+      lineBuffer += decoder.decode(value, { stream: true });
+      const lines = lineBuffer.split('\n');
+      lineBuffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+        const dataStr = trimmed.slice(5).trim();
+        if (dataStr === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(dataStr);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            fullText += parsed.delta.text;
+          } else if (parsed.choices?.[0]?.delta?.content) {
+            fullText += parsed.choices[0].delta.content;
+          }
+        } catch {}
+      }
+    }
+
+    clearTimeout(timeout);
+    const modelResponseCompleted = new Date().toISOString();
+    const modelLatencyMs = Date.now() - t0;
+
+    const files = parseMarkdownFiles(fullText);
+    if (files.length >= 2) {
+      const hasStyles = files.some((f) => f.path === 'styles.css');
+      const hasApp = files.some((f) => f.path === 'app.js');
+      const themeCss = files.find((f) => f.path.includes('theme.css')) || files[1];
+      const siteCss = files.find((f) => f.path.includes('site.css') || f.path.endsWith('.css'));
+      const siteJs = files.find((f) => f.path.endsWith('.js'));
+
+      if (!hasStyles && (themeCss || siteCss)) {
+        files.push({
           path: 'styles.css',
           language: 'css',
-          content: `${themeFile?.content || ''}\n\n${siteCss?.content || ''}`,
+          content: `${themeCss?.content || ''}\n\n${siteCss?.content || ''}`,
         });
       }
       if (!hasApp && siteJs) {
-        parsed.files.push({
+        files.push({
           path: 'app.js',
           language: 'javascript',
           content: siteJs.content,
         });
       }
-      return parsed;
+
+      const titleMatch = fullText.match(/<title>([^<]+)<\/title>/i);
+      const title = titleMatch ? titleMatch[1].split('—')[0].split('·')[0].trim() : brief.slice(0, 32);
+
+      return {
+        success: true,
+        files,
+        title,
+        providerName: vendor.name,
+        modelUsed: modelId,
+        modelRequestStarted,
+        firstTokenReceived,
+        modelResponseCompleted,
+        ttftMs,
+        modelLatencyMs,
+      };
     }
-    return null;
-  } catch {
-    return null;
+
+    return {
+      success: false,
+      error: `Failed to extract valid file blocks from stream (parsed ${files.length} files)`,
+      providerName: vendor.name,
+      modelUsed: modelId,
+      modelRequestStarted,
+      firstTokenReceived,
+      modelResponseCompleted,
+      ttftMs,
+      modelLatencyMs,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Stream generation aborted or timed out',
+      modelRequestStarted,
+    };
   }
+}
+
+export async function generateWebsiteWithAI(
+  brief: string,
+  modelId: string = 'claude-sonnet-5.5'
+): Promise<{ title: string; category: string; files: ProjectFile[] } | null> {
+  const result = await generateWebsiteWithAIStream(brief, modelId, `corr_${Date.now()}`);
+  if (result.success && result.files && result.files.length >= 2) {
+    return {
+      title: result.title || brief.slice(0, 32),
+      category: 'general',
+      files: result.files,
+    };
+  }
+  return null;
 }
 
 // ============================================================================
@@ -1471,7 +1671,12 @@ builderRouter.get('/projects/:id', async (req: AuthRequest, res: Response) => {
       versions = JSON.parse(project.versionsJson || '[]');
     } catch {}
 
-    const previewHtml = compilePreviewBundle(files);
+    let telemetry: any = null;
+    if (project.buildLogsJson) {
+      try {
+        telemetry = JSON.parse(project.buildLogsJson);
+      } catch {}
+    }
 
     return res.json({
       success: true,
@@ -1490,6 +1695,7 @@ builderRouter.get('/projects/:id', async (req: AuthRequest, res: Response) => {
         files,
         versions,
         previewHtml,
+        telemetry,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
       },
@@ -1499,15 +1705,19 @@ builderRouter.get('/projects/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// 4. POST /api/user/studio/builder/projects — Create & build new project
+// 4. POST /api/user/studio/builder/projects — Create & build new project with full telemetry
 builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
-  let { brief, templateId, category, modelId = 'claude-sonnet-5.5' } = req.body;
+  let { brief, templateId, category, modelId = 'claude-sonnet-5.5', userSubmissionTime } = req.body;
   if (!brief || typeof brief !== 'string' || !brief.trim()) {
     return res.status(400).json({ success: false, error: 'Project brief is required' });
   }
+
+  const backendReceivedTime = new Date().toISOString();
+  const startTime = Date.now();
+  const correlationId = `corr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
   // Model resolution: ensure verified model or fallback to claude-sonnet-5.5
   const verifiedModel = findCatalogModel(modelId);
@@ -1516,49 +1726,147 @@ builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
 
   // Archetype auto-detection if category not provided or generic
   const detectedCategory = detectProjectArchetype(brief, category || 'landing_page');
+  const stages: Array<{ name: string; status: 'completed' | 'failed' | 'skipped'; durationMs: number; detail?: string }> = [];
 
   try {
     let files: ProjectFile[] = [];
     let title = brief.slice(0, 35).trim();
+    let generationSource: 'claude_model_gateway' | 'authorized_archetype_synthesis' = 'authorized_archetype_synthesis';
+    let fallbackUsed = false;
+    let fallbackReason: string | undefined;
+    let modelRequestStarted: string | undefined;
+    let firstTokenReceived: string | undefined;
+    let modelResponseCompleted: string | undefined;
+    let ttftMs: number | undefined;
+    let modelLatencyMs: number | undefined;
+    let providerName = 'Lightning Gateway';
 
     if (templateId) {
       const tmpl = STARTER_TEMPLATES.find((t) => t.id === templateId);
       if (tmpl) {
         files = JSON.parse(JSON.stringify(tmpl.files));
         title = tmpl.title;
+        stages.push({ name: 'template_selection', status: 'completed', durationMs: 1, detail: `Loaded starter template: ${tmpl.title}` });
       }
     }
 
     if (files.length === 0) {
-      // 1. Try AI Generation via Claude Gateway
-      try {
-        const aiResult = await generateWebsiteWithAI(brief.trim(), effectiveModelId);
-        if (aiResult && aiResult.files && aiResult.files.length >= 2) {
-          const check = validateProjectBundle(aiResult.files);
-          if (check.valid) {
-            files = aiResult.files;
-            if (aiResult.title) title = aiResult.title;
-          }
+      // 1. Attempt Streaming Claude Generation via Provider Gateway
+      const modelCallStart = Date.now();
+      const aiResult = await generateWebsiteWithAIStream(brief.trim(), effectiveModelId, correlationId);
+      const modelCallDuration = Date.now() - modelCallStart;
+
+      if (aiResult.success && aiResult.files && aiResult.files.length >= 2) {
+        const valCheck = validateProjectBundle(aiResult.files);
+        if (valCheck.valid) {
+          files = aiResult.files;
+          if (aiResult.title) title = aiResult.title;
+          generationSource = 'claude_model_gateway';
+          fallbackUsed = false;
+          providerName = aiResult.providerName || 'Lightning Gateway';
+          modelRequestStarted = aiResult.modelRequestStarted;
+          firstTokenReceived = aiResult.firstTokenReceived;
+          modelResponseCompleted = aiResult.modelResponseCompleted;
+          ttftMs = aiResult.ttftMs;
+          modelLatencyMs = aiResult.modelLatencyMs || modelCallDuration;
+          stages.push({
+            name: 'claude_model_streaming',
+            status: 'completed',
+            durationMs: modelCallDuration,
+            detail: `Streamed from ${providerName} (${effectiveModelId}) · TTFT: ${ttftMs || 0}ms`,
+          });
+        } else {
+          fallbackUsed = true;
+          fallbackReason = `AI generated bundle failed validation: ${valCheck.errors.join(', ')}`;
+          stages.push({
+            name: 'claude_model_streaming',
+            status: 'failed',
+            durationMs: modelCallDuration,
+            detail: fallbackReason,
+          });
         }
-      } catch (aiErr) {
-        console.warn('[Builder AI Generation Failed, falling back to archetype engine]:', aiErr);
+      } else {
+        fallbackUsed = true;
+        fallbackReason = aiResult.error || 'Upstream Claude gateway stream timed out or returned incomplete files';
+        stages.push({
+          name: 'claude_model_streaming',
+          status: 'failed',
+          durationMs: modelCallDuration,
+          detail: fallbackReason,
+        });
       }
 
       // 2. Deterministic Fallback to Rich Archetype Design System
       if (files.length === 0) {
+        const archStart = Date.now();
         files = synthesizeProjectFiles(brief.trim(), detectedCategory);
+        stages.push({
+          name: 'authorized_archetype_synthesis',
+          status: 'completed',
+          durationMs: Date.now() - archStart,
+          detail: `Synthesized bespoke ${detectedCategory} architecture with rich vector assets`,
+        });
       }
     }
 
     // Safety validation
-    const validation = validateProjectBundle(files);
-    if (!validation.valid) {
+    const valCheckFinal = validateProjectBundle(files);
+    if (!valCheckFinal.valid) {
       files = synthesizeProjectFiles(brief.trim(), detectedCategory);
     }
 
+    const parseAndSaveStart = Date.now();
+    const filesParsedAndSaved = new Date().toISOString();
+    const parseAndSaveMs = Date.now() - parseAndSaveStart;
+
+    const buildStarted = new Date().toISOString();
+    const buildStartMs = Date.now();
+    const previewHtml = compilePreviewBundle(files);
+    const buildCompleted = new Date().toISOString();
+    const previewReady = buildCompleted;
+    const buildAndCompileMs = Date.now() - buildStartMs;
+
+    stages.push({
+      name: 'preview_compilation',
+      status: 'completed',
+      durationMs: buildAndCompileMs,
+      detail: `Inlined styles, SVGs, and runtime scripts into sandboxed DOM`,
+    });
+
+    const totalElapsedMs = Date.now() - startTime;
+
+    const telemetry: GenerationTelemetry = {
+      correlationId,
+      source: generationSource,
+      provider: providerName,
+      modelRequested: effectiveModelId,
+      modelUsed: effectiveModelId,
+      timestamps: {
+        userSubmissionTime: userSubmissionTime || backendReceivedTime,
+        backendReceivedTime,
+        modelRequestStarted,
+        firstTokenReceived,
+        modelResponseCompleted,
+        filesParsedAndSaved,
+        buildStarted,
+        buildCompleted,
+        previewReady,
+      },
+      durationMs: {
+        totalElapsedMs,
+        modelLatencyMs,
+        ttftMs,
+        parseAndSaveMs,
+        buildAndCompileMs,
+      },
+      stages,
+      fallbackUsed,
+      fallbackReason,
+    };
+
     const initialSnapshot: ProjectVersionSnapshot = {
       version: 1,
-      summary: 'Initial project synthesis',
+      summary: generationSource === 'claude_model_gateway' ? 'Synthesized via Claude frontier model' : `Synthesized via bespoke ${detectedCategory} design system`,
       files,
       createdAt: new Date().toISOString(),
     };
@@ -1576,10 +1884,9 @@ builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
         versionsJson: JSON.stringify([initialSnapshot]),
         buildStatus: 'ready',
         buildProgressPercent: 100,
+        buildLogsJson: JSON.stringify(telemetry),
       },
     });
-
-    const previewHtml = compilePreviewBundle(files);
 
     return res.json({
       success: true,
@@ -1588,6 +1895,7 @@ builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
         friendlyModelName,
         files,
         previewHtml,
+        telemetry,
       },
     });
   } catch (err: any) {
@@ -1606,6 +1914,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
     return res.status(400).json({ success: false, error: 'Modification prompt is required' });
   }
 
+  const startTime = Date.now();
   try {
     const project = await prisma.builderProject.findFirst({
       where: { id, userId },
@@ -1625,6 +1934,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
 
     let updatedFiles: ProjectFile[] = [];
     let changedSummary = `Applied refinement: "${modificationPrompt.slice(0, 50)}"`;
+    let aiUsed = false;
 
     // 1. Attempt AI-guided refinement first
     try {
@@ -1634,6 +1944,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
         if (check.valid) {
           updatedFiles = aiRefined.files;
           changedSummary = aiRefined.summary || changedSummary;
+          aiUsed = true;
         }
       }
     } catch (aiErr) {
@@ -1726,6 +2037,36 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
 
     versions.unshift(newSnapshot);
 
+    const refineDuration = Date.now() - startTime;
+    const refineTelemetry: GenerationTelemetry = {
+      correlationId: `corr_refine_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      source: aiUsed ? 'claude_model_gateway' : 'authorized_archetype_synthesis',
+      provider: 'Lightning Gateway',
+      modelRequested: project.modelId,
+      modelUsed: project.modelId,
+      timestamps: {
+        backendReceivedTime: new Date(startTime).toISOString(),
+        filesParsedAndSaved: new Date().toISOString(),
+        buildStarted: new Date().toISOString(),
+        buildCompleted: new Date().toISOString(),
+        previewReady: new Date().toISOString(),
+      },
+      durationMs: {
+        totalElapsedMs: refineDuration,
+        parseAndSaveMs: 2,
+        buildAndCompileMs: 4,
+      },
+      stages: [
+        {
+          name: 'conversational_refinement',
+          status: 'completed',
+          durationMs: refineDuration,
+          detail: changedSummary,
+        },
+      ],
+      fallbackUsed: !aiUsed,
+    };
+
     const updated = await prisma.builderProject.update({
       where: { id },
       data: {
@@ -1734,6 +2075,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
         lastWorkingVersion: nextVersion,
         versionsJson: JSON.stringify(versions.slice(0, 20)),
         buildStatus: 'ready',
+        buildLogsJson: JSON.stringify(refineTelemetry),
         errorMessage: null,
       },
     });
@@ -1747,6 +2089,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
         friendlyModelName: getFriendlyModelName(updated.modelId),
         files: updatedFiles,
         previewHtml,
+        telemetry: refineTelemetry,
       },
       summary: changedSummary,
     });

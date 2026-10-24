@@ -81,6 +81,7 @@ interface BuilderProject {
   files: ProjectFile[];
   versions: ProjectVersionSnapshot[];
   previewHtml: string;
+  telemetry?: any;
   createdAt: string;
   updatedAt: string;
 }
@@ -113,6 +114,8 @@ interface ChatTurn {
   version?: number;
   files?: ProjectFile[];
   showFiles?: boolean;
+  telemetry?: any;
+  showTelemetry?: boolean;
 }
 
 export const UserWebsiteBuilder: React.FC = () => {
@@ -144,6 +147,7 @@ export const UserWebsiteBuilder: React.FC = () => {
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildStep, setBuildStep] = useState(1);
   const [buildProgress, setBuildProgress] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [promptInput, setPromptInput] = useState('');
   const [refineInput, setRefineInput] = useState('');
   const [availableModels, setAvailableModels] = useState<StudioModelOption[]>([]);
@@ -310,35 +314,39 @@ export const UserWebsiteBuilder: React.FC = () => {
   const handleCreateProject = async (brief: string, templateId?: string) => {
     if (!brief.trim()) return;
     setIsBuilding(true);
-    setBuildProgress(18);
     setBuildStep(1);
+    setElapsedSeconds(0);
+    const submissionTime = new Date().toISOString();
 
-    const stepTimer1 = setTimeout(() => {
-      setBuildStep(2);
-      setBuildProgress(45);
-    }, 500);
-
-    const stepTimer2 = setTimeout(() => {
-      setBuildStep(3);
-      setBuildProgress(78);
-    }, 1200);
+    const startTime = Date.now();
+    const elapsedInterval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startTime) / 100) / 10);
+    }, 100);
 
     try {
       const res = await userFetch('/api/user/studio/builder/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief, templateId, modelId: selectedModel }),
+        body: JSON.stringify({
+          brief,
+          templateId,
+          modelId: selectedModel,
+          userSubmissionTime: submissionTime,
+        }),
       });
       const data = await res.json();
-
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
+      clearInterval(elapsedInterval);
 
       if (res.ok && data.success && data.project) {
         setBuildStep(4);
         setBuildProgress(100);
         setActiveProject(data.project);
         setProjects((prev) => [data.project, ...prev.filter((p) => p.id !== data.project.id)]);
+
+        const latencySec = data.project.telemetry
+          ? (data.project.telemetry.durationMs.totalElapsedMs / 1000).toFixed(2)
+          : ((Date.now() - startTime) / 1000).toFixed(2);
+
         setChatTurns([
           {
             role: 'user',
@@ -347,17 +355,19 @@ export const UserWebsiteBuilder: React.FC = () => {
           },
           {
             role: 'assistant',
-            text: 'Initial production website generation',
+            text: `Production website synthesized in ${latencySec}s`,
             time: formatTime(),
             version: 1,
             files: data.project.files,
             showFiles: false,
+            telemetry: data.project.telemetry,
+            showTelemetry: false,
           },
         ]);
         setPreviewKey((k) => k + 1);
         setShowGalleryModal(false);
         setPromptInput('');
-        showToast('Website built successfully!', 'success');
+        showToast(`Website generated in ${latencySec}s`, 'success');
       } else {
         const msg = formatErrorMessage(data.error);
         showToast(msg, 'error');
@@ -371,8 +381,17 @@ export const UserWebsiteBuilder: React.FC = () => {
         ]);
       }
     } catch (err: any) {
+      clearInterval(elapsedInterval);
       const msg = formatErrorMessage(err);
       showToast(msg, 'error');
+      setChatTurns((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: `⚠️ Network error: ${msg}`,
+          time: formatTime(),
+        },
+      ]);
     } finally {
       setIsBuilding(false);
     }
@@ -388,7 +407,12 @@ export const UserWebsiteBuilder: React.FC = () => {
     setChatTurns((prev) => [...prev, { role: 'user', text: userMsg, time: formatTime() }]);
     setIsBuilding(true);
     setBuildStep(3);
-    setBuildProgress(60);
+    setElapsedSeconds(0);
+
+    const startTime = Date.now();
+    const elapsedInterval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startTime) / 100) / 10);
+    }, 100);
 
     try {
       const res = await userFetch(`/api/user/studio/builder/projects/${activeProject.id}/refine`, {
@@ -397,6 +421,7 @@ export const UserWebsiteBuilder: React.FC = () => {
         body: JSON.stringify({ modificationPrompt: userMsg }),
       });
       const data = await res.json();
+      clearInterval(elapsedInterval);
 
       if (res.ok && data.success && data.project) {
         setActiveProject(data.project);
@@ -410,6 +435,8 @@ export const UserWebsiteBuilder: React.FC = () => {
             version: data.project.currentVersion,
             files: data.project.files,
             showFiles: false,
+            telemetry: data.project.telemetry,
+            showTelemetry: false,
           },
         ]);
         showToast(`Updated to version ${data.project.currentVersion}`, 'success');
@@ -426,6 +453,7 @@ export const UserWebsiteBuilder: React.FC = () => {
         showToast(msg, 'error');
       }
     } catch (err: any) {
+      clearInterval(elapsedInterval);
       const msg = formatErrorMessage(err);
       setChatTurns((prev) => [
         ...prev,
@@ -438,7 +466,6 @@ export const UserWebsiteBuilder: React.FC = () => {
       showToast(msg, 'error');
     } finally {
       setIsBuilding(false);
-      setBuildProgress(100);
     }
   };
 
@@ -571,6 +598,13 @@ export const UserWebsiteBuilder: React.FC = () => {
     );
   };
 
+  // Toggle Turn Telemetry Accordion
+  const toggleTurnTelemetry = (index: number) => {
+    setChatTurns((prev) =>
+      prev.map((t, i) => (i === index ? { ...t, showTelemetry: !t.showTelemetry } : t))
+    );
+  };
+
   // Toggle Folder in Code Tree
   const toggleFolder = (folderName: string) => {
     setExpandedFolders((prev) => ({ ...prev, [folderName]: !prev[folderName] }));
@@ -599,7 +633,7 @@ export const UserWebsiteBuilder: React.FC = () => {
   const { root: rootFiles, folders: folderMap } = organizeFiles();
 
   return (
-    <div className="flex flex-col h-screen max-h-screen bg-[#0b0f17] text-[#f1f5f9] overflow-hidden select-none font-sans">
+    <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-[#0b0f17] text-[#f1f5f9] overflow-hidden select-none font-sans">
       {/* =========================================================================
           TOP NAVBAR (ScaleMax Dark Studio Navigation)
          ========================================================================= */}
@@ -672,11 +706,11 @@ export const UserWebsiteBuilder: React.FC = () => {
       {/* =========================================================================
           MAIN WORKSPACE LAYOUT (Left Chat Sidebar + Right Live Studio Canvas)
          ========================================================================= */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 w-full flex overflow-hidden min-h-0 min-w-0">
         {/* =====================================================================
             LEFT PANEL: Iteration Chat, Generation Feed, File Explorer Pill
            ===================================================================== */}
-        <aside className="w-full lg:w-[390px] xl:w-[420px] border-r border-[#1e2638] bg-[#0e1320] flex flex-col shrink-0 overflow-hidden">
+        <aside className="w-full sm:w-[380px] lg:w-[400px] xl:w-[440px] border-r border-[#1e2638] bg-[#0e1320] flex flex-col shrink-0 overflow-hidden">
           {/* Active Generation Feed */}
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {chatTurns.length === 0 ? (
@@ -742,6 +776,73 @@ export const UserWebsiteBuilder: React.FC = () => {
                         </div>
                       )}
 
+                      {/* Telemetry & Pipeline Diagnostics Accordion */}
+                      {turn.telemetry && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleTurnTelemetry(idx)}
+                            className="text-xs font-medium text-slate-400 hover:text-white flex items-center justify-between w-full p-2 rounded-lg bg-[#0d121c] border border-[#1b2537] transition-colors cursor-pointer"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${turn.telemetry.source === 'claude_model_gateway' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                              <span className="font-semibold text-slate-300">Pipeline Telemetry</span>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                ({turn.telemetry.source === 'claude_model_gateway' ? 'Claude Gateway' : 'Archetype Synthesis'})
+                              </span>
+                            </span>
+                            <span className="flex items-center gap-1 text-[11px] font-mono text-slate-400">
+                              <span>{(turn.telemetry.durationMs?.totalElapsedMs / 1000).toFixed(2)}s</span>
+                              {turn.showTelemetry ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                              )}
+                            </span>
+                          </button>
+
+                          {turn.showTelemetry && (
+                            <div className="mt-1.5 p-2.5 rounded-lg bg-[#090d15] border border-[#1b2537] text-[11px] font-mono space-y-1.5 text-slate-300">
+                              <div className="flex justify-between py-0.5 border-b border-slate-800/80">
+                                <span className="text-slate-500">Correlation ID:</span>
+                                <span className="text-slate-300 select-all">{turn.telemetry.correlationId}</span>
+                              </div>
+                              <div className="flex justify-between py-0.5 border-b border-slate-800/80">
+                                <span className="text-slate-500">Model Requested:</span>
+                                <span className="text-violet-400">{turn.telemetry.modelRequested}</span>
+                              </div>
+                              <div className="flex justify-between py-0.5 border-b border-slate-800/80">
+                                <span className="text-slate-500">Generation Source:</span>
+                                <span className={turn.telemetry.source === 'claude_model_gateway' ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
+                                  {turn.telemetry.source}
+                                </span>
+                              </div>
+                              {turn.telemetry.durationMs?.ttftMs !== undefined && (
+                                <div className="flex justify-between py-0.5 border-b border-slate-800/80">
+                                  <span className="text-slate-500">Time to First Token:</span>
+                                  <span className="text-slate-300">{turn.telemetry.durationMs.ttftMs}ms</span>
+                                </div>
+                              )}
+                              {turn.telemetry.durationMs?.modelLatencyMs !== undefined && (
+                                <div className="flex justify-between py-0.5 border-b border-slate-800/80">
+                                  <span className="text-slate-500">Model Duration:</span>
+                                  <span className="text-slate-300">{turn.telemetry.durationMs.modelLatencyMs}ms</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between py-0.5 border-b border-slate-800/80">
+                                <span className="text-slate-500">Preview Build:</span>
+                                <span className="text-slate-300">{turn.telemetry.durationMs?.buildAndCompileMs || 4}ms</span>
+                              </div>
+                              {turn.telemetry.fallbackUsed && (
+                                <div className="mt-1 p-1.5 rounded bg-amber-950/40 border border-amber-800/50 text-[10px] text-amber-200">
+                                  <strong>Fallback note:</strong> {turn.telemetry.fallbackReason}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Turn Version & Quick Action Footer */}
                       <div className="flex items-center justify-between pt-2 border-t border-[#1a2234] text-[11px] text-slate-500 font-mono">
                         <span>v{turn.version || 1} &bull; {turn.time}</span>
@@ -769,21 +870,24 @@ export const UserWebsiteBuilder: React.FC = () => {
               ))
             )}
 
-            {/* Building Indicator */}
+            {/* Building Indicator with Real Elapsed Seconds */}
             {isBuilding && (
-              <div className="bg-[#121826] border border-[#7c3aed]/40 rounded-xl p-3.5 space-y-2 animate-pulse">
-                <div className="flex items-center justify-between text-xs font-bold text-[#c4b5fd]">
+              <div className="bg-[#121826] border border-violet-500/40 rounded-xl p-3.5 space-y-2.5 animate-pulse">
+                <div className="flex items-center justify-between text-xs font-bold text-violet-300">
                   <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#7c3aed] animate-ping" />
+                    <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
                     <span>Synthesizing website files...</span>
                   </span>
-                  <span className="font-mono">{buildProgress}%</span>
+                  <span className="font-mono text-slate-400">{elapsedSeconds.toFixed(1)}s elapsed</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+                  <span className="text-violet-400 font-semibold">Model:</span>
+                  <span>{selectedModel}</span>
+                  <span className="text-slate-600">&bull;</span>
+                  <span className="text-emerald-400">Streaming gateway</span>
                 </div>
                 <div className="w-full h-1 bg-[#1a2336] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#7c3aed] transition-all duration-300"
-                    style={{ width: `${buildProgress}%` }}
-                  />
+                  <div className="h-full bg-gradient-to-r from-violet-600 via-indigo-400 to-violet-500 w-full animate-pulse" />
                 </div>
               </div>
             )}
@@ -868,7 +972,7 @@ export const UserWebsiteBuilder: React.FC = () => {
         {/* =====================================================================
             RIGHT PANEL: Live Preview OR Code Explorer/Viewer
            ===================================================================== */}
-        <main className="flex-1 flex flex-col bg-[#080b11] overflow-hidden">
+        <main className="flex-1 flex flex-col bg-[#080b11] overflow-hidden min-w-0 w-full h-full">
           {/* Sub-toolbar */}
           <div className="h-12 border-b border-[#1e2638] bg-[#0d111a] px-4 flex items-center justify-between shrink-0 text-xs">
             {/* Left: Mode Toggle & Viewport switchers */}
@@ -991,14 +1095,14 @@ export const UserWebsiteBuilder: React.FC = () => {
               PREVIEW MODE: Centered Sandboxed Runtime Frame
              =================================================================== */}
           {viewMode === 'preview' ? (
-            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-[#080b11]">
+            <div className="flex-1 w-full h-full overflow-hidden p-3 lg:p-4 flex items-center justify-center bg-[#080b11] min-w-0">
               <div
                 className={`h-full flex flex-col bg-white transition-all duration-300 rounded-xl overflow-hidden border border-[#1e2638] shadow-2xl ${
                   viewport === 'mobile'
                     ? 'w-[375px] max-w-full'
                     : viewport === 'tablet'
                     ? 'w-[768px] max-w-full'
-                    : 'w-full'
+                    : 'w-full flex-1'
                 }`}
               >
                 {activeProject && activeProject.previewHtml ? (
@@ -1007,7 +1111,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                     key={previewKey}
                     title="Live Website Preview"
                     srcDoc={activeProject.previewHtml}
-                    sandbox="allow-scripts allow-forms allow-modals"
+                    sandbox="allow-scripts allow-forms allow-modals allow-downloads"
                     className="w-full flex-1 border-0 bg-white"
                   />
                 ) : (

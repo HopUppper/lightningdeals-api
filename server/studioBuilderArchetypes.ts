@@ -27,8 +27,28 @@ export interface ProjectFile {
 export function detectProjectArchetype(brief: string, categoryHint?: string): string {
   const text = (brief + ' ' + (categoryHint || '')).toLowerCase();
 
+  // Specialized craft & science industries routed directly to universal dynamic synthesizer
+  if (/(vinyl|record store|analog listening|turntable|solar|clean battery|clean energy|photovoltaic|pottery|ceramic|kiln|vertical farm|hydroponic|microgreen|neurology|brain health|cognitive neurology|maritime|admiralty)/i.test(text)) {
+    return 'general';
+  }
+
   if (/(footwear|shoe|shoes|sneaker|sneakers|runner|runners|boots|trainer|trainers|kicks|sandals|footwear brand)/i.test(text)) {
     return 'footwear';
+  }
+  if (/(architecture|architect|boutique architecture|architectural firm|architecture firm|building design|spatial design)/i.test(text)) {
+    return 'architecture';
+  }
+  if (/(dental|dentist|dental clinic|teeth|smile studio|orthodontic|oral care|oral hygiene)/i.test(text)) {
+    return 'dental';
+  }
+  if (/(travel magazine|magazine|editorial magazine|field dispatches|travel journal|travel publication)/i.test(text)) {
+    return 'magazine';
+  }
+  if (/(jewellery|jewelry|indian jewellery|gold jewellery|polki|kundan|temple gold|jhumka|bridal jewellery|heirloom jewels)/i.test(text)) {
+    return 'jewellery';
+  }
+  if (/(music festival|festival|independent festival|concert|live music festival|festival passes|festival lineup)/i.test(text)) {
+    return 'festival';
   }
   if (/(sunscreen|sunveil|spf|sun protection|sun care|mineral sun)/i.test(text)) {
     return 'sunscreen';
@@ -1088,7 +1108,25 @@ import { synthesizePortfolioWebsite, synthesizeDashboardApp } from './studioBuil
 import { synthesizeMineralSunscreenWebsite } from './studioBuilderSunscreen';
 import { synthesizeProductivityApp } from './studioBuilderProductivity';
 import { synthesizeFootwearWebsite } from './studioBuilderFootwear';
-export { synthesizePortfolioWebsite, synthesizeDashboardApp, synthesizeMineralSunscreenWebsite, synthesizeProductivityApp, synthesizeFootwearWebsite };
+import { synthesizeArchitectureWebsite } from './studioBuilderArchitecture';
+import { synthesizeDentalClinicWebsite } from './studioBuilderDental';
+import { synthesizeTravelMagazineWebsite } from './studioBuilderTravelMagazine';
+import { synthesizeIndianJewelleryWebsite } from './studioBuilderIndianJewellery';
+import { synthesizeMusicFestivalWebsite } from './studioBuilderMusicFestival';
+import { synthesizeDynamicWebsite } from './studioBuilderDynamic';
+export {
+  synthesizePortfolioWebsite,
+  synthesizeDashboardApp,
+  synthesizeMineralSunscreenWebsite,
+  synthesizeProductivityApp,
+  synthesizeFootwearWebsite,
+  synthesizeArchitectureWebsite,
+  synthesizeDentalClinicWebsite,
+  synthesizeTravelMagazineWebsite,
+  synthesizeIndianJewelleryWebsite,
+  synthesizeMusicFestivalWebsite,
+  synthesizeDynamicWebsite,
+};
 
 // ============================================================================
 // 5. E-COMMERCE SKINCARE STOREFRONT ARCHETYPE
@@ -1599,6 +1637,16 @@ export function synthesizeByArchetype(brief: string, categoryHint?: string): Pro
   switch (archetype) {
     case 'footwear':
       return synthesizeFootwearWebsite(brief);
+    case 'architecture':
+      return synthesizeArchitectureWebsite(brief);
+    case 'dental':
+      return synthesizeDentalClinicWebsite(brief);
+    case 'magazine':
+      return synthesizeTravelMagazineWebsite(brief);
+    case 'jewellery':
+      return synthesizeIndianJewelleryWebsite(brief);
+    case 'festival':
+      return synthesizeMusicFestivalWebsite(brief);
     case 'restaurant':
       return synthesizeRestaurantWebsite(brief);
     case 'dashboard':
@@ -1615,9 +1663,24 @@ export function synthesizeByArchetype(brief: string, categoryHint?: string): Pro
     case 'saas':
       return synthesizeSaaSLandingPage(brief);
     default:
-      // Generic request: intelligently detect whether it's footwear, food, dashboard, portfolio, or store
+      // Domain-specific keyword fallbacks
       if (/footwear|shoe|shoes|sneaker|boots|runner|trainer/i.test(brief)) {
         return synthesizeFootwearWebsite(brief);
+      }
+      if (/architecture|architect|spatial design/i.test(brief)) {
+        return synthesizeArchitectureWebsite(brief);
+      }
+      if (/dental|dentist|teeth|smile studio/i.test(brief)) {
+        return synthesizeDentalClinicWebsite(brief);
+      }
+      if (/travel magazine|magazine|field dispatches|travel journal/i.test(brief)) {
+        return synthesizeTravelMagazineWebsite(brief);
+      }
+      if (/jewellery|jewelry|gold|polki|kundan|temple gold/i.test(brief)) {
+        return synthesizeIndianJewelleryWebsite(brief);
+      }
+      if (/music festival|festival|concert/i.test(brief)) {
+        return synthesizeMusicFestivalWebsite(brief);
       }
       if (/cafe|tea|bakery|diner|pizza|vegetarian|vegan|plant-based|restaurant|food|dining/i.test(brief)) {
         return synthesizeRestaurantWebsite(brief);
@@ -1628,9 +1691,16 @@ export function synthesizeByArchetype(brief: string, categoryHint?: string): Pro
       if (/art|photo|gallery|cv|portfolio|designer|director/i.test(brief)) {
         return synthesizePortfolioWebsite(brief);
       }
+      if (/skincare|sunscreen|spf/i.test(brief)) {
+        return synthesizeMineralSunscreenWebsite(brief);
+      }
       if (/store|shop|product|retail|storefront|clothing|apparel/i.test(brief)) {
         return synthesizeStorefrontWebsite(brief);
       }
-      return synthesizeSaaSLandingPage(brief);
+      if (/(saas|b2b software|developer tool|cloud platform|api routing|sub-50ms)/i.test(brief)) {
+        return synthesizeSaaSLandingPage(brief);
+      }
+      // For any other arbitrary industry (bakery, veterinary, yoga, law, etc.), use the universal dynamic synthesizer!
+      return synthesizeDynamicWebsite(brief);
   }
 }

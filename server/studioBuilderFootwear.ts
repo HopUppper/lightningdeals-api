@@ -121,7 +121,7 @@ export function synthesizeFootwearWebsite(brief: string): ProjectFile[] {
       </div>
       <div class="hero-imagery">
         <div class="hero-photo-wrapper">
-          <img src="${FOOTWEAR_PHOTOGRAPHY.hero}" alt="${brandName} Velocity Pro Silhouette" class="hero-photo-img" loading="eager">
+          <img src="${FOOTWEAR_PHOTOGRAPHY.hero}" alt="${brandName} Velocity Pro Silhouette" class="hero-photo-img" loading="eager" onerror="this.onerror=null; this.classList.add('img-fallback');">
           <div class="photo-overlay-badge">Carbon Matrix Elite &bull; Flagship Edition</div>
         </div>
       </div>
@@ -191,7 +191,7 @@ export function synthesizeFootwearWebsite(brief: string): ProjectFile[] {
         <article class="product-card" data-category="running">
           <div class="product-thumb">
             <span class="product-badge">Speed Elite</span>
-            <img src="${FOOTWEAR_PHOTOGRAPHY.hero}" alt="Stratus Velocity Carbon Pro" class="prod-img" loading="lazy">
+            <img src="${FOOTWEAR_PHOTOGRAPHY.hero}" alt="Stratus Velocity Carbon Pro" class="prod-img" loading="lazy" onerror="this.onerror=null; this.classList.add('img-fallback');">
           </div>
           <div class="product-info">
             <div class="product-meta">Road Marathon &bull; 208g</div>
@@ -220,7 +220,7 @@ export function synthesizeFootwearWebsite(brief: string): ProjectFile[] {
         <article class="product-card" data-category="running">
           <div class="product-thumb">
             <span class="product-badge">Daily Cushion</span>
-            <img src="${FOOTWEAR_PHOTOGRAPHY.product1}" alt="Aero Glide Cushion Trainer" class="prod-img" loading="lazy">
+            <img src="${FOOTWEAR_PHOTOGRAPHY.product1}" alt="Aero Glide Cushion Trainer" class="prod-img" loading="lazy" onerror="this.onerror=null; this.classList.add('img-fallback');">
           </div>
           <div class="product-info">
             <div class="product-meta">Daily Miles &bull; 245g</div>
@@ -249,7 +249,7 @@ export function synthesizeFootwearWebsite(brief: string): ProjectFile[] {
         <article class="product-card" data-category="lifestyle">
           <div class="product-thumb">
             <span class="product-badge">Minimalist Icon</span>
-            <img src="${FOOTWEAR_PHOTOGRAPHY.product2}" alt="Monochrome Minimal Low-Top" class="prod-img" loading="lazy">
+            <img src="${FOOTWEAR_PHOTOGRAPHY.product2}" alt="Monochrome Minimal Low-Top" class="prod-img" loading="lazy" onerror="this.onerror=null; this.classList.add('img-fallback');">
           </div>
           <div class="product-info">
             <div class="product-meta">Everyday Lifestyle &bull; 280g</div>
@@ -277,7 +277,7 @@ export function synthesizeFootwearWebsite(brief: string): ProjectFile[] {
         <article class="product-card" data-category="outdoor">
           <div class="product-thumb">
             <span class="product-badge">All-Weather</span>
-            <img src="${FOOTWEAR_PHOTOGRAPHY.product6}" alt="Apex Ridge All-Terrain Trail" class="prod-img" loading="lazy">
+            <img src="${FOOTWEAR_PHOTOGRAPHY.product6}" alt="Apex Ridge All-Terrain Trail" class="prod-img" loading="lazy" onerror="this.onerror=null; this.classList.add('img-fallback');">
           </div>
           <div class="product-info">
             <div class="product-meta">Mountain Trail &bull; 310g</div>
@@ -305,7 +305,7 @@ export function synthesizeFootwearWebsite(brief: string): ProjectFile[] {
         <article class="product-card" data-category="lifestyle">
           <div class="product-thumb">
             <span class="product-badge">Court Heritage</span>
-            <img src="${FOOTWEAR_PHOTOGRAPHY.product4}" alt="Retro Leather Court Classic" class="prod-img" loading="lazy">
+            <img src="${FOOTWEAR_PHOTOGRAPHY.product4}" alt="Retro Leather Court Classic" class="prod-img" loading="lazy" onerror="this.onerror=null; this.classList.add('img-fallback');">
           </div>
           <div class="product-info">
             <div class="product-meta">Heritage Court &bull; 290g</div>
@@ -333,7 +333,7 @@ export function synthesizeFootwearWebsite(brief: string): ProjectFile[] {
         <article class="product-card" data-category="outdoor">
           <div class="product-thumb">
             <span class="product-badge">Speed Slip-On</span>
-            <img src="${FOOTWEAR_PHOTOGRAPHY.product5}" alt="Aura Knit Slip-On Trainer" class="prod-img" loading="lazy">
+            <img src="${FOOTWEAR_PHOTOGRAPHY.product5}" alt="Aura Knit Slip-On Trainer" class="prod-img" loading="lazy" onerror="this.onerror=null; this.classList.add('img-fallback');">
           </div>
           <div class="product-info">
             <div class="product-meta">Transit & Studio &bull; 190g</div>
@@ -404,9 +404,9 @@ export function synthesizeFootwearWebsite(brief: string): ProjectFile[] {
   <section id="reviews" class="section-reviews">
     <div class="container">
       <div class="section-head text-center">
-        <span class="pill-tag">Verified Athletes & Wearers</span>
-        <h2 class="section-title">Endorsed by Over 38,000 Everyday Runners</h2>
-        <div class="rating-stars">★★★★★ <span>4.9 / 5.0 Overall Wearer Satisfaction</span></div>
+        <span class="pill-tag">Community Feedback</span>
+        <h2 class="section-title">Field Tested by Daily Runners & Movement Enthusiasts</h2>
+        <div class="rating-stars">★★★★★ <span>Community Wearer Reflections</span></div>
       </div>
 
       <div class="reviews-grid">

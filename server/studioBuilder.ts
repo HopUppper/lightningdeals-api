@@ -1265,7 +1265,9 @@ File: README.md
 Rules:
 1. Every file block must start with "File: <path>" followed immediately by a triple-backtick block.
 2. Produce production-grade, complete HTML5, modern CSS, and functional vanilla JavaScript without placeholders.
-3. No conversational chatter or markdown explanations outside the file blocks.`;
+3. No conversational chatter or markdown explanations outside the file blocks.
+4. STRICT DOMAIN RELEVANCE: Never generate software or SaaS artifacts (like API keys, latency graphs, cloud tokens, or subscription tiers) unless the brief explicitly asks for software/SaaS. For architecture, clinics, magazines, jewellery, festivals, restaurants, etc., use authentic domain terminology, photography, and interactive components.
+5. NO FABRICATED METRICS: Do not invent customer counts, fake star ratings, or synthetic certifications presented as verified facts. Focus on genuine craftsmanship, services, and clear business value.`;
 
     const payload: any = {
       messages: [{ role: 'user', content: `Build a complete, responsive, and interactive website for this brief: "${brief.trim()}"` }],
@@ -1277,7 +1279,7 @@ Rules:
 
     const prep = buildProviderRequest(vendor, masterKey, modelId, payload);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 90000);
 
     const res = await fetch(prep.url, {
       method: 'POST',
@@ -1522,15 +1524,18 @@ export function synthesizeProjectFiles(brief: string, category: string = 'landin
 // Helper: Isolated Sandboxed Live Preview Compiler
 // ============================================================================
 
-export function compilePreviewBundle(files: ProjectFile[]): string {
-  const htmlFile = files.find((f) => f.path.endsWith('.html') || f.path === 'index.html') || files[0];
-  const cssFiles = files.filter((f) => f.path.endsWith('.css'));
-  const jsFiles = files.filter((f) => f.path.endsWith('.js') && !f.path.includes('.test.'));
-  const svgFiles = files.filter((f) => f.path.endsWith('.svg'));
+// ============================================================================
+// Multi-File Preview Compilation & Multi-Page Sandbox Engine
+// ============================================================================
 
-  let combinedHtml = htmlFile ? htmlFile.content : '<h1>No preview available</h1>';
+export function compileSingleHtml(htmlFile: ProjectFile, allFiles: ProjectFile[]): string {
+  const cssFiles = allFiles.filter((f) => f.path.endsWith('.css'));
+  const jsFiles = allFiles.filter((f) => f.path.endsWith('.js') && !f.path.includes('.test.'));
+  const svgFiles = allFiles.filter((f) => f.path.endsWith('.svg'));
 
-  // Inline/Resolve SVG Assets using data URIs so every graphic renders cleanly in sandboxed preview
+  let combinedHtml = htmlFile.content || '<h1>No preview available</h1>';
+
+  // Inline SVG Assets using data URIs
   for (const svg of svgFiles) {
     const encodedSvg = encodeURIComponent(svg.content.trim());
     const dataUri = `data:image/svg+xml;utf8,${encodedSvg}`;
@@ -1574,7 +1579,6 @@ ${j.content}
   // Replace external script tags with inlined js
   combinedHtml = combinedHtml.replace(/<script[^>]+src=["'][^"']+["'][^>]*><\/script>/gi, '');
 
-  // Inject styles into <head> and scripts before </body>
   if (combinedHtml.includes('</head>')) {
     combinedHtml = combinedHtml.replace('</head>', `${combinedCss}\n</head>`);
   } else {
@@ -1588,6 +1592,124 @@ ${j.content}
   }
 
   return combinedHtml;
+}
+
+export function compilePreviewBundle(files: ProjectFile[]): string {
+  const htmlFiles = files.filter((f) => f.path.endsWith('.html'));
+  const primaryHtmlFile = htmlFiles.find((f) => f.path === 'index.html' || f.path.endsWith('/index.html')) || htmlFiles[0] || files[0];
+
+  if (!primaryHtmlFile) return '<h1>No preview available</h1>';
+
+  let bundle = compileSingleHtml(primaryHtmlFile, files);
+
+  // Multi-page routing map for client navigation inside sandboxed iframe
+  const pagesMap: Record<string, string> = {};
+  for (const hf of htmlFiles) {
+    const fileName = hf.path.split('/').pop() || hf.path;
+    const compiledPage = compileSingleHtml(hf, files);
+    pagesMap[fileName] = compiledPage;
+    pagesMap[hf.path] = compiledPage;
+    pagesMap[`./${fileName}`] = compiledPage;
+  }
+
+  // Inject Sandboxed In-Iframe Multi-Page Router & Visual Click-to-Edit Inspector
+  const runtimeEnhancements = `
+<script id="lightning-studio-runtime">
+(function() {
+  // 1. In-Iframe Multi-Page Client Navigation Router
+  const __PAGES__ = ${JSON.stringify(pagesMap)};
+
+  document.addEventListener('click', function(e) {
+    const a = e.target.closest('a');
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (!href) return;
+
+    // Handle hash anchors smoothly
+    if (href.startsWith('#')) {
+      const targetId = href.slice(1);
+      const targetEl = document.getElementById(targetId) || document.querySelector('[name="' + targetId + '"]');
+      if (targetEl) {
+        e.preventDefault();
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    }
+
+    // Handle multi-page transitions (e.g. about.html, index.html)
+    const cleanHref = href.split('#')[0].replace(/^\\.\\//, '').replace(/^\\//, '');
+    if (cleanHref && __PAGES__[cleanHref]) {
+      e.preventDefault();
+      document.open();
+      document.write(__PAGES__[cleanHref]);
+      document.close();
+      window.scrollTo(0, 0);
+      return;
+    }
+  });
+
+  // 2. Visual Element Selection Mode Inspector
+  let visualModeActive = false;
+  let hoveredEl = null;
+
+  window.addEventListener('message', function(evt) {
+    if (evt.data && evt.data.type === 'SET_VISUAL_SELECTION_MODE') {
+      visualModeActive = !!evt.data.enabled;
+      document.body.style.cursor = visualModeActive ? 'crosshair' : '';
+      if (!visualModeActive && hoveredEl) {
+        hoveredEl.style.outline = '';
+        hoveredEl = null;
+      }
+    }
+  });
+
+  document.addEventListener('mouseover', function(e) {
+    if (!visualModeActive) return;
+    const el = e.target.closest('h1, h2, h3, p, a, button, img, section, .hero-title, .brand, .footer-brand');
+    if (el) {
+      if (hoveredEl && hoveredEl !== el) hoveredEl.style.outline = '';
+      hoveredEl = el;
+      el.style.outline = '2px dashed #8b5cf6';
+      el.style.outlineOffset = '2px';
+    }
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    if (!visualModeActive) return;
+    const el = e.target.closest('h1, h2, h3, p, a, button, img, section, .hero-title, .brand, .footer-brand');
+    if (el && el === hoveredEl) {
+      el.style.outline = '';
+      hoveredEl = null;
+    }
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!visualModeActive) return;
+    const el = e.target.closest('h1, h2, h3, p, a, button, img, section, .hero-title, .brand, .footer-brand');
+    if (el) {
+      e.preventDefault();
+      e.stopPropagation();
+      const tagName = el.tagName;
+      const text = (el.innerText || el.getAttribute('alt') || '').trim().slice(0, 120);
+      const selector = el.id ? '#' + el.id : el.className ? '.' + el.className.trim().split(/\\s+/)[0] : tagName.toLowerCase();
+      window.parent.postMessage({
+        type: 'ELEMENT_CLICKED_IN_PREVIEW',
+        tagName: tagName,
+        text: text,
+        selector: selector
+      }, '*');
+    }
+  }, true);
+})();
+</script>`;
+
+  if (bundle.includes('</body>')) {
+    bundle = bundle.replace('</body>', `${runtimeEnhancements}\n</body>`);
+  } else {
+    bundle = `${bundle}\n${runtimeEnhancements}`;
+  }
+
+  return bundle;
 }
 
 // ============================================================================
@@ -1909,6 +2031,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
   const userId = req.user?.id;
   const { id } = req.params;
   const modificationPrompt = req.body.modificationPrompt || req.body.prompt;
+  const targetElement = req.body.targetElement;
 
   if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!modificationPrompt || typeof modificationPrompt !== 'string' || !modificationPrompt.trim()) {
@@ -1936,7 +2059,7 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
     const modelToUse = req.body.modelId || project.modelId || 'claude-sonnet-5.5';
 
     // Execute verified refinement pass (Semantic AST/DOM + Claude model fallback)
-    const result = await executeProjectRefinement(project, files, modificationPrompt, modelToUse);
+    const result = await executeProjectRefinement(project, files, modificationPrompt, modelToUse, targetElement);
 
     if (!result.success || !result.files || result.files.length === 0) {
       return res.status(400).json({
@@ -1997,9 +2120,19 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
       fallbackUsed: result.source !== 'claude_model_gateway',
     };
 
+    // Update project title if brand was renamed
+    let updatedTitle = project.title;
+    if (result.summary && result.summary.includes('Renamed brand to "')) {
+      const match = result.summary.match(/Renamed brand to "([^"]+)"/);
+      if (match && match[1]) {
+        updatedTitle = `${match[1]} Website`;
+      }
+    }
+
     const updated = await prisma.builderProject.update({
       where: { id },
       data: {
+        title: updatedTitle,
         filesJson: JSON.stringify(result.files),
         currentVersion: nextVersion,
         lastWorkingVersion: nextVersion,

@@ -529,10 +529,22 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
   --radius-md: 14px;
   --radius-lg: 20px;
   --transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}`;
+}
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+@media (max-width: 768px) {
+  :root {
+    --container-padding: 16px;
+  }
+}
+`;
 
   const siteCss = `* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
   font-family: var(--font-sans);
   background: var(--color-sand);
   color: var(--color-charcoal);

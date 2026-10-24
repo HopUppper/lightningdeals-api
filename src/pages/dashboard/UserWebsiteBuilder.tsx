@@ -227,13 +227,17 @@ export const UserWebsiteBuilder: React.FC = () => {
 
   // View state (Workspace)
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
-  const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile' | 'mobile-compact'>('desktop');
   const [mobileTab, setMobileTab] = useState<'preview' | 'chat' | 'code'>('preview');
   const [selectedFilePath, setSelectedFilePath] = useState<string>('index.html');
   const [editorContent, setEditorContent] = useState<string>('');
   const [isEditingCode, setIsEditingCode] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
+
+  // Visual Click-to-Edit Selection Mode
+  const [visualSelectionMode, setVisualSelectionMode] = useState(false);
+  const [selectedElement, setSelectedElement] = useState<{ tagName: string; text: string; selector: string } | null>(null);
 
   // File explorer folder expansion state
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
@@ -278,12 +282,36 @@ export const UserWebsiteBuilder: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3800);
   };
 
-  // 1. Initial Load
+  // 1. Initial Load & Visual Selection Listener
   useEffect(() => {
     loadModels();
     loadTemplates();
     loadProjects();
+
+    const handlePreviewMessage = (evt: MessageEvent) => {
+      if (evt.data && evt.data.type === 'ELEMENT_CLICKED_IN_PREVIEW') {
+        setSelectedElement({
+          tagName: evt.data.tagName || 'ELEMENT',
+          text: evt.data.text || '',
+          selector: evt.data.selector || '',
+        });
+        showToast(`Selected <${evt.data.tagName}>: "${(evt.data.text || '').slice(0, 32)}..."`, 'info');
+      }
+    };
+
+    window.addEventListener('message', handlePreviewMessage);
+    return () => window.removeEventListener('message', handlePreviewMessage);
   }, []);
+
+  // Sync Visual Selection Mode to Preview Iframe
+  useEffect(() => {
+    if (previewIframeRef.current && previewIframeRef.current.contentWindow) {
+      previewIframeRef.current.contentWindow.postMessage(
+        { type: 'SET_VISUAL_SELECTION_MODE', enabled: visualSelectionMode },
+        '*'
+      );
+    }
+  }, [visualSelectionMode, previewKey]);
 
   // API: Load Authorized Models (Strictly Claude 4/5/5.5 catalog, zero Claude 3)
   const loadModels = async () => {
@@ -482,10 +510,11 @@ export const UserWebsiteBuilder: React.FC = () => {
     }
   };
 
-  // API: Conversational Iterative Refinement
-  const handleRefine = async () => {
-    if (!activeProject || !refineInput.trim() || isBuilding) return;
-    const prompt = refineInput.trim();
+  // API: Natural Language Conversational Refinement
+  const handleRefine = async (customPrompt?: string) => {
+    const prompt = (customPrompt || refineInput).trim();
+    if (!activeProject || !prompt || isBuilding) return;
+
     setRefineInput('');
     setIsBuilding(true);
     setBuildStep(2);
@@ -499,16 +528,23 @@ export const UserWebsiteBuilder: React.FC = () => {
       ...prev,
       {
         role: 'user',
-        text: prompt,
+        text: selectedElement ? `[Target: <${selectedElement.tagName}> "${selectedElement.text.slice(0, 30)}..."] ${prompt}` : prompt,
         time: formatTime(),
       },
     ]);
+
+    const targetElementToSend = selectedElement;
+    setSelectedElement(null);
 
     try {
       const res = await userFetch(`/api/user/studio/builder/projects/${activeProject.id}/refine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, modelId: selectedModel }),
+        body: JSON.stringify({
+          prompt,
+          modelId: selectedModel,
+          targetElement: targetElementToSend,
+        }),
       });
 
       const data = await res.json();
@@ -519,28 +555,31 @@ export const UserWebsiteBuilder: React.FC = () => {
         setPreviewKey((k) => k + 1);
 
         const version = data.project.currentVersion;
-        const duration = data.project.telemetry?.totalLatencyMs
-          ? (data.project.telemetry.totalLatencyMs / 1000).toFixed(1) + 's'
-          : elapsedSeconds.toFixed(1) + 's';
 
         setChatTurns((prev) => [
           ...prev,
           {
             role: 'assistant',
-            text: data.assistantMessage || `I've applied your updates: "${data.summary || prompt}" (${duration}). The changes have been verified and recompiled in the live preview.`,
+            text: data.assistantMessage || `I've updated your website: "${data.summary || prompt}". The preview has been updated.`,
             time: formatTime(),
             version,
             files: data.project.files,
             showFiles: false,
             telemetry: data.project.telemetry,
             showTelemetry: false,
-            suggestedFollowUps: data.suggestedFollowUps || ['Add an FAQ section', 'Change colors', 'Add customer reviews'],
+            suggestedFollowUps: data.suggestedFollowUps || [
+              'Make the mobile version look better',
+              'Use a clean white background with black typography',
+              'Add an About page and link it in the navigation',
+            ],
             verification: data.verification,
           },
         ]);
         showToast(`Updated to version ${version}`, 'success');
       } else {
-        const errorMsg = data.assistantMessage || data.error || 'Refinement could not be safely applied. Preserved last working version.';
+        // Preserve user's input on failure so it's not lost
+        if (!customPrompt) setRefineInput(prompt);
+        const errorMsg = data.assistantMessage || data.error || "I couldn't complete that change. Your previous version is still available.";
         setChatTurns((prev) => [
           ...prev,
           {
@@ -548,9 +587,10 @@ export const UserWebsiteBuilder: React.FC = () => {
             text: errorMsg,
             time: formatTime(),
             suggestedFollowUps: data.suggestedFollowUps || [
-              'Add an FAQ section',
-              'Change visual theme to forest green',
-              'Add customer reviews',
+              'Rename the brand to Minimalist',
+              'Change the main heading to focus on lightweight daily sun protection',
+              'Use a clean white background with black typography',
+              'Add an About page and link it in the navigation',
             ],
           },
         ]);
@@ -558,6 +598,7 @@ export const UserWebsiteBuilder: React.FC = () => {
       }
     } catch (err: any) {
       clearInterval(timer);
+      if (!customPrompt) setRefineInput(prompt);
       showToast(formatErrorMessage(err), 'error');
     } finally {
       setIsBuilding(false);
@@ -1191,9 +1232,9 @@ export const UserWebsiteBuilder: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-5 h-5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 flex items-center justify-center text-[10px] font-bold">
-                            ⚡
+                            ✨
                           </div>
-                          <span className="text-xs font-bold text-slate-900">AI Architect</span>
+                          <span className="text-xs font-bold text-slate-900">Design Assistant</span>
                         </div>
                         <span className="text-[10px] text-slate-500 font-mono font-medium">v{turn.version || 1}</span>
                       </div>
@@ -1224,7 +1265,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                               <button
                                 key={si}
                                 type="button"
-                                onClick={() => setRefineInput(s)}
+                                onClick={() => handleRefine(s)}
                                 className="text-[11px] font-medium bg-white hover:bg-violet-50 text-violet-700 hover:text-violet-900 border border-slate-200 hover:border-violet-300 px-2.5 py-1 rounded-lg transition-all text-left shadow-2xs cursor-pointer"
                               >
                                 + {s}
@@ -1343,6 +1384,26 @@ export const UserWebsiteBuilder: React.FC = () => {
               }}
               className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col gap-2 shadow-2xs focus-within:border-violet-500 focus-within:bg-white transition-colors"
             >
+              {/* Selected Visual Element Badge */}
+              {selectedElement && (
+                <div className="flex items-center justify-between bg-violet-50 border border-violet-200 text-violet-800 text-[11px] px-2.5 py-1 rounded-lg">
+                  <div className="flex items-center gap-1.5 truncate max-w-[85%]">
+                    <span className="font-bold uppercase tracking-wider text-[9px] bg-violet-200 text-violet-900 px-1.5 py-0.5 rounded font-mono">
+                      {selectedElement.tagName}
+                    </span>
+                    <span className="truncate italic text-slate-700">"{selectedElement.text}"</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedElement(null)}
+                    className="text-violet-500 hover:text-violet-900 font-bold ml-1 text-sm leading-none"
+                    title="Clear selection"
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
+
               <textarea
                 rows={2}
                 value={refineInput}
@@ -1354,7 +1415,11 @@ export const UserWebsiteBuilder: React.FC = () => {
                     else handleCreateProject(refineInput);
                   }
                 }}
-                placeholder="Describe a change (e.g. 'Add an FAQ section' or 'Change visual style to minimalist cream and black')..."
+                placeholder={
+                  selectedElement
+                    ? `Describe changes to this ${selectedElement.tagName} (e.g. 'Make this smaller and more elegant')...`
+                    : "Describe a change in plain English (e.g. 'Rename brand to Minimalist' or 'Add an About page')..."
+                }
                 disabled={isBuilding}
                 className="w-full bg-transparent text-xs text-slate-900 placeholder-slate-400 focus:outline-none resize-none leading-relaxed"
               />
@@ -1452,56 +1517,88 @@ export const UserWebsiteBuilder: React.FC = () => {
                 </button>
               </div>
 
-              {/* Viewport switchers */}
+              {/* Viewport & Visual Edit switchers */}
               {viewMode === 'preview' && (
-                <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
+                  {/* Visual Click-to-Edit Mode Toggle */}
                   <button
                     type="button"
-                    onClick={() => setViewport('desktop')}
-                    className={`p-1.5 rounded transition-colors cursor-pointer ${
-                      viewport === 'desktop' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                    onClick={() => {
+                      const next = !visualSelectionMode;
+                      setVisualSelectionMode(next);
+                      if (!next) setSelectedElement(null);
+                      showToast(next ? 'Click any element in preview to select it' : 'Visual select mode disabled', 'info');
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                      visualSelectionMode
+                        ? 'bg-violet-600 text-white shadow-2xs font-bold'
+                        : 'bg-slate-100 text-slate-700 hover:text-slate-950 hover:bg-slate-200 border border-slate-200'
                     }`}
-                    title="Desktop (100%)"
+                    title="Click any element in the preview to select it and edit conversationally"
                   >
-                    <Monitor className="w-3.5 h-3.5" />
+                    <span>🎯</span>
+                    <span className="hidden md:inline">Select Element</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewport('tablet')}
-                    className={`p-1.5 rounded transition-colors cursor-pointer ${
-                      viewport === 'tablet' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                    title="Tablet (768px)"
-                  >
-                    <Tablet className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewport('mobile')}
-                    className={`p-1.5 rounded transition-colors cursor-pointer ${
-                      viewport === 'mobile' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                    title="Mobile (375px)"
-                  >
-                    <Smartphone className="w-3.5 h-3.5" />
-                  </button>
-                  <div className="w-px h-3.5 bg-slate-200 mx-0.5" />
-                  <button
-                    type="button"
-                    onClick={() => setPreviewKey((k) => k + 1)}
-                    className="p-1.5 rounded text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
-                    title="Reload Preview"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenPreviewWindow}
-                    className="p-1.5 rounded text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
-                    title="Open in new window"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
+
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setViewport('desktop')}
+                      className={`p-1.5 rounded transition-colors cursor-pointer ${
+                        viewport === 'desktop' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                      title="Desktop (1440px / 100%)"
+                    >
+                      <Monitor className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewport('tablet')}
+                      className={`p-1.5 rounded transition-colors cursor-pointer ${
+                        viewport === 'tablet' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                      title="Tablet (768px)"
+                    >
+                      <Tablet className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewport('mobile')}
+                      className={`p-1.5 rounded transition-colors cursor-pointer ${
+                        viewport === 'mobile' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                      title="Phone (390px)"
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewport('mobile-compact')}
+                      className={`px-1.5 py-0.5 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer ${
+                        viewport === 'mobile-compact' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                      title="Compact Phone (320px)"
+                    >
+                      320px
+                    </button>
+                    <div className="w-px h-3.5 bg-slate-200 mx-0.5" />
+                    <button
+                      type="button"
+                      onClick={() => setPreviewKey((k) => k + 1)}
+                      className="p-1.5 rounded text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+                      title="Reload Preview"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenPreviewWindow}
+                      className="p-1.5 rounded text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+                      title="Open in new window"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1528,7 +1625,9 @@ export const UserWebsiteBuilder: React.FC = () => {
               <div
                 className={`h-full flex flex-col bg-white transition-all duration-300 rounded-xl overflow-hidden border border-slate-200/90 shadow-xl ${
                   viewport === 'mobile'
-                    ? 'w-[375px] max-w-[375px]'
+                    ? 'w-[390px] max-w-[390px]'
+                    : viewport === 'mobile-compact'
+                    ? 'w-[320px] max-w-[320px]'
                     : viewport === 'tablet'
                     ? 'w-[768px] max-w-[768px]'
                     : 'w-full flex-1 min-w-0'

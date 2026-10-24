@@ -79,7 +79,7 @@ export class AIProvider {
 
     // Check database AIConfiguration if set
     let activeProvider = options.modelProvider || 'auto';
-    let activeModel = options.modelName || 'claude-3-5-sonnet-20241022';
+    let activeModel = options.modelName || 'claude-sonnet-5.5';
     let activeTemperature = options.temperature ?? 0.3;
 
     try {
@@ -213,7 +213,7 @@ export class AIProvider {
   }
 
   /**
-   * Calls the configured primary VendorProvider (Opus Max / Claude Sonnet 3.5)
+   * Calls the configured primary VendorProvider (Opus Max / Claude Sonnet 5.5)
    * through the existing provider proxy infrastructure with full multi-turn tool use.
    */
   private static async callConfiguredVendorProvider(
@@ -416,7 +416,7 @@ export class AIProvider {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: model || 'claude-3-5-sonnet-20241022',
+        model: model || 'claude-sonnet-5.5',
         max_tokens: 1024,
         temperature,
         system: systemPrompt,

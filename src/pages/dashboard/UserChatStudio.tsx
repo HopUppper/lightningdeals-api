@@ -225,20 +225,20 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     providerRoute: 'anthropic',
   },
   {
-    id: 'claude-3-7-sonnet-20250219',
-    name: 'Claude 3.7 Sonnet',
-    category: 'Reasoning & Deep Thinking',
-    badge: 'Extended Thinking',
-    description: 'Hybrid reasoning architecture with inspectable deliberative thought buffers for zero-hallucination analysis.',
-    tokenMultiplier: 1.25,
-    contextWindow: 200000,
+    id: 'claude-sonnet-5',
+    name: 'Claude Sonnet 5',
+    category: 'Flagship Models',
+    badge: 'Architecture & Systems',
+    description: 'Pinnacle fullstack model for large-scale microservice design, system architecture, and code synthesis.',
+    tokenMultiplier: 1.0,
+    contextWindow: 1000000,
     maxOutputTokens: 8192,
     supportsThinking: true,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
-    upstreamModelId: 'claude-3-7-sonnet-20250219',
-    providerRoute: 'anthropic / custom_http',
+    upstreamModelId: 'claude-sonnet-5',
+    providerRoute: 'anthropic',
   },
   {
     id: 'claude-opus-5',
@@ -305,59 +305,58 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
     providerRoute: 'anthropic',
   },
   {
-    id: 'claude-3-5-sonnet-20241022',
-    name: 'Claude 3.5 Sonnet',
-    category: 'Standard Anthropic Series',
-    badge: 'Standard',
-    description: 'Anthropic standard enterprise model for production coding and technical documentation.',
-    tokenMultiplier: 1.0,
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    supportsThinking: false,
-    supportsVision: true,
-    supportsTools: true,
-    isAvailable: true,
-    upstreamModelId: 'claude-3-5-sonnet-20241022',
-    providerRoute: 'anthropic / custom_http',
-  },
-  {
-    id: 'claude-3-5-haiku-20241022',
-    name: 'Claude 3.5 Haiku',
+    id: 'claude-haiku-5',
+    name: 'Claude Haiku 5',
     category: 'Fast & Economical',
-    badge: 'Fast',
-    description: 'Economical high-speed completion model for lightweight tasks and quick Q&A.',
+    badge: 'Rapid Completion',
+    description: 'High-throughput completion model with sub-second time-to-first-token for developer pipelines.',
     tokenMultiplier: 0.25,
-    contextWindow: 200000,
+    contextWindow: 500000,
     maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
-    upstreamModelId: 'claude-3-5-haiku-20241022',
-    providerRoute: 'anthropic / custom_http',
+    upstreamModelId: 'claude-haiku-5',
+    providerRoute: 'anthropic',
   },
   {
-    id: 'claude-3-opus-20240229',
-    name: 'Claude 3 Opus',
-    category: 'Standard Anthropic Series',
-    badge: 'Deep Reasoning',
-    description: 'Anthropic deep reasoning model for complex nuanced analysis and multi-step domain expertise.',
-    tokenMultiplier: 2.0,
-    contextWindow: 200000,
-    maxOutputTokens: 4096,
+    id: 'claude-sonnet-4.5',
+    name: 'Claude Sonnet 4.5',
+    category: 'Claude 4 Series',
+    badge: 'Fullstack Engineering',
+    description: 'High-reliability Claude 4 generation model with balanced reasoning and efficient token consumption.',
+    tokenMultiplier: 0.9,
+    contextWindow: 500000,
+    maxOutputTokens: 8192,
+    supportsThinking: true,
+    supportsVision: true,
+    supportsTools: true,
+    isAvailable: true,
+    upstreamModelId: 'claude-sonnet-4-5-20250920',
+    providerRoute: 'anthropic',
+  },
+  {
+    id: 'claude-haiku-4.5',
+    name: 'Claude Haiku 4.5',
+    category: 'Claude 4 Series',
+    badge: 'High Concurrency',
+    description: 'Economical Claude 4 generation model designed for high-concurrency bot routines and inline refactoring.',
+    tokenMultiplier: 0.25,
+    contextWindow: 500000,
+    maxOutputTokens: 8192,
     supportsThinking: false,
     supportsVision: true,
     supportsTools: true,
     isAvailable: true,
-    upstreamModelId: 'claude-3-opus-20240229',
-    providerRoute: 'anthropic / custom_http',
+    upstreamModelId: 'claude-haiku-4-5-20251001',
+    providerRoute: 'anthropic',
   },
 ];
 
 export const getModelDisplayName = (modelId: string): string => {
   const found = VERIFIED_MODELS.find((m) => m.id === modelId);
   if (found) return found.name;
-  if (modelId.includes('3-7') || modelId.includes('3.7')) return 'Claude 3.7 Sonnet';
   if (modelId.includes('opus-5.5') || modelId.includes('opus-5-5')) return 'Claude Opus 5.5';
   if (modelId.includes('sonnet-5.5') || modelId.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
   if (modelId.includes('opus-5')) return 'Claude Opus 5';
@@ -566,7 +565,7 @@ export const UserChatStudio: React.FC = () => {
 
   // Model Comparison Mode
   const [isComparingModels, setIsComparingModels] = useState(false);
-  const [secondaryModelId, setSecondaryModelId] = useState('claude-3-5-sonnet-20241022');
+  const [secondaryModelId, setSecondaryModelId] = useState('claude-opus-5.5');
 
   // Scroll tracking & Jump to latest button
   const isNearBottomRef = useRef(true);
@@ -1576,10 +1575,10 @@ export const UserChatStudio: React.FC = () => {
       return;
     }
 
-    // Gate Opus frontier models for trial keys (Trial includes Sonnet 5.5, Sonnet 3.7, Haiku 5.5, Fable 5.1)
+    // Gate Opus frontier models for trial keys (Trial includes Sonnet 5.5, Haiku 5.5, Fable 5.1)
     const isTrialKey = activeKey?.type === 'trial' || activeKey?.plan === 'Free Trial';
     if (!isPaidCustomer && isTrialKey && activeThread.model.toLowerCase().includes('opus')) {
-      setUpgradeReason('Claude Opus frontier reasoning is exclusive to paid capacity plans. Your trial key includes full access to Claude Sonnet 5.5, Sonnet 3.7, Haiku 5.5, and Fable coding models.');
+      setUpgradeReason('Claude Opus frontier reasoning is exclusive to paid capacity plans. Your trial key includes full access to Claude Sonnet 5.5, Haiku 5.5, and Fable coding models.');
       setShowUpgradeModal(true);
       return;
     }
@@ -2678,7 +2677,7 @@ export const UserChatStudio: React.FC = () => {
                       type="button"
                       onClick={() => {
                         if (!activeModelMeta?.supportsThinking) {
-                          alert(`Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}. Select Claude 3.7 Sonnet or Claude Sonnet 5.5 to enable Thinking.`);
+                          alert(`Extended Thinking is not supported by ${activeModelMeta?.name || 'this model'}. Select Claude Sonnet 5.5 or Claude Opus 5 to enable Thinking.`);
                           return;
                         }
                         updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled });
@@ -3722,7 +3721,7 @@ export const UserChatStudio: React.FC = () => {
             </button>
           )}
 
-          {/* Floating Pill Composer (Claude.ai 3.5 & ChatGPT Standard) */}
+          {/* Floating Pill Composer (Minimal & Focused) */}
           <div className="p-4 shrink-0 bg-gradient-to-t from-current/5 to-transparent">
             <div className={`max-w-4xl mx-auto rounded-3xl border shadow-lg transition-all ${c.inputBg} ${c.border} ${
               generating ? 'opacity-90' : 'focus-within:ring-2 focus-within:ring-violet-500/30'
@@ -4294,7 +4293,7 @@ export const UserChatStudio: React.FC = () => {
               <ul className="list-disc list-inside space-y-0.5 text-[11px] opacity-90">
                 <li>Unlimited multi-turn chat threads & conversation memory</li>
                 <li>Full PDF document & vision image analysis (up to 25MB)</li>
-                <li>Claude 3.7 Thinking Mode & Opus Extended Reasoning</li>
+                <li>Claude Opus Extended Reasoning & Thinking Mode</li>
                 <li>Interactive live sandboxed preview canvas</li>
               </ul>
             </div>

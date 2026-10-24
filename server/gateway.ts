@@ -97,25 +97,25 @@ export const SUPPORTED_MODELS_CATALOG: CatalogModelEntry[] = [
   {
     id: 'claude-3-7-sonnet-20250219',
     upstreamId: 'claude-3-7-sonnet-20250219',
-    displayName: 'Claude 3.7 Sonnet',
+    displayName: 'Claude Sonnet 5.5',
     aliases: ['claude-3-7-sonnet', 'claude-3.7-sonnet', '3-7-sonnet', '3.7-sonnet', 'claude-3-7-sonnet-latest'],
   },
   {
     id: 'claude-3-5-sonnet-20241022',
     upstreamId: 'claude-3-5-sonnet-20241022',
-    displayName: 'Claude 3.5 Sonnet',
+    displayName: 'Claude Sonnet 5',
     aliases: ['claude-3-5-sonnet', 'claude-3.5-sonnet', '3-5-sonnet', '3.5-sonnet', 'claude-3-5-sonnet-latest', 'claude-3-sonnet-20240229', 'claude-3-sonnet'],
   },
   {
     id: 'claude-3-opus-20240229',
     upstreamId: 'claude-3-opus-20240229',
-    displayName: 'Claude 3 Opus',
+    displayName: 'Claude Opus 5',
     aliases: ['claude-3-opus', 'claude-3-opus-latest', '3-opus'],
   },
   {
     id: 'claude-3-5-haiku-20241022',
     upstreamId: 'claude-3-5-haiku-20241022',
-    displayName: 'Claude 3.5 Haiku',
+    displayName: 'Claude Haiku 5',
     aliases: ['claude-3-5-haiku', 'claude-3.5-haiku', '3-5-haiku', '3.5-haiku', 'claude-3-5-haiku-latest', 'claude-3-haiku-20240307', 'claude-3-haiku'],
   },
 ];
@@ -412,7 +412,7 @@ export function sanitizeModelResponse(text: string, friendlyModelName: string, c
     .replace(/Auto by ScaleMax/gi, 'Claude by Anthropic')
     .replace(/ScaleMax(?:\.pro)?/gi, 'Anthropic')
     .replace(/MiniMax(?:-abab|-6\.5)?/gi, 'Anthropic')
-    .replace(/abab-6\.5/gi, friendlyModelName || 'Claude 3.5 Sonnet')
+    .replace(/abab-6\.5/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/Opus\s*Max/gi, friendlyModelName || 'Claude')
     .replace(/OpusMax/gi, friendlyModelName || 'Claude')
     .replace(/OpusLive/gi, 'Claude')
@@ -427,9 +427,9 @@ export function sanitizeModelResponse(text: string, friendlyModelName: string, c
     .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, '••••••••')
     .replace(/sk-ant-[a-zA-Z0-9_-]+/g, '••••••••')
     // 4. Scrub upstream base model snapshots to the customer's selected friendly model
-    .replace(/claude-3-7-sonnet-20250219/gi, friendlyModelName || 'Claude 3.7 Sonnet')
-    .replace(/claude-3-7-sonnet/gi, friendlyModelName || 'Claude 3.7 Sonnet')
-    .replace(/claude-3\.7-sonnet/gi, friendlyModelName || 'Claude 3.7 Sonnet')
+    .replace(/claude-3-7-sonnet-20250219/gi, friendlyModelName || 'Claude Sonnet 5.5')
+    .replace(/claude-3-7-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
+    .replace(/claude-3\.7-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/claude-3-opus-20240229/gi, friendlyModelName || 'Claude Opus 5.5')
     .replace(/claude-3-5-sonnet-20241022/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/claude-3-5-sonnet-20240620/gi, friendlyModelName || 'Claude Sonnet 5.5')
@@ -484,7 +484,7 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
   result = result
     .replace(/ScaleMax(?:\.pro)?/gi, 'Anthropic')
     .replace(/MiniMax(?:-abab)?/gi, 'Anthropic')
-    .replace(/abab-6\.5/gi, 'Claude 3.5 Sonnet')
+    .replace(/abab-6\.5/gi, 'Claude Sonnet 5.5')
     .replace(/Opus\s*Max/gi, 'Claude')
     .replace(/OpusMax/gi, 'Claude')
     .replace(/OpusLive/gi, 'Claude')

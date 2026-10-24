@@ -33,7 +33,7 @@ adminAIRouter.get('/config', async (req: AuthRequest, res: Response) => {
         data: {
           key: 'default',
           modelProvider: 'auto',
-          modelName: 'claude-3-5-sonnet-20241022',
+          modelName: 'claude-sonnet-5.5',
           temperature: 0.3,
           handoffThreshold: 0.6,
           enabled: true,
@@ -68,7 +68,7 @@ adminAIRouter.post('/config', async (req: AuthRequest, res: Response) => {
       create: {
         key: 'default',
         modelProvider: modelProvider || 'auto',
-        modelName: modelName || 'claude-3-5-sonnet-20241022',
+        modelName: modelName || 'claude-sonnet-5.5',
         temperature: temperature !== undefined ? Number(temperature) : 0.3,
         handoffThreshold: handoffThreshold !== undefined ? Number(handoffThreshold) : 0.6,
         enabled: enabled !== undefined ? Boolean(enabled) : true,

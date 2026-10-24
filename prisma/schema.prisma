@@ -1107,7 +1107,7 @@ model AIConfiguration {
   id                     String   @id @default(uuid())
   key                    String   @unique @default("default")
   modelProvider          String   @default("auto") // "auto" | "anthropic" | "openai" | "gemini" | "rule_based"
-  modelName              String   @default("claude-3-5-sonnet-20241022")
+  modelName              String   @default("claude-sonnet-5.5")
   temperature            Float    @default(0.3)
   handoffThreshold       Float    @default(0.6)
   systemPrompt           String?

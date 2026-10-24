@@ -144,7 +144,7 @@ This document outlines the high-level system topology, performance benchmarks, a
     content: `Model Name, Upstream Route, Token Multiplier, Context Window, Output Tokens, Latency Target
 Claude Sonnet 5.5, Anthropic Direct, 1.0x, 1000000, 8192, < 400ms
 Claude Opus 5.5, Anthropic Direct, 2.0x, 1000000, 8192, < 750ms
-Claude 3.7 Sonnet, Anthropic Extended, 1.25x, 200000, 8192, < 500ms
+Claude Opus 5, Anthropic Extended, 1.75x, 1000000, 8192, < 600ms
 Claude Haiku 4.5, Anthropic Fast, 0.35x, 200000, 4096, < 250ms`,
   },
   {

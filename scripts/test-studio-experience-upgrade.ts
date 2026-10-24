@@ -67,19 +67,19 @@ async function runStudioExperienceUpgradeVerification() {
   }
 
   // Test 4.2: Flagship Models Specific Checks
-  const flagshipSonnet = VERIFIED_STUDIO_MODELS.find(m => m.id === 'claude-3-7-sonnet-20250219');
-  assert(flagshipSonnet, 'Claude 3.7 Sonnet must exist');
+  const flagshipSonnet = VERIFIED_STUDIO_MODELS.find(m => m.id === 'claude-sonnet-5');
+  assert(flagshipSonnet, 'Claude Sonnet 5 must exist');
   assert.strictEqual(flagshipSonnet.speed, 4);
   assert.strictEqual(flagshipSonnet.intelligence, 5);
   assert.strictEqual(flagshipSonnet.costTier, 'Standard');
   assert.strictEqual(flagshipSonnet.provider, 'Anthropic');
   assert.strictEqual(flagshipSonnet.supportsThinking, true);
-  assert.strictEqual(flagshipSonnet.contextWindow, 200_000);
+  assert.strictEqual(flagshipSonnet.contextWindow, 1_000_000);
   assert.strictEqual(flagshipSonnet.supportsWebSearch, true);
 
   recordTest(
     'P4-MODELS',
-    'Flagship Claude 3.7 Sonnet capability assertions',
+    'Flagship Claude Sonnet 5 capability assertions',
     'PASS',
     'Verified speed: 4/5, intelligence: 5/5, tier: Standard, thinking: true, contextWindow: 200,000'
   );
@@ -133,7 +133,7 @@ async function runStudioExperienceUpgradeVerification() {
     data: {
       userId: testUser.id,
       title: 'Project Thread 1',
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-sonnet-5.5',
       projectId: testProject.id,
       archived: false,
     },
@@ -143,7 +143,7 @@ async function runStudioExperienceUpgradeVerification() {
     data: {
       userId: testUser.id,
       title: 'Project Thread 2 (Archived)',
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-sonnet-5.5',
       projectId: testProject.id,
       archived: true,
     },

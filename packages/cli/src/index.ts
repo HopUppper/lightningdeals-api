@@ -47,10 +47,6 @@ async function resolveKeyModels(apiKey: string, status: KeyStatusResult): Promis
     { id: 'claude-sonnet-5-thinking', name: 'Claude Sonnet 5 Extended Thinking', contextWindow: 1000000 },
     { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5', contextWindow: 500000 },
     { id: 'claude-haiku-5', name: 'Claude Haiku 5', contextWindow: 500000 },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000 },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', contextWindow: 200000 },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', contextWindow: 200000 },
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', contextWindow: 200000 },
   ];
 
   if (status.allowedModels && status.allowedModels !== 'all' && status.allowedModels !== '*') {
@@ -401,8 +397,6 @@ async function runSetModel(modelArg?: string) {
     if ((normalizedTarget === 'sonnet-5' || normalizedTarget === 'sonnet 5') && idNorm === 'claude-sonnet-5') return true;
     if ((normalizedTarget === 'fable-5' || normalizedTarget === 'fable 5' || normalizedTarget === 'fable') && idNorm === 'claude-fable-5') return true;
     if ((normalizedTarget === 'fable-flash' || normalizedTarget === 'fable-5-flash') && idNorm.includes('fable-5-flash')) return true;
-    if ((normalizedTarget === '3.7' || normalizedTarget === '3-7' || normalizedTarget.includes('3.7-sonnet') || normalizedTarget.includes('3-7-sonnet')) && idNorm.includes('3-7-sonnet')) return true;
-    if ((normalizedTarget === '3.5' || normalizedTarget === '3-5' || normalizedTarget.includes('3.5-sonnet') || normalizedTarget.includes('3-5-sonnet')) && idNorm.includes('3-5-sonnet')) return true;
     if ((normalizedTarget.includes('haiku-5.5') || normalizedTarget.includes('haiku 5.5')) && idNorm.includes('haiku-5.5')) return true;
     if ((normalizedTarget.includes('haiku-5') || normalizedTarget.includes('haiku 5')) && idNorm === 'claude-haiku-5') return true;
 

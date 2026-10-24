@@ -225,9 +225,9 @@ async function main() {
     { modelId: 'claude-sonnet-5', displayName: 'Claude Sonnet 5', provider: 'Anthropic', description: 'Ideal balance of speed, intelligence, and coding ability.', contextWindow: 1000000, inputPrice: 3.0, outputPrice: 15.0 },
     { modelId: 'claude-fable-5', displayName: 'Claude Fable 5', provider: 'Anthropic', description: 'Ultra-fast response model optimized for rapid IDE edits.', contextWindow: 1000000, inputPrice: 0.8, outputPrice: 4.0 },
     { modelId: 'claude-opus-5', displayName: 'Claude Opus 5', provider: 'Anthropic', description: 'Most powerful model for complex systems architecture.', contextWindow: 1000000, inputPrice: 15.0, outputPrice: 75.0 },
-    { modelId: 'claude-3-5-sonnet-20241022', displayName: 'Claude 3.5 Sonnet', provider: 'Anthropic', description: 'Flagship model for autonomous agentic coding.', contextWindow: 1000000, inputPrice: 3.0, outputPrice: 15.0 },
-    { modelId: 'claude-3-opus-20240229', displayName: 'Claude 3 Opus', provider: 'Anthropic', description: 'Deep reasoning and complex synthesis model.', contextWindow: 200000, inputPrice: 15.0, outputPrice: 75.0 },
-    { modelId: 'claude-3-5-haiku-20241022', displayName: 'Claude 3.5 Haiku', provider: 'Anthropic', description: 'Lightweight high-speed completion model.', contextWindow: 500000, inputPrice: 0.8, outputPrice: 4.0 },
+    { modelId: 'claude-opus-5.5', displayName: 'Claude Opus 5.5', provider: 'Anthropic', description: 'Deep reasoning, math, and complex synthesis model.', contextWindow: 1000000, inputPrice: 15.0, outputPrice: 75.0 },
+    { modelId: 'claude-sonnet-5.5', displayName: 'Claude Sonnet 5.5', provider: 'Anthropic', description: 'Next-gen flagship model for autonomous agentic coding.', contextWindow: 1000000, inputPrice: 3.0, outputPrice: 15.0 },
+    { modelId: 'claude-haiku-5.5', displayName: 'Claude Haiku 5.5', provider: 'Anthropic', description: 'Lightweight ultra-high-speed completion model.', contextWindow: 500000, inputPrice: 0.8, outputPrice: 4.0 },
   ];
 
   for (const m of models) {

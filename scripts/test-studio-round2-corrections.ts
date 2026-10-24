@@ -46,11 +46,12 @@ async function runVerificationSuite() {
   const expectedLimits: Record<string, { context: number; maxOut: number; thinking: boolean }> = {
     'claude-sonnet-5.5': { context: 1_000_000, maxOut: 8192, thinking: true },
     'claude-opus-5.5': { context: 1_000_000, maxOut: 8192, thinking: true },
-    'claude-3-7-sonnet-20250219': { context: 200_000, maxOut: 8192, thinking: true },
+    'claude-sonnet-5': { context: 1_000_000, maxOut: 8192, thinking: true },
+    'claude-opus-5': { context: 1_000_000, maxOut: 8192, thinking: true },
     'claude-haiku-5.5': { context: 500_000, maxOut: 8192, thinking: false },
-    'claude-3-5-sonnet-20241022': { context: 200_000, maxOut: 8192, thinking: false },
-    'claude-3-5-haiku-20241022': { context: 200_000, maxOut: 8192, thinking: false },
-    'claude-3-opus-20240229': { context: 200_000, maxOut: 4096, thinking: false },
+    'claude-haiku-5': { context: 500_000, maxOut: 8192, thinking: false },
+    'claude-sonnet-4.5': { context: 500_000, maxOut: 8192, thinking: true },
+    'claude-haiku-4.5': { context: 500_000, maxOut: 8192, thinking: false },
   };
 
   let allModelsMatch = true;
@@ -93,9 +94,9 @@ async function runVerificationSuite() {
   }
 
   // Test Context Limit Gateway Validation logic
-  const sonnetLimit = VERIFIED_STUDIO_MODELS.find((m) => m.id === 'claude-3-7-sonnet-20250219')!.contextWindow;
+  const sonnetLimit = VERIFIED_STUDIO_MODELS.find((m) => m.id === 'claude-sonnet-5.5')!.contextWindow;
   const normalPromptTokens = 4500;
-  const excessivePromptTokens = 250_000;
+  const excessivePromptTokens = 1_250_000;
 
   const normalAllowed = normalPromptTokens <= sonnetLimit;
   const excessiveBlocked = excessivePromptTokens > sonnetLimit;
@@ -161,7 +162,7 @@ async function runVerificationSuite() {
     return payload;
   }
 
-  const thinkingPayloadSonnet = buildUpstreamPayload('claude-3-7-sonnet-20250219', true, 0.2);
+  const thinkingPayloadSonnet = buildUpstreamPayload('claude-sonnet-5.5', true, 0.2);
   const thinkingValid =
     thinkingPayloadSonnet.thinking?.type === 'enabled' &&
     thinkingPayloadSonnet.temperature === 1.0 &&

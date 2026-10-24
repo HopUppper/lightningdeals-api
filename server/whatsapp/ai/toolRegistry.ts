@@ -302,7 +302,7 @@ export const DETAILED_PRODUCTS = [
     id: 'prod_cursor_pro',
     name: 'Cursor Pro AI IDE',
     category: 'coding',
-    description: 'AI-first code editor with Claude 3.5 Sonnet codebase indexing, inline code generation, multi-file edits, and instant bug fixing.',
+    description: 'AI-first code editor with Claude Sonnet 5.5 codebase indexing, inline code generation, multi-file edits, and instant bug fixing.',
     features: ['Full Codebase Indexing', 'Multi-File Agent Edits', 'Unlimited Fast AI Completions', 'Terminal & Git Integration'],
     bestFor: 'Full-stack software developers, Python/JS/Rust programmers, DevOps engineers',
   },
@@ -310,16 +310,16 @@ export const DETAILED_PRODUCTS = [
     id: 'prod_claude_max',
     name: 'Claude Max 5x (20M Tokens)',
     category: 'ai',
-    description: 'Massive prepaid Claude 3.5 Sonnet token pool with 200k context window, high concurrency, and zero per-seat lock-in.',
-    features: ['20 Million Tokens Allowance', 'Claude 3.5 Sonnet & Opus Access', 'High RPM / Concurrency', 'No Seat Expiry Restrictions'],
+    description: 'Massive prepaid Claude Sonnet 5.5 token pool with 200k context window, high concurrency, and zero per-seat lock-in.',
+    features: ['20 Million Tokens Allowance', 'Claude Sonnet 5.5 & Opus Access', 'High RPM / Concurrency', 'No Seat Expiry Restrictions'],
     bestFor: 'High-volume AI builders, agentic coding workflows, large document analysis',
   },
   {
     id: 'prod_claude_pro',
     name: 'Claude Pro Account',
     category: 'ai',
-    description: 'Official private Anthropic Claude Pro account with Claude 3.5 Sonnet, Projects workspace, and Artifacts support.',
-    features: ['5x More Usage than Free', 'Access to Claude 3.5 Sonnet', 'Projects & Knowledge Artifacts', 'Priority Access during Peak Hours'],
+    description: 'Official private Anthropic Claude Pro account with Claude Sonnet 5.5, Projects workspace, and Artifacts support.',
+    features: ['5x More Usage than Free', 'Access to Claude Sonnet 5.5', 'Projects & Knowledge Artifacts', 'Priority Access during Peak Hours'],
     bestFor: 'Writers, researchers, analysts, and general AI power users',
   },
   {
@@ -576,7 +576,7 @@ export class ToolRegistry {
     if (matched.id.includes('canva')) {
       activationInfo += 'For Canva Pro, activation is done via a direct email invitation added to your personal Canva account. No password sharing is ever required. Your existing designs and personal folders remain completely private and untouched.';
     } else if (matched.id.includes('cursor')) {
-      activationInfo += 'Cursor Pro is activated directly on your email login or team invite with Claude 3.5 Sonnet codebase access.';
+      activationInfo += 'Cursor Pro is activated directly on your email login or team invite with Claude Sonnet 5.5 codebase access.';
     } else if (matched.id.includes('claude')) {
       activationInfo += 'Claude Max high-throughput access is activated instantly with 20M token allocation via unified endpoint.';
     } else if (matched.id.includes('adobe')) {

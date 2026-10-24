@@ -89,9 +89,6 @@ async function runTests() {
 
     const resOpus5 = isModelAuthorizedForKey('claude-opus-5', trialKey, false);
     assert.strictEqual(resOpus5.allowed, false, 'Opus 5 must be blocked for trial');
-
-    const resOpus3 = isModelAuthorizedForKey('claude-3-opus-20240229', trialKey, false);
-    assert.strictEqual(resOpus3.allowed, false, 'Claude 3 Opus must be blocked for trial');
   });
 
   await runTest('Paid customer can access Opus frontier models', () => {

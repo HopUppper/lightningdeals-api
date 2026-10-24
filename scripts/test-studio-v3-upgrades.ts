@@ -260,8 +260,8 @@ async function runTests() {
           latencyMs: 1420,
         },
         modelB: {
-          modelId: 'claude-3-7-sonnet-20250219',
-          content: 'Here is solution B from Claude 3.7 Sonnet.',
+          modelId: 'claude-sonnet-5.5',
+          content: 'Here is solution B from Claude Sonnet 5.5.',
           usage: { input_tokens: 250, output_tokens: 110, total_tokens: 360 },
           latencyMs: 1180,
         },
@@ -279,8 +279,8 @@ async function runTests() {
       comparison: undefined,
     };
 
-    assert.strictEqual(resolvedMsg.content, 'Here is solution B from Claude 3.7 Sonnet.');
-    assert.strictEqual(resolvedMsg.modelUsed, 'claude-3-7-sonnet-20250219');
+    assert.strictEqual(resolvedMsg.content, 'Here is solution B from Claude Sonnet 5.5.');
+    assert.strictEqual(resolvedMsg.modelUsed, 'claude-sonnet-5.5');
     assert.strictEqual(resolvedMsg.usage?.output_tokens, 110);
     assert.strictEqual(resolvedMsg.comparison, undefined);
 

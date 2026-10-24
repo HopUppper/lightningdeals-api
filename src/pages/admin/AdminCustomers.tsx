@@ -391,7 +391,7 @@ export const AdminCustomers: React.FC = () => {
   const handleToggleStudioAccess = async (cust: CustomerItem, granted?: boolean) => {
     const targetGranted = granted !== undefined ? granted : !cust.hasStudioAccess;
     const confirmMsg = targetGranted
-      ? `Grant full AI Chat Studio access to ${cust.name}? They will immediately be able to use Claude 3.7 & GPT-4o Studio, multimodal vision, and multi-turn chat without an active paid subscription.`
+      ? `Grant full AI Chat Studio access to ${cust.name}? They will immediately be able to use Claude Opus 5.5 & Sonnet 5.5 Studio, multimodal vision, and multi-turn chat without an active paid subscription.`
       : `Revoke AI Chat Studio VIP access from ${cust.name}?`;
 
     if (!window.confirm(confirmMsg)) return;
@@ -1086,7 +1086,7 @@ export const AdminCustomers: React.FC = () => {
                     <div className="font-bold text-fg">
                       {selectedCustomer.hasStudioAccess
                         ? 'Customer has full, unrestricted access to the AI Chat Studio.'
-                        : 'Customer is restricted from multi-turn chat, Claude 3.7 / GPT-4o, and multimodal vision.'}
+                        : 'Customer is restricted from multi-turn chat, Claude Opus 5.5 / Sonnet 5.5, and multimodal vision.'}
                     </div>
                     <div className="text-[11px] text-muted font-sans">
                       {selectedCustomer.hasStudioAccess

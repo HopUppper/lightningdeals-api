@@ -639,7 +639,7 @@ adminWhatsAppRouter.get('/bot-telemetry', async (req: AuthRequest, res: Response
       const msgTotalTokens = meta.tokens?.total || promptTokens + completionTokens;
       const latencyMs = meta.latencyMs || 0;
       const tools = Array.isArray(meta.toolsUsed) ? meta.toolsUsed : [];
-      const model = meta.model || runtimeTelemetry.activeModel || 'claude-3-5-sonnet-20241022';
+      const model = meta.model || runtimeTelemetry.activeModel || 'claude-sonnet-5.5';
       const provider = meta.provider || runtimeTelemetry.activeProvider || 'Opus Max';
 
       totalPromptTokens += promptTokens;
@@ -688,7 +688,7 @@ adminWhatsAppRouter.get('/bot-telemetry', async (req: AuthRequest, res: Response
       totalTokens = Math.max(totalTokens, runtimeTelemetry.totalTokens.totalTokens);
     }
 
-    // Estimated costs (Claude 3.5 Sonnet: $3/1M prompt, $15/1M completion, INR approx 87)
+    // Estimated costs (Claude Sonnet 5.5: $3/1M prompt, $15/1M completion, INR approx 87)
     const estimatedCostUsd = (totalPromptTokens / 1_000_000) * 3.0 + (totalCompletionTokens / 1_000_000) * 15.0;
     const estimatedCostInr = estimatedCostUsd * 87.0;
     const avgLatencyMs = validLatencyCount > 0 ? Math.round(totalLatencyMs / validLatencyCount) : 0;

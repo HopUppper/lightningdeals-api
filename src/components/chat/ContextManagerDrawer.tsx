@@ -593,13 +593,13 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Claude 3.7 Thinking Budget */}
+              {/* Extended Thinking Budget */}
               <div className="space-y-2 p-3 bg-slate-900 border border-[#28334B] rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="font-bold text-slate-200 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Claude 3.7 Thinking Budget</span>
+                      <span>Extended Thinking Budget</span>
                     </span>
                     <p className="text-[11px] text-slate-400">
                       Tokens reserved for step-by-step reasoning

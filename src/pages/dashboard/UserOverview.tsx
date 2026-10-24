@@ -268,7 +268,7 @@ export const UserOverview: React.FC = () => {
                 AI Chat Studio
               </h2>
               <p className="text-xs sm:text-sm text-[#64607d] leading-relaxed">
-                Interact with Claude Sonnet 5.5, Sonnet 3.7, and Haiku 5.5 in a real-time productivity workspace. Upload documents, analyze code diffs, run multi-turn tasks, and generate exportable files.
+                Interact with Claude Sonnet 5.5, Opus 5.5, and Haiku 5.5 in a real-time productivity workspace. Upload documents, analyze code diffs, run multi-turn tasks, and generate exportable files.
               </p>
             </div>
 

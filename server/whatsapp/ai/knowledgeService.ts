@@ -30,7 +30,7 @@ export const DEFAULT_KNOWLEDGE_ARTICLES = [
   {
     category: 'ACTIVATION',
     title: 'Cursor Pro AI IDE Activation & Access',
-    content: 'Cursor Pro is activated directly on your email login or team invite within 15-30 minutes after order payment. You receive full codebase indexing, multi-file edits, unlimited fast AI completions, and frontier model integration (Claude 3.5 Sonnet codebase chat).',
+    content: 'Cursor Pro is activated directly on your email login or team invite within 15-30 minutes after order payment. You receive full codebase indexing, multi-file edits, unlimited fast AI completions, and frontier model integration (Claude Sonnet 5.5 codebase chat).',
     keywords: 'cursor, cursor pro, ide, coding, developer, activation, login, ai ide, sonnet',
     tags: 'activation,cursor,coding',
     priority: 9,
@@ -86,7 +86,7 @@ export const DEFAULT_KNOWLEDGE_ARTICLES = [
   {
     category: 'API_TROUBLESHOOTING',
     title: 'API Error Troubleshooting Guide (401, 429, 500, Model Not Found)',
-    content: 'To troubleshoot API issues without exposing secrets: 1. 401 Unauthorized: Invalid or missing API key. Verify header "Authorization: Bearer <YOUR_LIGHTNING_API_KEY>". 2. 429 Rate Limit / Quota Exceeded: Your 5-hour rolling window allowance or RPM limit is exhausted. Check usage on https://lightningapi.pro/usage or top up balance. 3. 404 Model Not Found: Check available model identifiers at GET /v1/models (e.g. claude-sonnet-5, claude-3-5-sonnet-20241022). 4. 500/502/503: Temporary gateway or upstream provider issue. Never share secret API keys or passwords in WhatsApp.',
+    content: 'To troubleshoot API issues without exposing secrets: 1. 401 Unauthorized: Invalid or missing API key. Verify header "Authorization: Bearer <YOUR_LIGHTNING_API_KEY>". 2. 429 Rate Limit / Quota Exceeded: Your 5-hour rolling window allowance or RPM limit is exhausted. Check usage on https://lightningapi.pro/usage or top up balance. 3. 404 Model Not Found: Check available model identifiers at GET /v1/models (e.g. claude-sonnet-5.5, claude-opus-5.5). 4. 500/502/503: Temporary gateway or upstream provider issue. Never share secret API keys or passwords in WhatsApp.',
     keywords: 'api error, 401, 429, 500, 502, 503, troubleshooting, invalid key, rate limit, quota, broken api',
     tags: 'api,troubleshooting,errors',
     priority: 9,

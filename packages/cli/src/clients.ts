@@ -54,7 +54,6 @@ export const writeGlobalConfig = (cfg: Partial<LightningDealsGlobalConfig>): voi
 
 export const getFriendlyModelName = (modelId: string): string => {
   const m = (modelId || '').toLowerCase().trim();
-  if (m.includes('3-7-sonnet') || m.includes('3.7-sonnet') || m.includes('3-7') || m.includes('3.7')) return 'Claude 3.7 Sonnet';
   if (m.includes('opus-5.5') || m.includes('opus-5-5')) return 'Claude Opus 5.5';
   if (m.includes('sonnet-5.5') || m.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
   if (m.includes('fable-5-flash') || m.includes('fable-flash')) return 'Claude Fable 5 Flash';
@@ -67,9 +66,6 @@ export const getFriendlyModelName = (modelId: string): string => {
   if (m.includes('haiku')) return 'Claude Haiku 4.5';
   if (m.includes('opus-5')) return 'Claude Opus 5';
   if (m.includes('sonnet-5')) return 'Claude Sonnet 5';
-  if (m === 'claude-3-5-sonnet-20241022') return 'Claude 3.5 Sonnet';
-  if (m === 'claude-3-opus-20240229') return 'Claude 3 Opus';
-  if (m === 'claude-3-5-haiku-20241022') return 'Claude 3.5 Haiku';
   return modelId || 'Claude Opus 5.5';
 };
 
@@ -280,10 +276,10 @@ export const configureClient = (
       cleanEnv.ANTHROPIC_MODEL = selectedModel;
       cleanEnv.CLAUDE_MODEL = selectedModel;
       cleanEnv.ANTHROPIC_DEFAULT_MODEL = selectedModel;
-      cleanEnv.ANTHROPIC_SMALL_FAST_MODEL = 'claude-3-5-haiku-20241022';
+      cleanEnv.ANTHROPIC_SMALL_FAST_MODEL = 'claude-haiku-5.5';
       cleanEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = selectedModel.includes('opus') ? selectedModel : 'claude-opus-5.5';
       cleanEnv.ANTHROPIC_DEFAULT_SONNET_MODEL = selectedModel.includes('sonnet') ? selectedModel : 'claude-sonnet-5.5';
-      cleanEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL = 'claude-3-5-haiku-20241022';
+      cleanEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL = 'claude-haiku-5.5';
 
       // Authentically configure custom model option for /model picker in Claude Code
       cleanEnv.ANTHROPIC_CUSTOM_MODEL_OPTION = selectedModel;

@@ -112,14 +112,14 @@ export interface EvaluatedStudioCapabilities {
 // Authoritative Model Registry
 // ---------------------------------------------------------------------------
 export const MODEL_CAPABILITY_REGISTRY: Record<string, ModelCapabilityProfile> = {
-  // Claude 3.7 Sonnet (Paid only, Reasoning + Coding flagship)
-  'claude-3-7-sonnet': {
-    id: 'claude-3-7-sonnet',
-    displayName: 'Claude 3.7 Sonnet',
+  // Claude Sonnet 5.5 (Paid only, Reasoning + Coding flagship)
+  'claude-sonnet-5.5': {
+    id: 'claude-sonnet-5.5',
+    displayName: 'Claude Sonnet 5.5',
     provider: 'anthropic',
     tier: 'paid',
-    contextWindow: 200000,
-    maxOutputTokens: 64000,
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
     capabilities: {
       textGeneration: true,
       reasoning: true,
@@ -129,29 +129,51 @@ export const MODEL_CAPABILITY_REGISTRY: Record<string, ModelCapabilityProfile> =
       structuredOutput: true,
       streaming: true,
       fileInput: true,
-      webSearch: false,
+      webSearch: true,
       imageGeneration: false,
       videoGeneration: false,
     },
   },
-  // Claude 3.5 Sonnet (Paid only)
-  'claude-3-5-sonnet': {
-    id: 'claude-3-5-sonnet',
-    displayName: 'Claude 3.5 Sonnet',
+  // Claude Opus 5.5 (Paid only, Frontier Intelligence)
+  'claude-opus-5.5': {
+    id: 'claude-opus-5.5',
+    displayName: 'Claude Opus 5.5',
     provider: 'anthropic',
     tier: 'paid',
-    contextWindow: 200000,
+    contextWindow: 1000000,
     maxOutputTokens: 8192,
     capabilities: {
       textGeneration: true,
-      reasoning: false,
+      reasoning: true,
       codingAssistance: true,
       imageInput: true,
       toolCalling: true,
       structuredOutput: true,
       streaming: true,
       fileInput: true,
-      webSearch: false,
+      webSearch: true,
+      imageGeneration: false,
+      videoGeneration: false,
+    },
+  },
+  // Claude Opus 5 (Paid only, Deep Logic)
+  'claude-opus-5': {
+    id: 'claude-opus-5',
+    displayName: 'Claude Opus 5',
+    provider: 'anthropic',
+    tier: 'paid',
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
+    capabilities: {
+      textGeneration: true,
+      reasoning: true,
+      codingAssistance: true,
+      imageInput: true,
+      toolCalling: true,
+      structuredOutput: true,
+      streaming: true,
+      fileInput: true,
+      webSearch: true,
       imageGeneration: false,
       videoGeneration: false,
     },
@@ -486,8 +508,8 @@ export function recommendModelForTask(
   if (isCoding) {
     if (isPaidCustomer) {
       return {
-        recommendedModelId: 'claude-3-7-sonnet',
-        displayName: 'Claude 3.7 Sonnet',
+        recommendedModelId: 'claude-sonnet-5.5',
+        displayName: 'Claude Sonnet 5.5',
         primaryCategory: 'coding',
         categoryLabel: 'Coding & Software Architecture',
         reason: 'Recommended for exceptional code generation, refactoring, and complex architectural debugging.',
@@ -581,8 +603,8 @@ export function recommendModelForTask(
 
   // 5. Default Fast General
   return {
-    recommendedModelId: isPaidCustomer ? 'claude-3-5-sonnet' : 'gemini-2.5-flash',
-    displayName: isPaidCustomer ? 'Claude 3.5 Sonnet' : 'Gemini 2.5 Flash',
+    recommendedModelId: isPaidCustomer ? 'claude-sonnet-5.5' : 'gemini-2.5-flash',
+    displayName: isPaidCustomer ? 'Claude Sonnet 5.5' : 'Gemini 2.5 Flash',
     primaryCategory: 'fast_general',
     categoryLabel: 'Fast General Conversation',
     reason: 'Balanced speed, intelligence, and token efficiency for general chat and creative writing.',

@@ -103,7 +103,7 @@ async function runAllTests() {
   console.log('\n--- TEST SUITE 2: Tool-Calling Capability & Loop Defense ---');
 
   runTest('isModelToolCallingSupported verifies tool calling capability by model', () => {
-    assert.strictEqual(isModelToolCallingSupported('claude-3-7-sonnet'), true);
+    assert.strictEqual(isModelToolCallingSupported('claude-sonnet-5.5'), true);
     assert.strictEqual(isModelToolCallingSupported('gpt-4o'), true);
     assert.strictEqual(isModelToolCallingSupported('gemini-2.5-flash'), true);
     assert.strictEqual(isModelToolCallingSupported('deepseek-r1'), false); // DeepSeek R1 is text-only reasoning
@@ -242,14 +242,14 @@ async function runAllTests() {
       userId: 'user_alice',
       isPaidCustomer: true,
       prompt: 'Compare prompt',
-      modelIds: ['claude-3-5-sonnet'],
+      modelIds: ['claude-sonnet-5.5'],
     });
     assert.strictEqual(single.success, false);
     assert.ok(single.error?.includes('requires at least 2 models'));
   });
 
   runTest('Model comparison preserves authentic model identifiers and metadata', () => {
-    const metaA = categorizeModel('claude-3-7-sonnet');
+    const metaA = categorizeModel('claude-sonnet-5.5');
     const metaB = categorizeModel('gemini-2.5-flash');
     assert.strictEqual(metaA.category, 'coding');
     assert.strictEqual(metaB.category, 'long_context');
@@ -361,7 +361,7 @@ async function runAllTests() {
   runTest('recommendModelForTask suggests optimal model based on query intent & account tier', () => {
     // Coding query on paid account
     const recPaidCode = recommendModelForTask('refactor this typescript function to avoid memory leak', true);
-    assert.strictEqual(recPaidCode.recommendedModelId, 'claude-3-7-sonnet');
+    assert.strictEqual(recPaidCode.recommendedModelId, 'claude-sonnet-5.5');
     assert.strictEqual(recPaidCode.primaryCategory, 'coding');
 
     // Coding query on trial account

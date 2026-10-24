@@ -316,7 +316,7 @@ async function runCliModelAndTlsTestSuite() {
     const mockCatalog = [
       { id: 'claude-opus-5.5', name: 'Claude Opus 5.5' },
       { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5' },
-      { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+      { id: 'claude-sonnet-5', name: 'Claude Sonnet 5' },
     ];
 
     // Numeric argument "1" -> mockCatalog[0] -> claude-opus-5.5

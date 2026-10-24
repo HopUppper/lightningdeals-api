@@ -84,7 +84,7 @@ export const StudioOnboardingGuide: React.FC<StudioOnboardingGuideProps> = ({
           </div>
           <p className="font-semibold text-[11.5px] text-[#111827] dark:text-slate-100">Choose Model</p>
           <p className="text-[10.5px] text-[#6b7280] dark:text-slate-400 leading-normal">
-            Switch between Claude 3.7 Sonnet, Claude Opus 5.5, or Sonnet 5.5 anytime.
+            Switch between Claude Sonnet 5.5, Claude Opus 5.5, or Claude Opus 5 anytime.
           </p>
         </div>
 

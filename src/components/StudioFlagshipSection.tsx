@@ -44,7 +44,7 @@ export const StudioFlagshipSection: React.FC = () => {
       title: 'Extended Thinking & Deliberation',
       tag: 'Zero Fluff',
       icon: Brain,
-      desc: 'Inspect step-by-step cognitive reasoning traces, logic verification, and error boundaries with Claude 3.7 & Sonnet 5.5.',
+      desc: 'Inspect step-by-step cognitive reasoning traces, logic verification, and error boundaries with Claude Opus 5.5 & Sonnet 5.5.',
     },
     {
       id: 'files',

@@ -130,7 +130,7 @@ export function isModelAuthorizedForKey(
       return {
         allowed: false,
         code: 'PRO_TIER_REQUIRED',
-        message: `Claude Opus frontier models are exclusive to paid capacity plans. Your trial key includes full access to Claude Sonnet 5.5, Sonnet 3.7, Haiku 5.5, and Fable coding models.`,
+        message: `Claude Opus frontier models are exclusive to paid capacity plans. Your trial key includes full access to Claude Sonnet 5.5, Haiku 5.5, and Fable coding models. `,
       };
     }
   }

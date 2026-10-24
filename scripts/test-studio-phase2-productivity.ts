@@ -75,10 +75,10 @@ async function runTestSuite() {
       'Registry defines Gemini 2.5 Flash as trial tier with streaming'
     );
 
-    const sonnetProfile = MODEL_CAPABILITY_REGISTRY['claude-3-7-sonnet'];
+    const sonnetProfile = MODEL_CAPABILITY_REGISTRY['claude-sonnet-5.5'];
     assert(
       sonnetProfile && sonnetProfile.tier === 'paid' && sonnetProfile.capabilities.reasoning === true,
-      'Registry defines Claude 3.7 Sonnet as paid tier with extended reasoning'
+      'Registry defines Claude Sonnet 5.5 as paid tier with extended reasoning'
     );
 
     // 1.2 Evaluate capabilities for Trial User
@@ -92,7 +92,7 @@ async function runTestSuite() {
     );
 
     // 1.3 Trial user attempting to select paid model gets clear system notice
-    const trialPaidAttempt = resolveStudioCapabilities(trialUser, 'claude-3-7-sonnet');
+    const trialPaidAttempt = resolveStudioCapabilities(trialUser, 'claude-sonnet-5.5');
     assert(
       typeof trialPaidAttempt.systemNotice === 'string' &&
       trialPaidAttempt.systemNotice.includes('requires a paid subscription'),
@@ -101,7 +101,7 @@ async function runTestSuite() {
 
     // 1.4 Evaluate capabilities for Paid User
     const paidUser = { id: 'usr_paid_vip', isPaid: true, tokenBalance: 5000000 };
-    const paidCaps = resolveStudioCapabilities(paidUser, 'claude-3-7-sonnet');
+    const paidCaps = resolveStudioCapabilities(paidUser, 'claude-sonnet-5.5');
     assert(
       paidCaps.entitlements.isPaidCustomer === true &&
       paidCaps.entitlements.maxUploadSizeBytes === 25 * 1024 * 1024 &&

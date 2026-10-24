@@ -201,7 +201,7 @@ const routes: RouteConfig[] = [
     outFile: 'models.html',
     component: ModelsPage,
     title: 'Supported Models Catalog — LightningDeals AI Gateway',
-    description: 'Explore supported Claude models: Sonnet 3.5, Opus 3, and Haiku 3.5 with 1M context windows, tool calling, and streaming SSE responses.',
+    description: 'Explore supported Claude models: Claude Sonnet 5.5, Claude Opus 5.5, and Claude Haiku 5.5 with 1M context windows, tool calling, and streaming SSE responses.',
     schemaJson: {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',

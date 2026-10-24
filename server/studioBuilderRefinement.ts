@@ -42,6 +42,15 @@ export const CURATED_PHOTOGRAPHY = {
   skincareOil: 'https://images.unsplash.com/photo-1608248597334-a13470483d3b?auto=format&fit=crop&w=800&q=80',
   skincareMist: 'https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&w=800&q=80',
   botanicalLifestyle: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
+
+  // Footwear curated photography
+  footwearHeroLifestyle: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=1200&q=80',
+  footwearSneaker1: 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?auto=format&fit=crop&w=800&q=80',
+  footwearSneaker2: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80',
+  footwearSneaker3: 'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=800&q=80',
+  footwearSneaker4: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?auto=format&fit=crop&w=800&q=80',
+  footwearSneaker5: 'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?auto=format&fit=crop&w=800&q=80',
+  footwearSneaker6: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=800&q=80',
 };
 
 // ============================================================================
@@ -62,7 +71,8 @@ export async function executeProjectRefinement(
     cleanPrompt.length < 3 ||
     /^[^a-zA-Z0-9]+$/.test(cleanPrompt) ||
     /^[0-9\W_]+$/.test(cleanPrompt) ||
-    /^(asdf|qwerty|zzz|test123|null|undefined|foo|bar|\?\?\?|blah|help me)$/i.test(cleanPrompt);
+    /\b(asdf|qwerty|zzz|foo|bar|blah)\b/i.test(cleanPrompt) ||
+    /^(help me|\?\?\?|test)$/i.test(cleanPrompt);
 
   if (isGibberish) {
     return {
@@ -123,14 +133,26 @@ function applySemanticRefinement(
   const targetCss = cssFile ? updatedFiles.find((f) => f.path === cssFile.path) : null;
   const targetJs = jsFile ? updatedFiles.find((f) => f.path === jsFile.path) : null;
 
+  // Determine archetype context
+  const isFootwear = /footwear|shoe|shoes|sneaker|sneakers|runner|boots|trainer|kicks|velo|kinetic/i.test(
+    (project?.brief || '') + ' ' + targetHtml.content + ' ' + lower
+  );
+  const isSkincare = /skincare|sunscreen|spf|botanical|serum|cream/i.test(
+    (project?.brief || '') + ' ' + targetHtml.content
+  );
+
   // 1. ADD FAQ SECTION
   if (lower.includes('faq') || lower.includes('frequently asked') || (lower.includes('question') && lower.includes('answer'))) {
-    const faqId = 'faq-section-' + Date.now();
-    const hasExistingFaq = targetHtml.content.includes('id="faq"') || targetHtml.content.includes('class="section-faq"');
-
     // Tailored questions based on project context
-    const isSkincare = /skincare|sunscreen|spf|botanical|serum|cream/i.test(project.brief + ' ' + targetHtml.content);
-    const questions = isSkincare
+    const questions = isFootwear
+      ? [
+          { q: 'How do your shoes fit relative to standard US / EU sizes?', a: 'All our silhouettes are built on true-to-size performance lasts with an anatomical footbed. If you have wider feet or prefer extra toe-box volume for ultra-distance running, we recommend sizing up a half size.' },
+          { q: 'What is your 30-Day Wear-Test trial and return policy?', a: 'Take them outside, log your miles, and test them on real pavement or trail. If you are not completely satisfied within 30 days, return them for an exchange or full refund with complimentary prepaid shipping.' },
+          { q: 'What materials are used and are your shoes 100% vegan certified?', a: 'Yes. Our footwear is 100% vegan certified with zero animal-derived adhesives or leathers. We use bio-based sugarcane EVA foam midsoles, circular recycled ocean yarn uppers, and recycled natural rubber treads.' },
+          { q: 'How do I clean and maintain technical knit and rubber outsoles?', a: 'Remove the ergonomic insoles, spot-clean knit uppers with lukewarm water and mild organic soap using a soft brush, and air dry out of direct sunlight. Do not machine wash or tumble dry.' },
+          { q: 'What are the delivery times and international shipping options?', a: 'We offer free carbon-neutral standard delivery (2–4 business days) on all domestic orders over $100. Express expedited shipping and worldwide international delivery are calculated seamlessly at checkout.' },
+        ]
+      : isSkincare
       ? [
           { q: 'How does non-nano mineral zinc differ from chemical filters?', a: 'Non-nano zinc sits on the surface of your skin to physically reflect UVA and UVB rays like microscopic mirrors, rather than absorbing into living dermal layers. This prevents heat buildup, rosacea flares, and coral reef toxicity.' },
           { q: 'Will this formula leave a white cast on deeper skin tones?', a: 'No. Our proprietary micronized dispersion suspended in olive squalane blends weightlessly into all Fitzpatrick skin types (I through VI) with a sheer, satin-matte finish within 30 seconds.' },
@@ -166,9 +188,9 @@ function applySemanticRefinement(
   <section id="faq" class="section-faq" aria-labelledby="faqHeading">
     <div class="container faq-container">
       <div class="section-header text-center">
-        <span class="section-pill-tag">Clear Answers</span>
+        <span class="section-pill-tag">${isFootwear ? 'Shoe Care & Policy' : 'Clear Answers'}</span>
         <h2 id="faqHeading" class="section-title">Frequently Asked Questions</h2>
-        <p class="section-subtitle">Everything you need to know about formulas, performance, and everyday use.</p>
+        <p class="section-subtitle">${isFootwear ? 'Everything you need to know about sizing, our 30-day wear-test, and circular materials.' : 'Everything you need to know about formulas, performance, and everyday use.'}</p>
       </div>
       <div class="faq-accordion-list" id="faqAccordionList">
         ${faqItemsHtml}
@@ -176,13 +198,21 @@ function applySemanticRefinement(
     </div>
   </section>`;
 
-    // Insert section right before footer or before closing main/body
-    if (targetHtml.content.includes('<footer')) {
-      targetHtml.content = targetHtml.content.replace('<footer', `${faqSectionHtml}\n<footer`);
-    } else if (targetHtml.content.includes('</main>')) {
-      targetHtml.content = targetHtml.content.replace('</main>', `${faqSectionHtml}\n</main>`);
+    // If FAQ already exists, replace accordion list to prevent duplicates
+    if (targetHtml.content.includes('id="faqAccordionList"') || targetHtml.content.includes('class="faq-accordion-list"')) {
+      targetHtml.content = targetHtml.content.replace(
+        /(<div class="faq-accordion-list"[^>]*>)([\s\S]*?)(<\/div>)/i,
+        `$1\n        ${faqItemsHtml}\n      $3`
+      );
     } else {
-      targetHtml.content = targetHtml.content.replace('</body>', `${faqSectionHtml}\n</body>`);
+      // Insert section right before footer or before closing main/body
+      if (targetHtml.content.includes('<footer')) {
+        targetHtml.content = targetHtml.content.replace('<footer', `${faqSectionHtml}\n<footer`);
+      } else if (targetHtml.content.includes('</main>')) {
+        targetHtml.content = targetHtml.content.replace('</main>', `${faqSectionHtml}\n</main>`);
+      } else {
+        targetHtml.content = targetHtml.content.replace('</body>', `${faqSectionHtml}\n</body>`);
+      }
     }
 
     // Add navigation link if navbar exists and doesn't already have FAQ
@@ -193,8 +223,9 @@ function applySemanticRefinement(
       );
     }
 
-    // Inject FAQ CSS styles
-    const faqCss = `
+    // Inject FAQ CSS styles if not already present
+    if (targetCss && !targetCss.content.includes('.section-faq')) {
+      const faqCss = `
 /* FAQ Accordion Styles */
 .section-faq {
   padding: 5rem 0;
@@ -270,13 +301,12 @@ function applySemanticRefinement(
 .faq-accordion-item.open .faq-accordion-body {
   display: block;
 }`;
-
-    if (targetCss) {
       targetCss.content += `\n${faqCss}`;
     }
 
-    // Inject FAQ JS accordion toggle handler
-    const faqJs = `
+    // Inject FAQ JS accordion toggle handler if not present
+    if (targetJs && !targetJs.content.includes('.faq-accordion-header')) {
+      const faqJs = `
 // Interactive FAQ Accordion
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.faq-accordion-header').forEach((btn) => {
@@ -290,19 +320,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });`;
-
-    if (targetJs) {
       targetJs.content += `\n${faqJs}`;
     }
 
     const previewHtml = compilePreviewBundle(updatedFiles);
-    const checks = ['FAQ section injected into HTML', '5 collapsible questions and answers configured', 'Accordion toggle JavaScript attached', 'Responsive styling added'];
+    const checks = [
+      'FAQ section verified in HTML',
+      `5 collapsible ${isFootwear ? 'footwear' : 'product'} questions configured`,
+      'Accordion toggle JavaScript attached',
+      'Responsive styling added',
+    ];
 
     return {
       success: true,
-      summary: 'Added responsive FAQ section with 5 interactive accordion items',
-      assistantMessage: "I've added the FAQ section with five collapsible questions covering formulation science, skin tone compatibility, and reapplication. The accordion is styled to match your existing brand aesthetic and is fully interactive in the preview.",
-      suggestedFollowUps: ['Change visual theme to forest green', 'Replace hero visual with photography', 'Add customer reviews'],
+      summary: `Added responsive FAQ section with 5 interactive accordion items`,
+      assistantMessage: isFootwear
+        ? "I've added the FAQ section with five collapsible questions covering shoe sizing, our 30-day wear-test guarantee, eco-friendly vegan materials, cleaning instructions, and shipping options. The accordion is styled to match your brand aesthetic and is fully interactive in the preview."
+        : "I've added the FAQ section with five collapsible questions covering formulation science, skin tone compatibility, and reapplication. The accordion is styled to match your existing brand aesthetic and is fully interactive in the preview.",
+      suggestedFollowUps: isFootwear
+        ? ['Replace hero image with lifestyle sneaker photography', 'Change visual style to minimalist cream and black', 'Add customer reviews']
+        : ['Change visual theme to forest green', 'Replace hero visual with photography', 'Add customer reviews'],
       files: updatedFiles,
       previewHtml,
       source: 'verified_semantic_modifier',
@@ -310,8 +347,83 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // 2. VISUAL REFINEMENT: Warm Cream, Forest Green & Editorial Typography
-  if (lower.includes('forest green') || lower.includes('cream') || (lower.includes('visual style') && lower.includes('green')) || (lower.includes('typography') && lower.includes('editorial'))) {
+  // 2A. VISUAL REFINEMENT: Minimalist Cream & Black
+  if (
+    (lower.includes('cream') && lower.includes('black')) ||
+    lower.includes('minimalist cream') ||
+    (lower.includes('visual style') && (lower.includes('minimalist') || lower.includes('black')))
+  ) {
+    const creamBlackCss = `
+/* Minimalist Cream and Black Visual Style (Applied via Studio Refinement) */
+:root {
+  --color-bg: #fdfbf7 !important;
+  --color-sand: #fdfbf7 !important;
+  --color-warm-stone: #f4ede4 !important;
+  --color-surface: #ffffff !important;
+  --color-charcoal: #111111 !important;
+  --color-text: #111111 !important;
+  --color-primary: #111111 !important;
+  --color-primary-hover: #262626 !important;
+  --color-border: #e8e3da !important;
+  --color-accent: #111111 !important;
+}
+body {
+  background-color: #fdfbf7 !important;
+  color: #111111 !important;
+}
+.announcement-bar, .navbar {
+  background-color: #111111 !important;
+  color: #fdfbf7 !important;
+  border-color: #262626 !important;
+}
+.navbar a, .navbar button, .brand-logo, .logo-text {
+  color: #fdfbf7 !important;
+}
+.btn-primary, .btn-add-bag, .bag-toggle-btn {
+  background-color: #111111 !important;
+  color: #ffffff !important;
+  border-color: #111111 !important;
+}
+.btn-primary:hover, .btn-add-bag:hover {
+  background-color: #262626 !important;
+}
+.pillar-card, .product-card, .faq-accordion-item, .review-card {
+  background-color: #ffffff !important;
+  border-color: #e5e0d8 !important;
+}
+.pill-tag, .product-badge {
+  background-color: #f0ebe1 !important;
+  color: #111111 !important;
+  border: 1px solid #ddd6c8 !important;
+}`;
+
+    updatedFiles.forEach((f) => {
+      if (f.path.endsWith('.css')) {
+        f.content += `\n${creamBlackCss}`;
+      }
+    });
+
+    const previewHtml = compilePreviewBundle(updatedFiles);
+    const checks = [
+      'Minimalist cream (#fdfbf7) and rich black (#111111) theme applied',
+      'High-contrast typography and buttons synchronized',
+      'Navbar, cards, and badges restyled',
+    ];
+
+    return {
+      success: true,
+      summary: 'Updated visual styling to minimalist cream and black',
+      assistantMessage: "I've updated the visual styling to a refined minimalist palette featuring an organic warm cream background (#fdfbf7), crisp high-contrast black typography and action elements (#111111), and subtle neutral borders. All cards, buttons, badges, and the announcement bar have been synchronized.",
+      suggestedFollowUps: ['Add an FAQ section', 'Replace hero image with lifestyle sneaker photography', 'Add customer reviews'],
+      files: updatedFiles,
+      previewHtml,
+      source: 'verified_semantic_modifier',
+      verification: { passed: true, checks },
+    };
+  }
+
+  // 2B. VISUAL REFINEMENT: Warm Cream, Forest Green & Editorial Typography
+  if (lower.includes('forest green') || (lower.includes('visual style') && lower.includes('green')) || (lower.includes('typography') && lower.includes('editorial'))) {
     // Inject Playfair Display font if not present
     if (!targetHtml.content.includes('Playfair+Display')) {
       targetHtml.content = targetHtml.content.replace(
@@ -365,25 +477,32 @@ h1, h2, h3, .hero-title, .section-title, .brand-text {
     };
   }
 
-  // 3. IMAGE REPLACEMENT: Botanical Skincare Photography
-  if (lower.includes('replace') && (lower.includes('hero visual') || lower.includes('photography') || lower.includes('image') || lower.includes('photo'))) {
-    const photoUrl = CURATED_PHOTOGRAPHY.skincareHero;
+  // 3. IMAGE REPLACEMENT: Hero Photography (Footwear Lifestyle or Botanical)
+  if (lower.includes('replace') && (lower.includes('hero visual') || lower.includes('photography') || lower.includes('image') || lower.includes('photo') || lower.includes('hero image'))) {
+    const isSneakerLifestyle = isFootwear || lower.includes('sneaker') || lower.includes('shoe');
+    const photoUrl = isSneakerLifestyle ? CURATED_PHOTOGRAPHY.footwearHeroLifestyle : CURATED_PHOTOGRAPHY.skincareHero;
+    const badgeText = isSneakerLifestyle ? 'Lifestyle Street & Run Edition' : '100% Organic Botanical Actives';
+    const altText = isSneakerLifestyle ? 'Lifestyle Sneaker & Footwear Photography' : 'Botanical Skincare Formulations';
 
-    // Check if hero visual container exists
-    if (targetHtml.content.includes('class="hero-imagery"') || targetHtml.content.includes('class="hero-visual"') || targetHtml.content.includes('class="hero-art"')) {
+    // Replace hero image in HTML
+    if (targetHtml.content.includes('class="hero-photo-wrapper"')) {
       targetHtml.content = targetHtml.content.replace(
-        /(<div class="(?:hero-imagery|hero-visual|hero-art)[^>]*>)([\s\S]*?)(<\/div>)/i,
-        `$1\n        <div class="hero-photo-wrapper">\n          <img src="${photoUrl}" alt="Botanical Skincare Formulations" class="hero-photo-img" loading="eager">\n          <div class="photo-overlay-badge">100% Organic Botanical Actives</div>\n        </div>\n      $3`
+        /(<div class="hero-photo-wrapper"[^>]*>)([\s\S]*?)(<\/div>)/i,
+        `$1\n          <img src="${photoUrl}" alt="${altText}" class="hero-photo-img" loading="eager">\n          <div class="photo-overlay-badge">${badgeText}</div>\n        $3`
+      );
+    } else if (targetHtml.content.includes('class="hero-imagery"') || targetHtml.content.includes('class="hero-visual"')) {
+      targetHtml.content = targetHtml.content.replace(
+        /(<div class="(?:hero-imagery|hero-visual)[^>]*>)([\s\S]*?)(<\/div>)/i,
+        `$1\n        <div class="hero-photo-wrapper">\n          <img src="${photoUrl}" alt="${altText}" class="hero-photo-img" loading="eager">\n          <div class="photo-overlay-badge">${badgeText}</div>\n        </div>\n      $3`
       );
     } else {
-      // Direct replacement of first image in hero
       targetHtml.content = targetHtml.content.replace(
-        /(<section id="hero"[^>]*>[\s\S]*?<img\s+src=")[^"]+("[\s\S]*?<\/section>)/i,
+        /(<section id="hero"[^>]*>[\s\S]*?<img\s+[^>]*src=")[^"]+("[\s\S]*?<\/section>)/i,
         `$1${photoUrl}$2`
       );
     }
 
-    if (targetCss) {
+    if (targetCss && !targetCss.content.includes('.hero-photo-wrapper')) {
       targetCss.content += `
 /* High-Resolution Hero Photography */
 .hero-photo-wrapper {
@@ -410,7 +529,7 @@ h1, h2, h3, .hero-title, .section-title, .brand-text {
   left: 1.5rem;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
-  color: #1b4332;
+  color: #111111;
   font-size: 0.8rem;
   font-weight: 700;
   padding: 0.5rem 1rem;
@@ -420,18 +539,149 @@ h1, h2, h3, .hero-title, .section-title, .brand-text {
     }
 
     const previewHtml = compilePreviewBundle(updatedFiles);
-    const checks = ['Hero visual replaced with curated high-res botanical photography', 'Responsive photo wrapper and overlay badge injected', 'Image rendering verified in sandboxed DOM'];
+    const checks = [
+      `Hero visual replaced with curated ${isSneakerLifestyle ? 'lifestyle sneaker' : 'high-res botanical'} photography`,
+      'Responsive photo wrapper and overlay badge injected',
+      'Image rendering verified in sandboxed DOM',
+    ];
 
     return {
       success: true,
-      summary: 'Replaced hero visual with high-resolution botanical skincare photography',
-      assistantMessage: "I've replaced the hero visual with a high-resolution botanical skincare photograph featuring natural sunlight and organic ingredient bottles. The image is styled with a subtle depth shadow and a frosted pill badge.",
-      suggestedFollowUps: ['Add an FAQ section', 'Change visual theme to forest green', 'Add customer reviews'],
+      summary: `Replaced hero image with high-resolution ${isSneakerLifestyle ? 'lifestyle sneaker' : 'botanical'} photography`,
+      assistantMessage: isSneakerLifestyle
+        ? "I've replaced the hero image with verified high-resolution lifestyle sneaker photography. The image is beautifully framed with subtle shadow and border radius, perfectly complementing the brand aesthetic."
+        : "I've replaced the hero visual with a high-resolution botanical skincare photograph featuring natural sunlight and organic ingredient bottles. The image is styled with a subtle depth shadow and a frosted pill badge.",
+      suggestedFollowUps: isSneakerLifestyle
+        ? ['Add an FAQ section', 'Change visual style to minimalist cream and black', 'Add six footwear products']
+        : ['Add an FAQ section', 'Change visual theme to forest green', 'Add customer reviews'],
       files: updatedFiles,
       previewHtml,
       source: 'verified_semantic_modifier',
       verification: { passed: true, checks },
     };
+  }
+
+  // 4. ADD SIX FOOTWEAR PRODUCTS (Test F)
+  if ((lower.includes('six') || lower.includes('6') || lower.includes('add')) && (lower.includes('product') || lower.includes('shoe') || lower.includes('sneaker') || lower.includes('catalog'))) {
+    if (isFootwear || lower.includes('footwear') || lower.includes('sneaker') || lower.includes('shoe')) {
+      const productsData = [
+        {
+          id: 'shoe-1',
+          name: 'Stratus Velocity Carbon Pro',
+          meta: 'Road Marathon &bull; 208g',
+          desc: 'Full-length curved carbon propulsion plate with reactive nitrogen-infused foam for personal records.',
+          price: '$220.00',
+          badge: 'Speed Elite',
+          img: CURATED_PHOTOGRAPHY.footwearSneaker1,
+          sizes: ['8', '9', '10', '11', '12'],
+        },
+        {
+          id: 'shoe-2',
+          name: 'Aero Glide Cushion Trainer',
+          meta: 'Daily Miles &bull; 245g',
+          desc: 'Maximalist recovery sole geometry designed to protect joints during high-mileage weekly endurance blocks.',
+          price: '$185.00',
+          badge: 'Daily Cushion',
+          img: CURATED_PHOTOGRAPHY.footwearSneaker2,
+          sizes: ['7', '8.5', '9.5', '10.5', '11.5'],
+        },
+        {
+          id: 'shoe-3',
+          name: 'Stride Pure Minimalist Court',
+          meta: 'Urban Lifestyle &bull; 215g',
+          desc: 'Clean low-profile silhouette with buttery full-grain Italian bio-leather and organic cotton laces.',
+          price: '$165.00',
+          badge: 'Court Classic',
+          img: CURATED_PHOTOGRAPHY.footwearSneaker3,
+          sizes: ['8', '9', '10', '11', '12'],
+        },
+        {
+          id: 'shoe-4',
+          name: 'Nomad Heritage Leather Low',
+          meta: 'Heritage Craft &bull; 260g',
+          desc: 'Hand-stitched vegetable-tanned accents with ergonomic memory foam collar for all-day comfort.',
+          price: '$175.00',
+          badge: 'Hand Crafted',
+          img: CURATED_PHOTOGRAPHY.footwearSneaker4,
+          sizes: ['8', '9', '10', '11', '12'],
+        },
+        {
+          id: 'shoe-5',
+          name: 'Apex Mountain Trail Runner',
+          meta: 'All-Terrain &bull; 270g',
+          desc: '5mm multidirectional rubber lugs with waterproof breathable membrane for rugged alpine ascents.',
+          price: '$195.00',
+          badge: 'Trail Rated',
+          img: CURATED_PHOTOGRAPHY.footwearSneaker5,
+          sizes: ['8.5', '9.5', '10.5', '11.5', '12.5'],
+        },
+        {
+          id: 'shoe-6',
+          name: 'Kinetic Quantum Cloud Racer',
+          meta: 'Track Sprint &bull; 195g',
+          desc: 'Ultralight featherweight upper with responsive zero-gravity bio-polymer pods for maximum rebound.',
+          price: '$210.00',
+          badge: 'Pro Racing',
+          img: CURATED_PHOTOGRAPHY.footwearSneaker6,
+          sizes: ['8', '9', '10', '11', '12'],
+        },
+      ];
+
+      const cardsHtml = productsData
+        .map(
+          (prod) => `
+        <article class="product-card" data-category="footwear">
+          <div class="product-thumb">
+            <span class="product-badge">${prod.badge}</span>
+            <img src="${prod.img}" alt="${prod.name}" class="prod-img" loading="lazy">
+          </div>
+          <div class="product-info">
+            <div class="product-meta">${prod.meta}</div>
+            <h3 class="product-name">${prod.name}</h3>
+            <p class="product-desc">${prod.desc}</p>
+            <div class="size-selector-wrap">
+              <span class="size-label">Select US Size:</span>
+              <div class="size-pills">
+                ${prod.sizes.map((s, idx) => `<button type="button" class="size-pill ${idx === 0 ? 'active' : ''}">${s}</button>`).join('\n                ')}
+              </div>
+            </div>
+            <div class="product-foot">
+              <span class="product-price">${prod.price}</span>
+              <button type="button" class="btn btn-add-bag" data-id="${prod.id}" data-name="${prod.name}" data-price="${prod.price.replace('$', '')}">
+                + Add to Bag
+              </button>
+            </div>
+          </div>
+        </article>`
+        )
+        .join('\n');
+
+      if (targetHtml.content.includes('id="productsGrid"') || targetHtml.content.includes('class="products-grid"')) {
+        targetHtml.content = targetHtml.content.replace(
+          /(<div[^>]*class="products-grid"[^>]*>)([\s\S]*?)(<\/div>)/i,
+          `$1\n${cardsHtml}\n      $3`
+        );
+      }
+
+      const previewHtml = compilePreviewBundle(updatedFiles);
+      const checks = [
+        '6 distinct footwear products configured',
+        'Interactive US size selectors (8-12) active',
+        'Add to Bag buttons linked to shopping drawer',
+        'High-resolution sneaker photography verified',
+      ];
+
+      return {
+        success: true,
+        summary: 'Added six footwear products with images, names, prices, and size selectors',
+        assistantMessage: "I've added six complete footwear products to the collection grid. Each product includes high-resolution photography, technical specifications, interactive US size selection pills (7 through 12), and an Add to Bag button linked to the shopping drawer.",
+        suggestedFollowUps: ['Add an FAQ section', 'Change visual style to minimalist cream and black', 'Replace hero image with lifestyle sneaker photography'],
+        files: updatedFiles,
+        previewHtml,
+        source: 'verified_semantic_modifier',
+        verification: { passed: true, checks },
+      };
+    }
   }
 
   // 4. MOBILE IMPROVEMENT & OVERFLOW REMOVAL

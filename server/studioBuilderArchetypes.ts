@@ -27,19 +27,25 @@ export interface ProjectFile {
 export function detectProjectArchetype(brief: string, categoryHint?: string): string {
   const text = (brief + ' ' + (categoryHint || '')).toLowerCase();
 
+  if (/(footwear|shoe|shoes|sneaker|sneakers|runner|runners|boots|trainer|trainers|kicks|sandals|footwear brand)/i.test(text)) {
+    return 'footwear';
+  }
   if (/(sunscreen|sunveil|spf|sun protection|sun care|mineral sun)/i.test(text)) {
     return 'sunscreen';
+  }
+  if (/(writing assistant|ai writer|copywriting|ai copywriter|content assistant|ai writing|writing tool)/i.test(text)) {
+    return 'ai_writer';
   }
   if (/(dashboard|analytics|kpi|metrics|admin portal|crm|sales report|transaction table|revenue chart|telemetry)/i.test(text)) {
     return 'dashboard';
   }
-  if (/(restaurant|food|dining|cuisine|menu|dishes|dosa|dosai|south indian|curry|cafe|bistro|\bbar\b|bakery|reservation|chef|thali|tiffin)/i.test(text) && !text.includes('bar chart')) {
+  if (/(restaurant|food|dining|cuisine|menu|dishes|dosa|dosai|south indian|curry|cafe|bistro|\bbar\b|bakery|reservation|chef|thali|tiffin|vegetarian|vegan|plant-based)/i.test(text) && !text.includes('bar chart')) {
     return 'restaurant';
   }
   if (/(portfolio|photography|photographer|creative director|design director|designer portfolio|case study|exhibition|photo gallery|art gallery)/i.test(text)) {
     return 'portfolio';
   }
-  if (/(skincare store|storefront|ecommerce|store|shop|products|cart|checkout|retail|clothing|catalog)/i.test(text)) {
+  if (/(skincare store|storefront|ecommerce|store|shop|products|cart|checkout|retail|clothing|catalog|apparel)/i.test(text)) {
     return 'store';
   }
   if (/(productivity application|productivity app|kanban|task manager|todo app|project management app|workspace app|editable records|task board)/i.test(text)) {
@@ -57,11 +63,19 @@ export function detectProjectArchetype(brief: string, categoryHint?: string): st
 
 export function synthesizeRestaurantWebsite(brief: string): ProjectFile[] {
   const cleanTitle = brief.replace(/^(build|create|make|design)\s+(a|an)?\s*/i, '').trim();
-  const isSouthIndian = /south\s*indian|dosai?|tiffin|cheyy?ttinad|curry|thali/i.test(brief);
-  const restaurantName = isSouthIndian ? 'Dakshin Rasoi' : 'The Copper Kettle';
-  const tagline = isSouthIndian
-    ? 'Heirloom South Indian Recipes, Crisp Dosais & Coastal Spices'
-    : 'Artisanal Seasonal Dining & Heirloom Flavors';
+  const isSouthIndian = /south\s*indian|dosai?|tiffin|cheyy?ttinad|thali/i.test(brief);
+  const isVegetarianCafe = /vegetarian|vegan|plant-based|cafe|organic cafe|matcha/i.test(brief);
+
+  let restaurantName = 'The Copper Kettle';
+  let tagline = 'Artisanal Seasonal Dining & Heirloom Flavors';
+
+  if (isSouthIndian) {
+    restaurantName = 'Dakshin Rasoi';
+    tagline = 'Heirloom South Indian Recipes, Crisp Dosais & Coastal Spices';
+  } else if (isVegetarianCafe) {
+    restaurantName = 'Verdant Botanical Cafe';
+    tagline = 'Organic Plant-Based Nourish Bowls, Artisanal Tartines & Specialty Coffee';
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -103,8 +117,8 @@ export function synthesizeRestaurantWebsite(brief: string): ProjectFile[] {
   <header id="home" class="hero">
     <div class="container hero-grid">
       <div class="hero-text">
-        <div class="badge">Culinary Tradition &bull; Fresh Ingredients</div>
-        <h1>${isSouthIndian ? 'Authentic South Indian Culinary Artistry' : 'Artisanal Cuisine Crafted With Passion'}</h1>
+        <div class="badge">${isVegetarianCafe ? 'Organic Harvest &bull; Farm-to-Table' : 'Culinary Tradition &bull; Fresh Ingredients'}</div>
+        <h1>${isSouthIndian ? 'Authentic South Indian Culinary Artistry' : isVegetarianCafe ? 'Modern Plant-Based Living & Specialty Coffee' : 'Artisanal Cuisine Crafted With Passion'}</h1>
         <p class="hero-desc">${tagline}. Every recipe is stone-ground, slow-simmered, and prepared fresh daily without artificial additives.</p>
         <div class="hero-actions">
           <a href="#menu" class="btn btn-primary btn-lg">Explore Menu</a>
@@ -134,10 +148,10 @@ export function synthesizeRestaurantWebsite(brief: string): ProjectFile[] {
       <!-- Category Filter Tabs -->
       <div class="menu-tabs">
         <button type="button" class="tab-btn active" data-category="all">Full Menu</button>
-        <button type="button" class="tab-btn" data-category="tiffin">Tiffin & Dosais</button>
-        <button type="button" class="tab-btn" data-category="curries">Coastal Curries</button>
-        <button type="button" class="tab-btn" data-category="thali">Royal Thali</button>
-        <button type="button" class="tab-btn" data-category="beverages">Desserts & Brews</button>
+        <button type="button" class="tab-btn" data-category="tiffin">${isVegetarianCafe ? 'Tartines & Bowls' : 'Tiffin & Dosais'}</button>
+        <button type="button" class="tab-btn" data-category="curries">${isVegetarianCafe ? 'Plant Mains' : 'Coastal Curries'}</button>
+        <button type="button" class="tab-btn" data-category="thali">${isVegetarianCafe ? 'Harvest Platters' : 'Royal Thali'}</button>
+        <button type="button" class="tab-btn" data-category="beverages">${isVegetarianCafe ? 'Matcha & Brews' : 'Desserts & Brews'}</button>
       </div>
 
       <!-- Menu Grid -->
@@ -145,10 +159,10 @@ export function synthesizeRestaurantWebsite(brief: string): ProjectFile[] {
         <!-- Item 1 -->
         <div class="dish-card" data-category="tiffin">
           <div class="dish-header">
-            <h3>Ghee Roast Paper Dosai</h3>
-            <span class="dish-price">₹260</span>
+            <h3>${isVegetarianCafe ? 'Avocado & Truffle Sourdough Tartine' : 'Ghee Roast Paper Dosai'}</h3>
+            <span class="dish-price">${isVegetarianCafe ? '₹340' : '₹260'}</span>
           </div>
-          <p class="dish-desc">Crisp, golden crepe roasted in pure organic A2 ghee, accompanied by coconut, tomato-onion chutneys, and slow-boiled drumstick sambar.</p>
+          <p class="dish-desc">${isVegetarianCafe ? 'Whipped organic Haas avocado, shaved black winter truffle, fermented chili flakes, and toasted hemp seeds on heirloom sourdough.' : 'Crisp, golden crepe roasted in pure organic A2 ghee, accompanied by coconut, tomato-onion chutneys, and slow-boiled drumstick sambar.'}</p>
           <div class="dish-tags">
             <span class="dish-tag tag-veg">🌱 Vegetarian</span>
             <span class="dish-tag">Bestseller</span>
@@ -158,10 +172,10 @@ export function synthesizeRestaurantWebsite(brief: string): ProjectFile[] {
         <!-- Item 2 -->
         <div class="dish-card" data-category="tiffin">
           <div class="dish-header">
-            <h3>Kanchipuram Idli Platter</h3>
-            <span class="dish-price">₹210</span>
+            <h3>${isVegetarianCafe ? 'Golden Turmeric Quinoa Nourish Bowl' : 'Kanchipuram Idli Platter'}</h3>
+            <span class="dish-price">${isVegetarianCafe ? '₹390' : '₹210'}</span>
           </div>
-          <p class="dish-desc">Steamed rice cakes spiced with crushed black pepper, ginger, curry leaves, and cumin, served with roasted shallot chutney.</p>
+          <p class="dish-desc">${isVegetarianCafe ? 'Warm organic quinoa, roasted sweet potatoes, edamame, massaged kale, and golden turmeric tahini dressing.' : 'Steamed rice cakes spiced with crushed black pepper, ginger, curry leaves, and cumin, served with roasted shallot chutney.'}</p>
           <div class="dish-tags">
             <span class="dish-tag tag-vegan">🌿 Vegan</span>
             <span class="dish-tag">Gluten-Free</span>
@@ -171,10 +185,10 @@ export function synthesizeRestaurantWebsite(brief: string): ProjectFile[] {
         <!-- Item 3 -->
         <div class="dish-card" data-category="curries">
           <div class="dish-header">
-            <h3>Chettinad Pepper Masala</h3>
-            <span class="dish-price">₹380</span>
+            <h3>${isVegetarianCafe ? 'Wood-Fired Wild Mushroom Risotto' : 'Chettinad Pepper Masala'}</h3>
+            <span class="dish-price">${isVegetarianCafe ? '₹460' : '₹380'}</span>
           </div>
-          <p class="dish-desc">Heirloom shallots and tender farm vegetables tossed in freshly pounded Tellicherry black peppercorns and fennel gravy.</p>
+          <p class="dish-desc">${isVegetarianCafe ? 'Carnaroli rice slow-stirred with porcini broth, charred king oyster mushrooms, cashew parmesan, and fresh thyme.' : 'Heirloom shallots and tender farm vegetables tossed in freshly pounded Tellicherry black peppercorns and fennel gravy.'}</p>
           <div class="dish-tags">
             <span class="dish-tag tag-veg">🌱 Vegetarian</span>
             <span class="dish-tag">Chef's Signature</span>
@@ -184,23 +198,23 @@ export function synthesizeRestaurantWebsite(brief: string): ProjectFile[] {
         <!-- Item 4 -->
         <div class="dish-card" data-category="curries">
           <div class="dish-header">
-            <h3>Malabar Coconut Curry</h3>
-            <span class="dish-price">₹420</span>
+            <h3>${isVegetarianCafe ? 'Cashew Ricotta Stuffed Gnocchi' : 'Malabar Coconut Curry'}</h3>
+            <span class="dish-price">${isVegetarianCafe ? '₹440' : '₹420'}</span>
           </div>
-          <p class="dish-desc">Freshly extracted coconut milk, curry leaves, and green chillies simmered with tender seasonal vegetables and raw mango.</p>
+          <p class="dish-desc">${isVegetarianCafe ? 'Handmade sweet potato gnocchi filled with creamy cultured cashew ricotta in a blistered heirloom San Marzano tomato reduction.' : 'Freshly extracted coconut milk, curry leaves, and green chillies simmered with tender seasonal vegetables and raw mango.'}</p>
           <div class="dish-tags">
             <span class="dish-tag tag-vegan">🌿 Vegan</span>
-            <span class="dish-tag">Mild Spice</span>
+            <span class="dish-tag">House Favorite</span>
           </div>
         </div>
 
         <!-- Item 5 -->
         <div class="dish-card" data-category="thali">
           <div class="dish-header">
-            <h3>Grand Dakshin Royal Thali</h3>
-            <span class="dish-price">₹540</span>
+            <h3>${isVegetarianCafe ? 'Grand Botanical Harvest Tasting Platter' : 'Grand Dakshin Royal Thali'}</h3>
+            <span class="dish-price">${isVegetarianCafe ? '₹580' : '₹540'}</span>
           </div>
-          <p class="dish-desc">Complete banquet featuring 11 traditional dishes: 2 curries, rasam, kootu, poriyal, curd, poori, red rice, papad, and payasam on a banana leaf.</p>
+          <p class="dish-desc">${isVegetarianCafe ? 'A celebration of our rooftop greenhouse: seasonal dips, seeded sourdough crisps, charred broccolini, marinated tempeh, and micro-salads.' : 'Complete banquet featuring 11 traditional dishes: 2 curries, rasam, kootu, poriyal, curd, poori, red rice, papad, and payasam on a banana leaf.'}</p>
           <div class="dish-tags">
             <span class="dish-tag tag-veg">🌱 Vegetarian</span>
             <span class="dish-tag">Feast Special</span>
@@ -210,9 +224,17 @@ export function synthesizeRestaurantWebsite(brief: string): ProjectFile[] {
         <!-- Item 6 -->
         <div class="dish-card" data-category="beverages">
           <div class="dish-header">
-            <h3>Degree Filter Coffee</h3>
-            <span class="dish-price">₹95</span>
+            <h3>${isVegetarianCafe ? 'Ceremonial Kyoto Matcha Latte' : 'Degree Filter Coffee'}</h3>
+            <span class="dish-price">${isVegetarianCafe ? '₹220' : '₹95'}</span>
           </div>
+          <p class="dish-desc">${isVegetarianCafe ? 'First-harvest Uji ceremonial matcha whisked with oat milk and a touch of organic Madagascar vanilla.' : 'Freshly brewed Chicory-blended plantation coffee pulled in brass dabarah and tumbler with frothy milk.'}</p>
+          <div class="dish-tags">
+            <span class="dish-tag tag-veg">Classic</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
           <p class="dish-desc">Freshly brewed Chicory-blended plantation coffee pulled in brass dabarah and tumbler with frothy milk.</p>
           <div class="dish-tags">
             <span class="dish-tag tag-veg">Classic</span>
@@ -609,15 +631,16 @@ body { font-family: var(--font-sans); background: var(--color-bg); color: var(--
 
 export function synthesizeSaaSLandingPage(brief: string): ProjectFile[] {
   const cleanTitle = brief.replace(/^(build|create|make|design)\s+(a|an)?\s*/i, '').trim();
+  const isWritingAssistant = /writing assistant|ai writer|copywriting|ai copywriter|content assistant|writing tool|editor/i.test(brief);
   const title = cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1, 30);
-  const brandName = title.includes('AI') ? title : `${title} AI`;
+  const brandName = isWritingAssistant ? 'ProseCraft AI' : title.includes('AI') ? title : `${title} AI`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${brandName} — Next-Gen AI Productivity Platform</title>
+  <title>${brandName} — ${isWritingAssistant ? 'The Intelligent AI Writing Assistant for Content Teams' : 'Next-Gen AI Productivity Platform'}</title>
   <link rel="stylesheet" href="styles/theme.css">
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -631,7 +654,7 @@ export function synthesizeSaaSLandingPage(brief: string): ProjectFile[] {
       </a>
       <div class="nav-links">
         <a href="#features" class="nav-link">Features</a>
-        <a href="#preview" class="nav-link">Platform Preview</a>
+        <a href="#preview" class="nav-link">${isWritingAssistant ? 'Writing Studio' : 'Platform Preview'}</a>
         <a href="#pricing" class="nav-link">Pricing</a>
         <a href="#faq" class="nav-link">FAQ</a>
       </div>
@@ -646,26 +669,26 @@ export function synthesizeSaaSLandingPage(brief: string): ProjectFile[] {
     <div class="container hero-content text-center">
       <div class="badge-pill">
         <span class="pulse-dot"></span>
-        <span>Next-Generation Frontier Reasoning Engine</span>
+        <span>${isWritingAssistant ? 'Frontier Copywriting & Editorial Reasoning Engine' : 'Next-Generation Frontier Reasoning Engine'}</span>
       </div>
-      <h1 class="hero-title">Multiply your team's output with <span class="gradient-text">autonomous AI workflows</span></h1>
-      <p class="hero-subtitle">Unified high-performance model routing, grounded web research, and instant code synthesis in one frictionless workspace.</p>
+      <h1 class="hero-title">${isWritingAssistant ? 'Turn raw ideas into <span class="gradient-text">polished prose & high-converting copy</span> in seconds' : 'Multiply your team\'s output with <span class="gradient-text">autonomous AI workflows</span>'}</h1>
+      <p class="hero-subtitle">${isWritingAssistant ? 'Overcome writer\'s block, preserve strict brand voice guidelines, and synthesize long-form articles, executive memos, and ad copy with grounded intelligence.' : 'Unified high-performance model routing, grounded web research, and instant code synthesis in one frictionless workspace.'}</p>
       
       <form id="signupForm" class="hero-form">
         <input type="email" id="emailInput" placeholder="Enter your work email address..." required>
         <button type="submit" class="btn btn-primary btn-lg">Get Started Free &rarr;</button>
       </form>
-      <p class="hero-microcopy">✓ 14-day free trial &bull; No credit card required &bull; Sub-50ms routing</p>
+      <p class="hero-microcopy">✓ 14-day free trial &bull; No credit card required &bull; ${isWritingAssistant ? 'Unlimited drafts & style matching' : 'Sub-50ms routing'}</p>
       <p id="signupSuccess" class="success-msg hidden">✓ Check your inbox! Your trial workspace is ready.</p>
     </div>
   </header>
 
-  <!-- Live Product Dashboard Preview -->
+  <!-- Live Product Dashboard / Studio Preview -->
   <section id="preview" class="section section-preview">
     <div class="container">
       <div class="section-header text-center">
-        <span class="tag">Platform Interface</span>
-        <h2>Designed for Speed & Engineering Velocity</h2>
+        <span class="tag">${isWritingAssistant ? 'Studio Canvas' : 'Platform Interface'}</span>
+        <h2>${isWritingAssistant ? 'Precision Craft Meets Generative Speed' : 'Designed for Speed & Engineering Velocity'}</h2>
       </div>
 
       <div class="dashboard-preview">
@@ -675,35 +698,35 @@ export function synthesizeSaaSLandingPage(brief: string): ProjectFile[] {
             <span class="dot yellow"></span>
             <span class="dot green"></span>
           </div>
-          <span class="dash-title">${brandName} Workspace &bull; v2.5 Enterprise</span>
+          <span class="dash-title">${brandName} Workspace &bull; ${isWritingAssistant ? 'Editorial Studio v3.2' : 'v2.5 Enterprise'}</span>
           <span class="badge-status">Status: 99.99% Nominal</span>
         </div>
         <div class="dash-body">
           <div class="dash-sidebar">
-            <div class="side-item active">⚡ Models Gateway</div>
-            <div class="side-item">🌐 Web Index</div>
-            <div class="side-item">📊 Artifacts</div>
+            <div class="side-item active">${isWritingAssistant ? '📝 Long-Form Drafts' : '⚡ Models Gateway'}</div>
+            <div class="side-item">${isWritingAssistant ? '🎯 Ad Creative' : '🌐 Web Index'}</div>
+            <div class="side-item">${isWritingAssistant ? '✉️ Executive Memos' : '📊 Artifacts'}</div>
             <div class="side-item">⚙️ Settings</div>
           </div>
           <div class="dash-main">
             <div class="dash-kpi-row">
               <div class="kpi-mini">
-                <span class="kpi-label">API Latency</span>
-                <span class="kpi-val text-emerald">38 ms</span>
+                <span class="kpi-label">${isWritingAssistant ? 'Words Generated' : 'API Latency'}</span>
+                <span class="kpi-val text-emerald">${isWritingAssistant ? '1,420 words' : '38 ms'}</span>
               </div>
               <div class="kpi-mini">
-                <span class="kpi-label">Token Routing</span>
-                <span class="kpi-val">1.4M / hr</span>
+                <span class="kpi-label">${isWritingAssistant ? 'Tone Alignment' : 'Token Routing'}</span>
+                <span class="kpi-val">${isWritingAssistant ? '98.4% On-Brand' : '1.4M / hr'}</span>
               </div>
               <div class="kpi-mini">
-                <span class="kpi-label">Active Agents</span>
-                <span class="kpi-val">12 Running</span>
+                <span class="kpi-label">${isWritingAssistant ? 'Readability Score' : 'Active Agents'}</span>
+                <span class="kpi-val">${isWritingAssistant ? 'Grade 8.2 (Clear)' : '12 Running'}</span>
               </div>
             </div>
             <div class="dash-terminal">
-              <div class="terminal-line"><span class="prompt-sym">&gt;</span> model.route('claude-sonnet-5.5', { grounded_research: true })</div>
-              <div class="terminal-line text-slate"><span class="prompt-sym">&gt;</span> [System] Upstream latency 42ms &bull; Cache hit ratio 94.2%</div>
-              <div class="terminal-line text-emerald"><span class="prompt-sym">&gt;</span> [Success] Compiled 14 multi-file production artifacts.</div>
+              <div class="terminal-line"><span class="prompt-sym">&gt;</span> ${isWritingAssistant ? 'prose.synthesize({ tone: "confident_editorial", length: "long_form" })' : 'model.route(\'claude-sonnet-5.5\', { grounded_research: true })'}</div>
+              <div class="terminal-line text-slate"><span class="prompt-sym">&gt;</span> ${isWritingAssistant ? '[Audience Analysis] Target: Senior Decision Makers · Reading Time: 3.5 min' : '[System] Upstream latency 42ms · Cache hit ratio 94.2%'}</div>
+              <div class="terminal-line text-emerald"><span class="prompt-sym">&gt;</span> ${isWritingAssistant ? '[Generated Draft] "True innovation is not merely about velocity—it is about architectural clarity..."' : '[Success] Compiled 14 multi-file production artifacts.'}</div>
             </div>
           </div>
         </div>
@@ -716,23 +739,23 @@ export function synthesizeSaaSLandingPage(brief: string): ProjectFile[] {
     <div class="container">
       <div class="section-header text-center">
         <span class="tag">Capabilities</span>
-        <h2>Engineered for High-Velocity Teams</h2>
+        <h2>${isWritingAssistant ? 'Engineered for Content Directors & High-Growth Teams' : 'Engineered for High-Velocity Teams'}</h2>
       </div>
       <div class="features-grid">
         <div class="feat-card">
-          <div class="feat-icon">⚡</div>
-          <h3>Sub-50ms API Gateway</h3>
-          <p>Instant model routing with verified multi-provider failover, strict payload isolation, and zero downtime.</p>
+          <div class="feat-icon">${isWritingAssistant ? '✍️' : '⚡'}</div>
+          <h3>${isWritingAssistant ? 'Dynamic Tone-of-Voice Presets' : 'Sub-50ms API Gateway'}</h3>
+          <p>${isWritingAssistant ? 'Train custom voice profiles that faithfully replicate your brand guidelines, vocabulary, and sentence cadence.' : 'Instant model routing with verified multi-provider failover, strict payload isolation, and zero downtime.'}</p>
         </div>
         <div class="feat-card">
-          <div class="feat-icon">🌐</div>
-          <h3>Grounded Web Index</h3>
-          <p>Real-time web research, verified citation linking, and anti-hallucination fact verification built into the loop.</p>
+          <div class="feat-icon">${isWritingAssistant ? '🛡️' : '🌐'}</div>
+          <h3>${isWritingAssistant ? 'Originality & Citation Grounding' : 'Grounded Web Index'}</h3>
+          <p>${isWritingAssistant ? 'Built-in plagiarism verification and factual verification against indexed sources to eliminate hallucinations.' : 'Real-time web research, verified citation linking, and anti-hallucination fact verification built into the loop.'}</p>
         </div>
         <div class="feat-card">
-          <div class="feat-icon">📁</div>
-          <h3>Instant Artifact Synthesis</h3>
-          <p>Generate production Word documents, spreadsheets, interactive charts, and packaged ZIP archives instantly.</p>
+          <div class="feat-icon">${isWritingAssistant ? '🚀' : '📁'}</div>
+          <h3>${isWritingAssistant ? '1-Click Multi-Channel Repurposing' : 'Instant Artifact Synthesis'}</h3>
+          <p>${isWritingAssistant ? 'Instantly transform a 2,000-word whitepaper into newsletter summaries, social threads, and search ads in one click.' : 'Generate production Word documents, spreadsheets, interactive charts, and packaged ZIP archives instantly.'}</p>
         </div>
       </div>
     </div>
@@ -814,23 +837,23 @@ export function synthesizeSaaSLandingPage(brief: string): ProjectFile[] {
 
       <div class="faq-list">
         <div class="faq-item">
-          <button class="faq-question">How does ${brandName} differ from conventional chat tools? <span class="faq-icon">+</span></button>
+          <button class="faq-question">${isWritingAssistant ? `Do I retain full commercial copyright to all generated content?` : `How does ${brandName} differ from conventional chat tools?`} <span class="faq-icon">+</span></button>
           <div class="faq-answer">
-            <p>${brandName} produces actionable deliverables (interactive websites, downloadable code ZIPs, reports, and spreadsheets) with live preview runtimes, not just plain text responses.</p>
+            <p>${isWritingAssistant ? `Yes. You hold 100% intellectual property and commercial copyright ownership of all articles, marketing copy, and drafts produced.` : `${brandName} produces actionable deliverables (interactive websites, downloadable code ZIPs, reports, and spreadsheets) with live preview runtimes, not just plain text responses.`}</p>
           </div>
         </div>
 
         <div class="faq-item">
-          <button class="faq-question">Can I export and self-host the generated website code? <span class="faq-icon">+</span></button>
+          <button class="faq-question">${isWritingAssistant ? `Does ${brandName} train on my private writing drafts?` : `Can I export and self-host the generated website code?`} <span class="faq-icon">+</span></button>
           <div class="faq-answer">
-            <p>Yes. Every project can be exported as a standard ZIP archive containing HTML, CSS, JavaScript, and assets with zero framework lock-in.</p>
+            <p>${isWritingAssistant ? `No. Your drafts, tone presets, and uploaded brand assets are strictly isolated in private SOC-2 certified environments and are never used to train external models.` : `Yes. Every project can be exported as a standard ZIP archive containing HTML, CSS, JavaScript, and assets with zero framework lock-in.`}</p>
           </div>
         </div>
 
         <div class="faq-item">
-          <button class="faq-question">Which AI models are used under the hood? <span class="faq-icon">+</span></button>
+          <button class="faq-question">${isWritingAssistant ? `Can my team share custom brand voice profiles?` : `Which AI models are used under the hood?`} <span class="faq-icon">+</span></button>
           <div class="faq-answer">
-            <p>We route requests through premier frontier models like Claude Sonnet 5.5 and Claude Opus 5.5 with sub-50ms time-to-first-token.</p>
+            <p>${isWritingAssistant ? `Yes. Professional and Enterprise plans support shared team workspaces with custom terminology dictionaries, brand style guides, and multi-user review.` : `We route requests through premier frontier models like Claude Sonnet 5.5 and Claude Opus 5.5 with sub-50ms time-to-first-token.`}</p>
           </div>
         </div>
       </div>
@@ -1064,7 +1087,8 @@ body { font-family: var(--font-sans); background: var(--color-bg); color: var(--
 import { synthesizePortfolioWebsite, synthesizeDashboardApp } from './studioBuilderPortfolioDashboard';
 import { synthesizeMineralSunscreenWebsite } from './studioBuilderSunscreen';
 import { synthesizeProductivityApp } from './studioBuilderProductivity';
-export { synthesizePortfolioWebsite, synthesizeDashboardApp, synthesizeMineralSunscreenWebsite, synthesizeProductivityApp };
+import { synthesizeFootwearWebsite } from './studioBuilderFootwear';
+export { synthesizePortfolioWebsite, synthesizeDashboardApp, synthesizeMineralSunscreenWebsite, synthesizeProductivityApp, synthesizeFootwearWebsite };
 
 // ============================================================================
 // 5. E-COMMERCE SKINCARE STOREFRONT ARCHETYPE
@@ -1573,6 +1597,8 @@ export function synthesizeByArchetype(brief: string, categoryHint?: string): Pro
   const archetype = detectProjectArchetype(brief, categoryHint);
 
   switch (archetype) {
+    case 'footwear':
+      return synthesizeFootwearWebsite(brief);
     case 'restaurant':
       return synthesizeRestaurantWebsite(brief);
     case 'dashboard':
@@ -1585,18 +1611,25 @@ export function synthesizeByArchetype(brief: string, categoryHint?: string): Pro
       return synthesizeStorefrontWebsite(brief);
     case 'productivity':
       return synthesizeProductivityApp(brief);
+    case 'ai_writer':
     case 'saas':
       return synthesizeSaaSLandingPage(brief);
     default:
-      // Generic request: detect whether it's closer to SaaS, restaurant, or portfolio
-      if (/cafe|tea|bakery|diner|pizza/i.test(brief)) {
+      // Generic request: intelligently detect whether it's footwear, food, dashboard, portfolio, or store
+      if (/footwear|shoe|shoes|sneaker|boots|runner|trainer/i.test(brief)) {
+        return synthesizeFootwearWebsite(brief);
+      }
+      if (/cafe|tea|bakery|diner|pizza|vegetarian|vegan|plant-based|restaurant|food|dining/i.test(brief)) {
         return synthesizeRestaurantWebsite(brief);
       }
-      if (/chart|kpi|metric|report/i.test(brief)) {
+      if (/chart|kpi|metric|report|dashboard|analytics|admin/i.test(brief)) {
         return synthesizeDashboardApp(brief);
       }
-      if (/art|photo|gallery|cv/i.test(brief)) {
+      if (/art|photo|gallery|cv|portfolio|designer|director/i.test(brief)) {
         return synthesizePortfolioWebsite(brief);
+      }
+      if (/store|shop|product|retail|storefront|clothing|apparel/i.test(brief)) {
+        return synthesizeStorefrontWebsite(brief);
       }
       return synthesizeSaaSLandingPage(brief);
   }

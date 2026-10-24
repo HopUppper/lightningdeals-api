@@ -228,6 +228,7 @@ export const UserWebsiteBuilder: React.FC = () => {
   // View state (Workspace)
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [mobileTab, setMobileTab] = useState<'preview' | 'chat' | 'code'>('preview');
   const [selectedFilePath, setSelectedFilePath] = useState<string>('index.html');
   const [editorContent, setEditorContent] = useState<string>('');
   const [isEditingCode, setIsEditingCode] = useState(false);
@@ -1048,10 +1049,10 @@ export const UserWebsiteBuilder: React.FC = () => {
   // Rendered when activeProject is set or isBuilding is true
   // =========================================================================
   return (
-    <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-[#0b0f17] text-[#f1f5f9] overflow-hidden select-none font-sans">
+    <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-slate-50 text-slate-900 overflow-hidden select-none font-sans">
       {/* Top Studio Toolbar */}
-      <header className="h-14 border-b border-[#1e2638] bg-[#0d111a] px-4 flex items-center justify-between shrink-0 z-30">
-        <div className="flex items-center gap-3">
+      <header className="h-14 border-b border-slate-200/90 bg-white px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 shadow-2xs">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Back to Studio Home Button */}
           <button
             type="button"
@@ -1059,61 +1060,119 @@ export const UserWebsiteBuilder: React.FC = () => {
               setActiveProject(null);
               setChatTurns([]);
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141b29] border border-[#232f45] text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#1a2336] transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100 transition-colors shadow-2xs cursor-pointer"
             title="Return to Studio Home Screen"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>All Projects</span>
+            <span className="hidden sm:inline">All Projects</span>
           </button>
 
-          <div className="h-4 w-px bg-[#1e2638] hidden sm:block" />
+          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
           {/* Breadcrumb Navigation */}
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs font-medium text-slate-500">
             <span>Studio</span>
-            <span className="text-slate-600">/</span>
-            <span className="font-bold text-white truncate max-w-[180px] sm:max-w-[280px]">
+            <span className="text-slate-300">/</span>
+            <span className="font-bold text-slate-900 truncate max-w-[130px] sm:max-w-[240px]">
               {activeProject ? activeProject.title : 'Generating Website...'}
             </span>
             {activeProject && (
-              <span className="text-[10px] bg-[#1a2336] text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono hidden md:inline">
+              <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200/80 px-2 py-0.5 rounded-full font-mono font-semibold hidden md:inline">
                 {activeProject.friendlyModelName || activeProject.modelId}
               </span>
             )}
           </div>
         </div>
 
+        {/* Mobile View Switcher (Tabs for < 768px) */}
+        <div className="flex md:hidden items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => {
+              setMobileTab('preview');
+              setViewMode('preview');
+            }}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+              mobileTab === 'preview' ? 'bg-white text-violet-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Eye className="w-3 h-3" />
+            <span>Preview</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('chat')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+              mobileTab === 'chat' ? 'bg-white text-violet-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <MessageSquare className="w-3 h-3" />
+            <span>Chat</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMobileTab('code');
+              setViewMode('code');
+            }}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+              mobileTab === 'code' ? 'bg-white text-violet-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Code className="w-3 h-3" />
+            <span>Code</span>
+          </button>
+        </div>
+
         {/* Center / Right: Studio Navigation Tabs */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={handleDownloadZip}
+            disabled={!activeProject}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 hover:text-slate-950 transition-colors shadow-2xs disabled:opacity-40 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Download</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowPublishModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-all shadow-sm shadow-violet-500/25 cursor-pointer"
+          >
+            <Rocket className="w-3.5 h-3.5" />
+            <span>Publish</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-200 hidden md:block" />
+
           <Link
             to="/dashboard"
-            className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
+            className="hidden md:flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Dashboard</span>
           </Link>
-
-          <div className="h-4 w-px bg-[#1e2638] hidden md:block" />
-
-          {/* User Account / Email */}
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-            <span className="hidden xl:inline text-slate-400">{user?.email || 'sidhjain9002@gmail.com'}</span>
-          </div>
         </div>
       </header>
 
       {/* Main Workspace Layout (Left Chat Sidebar + Right Live Studio Canvas) */}
-      <div className="flex-1 w-full flex overflow-hidden min-h-0 min-w-0">
+      <div className="flex-1 w-full flex overflow-hidden min-h-0 min-w-0 bg-slate-100/60">
         {/* Left Panel: Iteration Chat, Generation Feed, File Explorer */}
-        <aside className="w-full sm:w-[380px] lg:w-[400px] xl:w-[440px] border-r border-[#1e2638] bg-[#0e1320] flex flex-col shrink-0 overflow-hidden">
-          {/* Active Generation Feed */}
-          <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <aside
+          className={`w-full md:w-[380px] lg:w-[420px] xl:w-[460px] border-r border-slate-200/90 bg-white flex flex-col shrink-0 overflow-hidden ${
+            mobileTab === 'chat' ? 'flex' : 'hidden md:flex'
+          }`}
+        >
+          {/* Active Generation Feed with Independent Scrolling */}
+          <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
             {chatTurns.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
-                <Sparkles className="w-8 h-8 text-[#7c3aed] mb-2 animate-pulse" />
-                <p className="text-xs font-semibold text-slate-300">Describe any change to make</p>
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                <Sparkles className="w-8 h-8 text-violet-600 mb-2 animate-pulse" />
+                <p className="text-xs font-semibold text-slate-700">Describe any change to make</p>
                 <p className="text-[11px] text-slate-500 mt-1 max-w-[220px]">
-                  E.g. "make the hero more editorial" or "change the accent color to amber".
+                  E.g. "Add an FAQ section" or "Replace the hero image with lifestyle sneaker photography".
                 </p>
               </div>
             ) : (
@@ -1121,26 +1180,26 @@ export const UserWebsiteBuilder: React.FC = () => {
                 <div key={idx} className="space-y-2">
                   {turn.role === 'user' ? (
                     <div className="flex flex-col items-end">
-                      <div className="bg-[#1e2738] border border-[#2d3a52] text-[#f8fafc] px-4 py-2.5 rounded-2xl rounded-tr-xs text-xs font-medium max-w-[85%] shadow-sm leading-relaxed">
+                      <div className="bg-violet-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-xs text-xs font-medium max-w-[85%] shadow-sm leading-relaxed">
                         {turn.text}
                       </div>
-                      <span className="text-[10px] text-slate-500 mt-1 font-mono">{turn.time}</span>
+                      <span className="text-[10px] text-slate-400 mt-1 font-mono">{turn.time}</span>
                     </div>
                   ) : (
-                    <div className="bg-[#101624] border border-[#1d273a] rounded-2xl p-4 space-y-3 shadow-sm">
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 shadow-2xs">
                       {/* Assistant Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full bg-violet-600/30 text-violet-400 border border-violet-500/40 flex items-center justify-center text-[10px] font-bold">
+                          <div className="w-5 h-5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 flex items-center justify-center text-[10px] font-bold">
                             ⚡
                           </div>
-                          <span className="text-xs font-bold text-slate-200">AI Architect</span>
+                          <span className="text-xs font-bold text-slate-900">AI Architect</span>
                         </div>
-                        <span className="text-[10px] text-slate-500 font-mono">v{turn.version || 1}</span>
+                        <span className="text-[10px] text-slate-500 font-mono font-medium">v{turn.version || 1}</span>
                       </div>
 
                       {/* Collaborative prose message */}
-                      <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                      <p className="text-xs text-slate-700 leading-relaxed font-normal">
                         {turn.text}
                       </p>
 
@@ -1148,8 +1207,8 @@ export const UserWebsiteBuilder: React.FC = () => {
                       {turn.verification && turn.verification.checks && turn.verification.checks.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-0.5">
                           {turn.verification.checks.map((check, ci) => (
-                            <span key={ci} className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-md font-mono">
-                              <Check className="w-2.5 h-2.5 text-emerald-400" />
+                            <span key={ci} className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md font-mono font-medium">
+                              <Check className="w-2.5 h-2.5 text-emerald-600" />
                               <span>{check}</span>
                             </span>
                           ))}
@@ -1158,15 +1217,15 @@ export const UserWebsiteBuilder: React.FC = () => {
 
                       {/* Follow-up suggestions */}
                       {turn.suggestedFollowUps && turn.suggestedFollowUps.length > 0 && (
-                        <div className="pt-2 border-t border-[#1a2336] space-y-1.5">
-                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Suggested next steps:</span>
+                        <div className="pt-2 border-t border-slate-200/70 space-y-1.5">
+                          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Suggested next steps:</span>
                           <div className="flex flex-wrap gap-1.5">
                             {turn.suggestedFollowUps.map((s, si) => (
                               <button
                                 key={si}
                                 type="button"
                                 onClick={() => setRefineInput(s)}
-                                className="text-[11px] font-medium bg-[#161f30] hover:bg-violet-950/60 text-violet-300 hover:text-white border border-[#223048] hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all text-left"
+                                className="text-[11px] font-medium bg-white hover:bg-violet-50 text-violet-700 hover:text-violet-900 border border-slate-200 hover:border-violet-300 px-2.5 py-1 rounded-lg transition-all text-left shadow-2xs cursor-pointer"
                               >
                                 + {s}
                               </button>
@@ -1176,13 +1235,13 @@ export const UserWebsiteBuilder: React.FC = () => {
                       )}
 
                       {/* Files & Build Details Links */}
-                      <div className="flex items-center justify-between pt-2 border-t border-[#182133] text-[11px] text-slate-400">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/70 text-[11px] text-slate-500">
                         <div className="flex items-center gap-3">
                           {turn.files && turn.files.length > 0 && (
                             <button
                               type="button"
                               onClick={() => toggleTurnFiles(idx)}
-                              className="hover:text-white transition-colors cursor-pointer"
+                              className="hover:text-slate-900 transition-colors cursor-pointer font-medium"
                             >
                               {turn.showFiles ? 'Hide files' : `${turn.files.length} files`}
                             </button>
@@ -1191,7 +1250,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => toggleTurnTelemetry(idx)}
-                              className="hover:text-violet-300 transition-colors cursor-pointer"
+                              className="hover:text-violet-700 transition-colors cursor-pointer font-medium"
                             >
                               {turn.showTelemetry ? 'Hide build details' : 'Build details'}
                             </button>
@@ -1201,7 +1260,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRollback(turn.version || 1)}
-                          className="hover:text-white text-slate-400 transition-colors"
+                          className="hover:text-violet-700 text-slate-500 transition-colors cursor-pointer font-medium"
                         >
                           Restore v{turn.version || 1}
                         </button>
@@ -1209,7 +1268,7 @@ export const UserWebsiteBuilder: React.FC = () => {
 
                       {/* Expandable File List */}
                       {turn.showFiles && turn.files && (
-                        <div className="mt-2 space-y-1 pl-1 border-l border-[#243048]">
+                        <div className="mt-2 space-y-1 pl-1 border-l-2 border-violet-200">
                           {turn.files.map((f) => (
                             <button
                               key={f.path}
@@ -1217,11 +1276,12 @@ export const UserWebsiteBuilder: React.FC = () => {
                               onClick={() => {
                                 setSelectedFilePath(f.path);
                                 setViewMode('code');
+                                setMobileTab('code');
                               }}
-                              className="w-full text-left flex items-center justify-between px-2 py-1 rounded text-[11px] font-mono text-slate-300 hover:text-white hover:bg-[#1a2336] transition-colors"
+                              className="w-full text-left flex items-center justify-between px-2 py-1 rounded text-[11px] font-mono text-slate-700 hover:text-violet-700 hover:bg-violet-50 transition-colors cursor-pointer"
                             >
                               <span className="truncate">{f.path}</span>
-                              <span className="text-[9px] text-[#10b981]">ready</span>
+                              <span className="text-[9px] text-emerald-600 font-semibold">ready</span>
                             </button>
                           ))}
                         </div>
@@ -1229,18 +1289,18 @@ export const UserWebsiteBuilder: React.FC = () => {
 
                       {/* Expandable Diagnostics Telemetry */}
                       {turn.showTelemetry && turn.telemetry && (
-                        <div className="mt-2 p-2.5 rounded-lg bg-[#0b0e17] border border-[#1c263b] text-[10px] font-mono text-slate-300 space-y-1.5">
+                        <div className="mt-2 p-2.5 rounded-lg bg-white border border-slate-200 text-[10px] font-mono text-slate-700 space-y-1.5 shadow-2xs">
                           <div className="flex justify-between">
                             <span className="text-slate-500">Source:</span>
-                            <span className="text-emerald-400 font-semibold">{turn.telemetry.source}</span>
+                            <span className="text-emerald-700 font-semibold">{turn.telemetry.source}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-slate-500">Model:</span>
-                            <span className="text-slate-300">{turn.telemetry.modelUsed || turn.telemetry.modelRequested}</span>
+                            <span className="text-slate-800">{turn.telemetry.modelUsed || turn.telemetry.modelRequested}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-slate-500">Duration:</span>
-                            <span className="text-emerald-300 font-bold">{turn.telemetry.totalLatencyMs || turn.telemetry.durationMs?.totalElapsedMs}ms</span>
+                            <span className="text-emerald-700 font-bold">{turn.telemetry.totalLatencyMs || turn.telemetry.durationMs?.totalElapsedMs}ms</span>
                           </div>
                         </div>
                       )}
@@ -1252,36 +1312,36 @@ export const UserWebsiteBuilder: React.FC = () => {
 
             {/* Building Indicator */}
             {isBuilding && (
-              <div className="bg-[#121826] border border-violet-500/40 rounded-xl p-3.5 space-y-2.5 animate-pulse">
-                <div className="flex items-center justify-between text-xs font-bold text-violet-300">
+              <div className="bg-violet-50 border border-violet-200 rounded-xl p-3.5 space-y-2.5 animate-pulse">
+                <div className="flex items-center justify-between text-xs font-bold text-violet-900">
                   <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
+                    <span className="w-2 h-2 rounded-full bg-violet-600 animate-ping" />
                     <span>Synthesizing website files...</span>
                   </span>
-                  <span className="font-mono text-slate-400">{elapsedSeconds.toFixed(1)}s elapsed</span>
+                  <span className="font-mono text-violet-700">{elapsedSeconds.toFixed(1)}s elapsed</span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
-                  <span className="text-violet-400 font-semibold">Model:</span>
+                <div className="flex items-center gap-2 text-[11px] text-slate-600 font-mono">
+                  <span className="text-violet-700 font-semibold">Model:</span>
                   <span>{selectedModel}</span>
-                  <span className="text-slate-600">&bull;</span>
-                  <span className="text-emerald-400">Streaming gateway</span>
+                  <span className="text-slate-300">&bull;</span>
+                  <span className="text-emerald-600 font-semibold">Streaming gateway</span>
                 </div>
-                <div className="w-full h-1 bg-[#1a2336] rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-violet-600 via-indigo-400 to-violet-500 w-full animate-pulse" />
+                <div className="w-full h-1 bg-violet-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-violet-600 via-indigo-500 to-violet-600 w-full animate-pulse" />
                 </div>
               </div>
             )}
           </div>
 
           {/* Bottom Chat Refine Composer */}
-          <div className="p-3 border-t border-[#1e2638] bg-[#0c101a]">
+          <div className="p-3 border-t border-slate-200/90 bg-white">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 if (activeProject) handleRefine();
                 else handleCreateProject(refineInput);
               }}
-              className="bg-[#141b2a] border border-[#232f45] rounded-xl p-2.5 flex flex-col gap-2 shadow-sm focus-within:border-[#7c3aed] transition-colors"
+              className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col gap-2 shadow-2xs focus-within:border-violet-500 focus-within:bg-white transition-colors"
             >
               <textarea
                 rows={2}
@@ -1294,17 +1354,17 @@ export const UserWebsiteBuilder: React.FC = () => {
                     else handleCreateProject(refineInput);
                   }
                 }}
-                placeholder="Describe a change (e.g. 'Add an FAQ section' or 'Change visual theme to forest green')..."
+                placeholder="Describe a change (e.g. 'Add an FAQ section' or 'Change visual style to minimalist cream and black')..."
                 disabled={isBuilding}
-                className="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none resize-none leading-relaxed"
+                className="w-full bg-transparent text-xs text-slate-900 placeholder-slate-400 focus:outline-none resize-none leading-relaxed"
               />
 
-              <div className="flex items-center justify-between pt-1 border-t border-[#1c263b]">
+              <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
                 <div className="relative">
                   <select
                     value={selectedModel}
                     onChange={(e) => setSelectedModel(e.target.value)}
-                    className="appearance-none bg-[#101522] border border-[#1f2b3f] hover:border-[#2d3d59] text-[11px] font-medium text-slate-300 rounded-lg px-2.5 py-1 pr-6 focus:outline-none cursor-pointer"
+                    className="appearance-none bg-white border border-slate-200 hover:border-slate-300 text-[11px] font-semibold text-slate-700 rounded-lg px-2.5 py-1 pr-6 focus:outline-none cursor-pointer"
                   >
                     {availableModels.length > 0 ? (
                       availableModels.map((m) => (
@@ -1329,7 +1389,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                       setIsBuilding(false);
                       showToast('Operation halted', 'info');
                     }}
-                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <span>Stop</span>
                     <X className="w-3 h-3" />
@@ -1338,7 +1398,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                   <button
                     type="submit"
                     disabled={!refineInput.trim()}
-                    className="px-3.5 py-1.5 rounded-lg bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs shadow-violet-500/25 cursor-pointer"
                   >
                     <span>Send</span>
                     <Send className="w-3 h-3" />
@@ -1350,46 +1410,56 @@ export const UserWebsiteBuilder: React.FC = () => {
         </aside>
 
         {/* Right Panel: Live Preview OR Code Explorer/Viewer */}
-        <main className="flex-1 flex flex-col bg-[#080b11] overflow-hidden min-w-0 w-full h-full">
+        <main
+          className={`flex-1 flex flex-col bg-slate-100/70 overflow-hidden min-w-0 w-full h-full ${
+            mobileTab !== 'chat' ? 'flex' : 'hidden md:flex'
+          }`}
+        >
           {/* Sub-toolbar */}
-          <div className="h-12 border-b border-[#1e2638] bg-[#0d111a] px-4 flex items-center justify-between shrink-0 text-xs">
-            <div className="flex items-center gap-3">
+          <div className="h-12 border-b border-slate-200/90 bg-white px-3 sm:px-4 flex items-center justify-between shrink-0 text-xs">
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Segmented Mode Toggle */}
-              <div className="flex items-center bg-[#131926] p-0.5 rounded-lg border border-[#1e2638]">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setViewMode('preview')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                  onClick={() => {
+                    setViewMode('preview');
+                    setMobileTab('preview');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
                     viewMode === 'preview'
-                      ? 'bg-[#7c3aed] text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Eye className="w-3.5 h-3.5" />
+                  <Eye className="w-3.5 h-3.5 text-violet-600" />
                   <span>Preview</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewMode('code')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                  onClick={() => {
+                    setViewMode('code');
+                    setMobileTab('code');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
                     viewMode === 'code'
-                      ? 'bg-[#7c3aed] text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Code className="w-3.5 h-3.5" />
+                  <Code className="w-3.5 h-3.5 text-violet-600" />
                   <span>&lt;&gt; Code</span>
                 </button>
               </div>
 
               {/* Viewport switchers */}
               {viewMode === 'preview' && (
-                <div className="flex items-center gap-1 bg-[#131926] p-0.5 rounded-lg border border-[#1e2638]">
+                <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                   <button
                     type="button"
                     onClick={() => setViewport('desktop')}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewport === 'desktop' ? 'bg-[#1e2638] text-white' : 'text-slate-400 hover:text-white'
+                    className={`p-1.5 rounded transition-colors cursor-pointer ${
+                      viewport === 'desktop' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
                     }`}
                     title="Desktop (100%)"
                   >
@@ -1398,8 +1468,8 @@ export const UserWebsiteBuilder: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setViewport('tablet')}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewport === 'tablet' ? 'bg-[#1e2638] text-white' : 'text-slate-400 hover:text-white'
+                    className={`p-1.5 rounded transition-colors cursor-pointer ${
+                      viewport === 'tablet' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
                     }`}
                     title="Tablet (768px)"
                   >
@@ -1408,18 +1478,18 @@ export const UserWebsiteBuilder: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setViewport('mobile')}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewport === 'mobile' ? 'bg-[#1e2638] text-white' : 'text-slate-400 hover:text-white'
+                    className={`p-1.5 rounded transition-colors cursor-pointer ${
+                      viewport === 'mobile' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
                     }`}
                     title="Mobile (375px)"
                   >
                     <Smartphone className="w-3.5 h-3.5" />
                   </button>
-                  <div className="w-px h-3.5 bg-[#232f45] mx-0.5" />
+                  <div className="w-px h-3.5 bg-slate-200 mx-0.5" />
                   <button
                     type="button"
                     onClick={() => setPreviewKey((k) => k + 1)}
-                    className="p-1.5 rounded text-slate-400 hover:text-white transition-colors"
+                    className="p-1.5 rounded text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
                     title="Reload Preview"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
@@ -1427,7 +1497,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleOpenPreviewWindow}
-                    className="p-1.5 rounded text-slate-400 hover:text-white transition-colors"
+                    className="p-1.5 rounded text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
                     title="Open in new window"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -1444,38 +1514,19 @@ export const UserWebsiteBuilder: React.FC = () => {
                   setActiveProject(null);
                   setChatTurns([]);
                 }}
-                className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#1e2638] hover:bg-[#141b29] text-xs font-medium text-slate-300 hover:text-white transition-colors"
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 hover:text-slate-950 transition-colors shadow-2xs cursor-pointer"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 text-slate-500" />
                 <span>New Project</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDownloadZip}
-                disabled={!activeProject}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-[#1e2638] hover:bg-[#141b29] text-xs font-semibold text-slate-300 hover:text-white transition-colors disabled:opacity-40"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowPublishModal(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1 rounded-lg bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-xs font-bold transition-all shadow-xs"
-              >
-                <Rocket className="w-3.5 h-3.5" />
-                <span>Publish</span>
               </button>
             </div>
           </div>
 
           {/* Preview Mode */}
           {viewMode === 'preview' ? (
-            <div className="flex-1 w-full h-full overflow-hidden p-3 lg:p-4 flex items-center justify-center bg-[#080b11] min-w-0">
+            <div className="flex-1 w-full h-full overflow-hidden p-2 sm:p-4 flex items-center justify-center bg-slate-100/70 min-w-0">
               <div
-                className={`h-full flex flex-col bg-white transition-all duration-300 rounded-xl overflow-hidden border border-[#1e2638] shadow-2xl ${
+                className={`h-full flex flex-col bg-white transition-all duration-300 rounded-xl overflow-hidden border border-slate-200/90 shadow-xl ${
                   viewport === 'mobile'
                     ? 'w-[375px] max-w-[375px]'
                     : viewport === 'tablet'
@@ -1484,17 +1535,18 @@ export const UserWebsiteBuilder: React.FC = () => {
                 }`}
               >
                 {/* Mock Browser Header */}
-                <div className="h-8 bg-[#182030] border-b border-[#263550] px-3 flex items-center justify-between shrink-0">
+                <div className="h-8 bg-slate-100 border-b border-slate-200 px-3 flex items-center justify-between shrink-0">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                   </div>
-                  <div className="bg-[#0f1420] text-slate-400 text-[11px] font-mono px-3 py-0.5 rounded-md truncate max-w-[280px]">
+                  <div className="bg-white border border-slate-200 text-slate-600 text-[11px] font-mono px-3 py-0.5 rounded-md truncate max-w-[280px] shadow-2xs">
                     https://{activeProject?.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'preview'}.lightningapi.live
                   </div>
-                  <div className="text-[10px] text-emerald-400 font-semibold font-mono">
-                    ✓ Verified Sandbox
+                  <div className="text-[10px] text-emerald-700 font-semibold font-mono flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                    <span className="hidden sm:inline">Sandboxed</span>
                   </div>
                 </div>
 
@@ -1513,12 +1565,12 @@ export const UserWebsiteBuilder: React.FC = () => {
             </div>
           ) : (
             /* Code Mode */
-            <div className="flex-1 flex overflow-hidden min-h-0 bg-[#0c1017]">
+            <div className="flex-1 flex overflow-hidden min-h-0 bg-white">
               {/* Hierarchical File Explorer */}
-              <div className="w-64 border-r border-[#1e2638] bg-[#0d121c] flex flex-col shrink-0 overflow-y-auto">
-                <div className="p-3 border-b border-[#1e2638] flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Project Files</span>
-                  <span className="text-[10px] bg-[#1a2336] text-purple-400 px-2 py-0.5 rounded-full font-mono">
+              <div className="w-56 sm:w-64 border-r border-slate-200 bg-slate-50 flex flex-col shrink-0 overflow-y-auto">
+                <div className="p-3 border-b border-slate-200 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Project Files</span>
+                  <span className="text-[10px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-mono font-bold">
                     {activeProject?.files.length || 0}
                   </span>
                 </div>
@@ -1536,16 +1588,16 @@ export const UserWebsiteBuilder: React.FC = () => {
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 transition-colors cursor-pointer ${
                         selectedFilePath === file.path
-                          ? 'bg-[#7c3aed] text-white font-bold'
-                          : 'text-slate-400 hover:text-white hover:bg-[#141a27]'
+                          ? 'bg-violet-600 text-white font-bold shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                       }`}
                     >
                       {file.path.endsWith('.html') ? (
-                        <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                        <FileCode className={`w-3.5 h-3.5 ${selectedFilePath === file.path ? 'text-white' : 'text-amber-500'}`} />
                       ) : file.path.endsWith('.css') ? (
-                        <FileText className="w-3.5 h-3.5 text-blue-400" />
+                        <FileText className={`w-3.5 h-3.5 ${selectedFilePath === file.path ? 'text-white' : 'text-blue-500'}`} />
                       ) : file.path.endsWith('.js') ? (
-                        <File className="w-3.5 h-3.5 text-yellow-400" />
+                        <File className={`w-3.5 h-3.5 ${selectedFilePath === file.path ? 'text-white' : 'text-yellow-500'}`} />
                       ) : (
                         <File className="w-3.5 h-3.5 text-slate-400" />
                       )}
@@ -1561,19 +1613,19 @@ export const UserWebsiteBuilder: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => toggleFolder(folderName)}
-                          className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-slate-300 hover:text-white hover:bg-[#141a27] transition-colors cursor-pointer font-semibold"
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-slate-700 hover:text-slate-950 hover:bg-slate-200/60 transition-colors cursor-pointer font-semibold"
                         >
                           {isExpanded ? (
-                            <FolderOpen className="w-3.5 h-3.5 text-violet-400" />
+                            <FolderOpen className="w-3.5 h-3.5 text-violet-600" />
                           ) : (
-                            <Folder className="w-3.5 h-3.5 text-violet-400" />
+                            <Folder className="w-3.5 h-3.5 text-violet-600" />
                           )}
                           <span className="truncate">{folderName}/</span>
-                          <span className="ml-auto text-[10px] text-slate-500">{files.length}</span>
+                          <span className="ml-auto text-[10px] text-slate-400">{files.length}</span>
                         </button>
 
                         {isExpanded && (
-                          <div className="pl-3 border-l border-[#1e2638] ml-3 space-y-0.5">
+                          <div className="pl-3 border-l border-slate-200 ml-3 space-y-0.5">
                             {files.map((file) => (
                               <button
                                 key={file.path}
@@ -1585,16 +1637,16 @@ export const UserWebsiteBuilder: React.FC = () => {
                                 }}
                                 className={`w-full text-left px-2 py-1 rounded-md flex items-center gap-2 transition-colors cursor-pointer ${
                                   selectedFilePath === file.path
-                                    ? 'bg-[#7c3aed] text-white font-bold'
-                                    : 'text-slate-400 hover:text-white hover:bg-[#141a27]'
+                                    ? 'bg-violet-600 text-white font-bold shadow-2xs'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                                 }`}
                               >
                                 {file.path.endsWith('.css') ? (
-                                  <FileText className="w-3 h-3 text-blue-400" />
+                                  <FileText className={`w-3 h-3 ${selectedFilePath === file.path ? 'text-white' : 'text-blue-500'}`} />
                                 ) : file.path.endsWith('.js') ? (
-                                  <File className="w-3 h-3 text-yellow-400" />
+                                  <File className={`w-3 h-3 ${selectedFilePath === file.path ? 'text-white' : 'text-yellow-500'}`} />
                                 ) : (
-                                  <FileCode className="w-3 h-3 text-emerald-400" />
+                                  <FileCode className={`w-3 h-3 ${selectedFilePath === file.path ? 'text-white' : 'text-emerald-500'}`} />
                                 )}
                                 <span className="truncate">{file.path.replace(`${folderName}/`, '')}</span>
                               </button>
@@ -1608,18 +1660,18 @@ export const UserWebsiteBuilder: React.FC = () => {
               </div>
 
               {/* Code Editor Panel */}
-              <div className="flex-1 flex flex-col min-w-0 bg-[#090d15]">
-                <div className="h-10 border-b border-[#1e2638] bg-[#0e131f] px-4 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 font-mono text-slate-300 font-semibold">
+              <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a]">
+                <div className="h-10 border-b border-slate-700/80 bg-[#1e293b] px-4 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 font-mono text-slate-200 font-semibold">
                     <span>{selectedFilePath}</span>
-                    {isEditingCode && <span className="text-[10px] text-amber-400 font-mono">(modified)</span>}
+                    {isEditingCode && <span className="text-[10px] text-amber-400 font-mono font-medium">(modified)</span>}
                   </div>
                   <div className="flex items-center gap-2">
                     {isEditingCode && (
                       <button
                         type="button"
                         onClick={handleSaveCode}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-xs font-bold transition-colors cursor-pointer"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs"
                       >
                         <Save className="w-3.5 h-3.5" />
                         <span>Save & Recompile</span>
@@ -1628,7 +1680,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleCopyCode}
-                      className="p-1.5 rounded hover:bg-[#1a2336] text-slate-400 hover:text-white transition-colors"
+                      className="p-1.5 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
                       title="Copy file contents"
                     >
                       {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -1642,7 +1694,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                     setEditorContent(e.target.value);
                     setIsEditingCode(true);
                   }}
-                  className="flex-1 w-full bg-[#090d15] text-[#e2e8f0] font-mono text-xs p-4 resize-none focus:outline-none leading-relaxed"
+                  className="flex-1 w-full bg-[#0f172a] text-slate-100 font-mono text-xs p-4 resize-none focus:outline-none leading-relaxed"
                   spellCheck={false}
                 />
               </div>
@@ -1653,41 +1705,49 @@ export const UserWebsiteBuilder: React.FC = () => {
 
       {/* Publish Confirmation Modal */}
       {showPublishModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#0f1422] border border-[#232f45] rounded-2xl max-w-lg w-full p-6 text-white space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#1e2638] pb-3">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 text-slate-900 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <Rocket className="w-5 h-5 text-violet-400" />
-                <h3 className="font-bold text-base">Publish Project</h3>
+                <div className="w-8 h-8 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center">
+                  <Rocket className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">Publish Project</h3>
+                  <p className="text-xs text-slate-500">Deploy verified production build to Edge CDN</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowPublishModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
-              <p className="text-slate-300">
-                You are about to stage this project for live Edge CDN hosting.
+              <p className="text-slate-600">
+                You are about to stage this project for live Edge CDN hosting with zero downtime.
               </p>
 
-              <div className="p-3 bg-[#141b2a] border border-[#1e2638] rounded-xl space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Target Subdomain:</span>
-                  <span className="text-emerald-400 font-mono font-semibold">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Target Subdomain:</span>
+                  <span className="text-violet-700 font-mono font-semibold">
                     {activeProject?.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.lightningapi.live
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Active Build:</span>
-                  <span className="text-white font-mono">v{activeProject?.currentVersion} (Production Snapshot)</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Active Build:</span>
+                  <span className="text-slate-800 font-mono font-semibold">v{activeProject?.currentVersion} (Production Snapshot)</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">SSL & Encryption:</span>
-                  <span className="text-emerald-400 font-semibold">Automatic TLS 1.3</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">SSL & Encryption:</span>
+                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Automatic TLS 1.3</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -1696,7 +1756,7 @@ export const UserWebsiteBuilder: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowPublishModal(false)}
-                className="px-3.5 py-1.5 rounded-lg border border-[#232f45] hover:bg-[#141b29] text-xs font-semibold text-slate-300"
+                className="px-3.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600 cursor-pointer"
               >
                 Cancel
               </button>
@@ -1706,7 +1766,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                   setShowPublishModal(false);
                   showToast('Project deployed! Live URL staged and SSL active.', 'success');
                 }}
-                className="px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold shadow-md"
+                className="px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold shadow-sm shadow-violet-500/25 cursor-pointer"
               >
                 Confirm & Deploy
               </button>
@@ -1720,14 +1780,14 @@ export const UserWebsiteBuilder: React.FC = () => {
         <div
           className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 border transition-all ${
             toastMessage.type === 'error'
-              ? 'bg-[#291418] text-rose-300 border-rose-500/40'
+              ? 'bg-rose-50 text-rose-800 border-rose-200'
               : toastMessage.type === 'success'
-              ? 'bg-[#122b1d] text-emerald-300 border-emerald-500/40'
-              : 'bg-[#151c2a] text-slate-200 border-[#2b3a54]'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-slate-900 text-white border-slate-800'
           }`}
         >
-          {toastMessage.type === 'error' && <span className="text-rose-400">⚠️</span>}
-          {toastMessage.type === 'success' && <span className="text-emerald-400">✓</span>}
+          {toastMessage.type === 'error' && <span className="text-rose-600">⚠️</span>}
+          {toastMessage.type === 'success' && <span className="text-emerald-600">✓</span>}
           <span>{toastMessage.text}</span>
         </div>
       )}

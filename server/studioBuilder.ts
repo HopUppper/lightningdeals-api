@@ -2246,3 +2246,19 @@ builderRouter.delete('/projects/:id', async (req: AuthRequest, res: Response) =>
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// ============================================================================
+// Authoritative Verified Studio Model Catalog (Frontier Claude Only)
+// ============================================================================
+export const VERIFIED_STUDIO_MODELS = [
+  { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5', badge: 'Recommended' },
+  { id: 'claude-opus-5.5', name: 'Claude Opus 5.5', badge: 'Frontier Intelligence' },
+  { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', badge: 'Architecture & Systems' },
+  { id: 'claude-opus-5', name: 'Claude Opus 5', badge: 'Deep Reasoning' },
+  { id: 'claude-fable-5', name: 'Claude Fable 5', badge: 'Sub-30ms TTFT' },
+  { id: 'claude-fable-5.1', name: 'Claude Fable 5.1', badge: 'IDE Autopilot' },
+  { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5', badge: 'Lowest Latency' },
+  { id: 'claude-haiku-5', name: 'Claude Haiku 5', badge: 'Rapid Completion' },
+  { id: 'claude-sonnet-4.5', name: 'Claude Sonnet 4.5', badge: 'Fullstack Engineering' },
+  { id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5', badge: 'High Concurrency' },
+];

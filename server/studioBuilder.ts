@@ -20,6 +20,7 @@ import { prisma, decryptText } from './db';
 import { AuthRequest } from './auth';
 import { buildProviderRequest } from './providerAdapter';
 import { findCatalogModel, getFriendlyModelName } from './gateway';
+import { executeProjectRefinement } from './studioBuilderRefinement';
 import {
   synthesizeByArchetype,
   detectProjectArchetype,
@@ -1907,7 +1908,7 @@ builderRouter.post('/projects', async (req: AuthRequest, res: Response) => {
 builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Response) => {
   const userId = req.user?.id;
   const { id } = req.params;
-  const { modificationPrompt } = req.body;
+  const modificationPrompt = req.body.modificationPrompt || req.body.prompt;
 
   if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!modificationPrompt || typeof modificationPrompt !== 'string' || !modificationPrompt.trim()) {
@@ -1932,94 +1933,23 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
       versions = JSON.parse(project.versionsJson || '[]');
     } catch {}
 
-    let updatedFiles: ProjectFile[] = [];
-    let changedSummary = `Applied refinement: "${modificationPrompt.slice(0, 50)}"`;
-    let aiUsed = false;
+    const modelToUse = req.body.modelId || project.modelId || 'claude-sonnet-5.5';
 
-    // 1. Attempt AI-guided refinement first
-    try {
-      const aiRefined = await refineWebsiteWithAI(project, files, modificationPrompt, project.modelId);
-      if (aiRefined && aiRefined.files && aiRefined.files.length > 0) {
-        const check = validateProjectBundle(aiRefined.files);
-        if (check.valid) {
-          updatedFiles = aiRefined.files;
-          changedSummary = aiRefined.summary || changedSummary;
-          aiUsed = true;
-        }
-      }
-    } catch (aiErr) {
-      console.warn('[Builder AI Refinement Failed, falling back to rule engine]:', aiErr);
+    // Execute verified refinement pass (Semantic AST/DOM + Claude model fallback)
+    const result = await executeProjectRefinement(project, files, modificationPrompt, modelToUse);
+
+    if (!result.success || !result.files || result.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: result.assistantMessage || 'Refinement could not be safely applied. Preserved last working version.',
+        assistantMessage: result.assistantMessage,
+        suggestedFollowUps: result.suggestedFollowUps,
+        previewHtml: project.previewHtml,
+        files: files,
+      });
     }
 
-    // 2. Fallback to targeted semantic rule engine if AI didn't return
-    if (updatedFiles.length === 0) {
-      updatedFiles = files.map((f) => ({ ...f }));
-      const lower = modificationPrompt.toLowerCase();
-
-      if (lower.includes('color') || lower.includes('violet') || lower.includes('purple') || lower.includes('theme') || lower.includes('dark')) {
-        const cssFiles = updatedFiles.filter((f) => f.path.endsWith('.css'));
-        for (const cssFile of cssFiles) {
-          if (lower.includes('violet') || lower.includes('purple')) {
-            cssFile.content = cssFile.content
-              .replace(/--primary:\s*#[a-fA-F0-9]{3,6}/g, '--primary: #8b5cf6')
-              .replace(/--primary-hover:\s*#[a-fA-F0-9]{3,6}/g, '--primary-hover: #7c3aed');
-          }
-          if (lower.includes('dark')) {
-            cssFile.content = cssFile.content
-              .replace(/--bg-main:\s*#[a-fA-F0-9]{3,6}/g, '--bg-main: #0c0e14')
-              .replace(/--text-main:\s*#[a-fA-F0-9]{3,6}/g, '--text-main: #f4f4f5')
-              .replace(/--bg-card:\s*#[a-fA-F0-9]{3,6}/g, '--bg-card: #18181b');
-          }
-        }
-        changedSummary = 'Updated visual theme and color variables in CSS';
-      } else if (lower.includes('testimonial') || lower.includes('review')) {
-        const htmlFile = updatedFiles.find((f) => f.path.endsWith('.html'));
-        if (htmlFile && !htmlFile.content.includes('id="testimonials"')) {
-          const testimonialBlock = `
-  <!-- Testimonials Section (Added via Refinement) -->
-  <section id="testimonials" class="section">
-    <div class="container">
-      <div class="section-header" style="text-align: center; margin-bottom: 2rem;">
-        <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--primary);">Social Proof</span>
-        <h2 style="font-size: 2rem; font-weight: 800; margin-top: 0.5rem;">Loved by 10,000+ Customers Worldwide</h2>
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
-        <div style="padding: 1.5rem; background: var(--bg-card, #fff); border-radius: 1rem; border: 1px solid rgba(0,0,0,0.08);">
-          <div style="color: #f59e0b; margin-bottom: 0.75rem;">★★★★★</div>
-          <p>"Unbelievable speed, remarkable quality, and clean code exports."</p>
-          <div style="margin-top: 1rem; font-weight: 700; font-size: 0.9rem;">Sarah Chen &bull; Verified Customer</div>
-        </div>
-        <div style="padding: 1.5rem; background: var(--bg-card, #fff); border-radius: 1rem; border: 1px solid rgba(0,0,0,0.08);">
-          <div style="color: #f59e0b; margin-bottom: 0.75rem;">★★★★★</div>
-          <p>"Exceeded all our expectations. Beautifully responsive on every screen."</p>
-          <div style="margin-top: 1rem; font-weight: 700; font-size: 0.9rem;">Marcus Vance &bull; Lead Architect</div>
-        </div>
-      </div>
-    </div>
-  </section>`;
-          if (htmlFile.content.includes('</main>')) {
-            htmlFile.content = htmlFile.content.replace('</main>', `${testimonialBlock}\n</main>`);
-          } else if (htmlFile.content.includes('<footer')) {
-            htmlFile.content = htmlFile.content.replace('<footer', `${testimonialBlock}\n<footer`);
-          } else if (htmlFile.content.includes('</body>')) {
-            htmlFile.content = htmlFile.content.replace('</body>', `${testimonialBlock}\n</body>`);
-          }
-          changedSummary = 'Added responsive Testimonials & Social Proof section';
-        }
-      } else {
-        const htmlFile = updatedFiles.find((f) => f.path.endsWith('.html'));
-        if (htmlFile) {
-          htmlFile.content = htmlFile.content.replace(
-            '</body>',
-            `  <!-- Refinement Applied: ${modificationPrompt.slice(0, 50)} -->\n</body>`
-          );
-          changedSummary = `Applied refinement: "${modificationPrompt.slice(0, 50)}"`;
-        }
-      }
-    }
-
-    // Safety validation: if corrupt, fallback to last working version
-    const validation = validateProjectBundle(updatedFiles);
+    const validation = validateProjectBundle(result.files);
     if (!validation.valid) {
       return res.status(400).json({
         success: false,
@@ -2030,8 +1960,8 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
     const nextVersion = project.currentVersion + 1;
     const newSnapshot: ProjectVersionSnapshot = {
       version: nextVersion,
-      summary: changedSummary,
-      files: updatedFiles,
+      summary: result.summary,
+      files: result.files,
       createdAt: new Date().toISOString(),
     };
 
@@ -2040,10 +1970,10 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
     const refineDuration = Date.now() - startTime;
     const refineTelemetry: GenerationTelemetry = {
       correlationId: `corr_refine_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-      source: aiUsed ? 'claude_model_gateway' : 'authorized_archetype_synthesis',
+      source: result.source,
       provider: 'Lightning Gateway',
-      modelRequested: project.modelId,
-      modelUsed: project.modelId,
+      modelRequested: modelToUse,
+      modelUsed: modelToUse,
       timestamps: {
         backendReceivedTime: new Date(startTime).toISOString(),
         filesParsedAndSaved: new Date().toISOString(),
@@ -2061,16 +1991,16 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
           name: 'conversational_refinement',
           status: 'completed',
           durationMs: refineDuration,
-          detail: changedSummary,
+          detail: result.summary,
         },
       ],
-      fallbackUsed: !aiUsed,
+      fallbackUsed: result.source !== 'claude_model_gateway',
     };
 
     const updated = await prisma.builderProject.update({
       where: { id },
       data: {
-        filesJson: JSON.stringify(updatedFiles),
+        filesJson: JSON.stringify(result.files),
         currentVersion: nextVersion,
         lastWorkingVersion: nextVersion,
         versionsJson: JSON.stringify(versions.slice(0, 20)),
@@ -2080,18 +2010,21 @@ builderRouter.post('/projects/:id/refine', async (req: AuthRequest, res: Respons
       },
     });
 
-    const previewHtml = compilePreviewBundle(updatedFiles);
+    const previewHtml = compilePreviewBundle(result.files);
 
     return res.json({
       success: true,
       project: {
         ...updated,
         friendlyModelName: getFriendlyModelName(updated.modelId),
-        files: updatedFiles,
+        files: result.files,
         previewHtml,
         telemetry: refineTelemetry,
       },
-      summary: changedSummary,
+      summary: result.summary,
+      assistantMessage: result.assistantMessage,
+      suggestedFollowUps: result.suggestedFollowUps,
+      verification: result.verification,
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });

@@ -25,7 +25,7 @@ import { ProjectFile } from './studioBuilderArchetypes';
 
 export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] {
   let brandName = 'Solveil Botaniques';
-  const brandMatch = brief.match(/(?:for|named|called)\s+([A-Z][a-zA-Z0-9\s]{2,25})(?:\s+with|\s+featuring|\s+and|\s*$)/i);
+  const brandMatch = brief.match(/(?:for|named|called)\s+([\p{L}\p{N}\s'\-]{2,30})(?:\s+with|\s+featuring|\s+and|\s*,|\s*$)/iu);
   if (brandMatch && !/^(a|an|the|brand|website|premium|mineral|sunscreen)\b/i.test(brandMatch[1].trim())) {
     brandName = brandMatch[1].trim();
   }
@@ -108,7 +108,7 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
       </div>
       <div class="hero-imagery">
         <div class="bottle-frame">
-          <img src="assets/product-face-fluid.svg" alt="${brandName} Invisible Daily Mineral Shield" class="hero-bottle-img">
+          <img src="https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=800&q=80" alt="${brandName} Invisible Daily Mineral Shield" class="hero-bottle-img">
           <div class="sun-glow-overlay"></div>
           <div class="hero-floating-card">
             <span class="star-rating">★★★★★</span>
@@ -177,7 +177,7 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
         <article class="product-card">
           <div class="product-thumb-box">
             <span class="product-badge">Best Seller</span>
-            <img src="assets/product-face-fluid.svg" alt="Invisible Mineral Daily Fluid SPF 50" class="prod-img">
+            <img src="https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=800&q=80" alt="Invisible Mineral Daily Fluid SPF 50" class="prod-img">
           </div>
           <div class="product-info">
             <div class="product-cat">Daily Facial Sunscreen &bull; 50ml</div>
@@ -197,7 +197,7 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
         <article class="product-card">
           <div class="product-thumb-box">
             <span class="product-badge">Radiant Finish</span>
-            <img src="assets/product-tinted-glow.svg" alt="Golden Hour Tinted Mineral Fluid SPF 45" class="prod-img">
+            <img src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80" alt="Golden Hour Tinted Mineral Fluid SPF 45" class="prod-img">
           </div>
           <div class="product-info">
             <div class="product-cat">Adaptive Mineral Tint &bull; 50ml</div>
@@ -217,7 +217,7 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
         <article class="product-card">
           <div class="product-thumb-box">
             <span class="product-badge">Water Resistant</span>
-            <img src="assets/product-sport-mist.svg" alt="Active Hydramist Mineral Sunveil SPF 45" class="prod-img">
+            <img src="https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&w=800&q=80" alt="Active Hydramist Mineral Sunveil SPF 45" class="prod-img">
           </div>
           <div class="product-info">
             <div class="product-cat">Sport Reapplication Mist &bull; 120ml</div>
@@ -237,7 +237,7 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
         <article class="product-card">
           <div class="product-thumb-box">
             <span class="product-badge">Recovery</span>
-            <img src="assets/product-after-sun.svg" alt="Botanical Recovery After-Sun Elixir" class="prod-img">
+            <img src="https://images.unsplash.com/photo-1608248597334-a13470483d3b?auto=format&fit=crop&w=800&q=80" alt="Botanical Recovery After-Sun Elixir" class="prod-img">
           </div>
           <div class="product-info">
             <div class="product-cat">Post-Sun Lipids &bull; 100ml</div>
@@ -414,6 +414,25 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
             <p>Both our Daily Mineral Fluid and Active Hydramist are clinically tested and verified for 80 minutes of continuous water and sweat resistance. We recommend reapplying after towel drying or every 2 hours of direct sun exposure.</p>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIP Allocation & Pre-Order Waitlist Section -->
+  <section id="waitlist" class="section-waitlist">
+    <div class="container waitlist-container">
+      <div class="waitlist-card">
+        <span class="pill-tag">Small-Batch Reserve</span>
+        <h2 class="section-title">Join The Priority Allocation Waitlist</h2>
+        <p class="section-subtitle">Our micronized mineral dispersions are blended in limited quarterly batches. Register for guaranteed priority allocation and complimentary worldwide express delivery.</p>
+        <form id="orderForm" class="waitlist-form" onsubmit="event.preventDefault(); window.showToast ? window.showToast('Priority allocation confirmed!') : alert('Allocation confirmed!');">
+          <div class="waitlist-row">
+            <input type="text" placeholder="Your Name" required class="waitlist-input">
+            <input type="email" placeholder="Your Email Address" required class="waitlist-input">
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg btn-block">Claim Priority Allocation &rarr;</button>
+          <p class="waitlist-note">✓ 100% Satisfaction Guarantee &bull; Free Shipping Over $50 &bull; No Spam</p>
+        </form>
       </div>
     </div>
   </section>
@@ -1170,6 +1189,55 @@ button { font-family: inherit; }
 }
 .faq-item.open .faq-answer {
   display: block;
+}
+
+/* VIP Pre-Order & Waitlist */
+.section-waitlist {
+  padding: 80px 0;
+  background: var(--color-sand, #f8f6f2);
+  border-top: 1px solid var(--color-border);
+}
+.waitlist-container { max-width: 680px; margin: 0 auto; }
+.waitlist-card {
+  background: #ffffff;
+  padding: 44px;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  text-align: center;
+}
+.waitlist-form {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.waitlist-row {
+  display: flex;
+  gap: 12px;
+}
+@media (max-width: 640px) {
+  .waitlist-row { flex-direction: column; }
+}
+.waitlist-input {
+  flex: 1;
+  padding: 14px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--color-sand, #f8f6f2);
+  color: var(--color-charcoal);
+  outline: none;
+}
+.waitlist-input:focus {
+  border-color: var(--color-terracotta);
+  background: #ffffff;
+}
+.waitlist-note {
+  font-size: 12px;
+  color: var(--color-charcoal-muted);
+  margin-top: 8px;
 }
 
 /* Footer */

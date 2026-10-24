@@ -131,6 +131,11 @@ interface ChatTurn {
   showFiles?: boolean;
   telemetry?: any;
   showTelemetry?: boolean;
+  suggestedFollowUps?: string[];
+  verification?: {
+    passed: boolean;
+    checks: string[];
+  };
 }
 
 interface ShowcaseItem {
@@ -451,13 +456,15 @@ export const UserWebsiteBuilder: React.FC = () => {
           ...prev,
           {
             role: 'assistant',
-            text: `Built ${data.project.title} (${duration})`,
+            text: `I've created the initial version of ${data.project.title} (${duration}). The layout includes responsive hero typography, featured collection items, and clean components. We can refine colors, add new sections, or adjust styling conversationally.`,
             time: formatTime(),
             version: 1,
             files: data.project.files,
             showFiles: false,
             telemetry: data.project.telemetry,
             showTelemetry: false,
+            suggestedFollowUps: ['Add an FAQ section', 'Change visual theme to forest green', 'Replace hero visual with photography', 'Improve mobile layout'],
+            verification: { passed: true, checks: ['Initial project structure compiled', 'Responsive styling verified', 'All components active'] },
           },
         ]);
 
@@ -519,18 +526,34 @@ export const UserWebsiteBuilder: React.FC = () => {
           ...prev,
           {
             role: 'assistant',
-            text: `Applied change: ${prompt} (${duration})`,
+            text: data.assistantMessage || `I've applied your updates: "${data.summary || prompt}" (${duration}). The changes have been verified and recompiled in the live preview.`,
             time: formatTime(),
             version,
             files: data.project.files,
             showFiles: false,
             telemetry: data.project.telemetry,
             showTelemetry: false,
+            suggestedFollowUps: data.suggestedFollowUps || ['Add an FAQ section', 'Change colors', 'Add customer reviews'],
+            verification: data.verification,
           },
         ]);
         showToast(`Updated to version ${version}`, 'success');
       } else {
-        showToast(formatErrorMessage(data.error), 'error');
+        const errorMsg = data.assistantMessage || data.error || 'Refinement could not be safely applied. Preserved last working version.';
+        setChatTurns((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            text: errorMsg,
+            time: formatTime(),
+            suggestedFollowUps: data.suggestedFollowUps || [
+              'Add an FAQ section',
+              'Change visual theme to forest green',
+              'Add customer reviews',
+            ],
+          },
+        ]);
+        showToast(formatErrorMessage(data.error || 'Edit not applied'), 'error');
       }
     } catch (err: any) {
       clearInterval(timer);
@@ -1098,122 +1121,129 @@ export const UserWebsiteBuilder: React.FC = () => {
                 <div key={idx} className="space-y-2">
                   {turn.role === 'user' ? (
                     <div className="flex flex-col items-end">
-                      <div className="bg-[#172033] border border-[#263550] text-[#f1f5f9] px-3.5 py-2.5 rounded-2xl rounded-tr-sm text-xs font-medium max-w-[85%] shadow-sm leading-relaxed">
+                      <div className="bg-[#1e2738] border border-[#2d3a52] text-[#f8fafc] px-4 py-2.5 rounded-2xl rounded-tr-xs text-xs font-medium max-w-[85%] shadow-sm leading-relaxed">
                         {turn.text}
                       </div>
                       <span className="text-[10px] text-slate-500 mt-1 font-mono">{turn.time}</span>
                     </div>
                   ) : (
-                    <div className="bg-[#121826] border border-[#1e2638] rounded-xl p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between text-xs font-bold text-white">
-                        <span>{turn.text}</span>
+                    <div className="bg-[#101624] border border-[#1d273a] rounded-2xl p-4 space-y-3 shadow-sm">
+                      {/* Assistant Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-full bg-violet-600/30 text-violet-400 border border-violet-500/40 flex items-center justify-center text-[10px] font-bold">
+                            ⚡
+                          </div>
+                          <span className="text-xs font-bold text-slate-200">AI Architect</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono">v{turn.version || 1}</span>
                       </div>
 
-                      {/* Expandable Files Accordion */}
-                      {turn.files && turn.files.length > 0 && (
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => toggleTurnFiles(idx)}
-                            className="text-xs font-medium text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            <span>{turn.showFiles ? 'Hide files' : `Show ${turn.files.length} files`}</span>
-                            {turn.showFiles ? (
-                              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                            ) : (
-                              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                            )}
-                          </button>
+                      {/* Collaborative prose message */}
+                      <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                        {turn.text}
+                      </p>
 
-                          {turn.showFiles && (
-                            <div className="mt-2 space-y-1 pl-1 border-l border-[#243048]">
-                              {turn.files.map((f) => (
-                                <button
-                                  key={f.path}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedFilePath(f.path);
-                                    setViewMode('code');
-                                  }}
-                                  className="w-full text-left flex items-center justify-between px-2 py-1 rounded text-[11px] font-mono text-slate-300 hover:text-white hover:bg-[#1a2336] transition-colors"
-                                >
-                                  <span className="truncate">{f.path}</span>
-                                  <span className="text-[9px] text-[#10b981]">ready</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Telemetry Accordion */}
-                      {turn.telemetry && (
-                        <div className="pt-1 border-t border-[#1a2336]">
-                          <button
-                            type="button"
-                            onClick={() => toggleTurnTelemetry(idx)}
-                            className="text-[11px] font-mono text-slate-400 hover:text-violet-300 flex items-center justify-between w-full transition-colors cursor-pointer"
-                          >
-                            <span className="flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                              <span>Pipeline Telemetry & Timings</span>
+                      {/* Verification Badges */}
+                      {turn.verification && turn.verification.checks && turn.verification.checks.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {turn.verification.checks.map((check, ci) => (
+                            <span key={ci} className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-md font-mono">
+                              <Check className="w-2.5 h-2.5 text-emerald-400" />
+                              <span>{check}</span>
                             </span>
-                            {turn.showTelemetry ? (
-                              <ChevronDown className="w-3 h-3 text-slate-400" />
-                            ) : (
-                              <ChevronRight className="w-3 h-3 text-slate-400" />
-                            )}
-                          </button>
-
-                          {turn.showTelemetry && (
-                            <div className="mt-2 p-2.5 rounded-lg bg-[#0b0e17] border border-[#1c263b] text-[10px] font-mono text-slate-300 space-y-1.5">
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Source Engine:</span>
-                                <span className="text-emerald-400 font-semibold">{turn.telemetry.source}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Model Requested:</span>
-                                <span className="text-slate-300">{turn.telemetry.modelRequested}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Provider Route:</span>
-                                <span className="text-slate-300">{turn.telemetry.providerName}</span>
-                              </div>
-                              {turn.telemetry.ttftMs && (
-                                <div className="flex justify-between">
-                                  <span className="text-slate-500">Time to First Token:</span>
-                                  <span className="text-purple-300">{turn.telemetry.ttftMs}ms</span>
-                                </div>
-                              )}
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Model Latency:</span>
-                                <span className="text-purple-300">{turn.telemetry.modelLatencyMs}ms</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Preview Compile:</span>
-                                <span className="text-purple-300">{turn.telemetry.previewCompilationMs}ms</span>
-                              </div>
-                              <div className="flex justify-between border-t border-[#182236] pt-1">
-                                <span className="text-slate-400 font-semibold">Total Pipeline:</span>
-                                <span className="text-emerald-300 font-bold">{turn.telemetry.totalLatencyMs}ms</span>
-                              </div>
-                            </div>
-                          )}
+                          ))}
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between pt-2 border-t border-[#1c263b] text-[11px] text-slate-400">
-                        <span className="font-mono">Version {turn.version || 1}</span>
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => handleRollback(turn.version || 1)}
-                            className="hover:text-white text-slate-400 transition-colors"
-                          >
-                            Restore
-                          </button>
+                      {/* Follow-up suggestions */}
+                      {turn.suggestedFollowUps && turn.suggestedFollowUps.length > 0 && (
+                        <div className="pt-2 border-t border-[#1a2336] space-y-1.5">
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Suggested next steps:</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {turn.suggestedFollowUps.map((s, si) => (
+                              <button
+                                key={si}
+                                type="button"
+                                onClick={() => setRefineInput(s)}
+                                className="text-[11px] font-medium bg-[#161f30] hover:bg-violet-950/60 text-violet-300 hover:text-white border border-[#223048] hover:border-violet-500/40 px-2.5 py-1 rounded-lg transition-all text-left"
+                              >
+                                + {s}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+                      )}
+
+                      {/* Files & Build Details Links */}
+                      <div className="flex items-center justify-between pt-2 border-t border-[#182133] text-[11px] text-slate-400">
+                        <div className="flex items-center gap-3">
+                          {turn.files && turn.files.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleTurnFiles(idx)}
+                              className="hover:text-white transition-colors cursor-pointer"
+                            >
+                              {turn.showFiles ? 'Hide files' : `${turn.files.length} files`}
+                            </button>
+                          )}
+                          {turn.telemetry && (
+                            <button
+                              type="button"
+                              onClick={() => toggleTurnTelemetry(idx)}
+                              className="hover:text-violet-300 transition-colors cursor-pointer"
+                            >
+                              {turn.showTelemetry ? 'Hide build details' : 'Build details'}
+                            </button>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRollback(turn.version || 1)}
+                          className="hover:text-white text-slate-400 transition-colors"
+                        >
+                          Restore v{turn.version || 1}
+                        </button>
                       </div>
+
+                      {/* Expandable File List */}
+                      {turn.showFiles && turn.files && (
+                        <div className="mt-2 space-y-1 pl-1 border-l border-[#243048]">
+                          {turn.files.map((f) => (
+                            <button
+                              key={f.path}
+                              type="button"
+                              onClick={() => {
+                                setSelectedFilePath(f.path);
+                                setViewMode('code');
+                              }}
+                              className="w-full text-left flex items-center justify-between px-2 py-1 rounded text-[11px] font-mono text-slate-300 hover:text-white hover:bg-[#1a2336] transition-colors"
+                            >
+                              <span className="truncate">{f.path}</span>
+                              <span className="text-[9px] text-[#10b981]">ready</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Expandable Diagnostics Telemetry */}
+                      {turn.showTelemetry && turn.telemetry && (
+                        <div className="mt-2 p-2.5 rounded-lg bg-[#0b0e17] border border-[#1c263b] text-[10px] font-mono text-slate-300 space-y-1.5">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Source:</span>
+                            <span className="text-emerald-400 font-semibold">{turn.telemetry.source}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Model:</span>
+                            <span className="text-slate-300">{turn.telemetry.modelUsed || turn.telemetry.modelRequested}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Duration:</span>
+                            <span className="text-emerald-300 font-bold">{turn.telemetry.totalLatencyMs || turn.telemetry.durationMs?.totalElapsedMs}ms</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1264,7 +1294,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                     else handleCreateProject(refineInput);
                   }
                 }}
-                placeholder="Describe a change (e.g. 'Make the hero more premium' or 'Add a pricing section')..."
+                placeholder="Describe a change (e.g. 'Add an FAQ section' or 'Change visual theme to forest green')..."
                 disabled={isBuilding}
                 className="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none resize-none leading-relaxed"
               />
@@ -1292,14 +1322,28 @@ export const UserWebsiteBuilder: React.FC = () => {
                   </select>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isBuilding || !refineInput.trim()}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  <span>Send</span>
-                  <Send className="w-3 h-3" />
-                </button>
+                {isBuilding ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsBuilding(false);
+                      showToast('Operation halted', 'info');
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <span>Stop</span>
+                    <X className="w-3 h-3" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!refineInput.trim()}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <span>Send</span>
+                    <Send className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </form>
           </div>

@@ -2344,6 +2344,22 @@ export const UserChatStudio: React.FC = () => {
 
         {/* Right: Model Selector Pill, Context Meter, API Key Pill, Tools Menu ▾, Theme Toggle */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Mode Switcher: Chat vs Website Builder */}
+          <div className="hidden lg:flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-xl border border-black/10 dark:border-white/10 text-xs font-semibold">
+            <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 shadow-2xs flex items-center gap-1.5">
+              <Bot className="w-3.5 h-3.5" />
+              <span>Chat</span>
+            </span>
+            <Link
+              to="/dashboard/builder"
+              className="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition-colors"
+              title="Open AI Website & App Builder"
+            >
+              <Globe className="w-3.5 h-3.5 text-violet-500" />
+              <span>Builder</span>
+            </Link>
+          </div>
+
           {/* Model Selector Pill */}
           <button
             type="button"
@@ -2878,6 +2894,14 @@ export const UserChatStudio: React.FC = () => {
                   <ImageIcon className="w-3.5 h-3.5 text-purple-500 shrink-0" />
                   <span className="truncate">Media</span>
                 </button>
+                <Link
+                  to="/dashboard/builder"
+                  className={`px-2 py-1.5 rounded-xl border flex items-center gap-1.5 text-[11px] font-medium transition-colors cursor-pointer ${c.pillBg}`}
+                  title="Open AI Website & App Builder"
+                >
+                  <Globe className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="truncate">Website</span>
+                </Link>
               </div>
             </div>
 

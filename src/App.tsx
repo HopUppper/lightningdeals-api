@@ -149,6 +149,7 @@ const WhyUsPage = safeLazy(() => import('./pages/WhyUsPage').then(m => ({ defaul
 const DemoPage = safeLazy(() => import('./pages/DemoPage').then(m => ({ default: m.DemoPage })));
 const FaqPage = safeLazy(() => import('./pages/FaqPage').then(m => ({ default: m.FaqPage })));
 const PricingPage = safeLazy(() => import('./pages/PricingPage').then(m => ({ default: m.PricingPage })));
+const WebsiteBuilderLanding = safeLazy(() => import('./pages/WebsiteBuilderLanding').then(m => ({ default: m.WebsiteBuilderLanding })));
 
 // Lazy Loaded Auth Pages
 const LoginPage = safeLazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
@@ -169,6 +170,7 @@ const UserDocs = safeLazy(() => import('./pages/dashboard/UserDocs').then(m => (
 const UserOrders = safeLazy(() => import('./pages/dashboard/UserOrders').then(m => ({ default: m.UserOrders })));
 const UserApiTestConsole = safeLazy(() => import('./pages/dashboard/UserApiTestConsole').then(m => ({ default: m.UserApiTestConsole })));
 const UserChatStudio = safeLazy(() => import('./pages/dashboard/UserChatStudio').then(m => ({ default: m.UserChatStudio })));
+const UserWebsiteBuilder = safeLazy(() => import('./pages/dashboard/UserWebsiteBuilder').then(m => ({ default: m.UserWebsiteBuilder })));
 const UserSupport = safeLazy(() => import('./pages/dashboard/UserSupport').then(m => ({ default: m.UserSupport })));
 const UserSettings = safeLazy(() => import('./pages/dashboard/UserSettings').then(m => ({ default: m.UserSettings })));
 const UserRewards = safeLazy(() => import('./pages/dashboard/UserRewards').then(m => ({ default: m.UserRewards })));
@@ -278,6 +280,8 @@ export function App() {
                 <Route path="/rewards" element={<Navigate to="/dashboard/rewards" replace />} />
                 <Route path="/studio" element={<Navigate to="/dashboard/studio" replace />} />
                 <Route path="/chat" element={<Navigate to="/dashboard/studio" replace />} />
+                <Route path="/builder" element={<WebsiteBuilderLanding />} />
+                <Route path="/websites" element={<WebsiteBuilderLanding />} />
 
                 {/* Authentication & Verification Routes (Lazy Loaded) */}
                 <Route path="/login" element={<LoginPage />} />
@@ -308,6 +312,9 @@ export function App() {
                   <Route path="orders" element={<UserOrders />} />
                   <Route path="studio" element={<UserChatStudio />} />
                   <Route path="chat" element={<UserChatStudio />} />
+                  <Route path="builder" element={<UserWebsiteBuilder />} />
+                  <Route path="studio/builder" element={<UserWebsiteBuilder />} />
+                  <Route path="websites" element={<UserWebsiteBuilder />} />
                   <Route path="api-test" element={<UserApiTestConsole />} />
                   <Route path="support" element={<UserSupport />} />
                   <Route path="feedback" element={<UserFeedback />} />

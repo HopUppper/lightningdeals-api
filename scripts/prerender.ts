@@ -24,6 +24,7 @@ import { QuoteRequestPage } from '../src/pages/QuoteRequestPage';
 import { TermsPage } from '../src/pages/TermsPage';
 import { PrivacyPage } from '../src/pages/PrivacyPage';
 import { RefundPage } from '../src/pages/RefundPage';
+import { WebsiteBuilderLanding } from '../src/pages/WebsiteBuilderLanding';
 
 const distDir = path.resolve(process.cwd(), 'dist');
 const templatePath = path.resolve(distDir, 'index.html');
@@ -239,6 +240,13 @@ const routes: RouteConfig[] = [
     component: TrialPage,
     title: 'Claim Free 1M Token Trial Key — LightningDeals',
     description: 'Claim a free 1,000,000 token trial API key for Claude Code CLI, Cursor, and Windsurf directly via WhatsApp support.',
+  },
+  {
+    path: '/builder',
+    outFile: 'builder.html',
+    component: WebsiteBuilderLanding,
+    title: 'AI Website & App Builder — LightningAPI Studio',
+    description: 'Describe any website or application and watch the AI build it with live interactive preview, iterative conversational editing, and instant source code export.',
   },
   {
     path: '/request-quote',

@@ -33,6 +33,7 @@ export const ElectricNavbar: React.FC = () => {
   const navLinks = [
     { name: 'Models', href: '/models' },
     { name: 'Capacity Plans', href: '/pricing' },
+    { name: 'Website Builder', href: '/builder' },
     { name: 'How It Works', href: '/how-it-works' },
     { name: 'Why LightningAPI', href: '/why-us' },
     { name: 'Demo', href: '/demo' },

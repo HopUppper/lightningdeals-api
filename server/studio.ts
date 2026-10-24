@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma, decryptText } from './db';
 import { authenticateJwt, AuthRequest } from './auth';
+import { builderRouter } from './studioBuilder';
 import { buildProviderRequest } from './providerAdapter';
 import { mapToUpstreamModel, getFriendlyModelName, sanitizeModelResponse, sanitizeErrorMessage } from './gateway';
 import {
@@ -197,6 +198,9 @@ export const studioRouter = Router();
 
 // Apply JWT authentication to all studio routes
 studioRouter.use(authenticateJwt);
+
+// Mount AI Website & App Builder routes
+studioRouter.use('/builder', builderRouter);
 
 // Verified Real Model Catalog backed by Gateway capabilities & Upstream Specs
 export const VERIFIED_STUDIO_MODELS = [

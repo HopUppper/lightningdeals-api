@@ -71,6 +71,7 @@ model User {
   studioConversations     StudioConversation[]
   studioMemories          StudioMemory[]
   studioProjects          StudioProject[]
+  builderProjects         BuilderProject[]
 }
 
 
@@ -1238,6 +1239,30 @@ model StudioProject {
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   conversations StudioConversation[]
+
+  @@index([userId, updatedAt])
+}
+
+model BuilderProject {
+  id                    String    @id @default(uuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                 String
+  brief                 String    @db.Text
+  category              String    @default("landing_page")
+  modelId               String    @default("claude-sonnet-5.5")
+  filesJson             String    @db.Text
+  currentVersion        Int       @default(1)
+  lastWorkingVersion    Int       @default(1)
+  versionsJson          String?   @db.Text
+  buildStatus           String    @default("ready")
+  buildProgressPercent  Int       @default(100)
+  buildLogsJson         String?   @db.Text
+  errorMessage          String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+
 
   @@index([userId, updatedAt])
 }

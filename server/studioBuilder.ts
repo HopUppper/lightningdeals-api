@@ -1127,8 +1127,32 @@ export function compilePreviewBundle(files: ProjectFile[]): string {
   const htmlFile = files.find((f) => f.path.endsWith('.html') || f.path === 'index.html') || files[0];
   const cssFiles = files.filter((f) => f.path.endsWith('.css'));
   const jsFiles = files.filter((f) => f.path.endsWith('.js') && !f.path.includes('.test.'));
+  const svgFiles = files.filter((f) => f.path.endsWith('.svg'));
 
   let combinedHtml = htmlFile ? htmlFile.content : '<h1>No preview available</h1>';
+
+  // Inline/Resolve SVG Assets using data URIs so every graphic renders cleanly in sandboxed preview
+  for (const svg of svgFiles) {
+    const encodedSvg = encodeURIComponent(svg.content.trim());
+    const dataUri = `data:image/svg+xml;utf8,${encodedSvg}`;
+    const fileName = svg.path.split('/').pop() || svg.path;
+    const pathVariants = [
+      svg.path,
+      `./${svg.path}`,
+      `/${svg.path}`,
+      fileName,
+      `./${fileName}`,
+      `assets/${fileName}`,
+      `./assets/${fileName}`,
+    ];
+    for (const v of pathVariants) {
+      combinedHtml = combinedHtml.split(`"${v}"`).join(`"${dataUri}"`);
+      combinedHtml = combinedHtml.split(`'${v}'`).join(`'${dataUri}'`);
+      combinedHtml = combinedHtml.split(`url(${v})`).join(`url("${dataUri}")`);
+      combinedHtml = combinedHtml.split(`url("${v}")`).join(`url("${dataUri}")`);
+      combinedHtml = combinedHtml.split(`url('${v}')`).join(`url("${dataUri}")`);
+    }
+  }
 
   // Inline CSS
   const combinedCss = cssFiles.map((c) => `<style data-source="${c.path}">\n${c.content}\n</style>`).join('\n');

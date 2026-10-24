@@ -25,7 +25,9 @@ export function generateToken(payload: { id: string; email: string; role: string
 
 export async function authenticateJwt(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  const token = authHeader;
+  const queryToken = typeof req.query?.token === 'string' ? req.query.token : undefined;
+  const cookieToken = (req as any).cookies?.apexscale_token || (req as any).cookies?.token;
+  const token = authHeader || queryToken || cookieToken;
 
   if (!token) {
     return res.status(401).json({ error: { type: 'authentication_error', message: 'Authentication required. Please sign in.' } });

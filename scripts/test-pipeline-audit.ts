@@ -107,9 +107,60 @@ async function runPipelineAudit() {
     if (!c.test) throw new Error(`Restaurant audit failed check: ${c.label}`);
   });
 
+  // 6. Inspect Premium Mineral Sunscreen Acceptance Criteria (ScaleMax Competitive Standard)
+  console.log('\n--- 6. PREMIUM MINERAL SUNSCREEN ACCEPTANCE CRITERIA AUDIT ---');
+  const sunBrief = 'Build a premium mineral sunscreen brand website with lifestyle imagery, product formulas, benefits, a product gallery, and an FAQ.';
+  const sunArchetype = detectProjectArchetype(sunBrief);
+  console.log(`Detected archetype for prompt: ${sunArchetype}`);
+  const sunFiles = synthesizeByArchetype(sunBrief, sunArchetype);
+  const sunPreview = compilePreviewBundle(sunFiles);
+
+  const sunChecks = [
+    { label: 'Archetype routing resolved to "sunscreen"', test: sunArchetype === 'sunscreen' },
+    { label: 'Warm Stone & Terracotta Editorial Palette (#fdfbf7, #c25e3d, #2b3a2f)', test: sunPreview.includes('#fdfbf7') && sunPreview.includes('#c25e3d') },
+    { label: 'Solveil Botaniques Brand Story & 100% Non-Nano Zinc Narrative', test: sunPreview.includes('Solveil Botaniques') && /non-nano zinc/i.test(sunPreview) },
+    { label: '4 Formulation Science Pillars', test: sunPreview.includes('100% Non-Nano Mineral Zinc') && sunPreview.includes('Zero Ghostly White Cast') && sunPreview.includes('Reef-Safe & Ocean Kind') },
+    { label: '4 Curated Product Formulas with Bespoke Vector Artworks', test: sunFiles.some(f => f.path.includes('product-face-fluid.svg')) && sunFiles.some(f => f.path.includes('product-tinted-glow.svg')) && sunPreview.includes('Invisible Daily Mineral Fluid') && sunPreview.includes('data:image/svg+xml') },
+    { label: 'Interactive Slide-Out Shopping Bag Drawer with Live Subtotal & Checkout', test: sunPreview.includes('bagDrawer') && sunPreview.includes('bagSubtotalVal') && sunPreview.includes('checkoutBtn') },
+    { label: 'Clinical Efficacy & Environmental Metrics (99% Zero White Cast, 96% Hydration)', test: sunPreview.includes('99%') && sunPreview.includes('96%') && sunPreview.includes('zero white chalkiness') },
+    { label: 'Transparent Ingredient Science Matrix (Non-Nano Zinc, Plant Squalane)', test: sunPreview.includes('Non-Nano Zinc Oxide') && sunPreview.includes('100% Plant Squalane') && sunPreview.includes('Zero Compromise Promise') },
+    { label: 'Interactive Expandable FAQ Accordion', test: sunPreview.includes('faq-item') && sunPreview.includes('faq-question') && sunPreview.includes('Will this formula leave a white cast on deeper skin tones?') },
+    { label: 'First-Order Newsletter Capture (15% Off)', test: sunPreview.includes('newsletterForm') && sunPreview.includes('15% Off') },
+  ];
+
+  sunChecks.forEach(c => {
+    console.log(` ${c.test ? '✅' : '❌'} ${c.label}`);
+    if (!c.test) throw new Error(`Sunscreen audit failed check: ${c.label}`);
+  });
+
+  // 7. Inspect Responsive Productivity Application Acceptance Criteria
+  console.log('\n--- 7. RESPONSIVE PRODUCTIVITY APPLICATION ACCEPTANCE CRITERIA AUDIT ---');
+  const prodBrief = 'Build a responsive productivity application with navigation, editable records, validation, and persistent data using the supported backend.';
+  const prodArchetype = detectProjectArchetype(prodBrief);
+  console.log(`Detected archetype for prompt: ${prodArchetype}`);
+  const prodFiles = synthesizeByArchetype(prodBrief, prodArchetype);
+  const prodPreview = compilePreviewBundle(prodFiles);
+
+  const prodChecks = [
+    { label: 'Archetype routing resolved to "productivity"', test: prodArchetype === 'productivity' },
+    { label: 'App Shell & Collapsible Navigation Sidebar', test: prodPreview.includes('app-sidebar') && prodPreview.includes('sidebar-nav') && prodPreview.includes('sidebarToggle') },
+    { label: '4 Kanban Status Columns (Backlog, In Progress, Review, Completed)', test: prodPreview.includes('cardsBacklog') && prodPreview.includes('cardsProgress') && prodPreview.includes('cardsReview') && prodPreview.includes('cardsCompleted') },
+    { label: 'Full CRUD Modal Form with Strict Title Validation', test: prodPreview.includes('taskForm') && prodPreview.includes('taskTitleInput') && prodPreview.includes('titleError') },
+    { label: 'Interactive Advance, Edit, & Delete Record Handlers', test: prodPreview.includes('btn-move-next') && prodPreview.includes('btn-edit-task') && prodPreview.includes('btn-del-task') },
+    { label: 'Client-Side Persistent Storage (localStorage Auto-Save)', test: prodPreview.includes('localStorage.getItem') && prodPreview.includes('lightningapi_sprintflow_tasks') },
+    { label: 'Live Keyword Search & Priority Filter Navigation', test: prodPreview.includes('taskSearchInput') && prodPreview.includes('filter-nav') },
+  ];
+
+  prodChecks.forEach(c => {
+    console.log(` ${c.test ? '✅' : '❌'} ${c.label}`);
+    if (!c.test) throw new Error(`Productivity audit failed check: ${c.label}`);
+  });
+
   console.log('\n================================================================');
   console.log('🎉 AUDIT COMPLETE: ALL CRITERIA VERIFIED AND PASSING WITH 100% SUCCESS!');
   console.log('================================================================');
+  await prisma.$disconnect();
+  process.exit(0);
 }
 
 runPipelineAudit().catch(err => {

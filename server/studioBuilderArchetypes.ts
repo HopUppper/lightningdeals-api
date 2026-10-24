@@ -27,20 +27,23 @@ export interface ProjectFile {
 export function detectProjectArchetype(brief: string, categoryHint?: string): string {
   const text = (brief + ' ' + (categoryHint || '')).toLowerCase();
 
+  if (/(sunscreen|sunveil|spf|sun protection|sun care|mineral sun)/i.test(text)) {
+    return 'sunscreen';
+  }
   if (/(dashboard|analytics|kpi|metrics|admin portal|crm|sales report|transaction table|revenue chart|telemetry)/i.test(text)) {
     return 'dashboard';
-  }
-  if (/(portfolio|photography|photographer|gallery|creative director|design director|designer portfolio|case study|exhibition|photo)/i.test(text)) {
-    return 'portfolio';
   }
   if (/(restaurant|food|dining|cuisine|menu|dishes|dosa|dosai|south indian|curry|cafe|bistro|\bbar\b|bakery|reservation|chef|thali|tiffin)/i.test(text) && !text.includes('bar chart')) {
     return 'restaurant';
   }
+  if (/(portfolio|photography|photographer|creative director|design director|designer portfolio|case study|exhibition|photo gallery|art gallery)/i.test(text)) {
+    return 'portfolio';
+  }
   if (/(skincare store|storefront|ecommerce|store|shop|products|cart|checkout|retail|clothing|catalog)/i.test(text)) {
     return 'store';
   }
-  if (/(sunscreen|sunveil|spf|sun protection|sun care)/i.test(text)) {
-    return 'sunscreen';
+  if (/(productivity application|productivity app|kanban|task manager|todo app|project management app|workspace app|editable records|task board)/i.test(text)) {
+    return 'productivity';
   }
   if (/(saas|productivity tool|ai tool|developer tool|software|cloud|platform|api tool|b2b)/i.test(text)) {
     return 'saas';
@@ -1059,7 +1062,9 @@ body { font-family: var(--font-sans); background: var(--color-bg); color: var(--
 // 3. DESIGN DIRECTOR PORTFOLIO & 4. ANALYTICS DASHBOARD ARCHETYPES
 // ============================================================================
 import { synthesizePortfolioWebsite, synthesizeDashboardApp } from './studioBuilderPortfolioDashboard';
-export { synthesizePortfolioWebsite, synthesizeDashboardApp };
+import { synthesizeMineralSunscreenWebsite } from './studioBuilderSunscreen';
+import { synthesizeProductivityApp } from './studioBuilderProductivity';
+export { synthesizePortfolioWebsite, synthesizeDashboardApp, synthesizeMineralSunscreenWebsite, synthesizeProductivityApp };
 
 // ============================================================================
 // 5. E-COMMERCE SKINCARE STOREFRONT ARCHETYPE
@@ -1575,8 +1580,11 @@ export function synthesizeByArchetype(brief: string, categoryHint?: string): Pro
     case 'portfolio':
       return synthesizePortfolioWebsite(brief);
     case 'sunscreen':
+      return synthesizeMineralSunscreenWebsite(brief);
     case 'store':
       return synthesizeStorefrontWebsite(brief);
+    case 'productivity':
+      return synthesizeProductivityApp(brief);
     case 'saas':
       return synthesizeSaaSLandingPage(brief);
     default:

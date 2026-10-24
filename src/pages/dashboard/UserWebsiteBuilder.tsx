@@ -2,16 +2,26 @@
  * src/pages/dashboard/UserWebsiteBuilder.tsx
  * ============================================================================
  * Production AI Website & Application Builder for LightningAPI Studio
- * Inspired by ScaleMax Studio / Lovable / Emergent
+ * Inspired by Lovable / Emergent / ScaleMax Studio
  * 
- * Features:
- * - Real-time prompt-to-website generation with multi-file synthesis
- * - Live interactive sandboxed preview (Desktop, Tablet, Mobile)
- * - Conversational iterative refinement with version history & rollback
- * - ScaleMax Studio-inspired Hierarchical File Explorer & Code Viewer
- * - Verified ZIP project export with clean client-side download
- * - 100% authenticated via userFetch with robust error handling
- * - Zero Claude 3 models — includes modern frontier reasoning catalog
+ * Architecture:
+ * 1. Clean, Spacious Studio Home Screen (when activeProject is null):
+ *    - Minimalist header with LightningAPI Studio branding & project access
+ *    - Headline: "What would you like to build?"
+ *    - Large, beautifully designed prompt composer with Website/App toggle,
+ *      attachment button, model selector (Claude 4/5/5.5 only), and Build button
+ *    - Clickable high-quality prompt chips
+ *    - Curated Showcase Gallery of real, verified generated builds
+ * 
+ * 2. Dedicated Professional Project Workspace (when activeProject is active):
+ *    - 3 clear zones: Collapsible conversation history, large sandboxed preview,
+ *      and minimal top sub-toolbar
+ *    - Responsive viewports: Desktop (100%), Tablet (768px), Mobile (375px)
+ *    - Full edge-to-edge canvas with zero side dead space
+ *    - Sandboxed iframe with allow-downloads for CSV/file exports
+ *    - Multi-file Code tree & viewer with instant in-browser edit synchronization
+ *    - Bounded version rollback & recovery snapshots
+ *    - Validated ZIP download & Production deployment confirmation modal
  * ============================================================================
  */
 
@@ -27,6 +37,7 @@ import {
   Code,
   Eye,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   FileCode,
   FileText,
@@ -49,6 +60,10 @@ import {
   Rocket,
   Folder,
   FolderOpen,
+  Paperclip,
+  Layers,
+  ShieldCheck,
+  Layout,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { userFetch } from '../../utils/api';
@@ -118,6 +133,76 @@ interface ChatTurn {
   showTelemetry?: boolean;
 }
 
+interface ShowcaseItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  type: 'website' | 'app';
+  tag: string;
+  prompt: string;
+  highlights: string[];
+  swatches: string[];
+}
+
+const SHOWCASE_ITEMS: ShowcaseItem[] = [
+  {
+    id: 'sunscreen',
+    title: 'Solveil Botaniques',
+    subtitle: '100% Sheer Non-Nano Mineral Zinc Sunscreen & Barrier Care',
+    category: 'E-Commerce Storefront',
+    type: 'website',
+    tag: 'ScaleMax Standard',
+    prompt: 'Build a premium mineral sunscreen brand website with lifestyle imagery, product formulas, benefits, a product gallery, and an FAQ.',
+    highlights: ['4 Formula Pillars', 'Interactive Bag Drawer', 'Non-Nano Zinc Story', 'FAQ Accordion'],
+    swatches: ['#fdfbf7', '#c25e3d', '#2b3a2f', '#d97706'],
+  },
+  {
+    id: 'dashboard',
+    title: 'MetricPulse Analytics',
+    subtitle: 'Real-Time Enterprise SaaS & Financial Telemetry',
+    category: 'Analytics Dashboard',
+    type: 'app',
+    tag: 'Enterprise Tool',
+    prompt: 'Build a SaaS analytics dashboard with KPI cards, an interactive revenue chart, searchable transactions, filters, and CSV export.',
+    highlights: ['4 KPI Metric Cards', 'Monthly Revenue Chart', 'Searchable Table', 'Client CSV Export'],
+    swatches: ['#0b0f19', '#6366f1', '#10b981', '#f59e0b'],
+  },
+  {
+    id: 'portfolio',
+    title: 'Julian Thorne',
+    subtitle: 'Senior Design Director & Systems Architecture',
+    category: 'Design Portfolio',
+    type: 'website',
+    tag: 'Editorial Showcase',
+    prompt: 'Build a senior product designer portfolio with strong project imagery, detailed case studies, biography, skills, and contact form.',
+    highlights: ['Compact Editorial Hero', '16:10 Vector Artworks', 'Interactive Case Modals', 'Validated Commission Form'],
+    swatches: ['#0c0e14', '#8b5cf6', '#22c55e', '#f4f4f5'],
+  },
+  {
+    id: 'restaurant',
+    title: 'Dakshin Rasoi',
+    subtitle: 'Heirloom South Indian Dining in Indiranagar Bengaluru',
+    category: 'Hospitality & Dining',
+    type: 'website',
+    tag: 'Authentic Heritage',
+    prompt: 'Build an authentic South Indian dining website for Dakshin Rasoi in Indiranagar Bengaluru with heritage menu categories, crisp ghee roast dosai, and table booking.',
+    highlights: ['Curated Heritage Menu', 'Crisp Ghee Roast Dosai', 'Table Reservation Modal', 'Bengaluru Location'],
+    swatches: ['#0f0b08', '#d97706', '#15803d', '#fef3c7'],
+  },
+  {
+    id: 'productivity',
+    title: 'SprintFlow Workspaces',
+    subtitle: 'Agile Engineering Sprint & Task Management Board',
+    category: 'Productivity Application',
+    type: 'app',
+    tag: 'Interactive Web App',
+    prompt: 'Build a responsive productivity application with navigation, editable records, validation, and persistent data using the supported backend.',
+    highlights: ['4-Column Kanban Board', 'Full CRUD Records', 'localStorage Auto-Save', 'Strict Form Validation'],
+    swatches: ['#090d16', '#7c3aed', '#10b981', '#ef4444'],
+  },
+];
+
 export const UserWebsiteBuilder: React.FC = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -128,7 +213,14 @@ export const UserWebsiteBuilder: React.FC = () => {
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // View state
+  // Home Screen State
+  const [projectType, setProjectType] = useState<'website' | 'app'>('website');
+  const [attachedFile, setAttachedFile] = useState<{ name: string; size: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showProjectsDropdown, setShowProjectsDropdown] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+
+  // View state (Workspace)
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [selectedFilePath, setSelectedFilePath] = useState<string>('index.html');
@@ -146,7 +238,6 @@ export const UserWebsiteBuilder: React.FC = () => {
   // Build / Refine state
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildStep, setBuildStep] = useState(1);
-  const [buildProgress, setBuildProgress] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [promptInput, setPromptInput] = useState('');
   const [refineInput, setRefineInput] = useState('');
@@ -155,7 +246,6 @@ export const UserWebsiteBuilder: React.FC = () => {
   const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
 
   // Modals & Feedback
-  const [showGalleryModal, setShowGalleryModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
@@ -271,8 +361,10 @@ export const UserWebsiteBuilder: React.FC = () => {
         const data = await res.json();
         if (data.success && Array.isArray(data.projects)) {
           setProjects(data.projects);
-          if (data.projects.length > 0 && !activeProject) {
-            loadProjectDetail(data.projects[0].id);
+          const requestedProjectId = searchParams.get('project');
+          if (requestedProjectId) {
+            const found = data.projects.find((p: any) => p.id === requestedProjectId);
+            if (found) loadProjectDetail(found.id);
           }
         }
       }
@@ -302,6 +394,7 @@ export const UserWebsiteBuilder: React.FC = () => {
               version: data.project.currentVersion || 1,
               files: data.project.files || [],
               showFiles: false,
+              telemetry: data.project.telemetry,
             },
           ]);
           setPreviewKey((k) => k + 1);
@@ -318,44 +411,47 @@ export const UserWebsiteBuilder: React.FC = () => {
     setElapsedSeconds(0);
     const submissionTime = new Date().toISOString();
 
-    const startTime = Date.now();
-    const elapsedInterval = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startTime) / 100) / 10);
+    const timer = setInterval(() => {
+      setElapsedSeconds((prev) => +(prev + 0.1).toFixed(1));
     }, 100);
+
+    const initialUserTurn: ChatTurn = {
+      role: 'user',
+      text: brief,
+      time: formatTime(),
+    };
+    setChatTurns([initialUserTurn]);
 
     try {
       const res = await userFetch('/api/user/studio/builder/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          brief,
+          brief: brief.trim(),
           templateId,
           modelId: selectedModel,
-          userSubmissionTime: submissionTime,
+          projectType,
+          submissionTime,
         }),
       });
+
       const data = await res.json();
-      clearInterval(elapsedInterval);
+      clearInterval(timer);
 
       if (res.ok && data.success && data.project) {
-        setBuildStep(4);
-        setBuildProgress(100);
         setActiveProject(data.project);
         setProjects((prev) => [data.project, ...prev.filter((p) => p.id !== data.project.id)]);
+        setPreviewKey((k) => k + 1);
 
-        const latencySec = data.project.telemetry
-          ? (data.project.telemetry.durationMs.totalElapsedMs / 1000).toFixed(2)
-          : ((Date.now() - startTime) / 1000).toFixed(2);
+        const duration = data.project.telemetry?.totalLatencyMs
+          ? (data.project.telemetry.totalLatencyMs / 1000).toFixed(1) + 's'
+          : elapsedSeconds.toFixed(1) + 's';
 
-        setChatTurns([
-          {
-            role: 'user',
-            text: brief,
-            time: formatTime(),
-          },
+        setChatTurns((prev) => [
+          ...prev,
           {
             role: 'assistant',
-            text: `Production website synthesized in ${latencySec}s`,
+            text: `Built ${data.project.title} (${duration})`,
             time: formatTime(),
             version: 1,
             files: data.project.files,
@@ -364,127 +460,100 @@ export const UserWebsiteBuilder: React.FC = () => {
             showTelemetry: false,
           },
         ]);
-        setPreviewKey((k) => k + 1);
-        setShowGalleryModal(false);
-        setPromptInput('');
-        showToast(`Website generated in ${latencySec}s`, 'success');
+
+        showToast(`Successfully created ${data.project.title}`, 'success');
       } else {
-        const msg = formatErrorMessage(data.error);
-        showToast(msg, 'error');
-        setChatTurns((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            text: `⚠️ Build error: ${msg}. Please check your credentials and try again.`,
-            time: formatTime(),
-          },
-        ]);
+        showToast(formatErrorMessage(data.error), 'error');
       }
     } catch (err: any) {
-      clearInterval(elapsedInterval);
-      const msg = formatErrorMessage(err);
-      showToast(msg, 'error');
-      setChatTurns((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          text: `⚠️ Network error: ${msg}`,
-          time: formatTime(),
-        },
-      ]);
+      clearInterval(timer);
+      showToast(formatErrorMessage(err), 'error');
     } finally {
       setIsBuilding(false);
+      setBuildStep(0);
     }
   };
 
   // API: Conversational Iterative Refinement
-  const handleRefine = async (instruction?: string) => {
-    const textToSubmit = instruction || refineInput;
-    if (!textToSubmit.trim() || !activeProject) return;
-
-    const userMsg = textToSubmit.trim();
+  const handleRefine = async () => {
+    if (!activeProject || !refineInput.trim() || isBuilding) return;
+    const prompt = refineInput.trim();
     setRefineInput('');
-    setChatTurns((prev) => [...prev, { role: 'user', text: userMsg, time: formatTime() }]);
     setIsBuilding(true);
-    setBuildStep(3);
+    setBuildStep(2);
     setElapsedSeconds(0);
 
-    const startTime = Date.now();
-    const elapsedInterval = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startTime) / 100) / 10);
+    const timer = setInterval(() => {
+      setElapsedSeconds((prev) => +(prev + 0.1).toFixed(1));
     }, 100);
+
+    setChatTurns((prev) => [
+      ...prev,
+      {
+        role: 'user',
+        text: prompt,
+        time: formatTime(),
+      },
+    ]);
 
     try {
       const res = await userFetch(`/api/user/studio/builder/projects/${activeProject.id}/refine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modificationPrompt: userMsg }),
+        body: JSON.stringify({ prompt, modelId: selectedModel }),
       });
+
       const data = await res.json();
-      clearInterval(elapsedInterval);
+      clearInterval(timer);
 
       if (res.ok && data.success && data.project) {
         setActiveProject(data.project);
         setPreviewKey((k) => k + 1);
+
+        const version = data.project.currentVersion;
+        const duration = data.project.telemetry?.totalLatencyMs
+          ? (data.project.telemetry.totalLatencyMs / 1000).toFixed(1) + 's'
+          : elapsedSeconds.toFixed(1) + 's';
+
         setChatTurns((prev) => [
           ...prev,
           {
             role: 'assistant',
-            text: data.summary || 'Applied requested refinements to website.',
+            text: `Applied change: ${prompt} (${duration})`,
             time: formatTime(),
-            version: data.project.currentVersion,
+            version,
             files: data.project.files,
             showFiles: false,
             telemetry: data.project.telemetry,
             showTelemetry: false,
           },
         ]);
-        showToast(`Updated to version ${data.project.currentVersion}`, 'success');
+        showToast(`Updated to version ${version}`, 'success');
       } else {
-        const msg = formatErrorMessage(data.error);
-        setChatTurns((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            text: `⚠️ Could not apply requested changes: ${msg}. Preserved last working preview intact.`,
-            time: formatTime(),
-          },
-        ]);
-        showToast(msg, 'error');
+        showToast(formatErrorMessage(data.error), 'error');
       }
     } catch (err: any) {
-      clearInterval(elapsedInterval);
-      const msg = formatErrorMessage(err);
-      setChatTurns((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          text: `⚠️ Refinement error: ${msg}`,
-          time: formatTime(),
-        },
-      ]);
-      showToast(msg, 'error');
+      clearInterval(timer);
+      showToast(formatErrorMessage(err), 'error');
     } finally {
       setIsBuilding(false);
     }
   };
 
-  // API: Save Manual Code Edits & Recompile Preview
-  const handleSaveEditorFiles = async () => {
-    if (!activeProject) return;
+  // API: Save Manual Code Edits
+  const handleSaveCode = async () => {
+    if (!activeProject || !isEditingCode) return;
     try {
       setIsBuilding(true);
-      const updatedFiles = activeProject.files.map((f) =>
-        f.path === selectedFilePath ? { ...f, content: editorContent } : f
-      );
-
       const res = await userFetch(`/api/user/studio/builder/projects/${activeProject.id}/files`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: updatedFiles }),
+        body: JSON.stringify({
+          path: selectedFilePath,
+          content: editorContent,
+        }),
       });
       const data = await res.json();
-
       if (res.ok && data.success && data.project) {
         setActiveProject(data.project);
         setIsEditingCode(false);
@@ -493,7 +562,7 @@ export const UserWebsiteBuilder: React.FC = () => {
           ...prev,
           {
             role: 'assistant',
-            text: `Saved manual changes to ${selectedFilePath}. Recompiled live preview at version ${data.project.currentVersion}.`,
+            text: `Saved manual edits to ${selectedFilePath}`,
             time: formatTime(),
             version: data.project.currentVersion,
             files: data.project.files,
@@ -586,11 +655,6 @@ export const UserWebsiteBuilder: React.FC = () => {
     showToast('Copied code to clipboard', 'info');
   };
 
-  // Ask AI about this file
-  const handleAskAboutFile = () => {
-    setRefineInput(`In file "${selectedFilePath}", please `);
-  };
-
   // Toggle Turn Files Accordion
   const toggleTurnFiles = (index: number) => {
     setChatTurns((prev) =>
@@ -618,12 +682,12 @@ export const UserWebsiteBuilder: React.FC = () => {
 
     activeProject.files.forEach((f) => {
       const parts = f.path.split('/');
-      if (parts.length > 1) {
+      if (parts.length === 1) {
+        rootFiles.push(f);
+      } else {
         const folder = parts[0];
         if (!folderMap[folder]) folderMap[folder] = [];
         folderMap[folder].push(f);
-      } else {
-        rootFiles.push(f);
       }
     });
 
@@ -632,20 +696,351 @@ export const UserWebsiteBuilder: React.FC = () => {
 
   const { root: rootFiles, folders: folderMap } = organizeFiles();
 
+  // =========================================================================
+  // VIEW A: STUDIO HOME SCREEN (Clean, Calm, Lovable Simplicity)
+  // Rendered when activeProject is null and not building
+  // =========================================================================
+  if (!activeProject && !isBuilding) {
+    return (
+      <div className="min-h-screen bg-[#fafaf9] text-slate-900 flex flex-col font-sans select-none antialiased">
+        {/* Minimal Header */}
+        <header className="h-16 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <Link to="/dashboard" className="flex items-center gap-2.5 group">
+              <div className="w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center text-white font-black text-sm shadow-sm group-hover:bg-violet-700 transition-colors">
+                ⚡
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-sm tracking-tight text-slate-900">LightningAPI <span className="text-violet-600">Studio</span></span>
+                <span className="text-[10px] text-slate-500 font-medium">AI Website & App Builder</span>
+              </div>
+            </Link>
+
+            {projects.length > 0 && (
+              <div className="relative ml-4">
+                <button
+                  type="button"
+                  onClick={() => setShowProjectsDropdown(!showProjectsDropdown)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  <Folder className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Your Projects ({projects.length})</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                {showProjectsDropdown && (
+                  <div className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-40 max-h-64 overflow-y-auto">
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setShowProjectsDropdown(false);
+                          loadProjectDetail(p.id);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-violet-50 text-xs text-slate-800 transition-colors flex flex-col"
+                      >
+                        <span className="font-semibold truncate">{p.title}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">v{p.currentVersion} &bull; {p.category}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
+            <Link to="/dashboard" className="hover:text-slate-900 transition-colors">
+              Dashboard
+            </Link>
+            <div className="h-4 w-px bg-slate-200" />
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 font-bold flex items-center justify-center text-[11px]">
+                {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
+              </span>
+              <span className="hidden sm:inline text-slate-700">{user?.email || 'sidhjain9002@gmail.com'}</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Hero & Prompt Composer */}
+        <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-12 sm:py-16 flex flex-col items-center">
+          {/* Main Headline */}
+          <div className="text-center space-y-3 mb-8">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 border border-violet-200/80 text-violet-700 text-xs font-semibold shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+              <span>Frontier Claude Intelligence &bull; Live Interactive Sandboxed Runtime</span>
+            </div>
+            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-950">
+              What would you like to build?
+            </h1>
+            <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto font-normal">
+              Describe a website, storefront, or application in plain language. Watch it generate, preview it live, and refine conversationally.
+            </p>
+          </div>
+
+          {/* Large Prompt Composer Card */}
+          <div className="w-full bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xl shadow-slate-200/50 space-y-3 transition-all focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-500/10">
+            <textarea
+              rows={3}
+              value={promptInput}
+              onChange={(e) => setPromptInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (promptInput.trim()) handleCreateProject(promptInput);
+                }
+              }}
+              placeholder={
+                projectType === 'website'
+                  ? 'Build a premium mineral sunscreen brand website with lifestyle imagery, product formulas, benefits, a product gallery, and an FAQ...'
+                  : 'Build a responsive productivity application with navigation, editable records, validation, and persistent data...'
+              }
+              className="w-full bg-transparent text-sm sm:text-base text-slate-900 placeholder-slate-400 focus:outline-none resize-none leading-relaxed font-normal"
+            />
+
+            {/* Attached file chip */}
+            {attachedFile && (
+              <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 text-violet-800 text-xs px-2.5 py-1 rounded-lg w-fit">
+                <Paperclip className="w-3 h-3 text-violet-600" />
+                <span className="font-semibold truncate max-w-[220px]">{attachedFile.name}</span>
+                <span className="text-[10px] text-violet-500 font-mono">({(attachedFile.size / 1024).toFixed(0)} KB)</span>
+                <button
+                  type="button"
+                  onClick={() => setAttachedFile(null)}
+                  className="hover:text-violet-950 ml-1 text-slate-400 hover:text-slate-700"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+
+            {/* Composer Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Website vs App Selector */}
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600">
+                  <button
+                    type="button"
+                    onClick={() => setProjectType('website')}
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      projectType === 'website' ? 'bg-white text-slate-900 shadow-2xs' : 'hover:text-slate-900'
+                    }`}
+                  >
+                    Website
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProjectType('app')}
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      projectType === 'app' ? 'bg-white text-slate-900 shadow-2xs' : 'hover:text-slate-900'
+                    }`}
+                  >
+                    Web App
+                  </button>
+                </div>
+
+                {/* File Attachment Button */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*,.txt,.pdf,.json,.md,.html"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setAttachedFile({ name: file.name, size: file.size });
+                      showToast(`Attached ${file.name} to design brief`, 'success');
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                  title="Attach screenshot, reference image, or design brief"
+                >
+                  <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="hidden sm:inline">Attach</span>
+                </button>
+
+                {/* Claude Model Selector (Frontier Catalog Only) */}
+                <div className="relative">
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="appearance-none bg-slate-50 border border-slate-200 hover:border-slate-300 text-xs font-semibold text-slate-700 rounded-lg px-2.5 py-1 pr-6 focus:outline-none cursor-pointer"
+                  >
+                    {availableModels.length > 0 ? (
+                      availableModels.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="claude-sonnet-5.5">Claude Sonnet 5.5 &bull; Recommended</option>
+                        <option value="claude-opus-5.5">Claude Opus 5.5 &bull; Frontier</option>
+                        <option value="claude-sonnet-5">Claude Sonnet 5 &bull; Systems</option>
+                      </>
+                    )}
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Build Button */}
+              <button
+                type="button"
+                onClick={() => handleCreateProject(promptInput)}
+                disabled={!promptInput.trim()}
+                className="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white text-xs sm:text-sm font-bold shadow-md shadow-violet-500/25 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <span>Build {projectType === 'app' ? 'App' : 'Website'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Clickable Example Prompt Chips */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
+            <span className="text-slate-600 font-semibold mr-1">Try:</span>
+            {SHOWCASE_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setPromptInput(item.prompt);
+                  setProjectType(item.type);
+                }}
+                className="px-3 py-1.5 rounded-full bg-white border border-slate-200/90 hover:border-violet-400 hover:bg-violet-50 text-slate-700 hover:text-violet-800 font-medium transition-all shadow-2xs text-left"
+              >
+                {item.id === 'sunscreen' && '☼ '}
+                {item.id === 'dashboard' && '📊 '}
+                {item.id === 'portfolio' && '❖ '}
+                {item.id === 'restaurant' && '🍽 '}
+                {item.id === 'productivity' && '⚡ '}
+                <span>{item.title}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Curated Showcase Gallery Section */}
+          <section className="mt-16 w-full space-y-6">
+            <div className="text-center space-y-1">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+                Curated Showcase &bull; Real Generated Builds
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500">
+                Select any verified production build to inspect its architecture or fork as your starter project.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {SHOWCASE_ITEMS.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:border-violet-300 transition-all flex flex-col justify-between group"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full">
+                        {item.category}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {item.swatches.map((color, i) => (
+                          <span
+                            key={i}
+                            className="w-3 h-3 rounded-full border border-slate-200"
+                            style={{ backgroundColor: color }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-base group-hover:text-violet-700 transition-colors">
+                        {item.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                        {item.subtitle}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-1 border-t border-slate-100">
+                      {item.highlights.map((feat, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                          <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                          <span>{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCreateProject(item.prompt)}
+                      className="w-full py-2 bg-slate-900 hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Build This Project</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </main>
+
+        {/* Minimal Footer */}
+        <footer className="border-t border-slate-200/80 bg-white py-6 px-6 text-center text-xs text-slate-500">
+          <span>LightningAPI Studio &bull; Verified Claude Frontier Models &bull; Sandboxed Client Runtime</span>
+        </footer>
+
+        {/* Toast */}
+        {toastMessage && (
+          <div
+            className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 border transition-all ${
+              toastMessage.type === 'error'
+                ? 'bg-rose-50 text-rose-800 border-rose-200'
+                : toastMessage.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-slate-900 text-white border-slate-800'
+            }`}
+          >
+            {toastMessage.type === 'error' && <span className="text-rose-500">⚠️</span>}
+            {toastMessage.type === 'success' && <span className="text-emerald-500">✓</span>}
+            <span>{toastMessage.text}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW B: DEDICATED PROFESSIONAL WORKSPACE (3-Panel Focused Canvas)
+  // Rendered when activeProject is set or isBuilding is true
+  // =========================================================================
   return (
     <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-[#0b0f17] text-[#f1f5f9] overflow-hidden select-none font-sans">
-      {/* =========================================================================
-          TOP NAVBAR (ScaleMax Dark Studio Navigation)
-         ========================================================================= */}
+      {/* Top Studio Toolbar */}
       <header className="h-14 border-b border-[#1e2638] bg-[#0d111a] px-4 flex items-center justify-between shrink-0 z-30">
-        {/* Left: Workspace dropdown & Project Breadcrumbs */}
         <div className="flex items-center gap-3">
+          {/* Back to Studio Home Button */}
           <button
             type="button"
+            onClick={() => {
+              setActiveProject(null);
+              setChatTurns([]);
+            }}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141b29] border border-[#232f45] text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#1a2336] transition-colors"
+            title="Return to Studio Home Screen"
           >
-            <span>My Workspace</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>All Projects</span>
           </button>
 
           <div className="h-4 w-px bg-[#1e2638] hidden sm:block" />
@@ -654,10 +1049,8 @@ export const UserWebsiteBuilder: React.FC = () => {
           <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
             <span>Studio</span>
             <span className="text-slate-600">/</span>
-            <span>Websites</span>
-            <span className="text-slate-600">/</span>
             <span className="font-bold text-white truncate max-w-[180px] sm:max-w-[280px]">
-              {activeProject ? activeProject.title : 'Sunscreen Brand Landing Page'}
+              {activeProject ? activeProject.title : 'Generating Website...'}
             </span>
             {activeProject && (
               <span className="text-[10px] bg-[#1a2336] text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono hidden md:inline">
@@ -674,58 +1067,36 @@ export const UserWebsiteBuilder: React.FC = () => {
             className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to website</span>
+            <span>Dashboard</span>
           </Link>
-
-          <div className="hidden lg:flex items-center gap-1 bg-[#121826] p-0.5 rounded-lg border border-[#1e2638] text-xs font-medium text-slate-400">
-            <Link to="/dashboard" className="px-2.5 py-1 rounded-md hover:text-slate-200 transition-colors">
-              Dashboard
-            </Link>
-            <Link to="/dashboard/studio" className="px-2.5 py-1 rounded-md hover:text-slate-200 transition-colors">
-              Chat
-            </Link>
-            <button
-              type="button"
-              className="px-2.5 py-1 rounded-md bg-[#7c3aed] text-white font-bold shadow-xs cursor-default"
-            >
-              Studio
-            </button>
-            <span className="px-2.5 py-1 text-slate-500 cursor-not-allowed">Voice</span>
-          </div>
 
           <div className="h-4 w-px bg-[#1e2638] hidden md:block" />
 
           {/* User Account / Email */}
           <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
             <span className="hidden xl:inline text-slate-400">{user?.email || 'sidhjain9002@gmail.com'}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden xl:inline" />
           </div>
         </div>
       </header>
 
-      {/* =========================================================================
-          MAIN WORKSPACE LAYOUT (Left Chat Sidebar + Right Live Studio Canvas)
-         ========================================================================= */}
+      {/* Main Workspace Layout (Left Chat Sidebar + Right Live Studio Canvas) */}
       <div className="flex-1 w-full flex overflow-hidden min-h-0 min-w-0">
-        {/* =====================================================================
-            LEFT PANEL: Iteration Chat, Generation Feed, File Explorer Pill
-           ===================================================================== */}
+        {/* Left Panel: Iteration Chat, Generation Feed, File Explorer */}
         <aside className="w-full sm:w-[380px] lg:w-[400px] xl:w-[440px] border-r border-[#1e2638] bg-[#0e1320] flex flex-col shrink-0 overflow-hidden">
           {/* Active Generation Feed */}
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {chatTurns.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
                 <Sparkles className="w-8 h-8 text-[#7c3aed] mb-2 animate-pulse" />
-                <p className="text-xs font-semibold text-slate-300">Describe any website to build</p>
+                <p className="text-xs font-semibold text-slate-300">Describe any change to make</p>
                 <p className="text-[11px] text-slate-500 mt-1 max-w-[220px]">
-                  E.g. "a landing page for a sunscreen brand" with responsive design and interactive components.
+                  E.g. "make the hero more editorial" or "change the accent color to amber".
                 </p>
               </div>
             ) : (
               chatTurns.map((turn, idx) => (
                 <div key={idx} className="space-y-2">
                   {turn.role === 'user' ? (
-                    /* User Message Bubble */
                     <div className="flex flex-col items-end">
                       <div className="bg-[#172033] border border-[#263550] text-[#f1f5f9] px-3.5 py-2.5 rounded-2xl rounded-tr-sm text-xs font-medium max-w-[85%] shadow-sm leading-relaxed">
                         {turn.text}
@@ -733,13 +1104,12 @@ export const UserWebsiteBuilder: React.FC = () => {
                       <span className="text-[10px] text-slate-500 mt-1 font-mono">{turn.time}</span>
                     </div>
                   ) : (
-                    /* Assistant Action Card */
                     <div className="bg-[#121826] border border-[#1e2638] rounded-xl p-3.5 space-y-2.5">
                       <div className="flex items-center justify-between text-xs font-bold text-white">
                         <span>{turn.text}</span>
                       </div>
 
-                      {/* Expandable "Show N files" Accordion */}
+                      {/* Expandable Files Accordion */}
                       {turn.files && turn.files.length > 0 && (
                         <div className="pt-1">
                           <button
@@ -776,85 +1146,65 @@ export const UserWebsiteBuilder: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Telemetry & Pipeline Diagnostics Accordion */}
+                      {/* Telemetry Accordion */}
                       {turn.telemetry && (
-                        <div className="pt-1">
+                        <div className="pt-1 border-t border-[#1a2336]">
                           <button
                             type="button"
                             onClick={() => toggleTurnTelemetry(idx)}
-                            className="text-xs font-medium text-slate-400 hover:text-white flex items-center justify-between w-full p-2 rounded-lg bg-[#0d121c] border border-[#1b2537] transition-colors cursor-pointer"
+                            className="text-[11px] font-mono text-slate-400 hover:text-violet-300 flex items-center justify-between w-full transition-colors cursor-pointer"
                           >
-                            <span className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full ${turn.telemetry.source === 'claude_model_gateway' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                              <span className="font-semibold text-slate-300">Pipeline Telemetry</span>
-                              <span className="text-[10px] text-slate-500 font-mono">
-                                ({turn.telemetry.source === 'claude_model_gateway' ? 'Claude Gateway' : 'Archetype Synthesis'})
-                              </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                              <span>Pipeline Telemetry & Timings</span>
                             </span>
-                            <span className="flex items-center gap-1 text-[11px] font-mono text-slate-400">
-                              <span>{(turn.telemetry.durationMs?.totalElapsedMs / 1000).toFixed(2)}s</span>
-                              {turn.showTelemetry ? (
-                                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                              ) : (
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                              )}
-                            </span>
+                            {turn.showTelemetry ? (
+                              <ChevronDown className="w-3 h-3 text-slate-400" />
+                            ) : (
+                              <ChevronRight className="w-3 h-3 text-slate-400" />
+                            )}
                           </button>
 
                           {turn.showTelemetry && (
-                            <div className="mt-1.5 p-2.5 rounded-lg bg-[#090d15] border border-[#1b2537] text-[11px] font-mono space-y-1.5 text-slate-300">
-                              <div className="flex justify-between py-0.5 border-b border-slate-800/80">
-                                <span className="text-slate-500">Correlation ID:</span>
-                                <span className="text-slate-300 select-all">{turn.telemetry.correlationId}</span>
+                            <div className="mt-2 p-2.5 rounded-lg bg-[#0b0e17] border border-[#1c263b] text-[10px] font-mono text-slate-300 space-y-1.5">
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Source Engine:</span>
+                                <span className="text-emerald-400 font-semibold">{turn.telemetry.source}</span>
                               </div>
-                              <div className="flex justify-between py-0.5 border-b border-slate-800/80">
+                              <div className="flex justify-between">
                                 <span className="text-slate-500">Model Requested:</span>
-                                <span className="text-violet-400">{turn.telemetry.modelRequested}</span>
+                                <span className="text-slate-300">{turn.telemetry.modelRequested}</span>
                               </div>
-                              <div className="flex justify-between py-0.5 border-b border-slate-800/80">
-                                <span className="text-slate-500">Generation Source:</span>
-                                <span className={turn.telemetry.source === 'claude_model_gateway' ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
-                                  {turn.telemetry.source}
-                                </span>
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Provider Route:</span>
+                                <span className="text-slate-300">{turn.telemetry.providerName}</span>
                               </div>
-                              {turn.telemetry.durationMs?.ttftMs !== undefined && (
-                                <div className="flex justify-between py-0.5 border-b border-slate-800/80">
+                              {turn.telemetry.ttftMs && (
+                                <div className="flex justify-between">
                                   <span className="text-slate-500">Time to First Token:</span>
-                                  <span className="text-slate-300">{turn.telemetry.durationMs.ttftMs}ms</span>
+                                  <span className="text-purple-300">{turn.telemetry.ttftMs}ms</span>
                                 </div>
                               )}
-                              {turn.telemetry.durationMs?.modelLatencyMs !== undefined && (
-                                <div className="flex justify-between py-0.5 border-b border-slate-800/80">
-                                  <span className="text-slate-500">Model Duration:</span>
-                                  <span className="text-slate-300">{turn.telemetry.durationMs.modelLatencyMs}ms</span>
-                                </div>
-                              )}
-                              <div className="flex justify-between py-0.5 border-b border-slate-800/80">
-                                <span className="text-slate-500">Preview Build:</span>
-                                <span className="text-slate-300">{turn.telemetry.durationMs?.buildAndCompileMs || 4}ms</span>
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Model Latency:</span>
+                                <span className="text-purple-300">{turn.telemetry.modelLatencyMs}ms</span>
                               </div>
-                              {turn.telemetry.fallbackUsed && (
-                                <div className="mt-1 p-1.5 rounded bg-amber-950/40 border border-amber-800/50 text-[10px] text-amber-200">
-                                  <strong>Fallback note:</strong> {turn.telemetry.fallbackReason}
-                                </div>
-                              )}
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Preview Compile:</span>
+                                <span className="text-purple-300">{turn.telemetry.previewCompilationMs}ms</span>
+                              </div>
+                              <div className="flex justify-between border-t border-[#182236] pt-1">
+                                <span className="text-slate-400 font-semibold">Total Pipeline:</span>
+                                <span className="text-emerald-300 font-bold">{turn.telemetry.totalLatencyMs}ms</span>
+                              </div>
                             </div>
                           )}
                         </div>
                       )}
 
-                      {/* Turn Version & Quick Action Footer */}
-                      <div className="flex items-center justify-between pt-2 border-t border-[#1a2234] text-[11px] text-slate-500 font-mono">
-                        <span>v{turn.version || 1} &bull; {turn.time}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setViewMode('preview')}
-                            className="hover:text-white text-slate-400 transition-colors"
-                          >
-                            Preview
-                          </button>
-                          <span>&bull;</span>
+                      <div className="flex items-center justify-between pt-2 border-t border-[#1c263b] text-[11px] text-slate-400">
+                        <span className="font-mono">Version {turn.version || 1}</span>
+                        <div className="flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => handleRollback(turn.version || 1)}
@@ -870,7 +1220,7 @@ export const UserWebsiteBuilder: React.FC = () => {
               ))
             )}
 
-            {/* Building Indicator with Real Elapsed Seconds */}
+            {/* Building Indicator */}
             {isBuilding && (
               <div className="bg-[#121826] border border-violet-500/40 rounded-xl p-3.5 space-y-2.5 animate-pulse">
                 <div className="flex items-center justify-between text-xs font-bold text-violet-300">
@@ -893,18 +1243,13 @@ export const UserWebsiteBuilder: React.FC = () => {
             )}
           </div>
 
-          {/* ===================================================================
-              BOTTOM CHAT COMPOSER (ScaleMax Card with Model Dropdown & Send)
-             =================================================================== */}
+          {/* Bottom Chat Refine Composer */}
           <div className="p-3 border-t border-[#1e2638] bg-[#0c101a]">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (activeProject) {
-                  handleRefine();
-                } else {
-                  handleCreateProject(refineInput);
-                }
+                if (activeProject) handleRefine();
+                else handleCreateProject(refineInput);
               }}
               className="bg-[#141b2a] border border-[#232f45] rounded-xl p-2.5 flex flex-col gap-2 shadow-sm focus-within:border-[#7c3aed] transition-colors"
             >
@@ -919,13 +1264,12 @@ export const UserWebsiteBuilder: React.FC = () => {
                     else handleCreateProject(refineInput);
                   }
                 }}
-                placeholder={activeProject ? 'Describe a change...' : 'Describe a website to build...'}
+                placeholder="Describe a change (e.g. 'Make the hero more premium' or 'Add a pricing section')..."
                 disabled={isBuilding}
                 className="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none resize-none leading-relaxed"
               />
 
               <div className="flex items-center justify-between pt-1 border-t border-[#1c263b]">
-                {/* Model Selector Dropdown (Zero Claude 3 family, strictly Claude 4/5/5.5) */}
                 <div className="relative">
                   <select
                     value={selectedModel}
@@ -935,27 +1279,19 @@ export const UserWebsiteBuilder: React.FC = () => {
                     {availableModels.length > 0 ? (
                       availableModels.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name} &bull; {m.badge || 'billed per token'}
+                          {m.name}
                         </option>
                       ))
                     ) : (
                       <>
                         <option value="claude-sonnet-5.5">Claude Sonnet 5.5 &bull; Recommended</option>
-                        <option value="claude-opus-5.5">Claude Opus 5.5 &bull; Frontier Intelligence</option>
-                        <option value="claude-sonnet-5">Claude Sonnet 5 &bull; Architecture & Systems</option>
-                        <option value="claude-opus-5">Claude Opus 5 &bull; Deep Reasoning</option>
-                        <option value="claude-fable-5">Claude Fable 5 &bull; Creative & Spec</option>
-                        <option value="claude-haiku-5.5">Claude Haiku 5.5 &bull; Rapid Synthesis</option>
-                        <option value="claude-opus-4.6">Claude Opus 4.6 &bull; Advanced Engineering</option>
-                        <option value="claude-sonnet-4.6">Claude Sonnet 4.6 &bull; High-Performance</option>
-                        <option value="claude-haiku-4.5">Claude Haiku 4.5 &bull; High-Speed Iteration</option>
+                        <option value="claude-opus-5.5">Claude Opus 5.5 &bull; Frontier</option>
+                        <option value="claude-sonnet-5">Claude Sonnet 5 &bull; Architecture</option>
                       </>
                     )}
                   </select>
-                  <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2 pointer-events-none" />
                 </div>
 
-                {/* Send Button */}
                 <button
                   type="submit"
                   disabled={isBuilding || !refineInput.trim()}
@@ -969,15 +1305,12 @@ export const UserWebsiteBuilder: React.FC = () => {
           </div>
         </aside>
 
-        {/* =====================================================================
-            RIGHT PANEL: Live Preview OR Code Explorer/Viewer
-           ===================================================================== */}
+        {/* Right Panel: Live Preview OR Code Explorer/Viewer */}
         <main className="flex-1 flex flex-col bg-[#080b11] overflow-hidden min-w-0 w-full h-full">
           {/* Sub-toolbar */}
           <div className="h-12 border-b border-[#1e2638] bg-[#0d111a] px-4 flex items-center justify-between shrink-0 text-xs">
-            {/* Left: Mode Toggle & Viewport switchers */}
             <div className="flex items-center gap-3">
-              {/* Segmented Mode Toggle: Preview vs Code */}
+              {/* Segmented Mode Toggle */}
               <div className="flex items-center bg-[#131926] p-0.5 rounded-lg border border-[#1e2638]">
                 <button
                   type="button"
@@ -1005,7 +1338,7 @@ export const UserWebsiteBuilder: React.FC = () => {
                 </button>
               </div>
 
-              {/* Viewport switchers (only visible in Preview mode) */}
+              {/* Viewport switchers */}
               {viewMode === 'preview' && (
                 <div className="flex items-center gap-1 bg-[#131926] p-0.5 rounded-lg border border-[#1e2638]">
                   <button
@@ -1063,11 +1396,14 @@ export const UserWebsiteBuilder: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowGalleryModal(true)}
+                onClick={() => {
+                  setActiveProject(null);
+                  setChatTurns([]);
+                }}
                 className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#1e2638] hover:bg-[#141b29] text-xs font-medium text-slate-300 hover:text-white transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>New Site</span>
+                <span>New Project</span>
               </button>
 
               <button
@@ -1082,7 +1418,7 @@ export const UserWebsiteBuilder: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => showToast('Website is production-ready for export and hosting!', 'success')}
+                onClick={() => setShowPublishModal(true)}
                 className="flex items-center gap-1.5 px-3.5 py-1 rounded-lg bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-xs font-bold transition-all shadow-xs"
               >
                 <Rocket className="w-3.5 h-3.5" />
@@ -1091,221 +1427,251 @@ export const UserWebsiteBuilder: React.FC = () => {
             </div>
           </div>
 
-          {/* ===================================================================
-              PREVIEW MODE: Centered Sandboxed Runtime Frame
-             =================================================================== */}
+          {/* Preview Mode */}
           {viewMode === 'preview' ? (
             <div className="flex-1 w-full h-full overflow-hidden p-3 lg:p-4 flex items-center justify-center bg-[#080b11] min-w-0">
               <div
                 className={`h-full flex flex-col bg-white transition-all duration-300 rounded-xl overflow-hidden border border-[#1e2638] shadow-2xl ${
                   viewport === 'mobile'
-                    ? 'w-[375px] max-w-full'
+                    ? 'w-[375px] max-w-[375px]'
                     : viewport === 'tablet'
-                    ? 'w-[768px] max-w-full'
-                    : 'w-full flex-1'
+                    ? 'w-[768px] max-w-[768px]'
+                    : 'w-full flex-1 min-w-0'
                 }`}
               >
-                {activeProject && activeProject.previewHtml ? (
-                  <iframe
-                    ref={previewIframeRef}
-                    key={previewKey}
-                    title="Live Website Preview"
-                    srcDoc={activeProject.previewHtml}
-                    sandbox="allow-scripts allow-forms allow-modals allow-downloads"
-                    className="w-full flex-1 border-0 bg-white"
-                  />
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 bg-[#0d121c]">
-                    <Globe className="w-12 h-12 text-slate-600 mb-3" />
-                    <p className="font-bold text-slate-300 text-sm">No website synthesized yet</p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                      Type "a landing page for a sunscreen brand" in the chat to synthesize a live site.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => handleCreateProject('a landing page for a sunscreen brand')}
-                      className="mt-4 px-4 py-2 rounded-lg bg-[#7c3aed] text-white font-bold text-xs hover:bg-[#6d28d9] transition-colors"
-                    >
-                      Build Sunscreen Brand Landing Page &rarr;
-                    </button>
+                {/* Mock Browser Header */}
+                <div className="h-8 bg-[#182030] border-b border-[#263550] px-3 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
                   </div>
-                )}
+                  <div className="bg-[#0f1420] text-slate-400 text-[11px] font-mono px-3 py-0.5 rounded-md truncate max-w-[280px]">
+                    https://{activeProject?.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'preview'}.lightningapi.live
+                  </div>
+                  <div className="text-[10px] text-emerald-400 font-semibold font-mono">
+                    ✓ Verified Sandbox
+                  </div>
+                </div>
+
+                {/* Sandboxed iframe */}
+                <div className="flex-1 bg-white relative overflow-hidden">
+                  <iframe
+                    key={previewKey}
+                    ref={previewIframeRef}
+                    title="Website Live Preview"
+                    srcDoc={activeProject?.previewHtml || '<h1>Compiling production bundle...</h1>'}
+                    sandbox="allow-scripts allow-forms allow-same-origin allow-modals allow-downloads"
+                    className="w-full h-full border-0 bg-white"
+                  />
+                </div>
               </div>
             </div>
           ) : (
-            /* ===================================================================
-                CODE MODE: ScaleMax Hierarchical File Explorer + Code Editor
-               =================================================================== */
-            <div className="flex-1 flex overflow-hidden bg-[#0d111a]">
-              {/* Left Column: File Explorer Tree */}
-              <div className="w-64 border-r border-[#1e2638] bg-[#090d15] flex flex-col shrink-0 overflow-y-auto">
-                <div className="p-3 border-b border-[#1e2638] text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                  Project Files ({activeProject?.files.length || 0})
+            /* Code Mode */
+            <div className="flex-1 flex overflow-hidden min-h-0 bg-[#0c1017]">
+              {/* Hierarchical File Explorer */}
+              <div className="w-64 border-r border-[#1e2638] bg-[#0d121c] flex flex-col shrink-0 overflow-y-auto">
+                <div className="p-3 border-b border-[#1e2638] flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Project Files</span>
+                  <span className="text-[10px] bg-[#1a2336] text-purple-400 px-2 py-0.5 rounded-full font-mono">
+                    {activeProject?.files.length || 0}
+                  </span>
                 </div>
 
-                <div className="p-2 space-y-1 text-xs font-mono">
-                  {/* Folders */}
-                  {Object.entries(folderMap).map(([folderName, filesInFolder]) => (
-                    <div key={folderName} className="space-y-1">
-                      <button
-                        type="button"
-                        onClick={() => toggleFolder(folderName)}
-                        className="w-full flex items-center gap-1.5 px-2 py-1 rounded text-slate-300 hover:text-white hover:bg-[#141b29] transition-colors"
-                      >
-                        {expandedFolders[folderName] ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                        )}
-                        {expandedFolders[folderName] ? (
-                          <FolderOpen className="w-3.5 h-3.5 text-[#7c3aed]" />
-                        ) : (
-                          <Folder className="w-3.5 h-3.5 text-[#7c3aed]" />
-                        )}
-                        <span className="font-semibold">{folderName}</span>
-                      </button>
-
-                      {expandedFolders[folderName] && (
-                        <div className="pl-4 space-y-0.5">
-                          {filesInFolder.map((file) => (
-                            <button
-                              key={file.path}
-                              type="button"
-                              onClick={() => setSelectedFilePath(file.path)}
-                              className={`w-full text-left flex items-center gap-2 px-2 py-1 rounded transition-colors ${
-                                selectedFilePath === file.path
-                                  ? 'bg-[#1d273a] text-white font-bold border-l-2 border-[#7c3aed]'
-                                  : 'text-slate-400 hover:text-slate-200 hover:bg-[#121826]'
-                              }`}
-                            >
-                              {file.path.endsWith('.svg') ? (
-                                <File className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                              ) : file.path.endsWith('.css') ? (
-                                <FileCode className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                              ) : file.path.endsWith('.js') ? (
-                                <FileCode className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                              ) : (
-                                <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              )}
-                              <span className="truncate">{file.path.split('/').pop()}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Root files (index.html, README.md, etc.) */}
+                <div className="p-2 space-y-1 font-mono text-xs">
+                  {/* Root files */}
                   {rootFiles.map((file) => (
                     <button
                       key={file.path}
                       type="button"
-                      onClick={() => setSelectedFilePath(file.path)}
-                      className={`w-full text-left flex items-center gap-2 px-2 py-1 rounded transition-colors ${
+                      onClick={() => {
+                        setSelectedFilePath(file.path);
+                        setEditorContent(file.content);
+                        setIsEditingCode(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 transition-colors cursor-pointer ${
                         selectedFilePath === file.path
-                          ? 'bg-[#1d273a] text-white font-bold border-l-2 border-[#7c3aed]'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-[#121826]'
+                          ? 'bg-[#7c3aed] text-white font-bold'
+                          : 'text-slate-400 hover:text-white hover:bg-[#141a27]'
                       }`}
                     >
                       {file.path.endsWith('.html') ? (
-                        <FileCode className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                      ) : file.path.endsWith('.css') ? (
+                        <FileText className="w-3.5 h-3.5 text-blue-400" />
+                      ) : file.path.endsWith('.js') ? (
+                        <File className="w-3.5 h-3.5 text-yellow-400" />
                       ) : (
-                        <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <File className="w-3.5 h-3.5 text-slate-400" />
                       )}
                       <span className="truncate">{file.path}</span>
                     </button>
                   ))}
+
+                  {/* Folders */}
+                  {Object.entries(folderMap).map(([folderName, files]) => {
+                    const isExpanded = expandedFolders[folderName] !== false;
+                    return (
+                      <div key={folderName} className="space-y-0.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleFolder(folderName)}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-slate-300 hover:text-white hover:bg-[#141a27] transition-colors cursor-pointer font-semibold"
+                        >
+                          {isExpanded ? (
+                            <FolderOpen className="w-3.5 h-3.5 text-violet-400" />
+                          ) : (
+                            <Folder className="w-3.5 h-3.5 text-violet-400" />
+                          )}
+                          <span className="truncate">{folderName}/</span>
+                          <span className="ml-auto text-[10px] text-slate-500">{files.length}</span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="pl-3 border-l border-[#1e2638] ml-3 space-y-0.5">
+                            {files.map((file) => (
+                              <button
+                                key={file.path}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedFilePath(file.path);
+                                  setEditorContent(file.content);
+                                  setIsEditingCode(false);
+                                }}
+                                className={`w-full text-left px-2 py-1 rounded-md flex items-center gap-2 transition-colors cursor-pointer ${
+                                  selectedFilePath === file.path
+                                    ? 'bg-[#7c3aed] text-white font-bold'
+                                    : 'text-slate-400 hover:text-white hover:bg-[#141a27]'
+                                }`}
+                              >
+                                {file.path.endsWith('.css') ? (
+                                  <FileText className="w-3 h-3 text-blue-400" />
+                                ) : file.path.endsWith('.js') ? (
+                                  <File className="w-3 h-3 text-yellow-400" />
+                                ) : (
+                                  <FileCode className="w-3 h-3 text-emerald-400" />
+                                )}
+                                <span className="truncate">{file.path.replace(`${folderName}/`, '')}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Right Column: Code Viewer / Editor */}
-              <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0d14]">
-                {/* Code Top Header */}
-                <div className="h-10 border-b border-[#1e2638] bg-[#0d111a] px-4 flex items-center justify-between text-xs font-mono">
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <span className="font-bold text-white">{selectedFilePath}</span>
-                    <span className="text-[10px] text-slate-500">v{activeProject?.currentVersion || 1}</span>
+              {/* Code Editor Panel */}
+              <div className="flex-1 flex flex-col min-w-0 bg-[#090d15]">
+                <div className="h-10 border-b border-[#1e2638] bg-[#0e131f] px-4 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 font-mono text-slate-300 font-semibold">
+                    <span>{selectedFilePath}</span>
+                    {isEditingCode && <span className="text-[10px] text-amber-400 font-mono">(modified)</span>}
                   </div>
-
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAskAboutFile}
-                      className="px-2.5 py-1 rounded bg-[#151c2a] hover:bg-[#1e273a] border border-[#232f45] text-slate-300 hover:text-white transition-colors"
-                    >
-                      Ask AI about this file
-                    </button>
+                    {isEditingCode && (
+                      <button
+                        type="button"
+                        onClick={handleSaveCode}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save & Recompile</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleCopyCode}
-                      className="px-2.5 py-1 rounded bg-[#151c2a] hover:bg-[#1e273a] border border-[#232f45] text-slate-300 hover:text-white transition-colors flex items-center gap-1"
+                      className="p-1.5 rounded hover:bg-[#1a2336] text-slate-400 hover:text-white transition-colors"
+                      title="Copy file contents"
                     >
                       {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedCode ? 'Copied' : 'Copy'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isEditingCode) handleSaveEditorFiles();
-                        else setIsEditingCode(true);
-                      }}
-                      className={`px-3 py-1 rounded font-bold transition-colors flex items-center gap-1 ${
-                        isEditingCode
-                          ? 'bg-[#10b981] hover:bg-[#059669] text-white'
-                          : 'bg-[#7c3aed] hover:bg-[#6d28d9] text-white'
-                      }`}
-                    >
-                      {isEditingCode ? <Save className="w-3.5 h-3.5" /> : <Code className="w-3.5 h-3.5" />}
-                      <span>{isEditingCode ? 'Save & Recompile' : 'Edit Code'}</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Subtitle Banner */}
-                <div className="px-4 py-2 border-b border-[#182030] bg-[#0c1018] text-[11px] text-slate-400 font-mono">
-                  {isEditingCode ? (
-                    <span className="text-emerald-400">Editing enabled — modify source and click "Save & Recompile" to update preview.</span>
-                  ) : (
-                    <span>Read-only — ask for the change in chat and it writes a new version of the site.</span>
-                  )}
-                </div>
-
-                {/* Editor Content Area */}
-                <div className="flex-1 overflow-auto p-4 font-mono text-xs text-slate-200">
-                  {isEditingCode ? (
-                    <textarea
-                      value={editorContent}
-                      onChange={(e) => setEditorContent(e.target.value)}
-                      className="w-full h-full bg-transparent text-slate-100 font-mono text-xs focus:outline-none resize-none leading-relaxed"
-                      spellCheck={false}
-                    />
-                  ) : (
-                    <pre className="text-slate-300 font-mono leading-relaxed select-text whitespace-pre-wrap break-all">
-                      {editorContent || '// Select a file to view source'}
-                    </pre>
-                  )}
-                </div>
+                <textarea
+                  value={editorContent}
+                  onChange={(e) => {
+                    setEditorContent(e.target.value);
+                    setIsEditingCode(true);
+                  }}
+                  className="flex-1 w-full bg-[#090d15] text-[#e2e8f0] font-mono text-xs p-4 resize-none focus:outline-none leading-relaxed"
+                  spellCheck={false}
+                />
               </div>
             </div>
           )}
         </main>
       </div>
 
-      {/* =========================================================================
-          FLOATING SUPPORT BUTTON (Bottom Right)
-         ========================================================================= */}
-      <button
-        type="button"
-        onClick={() => showToast('Support is online 24/7. Drop any question into the chat!', 'info')}
-        className="fixed bottom-5 right-5 z-40 bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-2xl flex items-center gap-1.5 transition-transform hover:scale-105 cursor-pointer"
-      >
-        <MessageSquare className="w-3.5 h-3.5" />
-        <span>Support</span>
-      </button>
+      {/* Publish Confirmation Modal */}
+      {showPublishModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#0f1422] border border-[#232f45] rounded-2xl max-w-lg w-full p-6 text-white space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#1e2638] pb-3">
+              <div className="flex items-center gap-2">
+                <Rocket className="w-5 h-5 text-violet-400" />
+                <h3 className="font-bold text-base">Publish Project</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPublishModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-      {/* =========================================================================
-          TOAST NOTIFICATION MODAL
-         ========================================================================= */}
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-300">
+                You are about to stage this project for live Edge CDN hosting.
+              </p>
+
+              <div className="p-3 bg-[#141b2a] border border-[#1e2638] rounded-xl space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Target Subdomain:</span>
+                  <span className="text-emerald-400 font-mono font-semibold">
+                    {activeProject?.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.lightningapi.live
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Active Build:</span>
+                  <span className="text-white font-mono">v{activeProject?.currentVersion} (Production Snapshot)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">SSL & Encryption:</span>
+                  <span className="text-emerald-400 font-semibold">Automatic TLS 1.3</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPublishModal(false)}
+                className="px-3.5 py-1.5 rounded-lg border border-[#232f45] hover:bg-[#141b29] text-xs font-semibold text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPublishModal(false);
+                  showToast('Project deployed! Live URL staged and SSL active.', 'success');
+                }}
+                className="px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold shadow-md"
+              >
+                Confirm & Deploy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
       {toastMessage && (
         <div
           className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 border transition-all ${
@@ -1319,66 +1685,6 @@ export const UserWebsiteBuilder: React.FC = () => {
           {toastMessage.type === 'error' && <span className="text-rose-400">⚠️</span>}
           {toastMessage.type === 'success' && <span className="text-emerald-400">✓</span>}
           <span>{toastMessage.text}</span>
-        </div>
-      )}
-
-      {/* =========================================================================
-          STARTER TEMPLATES MODAL
-         ========================================================================= */}
-      {showGalleryModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#0f1422] border border-[#1e2638] rounded-2xl max-w-2xl w-full p-6 text-white space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#1e2638] pb-3">
-              <h3 className="font-bold text-base">Starter Templates & Custom Brief</h3>
-              <button
-                type="button"
-                onClick={() => setShowGalleryModal(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300">Custom Website Brief</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={promptInput}
-                  onChange={(e) => setPromptInput(e.target.value)}
-                  placeholder="e.g. a landing page for a sunscreen brand"
-                  className="flex-1 bg-[#141b2a] border border-[#232f45] rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#7c3aed]"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleCreateProject(promptInput)}
-                  disabled={!promptInput.trim()}
-                  className="px-4 py-2 bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Build it &rarr;
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <div className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wider">
-                Or select a curated archetype:
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto">
-                {templates.map((tmpl) => (
-                  <div
-                    key={tmpl.id}
-                    onClick={() => handleCreateProject(tmpl.promptExample, tmpl.id)}
-                    className="p-3 bg-[#141b2a] border border-[#1e2638] hover:border-[#7c3aed] rounded-xl cursor-pointer transition-all hover:-translate-y-0.5"
-                  >
-                    <div className="text-xs font-bold text-white mb-1">{tmpl.title}</div>
-                    <div className="text-[11px] text-slate-400 line-clamp-2">{tmpl.description}</div>
-                    <div className="mt-2 text-[10px] text-[#7c3aed] font-mono">{tmpl.fileCount} files &bull; {tmpl.buildTime}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>

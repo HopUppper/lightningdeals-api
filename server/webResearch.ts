@@ -492,21 +492,21 @@ export async function searchWeb(
       const tavilyRes = await searchTavily(cleanQuery, { maxResults });
       if (tavilyRes.success && tavilyRes.results.length > 0) {
         return cacheAndReturn({
-          provider: 'Tavily Search API',
+          provider: 'Live Web Index',
           query: cleanQuery,
           results: tavilyRes.results,
         });
       } else if (tavilyRes.success && tavilyRes.results.length === 0) {
         // Honest zero-result reporting
         return cacheAndReturn({
-          provider: 'Tavily Search API',
+          provider: 'Live Web Index',
           query: cleanQuery,
           results: [],
           error: 'No relevant web sources found for this query.',
         });
       }
     } catch (e: any) {
-      console.warn(`[Tavily Search API failed, falling back] ${e.message}`);
+      console.warn(`[Live Web Search API failed, falling back] ${e.message}`);
     }
   }
 
@@ -632,7 +632,7 @@ export async function searchWeb(
     provider: 'Config Required',
     query: cleanQuery,
     results: [],
-    error: 'Live web search requires a search provider API key (BRAVE_SEARCH_API_KEY or TAVILY_API_KEY) in production environment.',
+    error: 'Live web search requires a search provider API key in production environment.',
   };
 }
 

@@ -1973,7 +1973,9 @@ export const UserChatStudio: React.FC = () => {
               } else if (eventType === 'sources') {
                 const receivedSources = parsed.sources || [];
                 const inspectedUrl = parsed.inspectedUrl;
-                const provider = parsed.provider;
+                const provider = parsed.provider
+                  ? parsed.provider.replace(/tavily(?:\s*search)?(?:\s*api)?/gi, 'Live Web Index').trim()
+                  : undefined;
                 setThreads((prev) =>
                   prev.map((t) =>
                     t.id === boundThreadId

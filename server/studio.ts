@@ -1785,7 +1785,7 @@ studioRouter.post('/research/tavily', async (req: AuthRequest, res: Response) =>
 
     return res.json({ success: true, ...searchRes });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { message: err.message || 'Tavily search execution failed.' } });
+    return res.status(500).json({ success: false, error: { message: err.message || 'Web search execution failed.' } });
   }
 });
 
@@ -2588,7 +2588,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
 
     // Stream research sources immediately so client UI populates source cards
     if (researchSources.length > 0) {
-      sendSse('sources', { sources: researchSources, researchMode, inspectedUrl: analyzedUrl, provider: isTavilyConfigured() ? 'Tavily Search API' : undefined });
+      sendSse('sources', { sources: researchSources, researchMode, inspectedUrl: analyzedUrl, provider: isTavilyConfigured() ? 'Live Web Index' : undefined });
     }
 
     // Live Activity: Transition into model generation

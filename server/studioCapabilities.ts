@@ -73,7 +73,7 @@ export interface StudioNativeCapabilities {
 export interface ExternalIntegrations {
   webResearch: {
     enabled: boolean;
-    provider: 'tavily' | 'duckduckgo' | 'searxng' | 'hybrid';
+    provider: 'live_web' | 'duckduckgo' | 'searxng' | 'hybrid';
     traceableCitations: boolean;
     ssrfGuarded: boolean;
   };
@@ -446,7 +446,7 @@ export function resolveStudioCapabilities(
     ...STUDIO_EXTERNAL_INTEGRATIONS,
     webResearch: {
       ...STUDIO_EXTERNAL_INTEGRATIONS.webResearch,
-      provider: isTavilyConfigured() ? 'tavily' : 'hybrid',
+      provider: isTavilyConfigured() ? 'live_web' : 'hybrid',
     },
   };
 

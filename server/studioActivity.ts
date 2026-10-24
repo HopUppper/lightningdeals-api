@@ -253,7 +253,7 @@ export function analyzePromptTaskContext(
       plannedStages: [
         {
           type: 'searching_web',
-          title: 'Searching the web via Tavily',
+          title: 'Searching live web sources',
           detail: `Querying authoritative sources for "${cleanPrompt.substring(0, 50)}"...`,
         },
         {

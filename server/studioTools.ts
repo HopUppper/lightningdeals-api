@@ -315,7 +315,7 @@ export async function executeStudioTool(request: ToolExecutionRequest): Promise<
           if (isTavilyConfigured()) {
             const tavRes = await searchTavily(query, { maxResults });
             if (tavRes.success) {
-              return { results: tavRes.results, provider: 'Tavily Search API', total: tavRes.results.length };
+              return { results: tavRes.results, provider: 'Live Web Index', total: tavRes.results.length };
             }
           }
           const webRes = await searchWeb(query, { maxResults });

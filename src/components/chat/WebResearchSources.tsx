@@ -39,6 +39,11 @@ export const WebResearchSources: React.FC<WebResearchSourcesProps> = ({
       ? 'Direct Link Analysis'
       : 'Grounded Web Research';
 
+  // Sanitize third-party supplier branding to ensure pure customer-facing white labeling
+  const displayProvider = provider
+    ? provider.replace(/tavily(?:\s*search)?(?:\s*api)?/gi, 'Live Web Index').trim()
+    : undefined;
+
   return (
     <div className="mb-3 space-y-2">
       {/* Inspected Link Pill */}
@@ -74,9 +79,9 @@ export const WebResearchSources: React.FC<WebResearchSourcesProps> = ({
               <span className="font-bold text-violet-700 dark:text-violet-300">
                 {modeLabel} ({sources.length} sources)
               </span>
-              {provider && (
+              {displayProvider && (
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-violet-500/15 text-violet-600 dark:text-violet-300 border border-violet-500/30">
-                  {provider}
+                  {displayProvider}
                 </span>
               )}
             </div>

@@ -138,7 +138,7 @@ export async function executeAgentWorkflow(params: {
         if (isCancelled()) throw new Error('Agent run cancelled by user.');
         logStep(1, 'Interpreting research directives', 'completed', 'Identified primary factual questions and required citations.');
 
-        logStep(2, 'Searching authoritative web sources', 'active', 'Querying Tavily search index for ground truth...');
+        logStep(2, 'Searching authoritative web sources', 'active', 'Querying authoritative web indexes for ground truth...');
         const searchRes = isTavilyConfigured()
           ? await searchTavily(prompt, { maxResults: 5 })
           : await searchWeb(prompt, { maxResults: 5 });

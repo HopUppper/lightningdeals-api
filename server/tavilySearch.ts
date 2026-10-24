@@ -32,7 +32,7 @@ export interface TavilyRawResult {
 
 export interface TavilySearchSuccessResponse {
   success: true;
-  provider: 'Tavily Search API';
+  provider: 'Live Web Index';
   query: string;
   answer?: string;
   results: Array<{
@@ -50,7 +50,7 @@ export interface TavilySearchSuccessResponse {
 
 export interface TavilySearchErrorResponse {
   success: false;
-  provider: 'Tavily Search API';
+  provider: 'Live Web Index';
   query: string;
   results: [];
   error: string;
@@ -147,7 +147,7 @@ export async function searchTavily(
   if (!cleanQuery) {
     return {
       success: false,
-      provider: 'Tavily Search API',
+      provider: 'Live Web Index',
       query: '',
       results: [],
       error: 'Search query cannot be empty.',
@@ -163,10 +163,10 @@ export async function searchTavily(
   if (!apiKey) {
     return {
       success: false,
-      provider: 'Tavily Search API',
+      provider: 'Live Web Index',
       query: boundedQuery,
       results: [],
-      error: 'Tavily search is not configured. Server environment variable TAVILY_API_KEY is missing.',
+      error: 'Live web search is not configured. Server environment variable TAVILY_API_KEY is missing.',
       code: 'MISSING_API_KEY',
     };
   }
@@ -215,7 +215,7 @@ export async function searchTavily(
     // Handle HTTP status errors gracefully
     if (!res.ok) {
       recordTavilyRequest(false);
-      let errorDetail = `Tavily HTTP ${res.status}`;
+      let errorDetail = `Web search HTTP ${res.status}`;
       let errorCode: TavilySearchErrorResponse['code'] = 'API_ERROR';
 
       try {
@@ -231,15 +231,15 @@ export async function searchTavily(
 
       if (res.status === 401 || res.status === 403) {
         errorCode = 'CREDITS_EXHAUSTED';
-        errorDetail = 'Tavily API key is invalid or monthly credits are exhausted.';
+        errorDetail = 'Web search provider service is temporarily unavailable or monthly credits are exhausted.';
       } else if (res.status === 429) {
         errorCode = 'RATE_LIMITED';
-        errorDetail = 'Tavily rate limit exceeded. Please wait a moment before retrying.';
+        errorDetail = 'Web search rate limit exceeded. Please wait a moment before retrying.';
       }
 
       return {
         success: false,
-        provider: 'Tavily Search API',
+        provider: 'Live Web Index',
         query: boundedQuery,
         results: [],
         error: errorDetail,
@@ -266,7 +266,7 @@ export async function searchTavily(
 
     return {
       success: true,
-      provider: 'Tavily Search API',
+      provider: 'Live Web Index',
       query: boundedQuery,
       answer: typeof data.answer === 'string' ? data.answer : undefined,
       results: mappedResults,
@@ -279,12 +279,12 @@ export async function searchTavily(
     const isTimeout = err.name === 'AbortError' || err.message?.includes('aborted');
     return {
       success: false,
-      provider: 'Tavily Search API',
+      provider: 'Live Web Index',
       query: boundedQuery,
       results: [],
       error: isTimeout
-        ? `Tavily search timed out after ${timeoutMs}ms.`
-        : `Tavily network request failed: ${err.message || 'Unknown network error.'}`,
+        ? `Web search timed out after ${timeoutMs}ms.`
+        : `Web search network request failed: ${err.message || 'Unknown network error.'}`,
       code: isTimeout ? 'TIMEOUT' : 'API_ERROR',
     };
   }

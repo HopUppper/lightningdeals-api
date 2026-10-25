@@ -78,8 +78,8 @@ const routes: RouteConfig[] = [
           url: BASE_URL,
           offers: {
             '@type': 'Offer',
-            price: '0.00',
-            priceCurrency: 'USD',
+            price: '0',
+            priceCurrency: 'INR',
             availability: 'https://schema.org/InStock',
           },
         },

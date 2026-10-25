@@ -208,6 +208,29 @@ const SHOWCASE_ITEMS: ShowcaseItem[] = [
   },
 ];
 
+const QUICK_SUGGESTIONS = [
+  {
+    label: 'Mineral sunscreen store with ingredients & cart',
+    prompt: 'Build a premium mineral sunscreen brand website with lifestyle imagery, product formulas, benefits, a product gallery, and an FAQ.',
+    type: 'website' as const,
+  },
+  {
+    label: 'SaaS analytics dashboard with KPI metrics & charts',
+    prompt: 'Build a SaaS analytics dashboard with KPI cards, an interactive revenue chart, searchable transactions, filters, and CSV export.',
+    type: 'app' as const,
+  },
+  {
+    label: 'Product designer portfolio with case studies',
+    prompt: 'Build a senior product designer portfolio with strong project imagery, detailed case studies, biography, skills, and contact form.',
+    type: 'website' as const,
+  },
+  {
+    label: 'Heirloom restaurant with menu & reservations',
+    prompt: 'Build an authentic South Indian dining website for Dakshin Rasoi in Indiranagar Bengaluru with heritage menu categories, crisp ghee roast dosai, and table booking.',
+    type: 'website' as const,
+  },
+];
+
 export const UserWebsiteBuilder: React.FC = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -767,7 +790,7 @@ export const UserWebsiteBuilder: React.FC = () => {
   // =========================================================================
   if (!activeProject && !isBuilding) {
     return (
-      <div className="min-h-screen bg-[#fafaf9] text-slate-900 flex flex-col font-sans select-none antialiased">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden min-h-0 bg-[#fafaf9] text-slate-900 flex flex-col font-sans antialiased">
         {/* Minimal Header */}
         <header className="h-16 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
@@ -833,15 +856,15 @@ export const UserWebsiteBuilder: React.FC = () => {
         <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-12 sm:py-16 flex flex-col items-center">
           {/* Main Headline */}
           <div className="text-center space-y-3 mb-8">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 border border-violet-200/80 text-violet-700 text-xs font-semibold shadow-2xs">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium">
               <Sparkles className="w-3.5 h-3.5 text-violet-600" />
-              <span>Frontier Claude Intelligence &bull; Live Interactive Sandboxed Runtime</span>
+              <span>AI Website Builder</span>
             </div>
             <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-950">
               What would you like to build?
             </h1>
             <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto font-normal">
-              Describe a website, storefront, or application in plain language. Watch it generate, preview it live, and refine conversationally.
+              Describe a website, storefront, or application in plain language. Watch it generate and preview it live.
             </p>
           </div>
 
@@ -859,8 +882,8 @@ export const UserWebsiteBuilder: React.FC = () => {
               }}
               placeholder={
                 projectType === 'website'
-                  ? 'Build a premium mineral sunscreen brand website with lifestyle imagery, product formulas, benefits, a product gallery, and an FAQ...'
-                  : 'Build a responsive productivity application with navigation, editable records, validation, and persistent data...'
+                  ? 'Describe the website or app you want to create (e.g. A modern mineral sunscreen store with formulas, ingredients, and cart)...'
+                  : 'Describe the application you want to build (e.g. A real-time SaaS analytics dashboard with KPI cards and charts)...'
               }
               className="w-full bg-transparent text-sm sm:text-base text-slate-900 placeholder-slate-400 focus:outline-none resize-none leading-relaxed font-normal"
             />
@@ -970,35 +993,30 @@ export const UserWebsiteBuilder: React.FC = () => {
 
           {/* Clickable Example Prompt Chips */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
-            <span className="text-slate-600 font-semibold mr-1">Try:</span>
-            {SHOWCASE_ITEMS.map((item) => (
+            <span className="text-slate-500 font-medium mr-1">Try:</span>
+            {QUICK_SUGGESTIONS.map((item, idx) => (
               <button
-                key={item.id}
+                key={idx}
                 type="button"
                 onClick={() => {
                   setPromptInput(item.prompt);
                   setProjectType(item.type);
                 }}
-                className="px-3 py-1.5 rounded-full bg-white border border-slate-200/90 hover:border-violet-400 hover:bg-violet-50 text-slate-700 hover:text-violet-800 font-medium transition-all shadow-2xs text-left"
+                className="px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-violet-400 hover:bg-violet-50/70 text-slate-700 hover:text-violet-900 font-medium transition-all shadow-2xs text-left"
               >
-                {item.id === 'sunscreen' && '☼ '}
-                {item.id === 'dashboard' && '📊 '}
-                {item.id === 'portfolio' && '❖ '}
-                {item.id === 'restaurant' && '🍽 '}
-                {item.id === 'productivity' && '⚡ '}
-                <span>{item.title}</span>
+                <span>{item.label}</span>
               </button>
             ))}
           </div>
 
           {/* Curated Showcase Gallery Section */}
-          <section className="mt-16 w-full space-y-6">
+          <section className="mt-16 w-full space-y-6 pb-12">
             <div className="text-center space-y-1">
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-                Curated Showcase &bull; Real Generated Builds
+                Explore what's possible
               </h2>
               <p className="text-xs sm:text-sm text-slate-500">
-                Select any verified production build to inspect its architecture or fork as your starter project.
+                A selection of projects created with LightningAPI Studio
               </p>
             </div>
 
@@ -1061,8 +1079,8 @@ export const UserWebsiteBuilder: React.FC = () => {
         </main>
 
         {/* Minimal Footer */}
-        <footer className="border-t border-slate-200/80 bg-white py-6 px-6 text-center text-xs text-slate-500">
-          <span>LightningAPI Studio &bull; Verified Claude Frontier Models &bull; Sandboxed Client Runtime</span>
+        <footer className="border-t border-slate-200/80 bg-white py-6 px-6 text-center text-xs text-slate-500 mt-auto">
+          <span>LightningAPI Studio &bull; Powered by Anthropic Claude &bull; Sandboxed Client Runtime</span>
         </footer>
 
         {/* Toast */}

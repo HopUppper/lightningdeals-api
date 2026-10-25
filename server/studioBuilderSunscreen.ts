@@ -29,6 +29,9 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
   if (brandMatch && !/^(a|an|the|brand|website|premium|mineral|sunscreen)\b/i.test(brandMatch[1].trim())) {
     brandName = brandMatch[1].trim();
   }
+  const brandParts = brandName.split(/\s+/);
+  const primaryBrandWord = brandParts[0] || 'Solveil';
+  const secondaryBrandWord = brandParts.slice(1).join(' ') || (primaryBrandWord.toLowerCase() === 'solveil' ? 'BOTANIQUES' : '');
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -337,7 +340,7 @@ export function synthesizeMineralSunscreenWebsite(brief: string): ProjectFile[] 
       <div class="reviews-grid">
         <div class="review-card">
           <div class="review-stars">★★★★★</div>
-          <p class="review-text">"As a woman of color, mineral sunscreen has always been a nightmare of purple-gray ash. Solveil is the first mineral SPF in history that genuinely disappears into my skin within 30 seconds."</p>
+          <p class="review-text">"As a woman of color, mineral sunscreen has always been a nightmare of purple-gray ash. ${brandName} is the first mineral SPF in history that genuinely disappears into my skin within 30 seconds."</p>
           <div class="review-author">
             <strong>Kendra Washington</strong>
             <span>Verified Buyer &bull; Deep Warm Undertone</span>
@@ -1623,8 +1626,8 @@ button { font-family: inherit; }
     <path d="M 175 75 L 120 70 L 120 82 L 175 80 Z" fill="#292524"/>
     <!-- Label -->
     <rect x="142" y="190" width="116" height="180" rx="4" fill="#faf7f2"/>
-    <text x="200" y="224" text-anchor="middle" fill="#c25e3d" font-family="serif" font-size="14" font-weight="700">SOLVEIL</text>
-    <text x="200" y="240" text-anchor="middle" fill="#78716c" font-family="sans-serif" font-size="8" letter-spacing="1">BOTANIQUES</text>
+    <text x="200" y="224" text-anchor="middle" fill="#c25e3d" font-family="serif" font-size="14" font-weight="700">${primaryBrandWord.toUpperCase()}</text>
+    <text x="200" y="240" text-anchor="middle" fill="#78716c" font-family="sans-serif" font-size="8" letter-spacing="1">${(secondaryBrandWord || 'BOTANIQUES').toUpperCase()}</text>
     <line x1="160" y1="250" x2="240" y2="250" stroke="#e7e0d5"/>
     <text x="200" y="275" text-anchor="middle" fill="#1c1917" font-family="sans-serif" font-size="10" font-weight="700">MINERAL VEIL</text>
     <text x="200" y="292" text-anchor="middle" fill="#c25e3d" font-family="sans-serif" font-size="16" font-weight="800">SPF 50+</text>
@@ -1649,7 +1652,7 @@ button { font-family: inherit; }
   <path d="M 185 120 C 185 85 215 85 215 120 Z" fill="#292524"/>
   <!-- Label -->
   <rect x="150" y="200" width="100" height="160" rx="4" fill="#faf7f2"/>
-  <text x="200" y="230" text-anchor="middle" fill="#c25e3d" font-family="serif" font-size="12" font-weight="700">SOLVEIL</text>
+  <text x="200" y="230" text-anchor="middle" fill="#c25e3d" font-family="serif" font-size="12" font-weight="700">${primaryBrandWord.toUpperCase()}</text>
   <text x="200" y="260" text-anchor="middle" fill="#1c1917" font-family="sans-serif" font-size="10" font-weight="700">TINTED GLOW</text>
   <text x="200" y="280" text-anchor="middle" fill="#c25e3d" font-family="sans-serif" font-size="14" font-weight="800">SPF 45</text>
   <text x="200" y="305" text-anchor="middle" fill="#78716c" font-family="sans-serif" font-size="8">ADAPTIVE TINT</text>
@@ -1670,7 +1673,7 @@ button { font-family: inherit; }
   <rect x="195" y="70" width="10" height="10" fill="#c25e3d"/>
   <!-- Printed Art Direction -->
   <rect x="145" y="200" width="110" height="140" fill="#c25e3d"/>
-  <text x="200" y="235" text-anchor="middle" fill="#ffffff" font-family="serif" font-size="13" font-weight="700">SOLVEIL</text>
+  <text x="200" y="235" text-anchor="middle" fill="#ffffff" font-family="serif" font-size="13" font-weight="700">${primaryBrandWord.toUpperCase()}</text>
   <text x="200" y="265" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="10" font-weight="700">SPORT MIST</text>
   <text x="200" y="290" text-anchor="middle" fill="#fde68a" font-family="sans-serif" font-size="16" font-weight="800">SPF 45</text>
   <text x="200" y="315" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="8">80-MIN WATER RESIST</text>

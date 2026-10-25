@@ -185,47 +185,62 @@ function applyIntentDrivenRefinement(
   if (isBrandRename) {
     const newBrand = extractRequestedBrandName(prompt);
     if (newBrand) {
-      const oldBrand = detectCurrentBrandName(targetHtml.content, project);
+      const oldBrand = detectCurrentBrandName(targetHtml.content, project) || 'Solveil Botaniques';
+      const oldBrandUpper = oldBrand.toUpperCase();
+      const newBrandUpper = newBrand.toUpperCase();
 
-      // 1. Update <title>
-      if (oldBrand && targetHtml.content.includes(oldBrand)) {
-        targetHtml.content = targetHtml.content.split(oldBrand).join(newBrand);
-      } else {
-        // Fallback: replace title prefix
-        targetHtml.content = targetHtml.content.replace(/(<title>)([^—·\-|]+)(.*<\/title>)/i, `$1${newBrand} $3`);
-      }
+      const oldPrimary = oldBrand.split(/\s+/)[0];
+      const newPrimary = newBrand.split(/\s+/)[0];
+      const shouldReplacePrimary =
+        oldPrimary &&
+        oldPrimary.length >= 3 &&
+        !/^(the|and|our|for|with|pro|new)$/i.test(oldPrimary) &&
+        oldPrimary.toLowerCase() !== newPrimary.toLowerCase();
 
-      // 2. Ensure logo/brand element is explicitly updated
+      // Update all project files (HTML, SVG, JS, CSS, MD)
+      updatedFiles.forEach((file) => {
+        // 1. Replace exact full brand name
+        if (file.content.includes(oldBrand)) {
+          file.content = file.content.split(oldBrand).join(newBrand);
+        }
+        if (file.content.includes(oldBrandUpper)) {
+          file.content = file.content.split(oldBrandUpper).join(newBrandUpper);
+        }
+
+        // 2. Replace primary brand token (e.g. "Solveil" -> "Minimalist", "SOLVEIL" -> "MINIMALIST")
+        if (shouldReplacePrimary) {
+          if (file.content.includes(oldPrimary)) {
+            file.content = file.content.split(oldPrimary).join(newPrimary);
+          }
+          const oldPrimaryUpper = oldPrimary.toUpperCase();
+          const newPrimaryUpper = newPrimary.toUpperCase();
+          if (file.content.includes(oldPrimaryUpper)) {
+            file.content = file.content.split(oldPrimaryUpper).join(newPrimaryUpper);
+          }
+        }
+      });
+
+      // Explicitly enforce <title>, logo-text, and footer brand on main HTML file
       targetHtml.content = targetHtml.content.replace(
         /(<(?:span|div|a)[^>]*class="[^"]*(?:brand-text|brand-title|logo-text|brand-name)[^"]*"[^>]*>)([^<]+)(<\/(?:span|div|a)>)/gi,
         `$1${newBrand}$3`
       );
 
-      // 3. Ensure footer brand/copyright is updated
       targetHtml.content = targetHtml.content.replace(
         /(<(?:span|div|p)[^>]*class="[^"]*(?:footer-brand|copyright)[^"]*"[^>]*>)([\s\S]*?)(<\/(?:span|div|p)>)/gi,
         (match, open, inner, close) => {
-          if (oldBrand && inner.includes(oldBrand)) {
+          if (inner.includes(oldBrand)) {
             return `${open}${inner.split(oldBrand).join(newBrand)}${close}`;
           }
           return match.replace(/&copy;\s*\d{4}\s+[^.<]+/i, `&copy; 2026 ${newBrand}`);
         }
       );
 
-      // 4. Update any existing secondary pages (e.g. about.html)
-      updatedFiles.forEach((file) => {
-        if (file.path.endsWith('.html') && file.path !== targetHtml.path && oldBrand) {
-          file.content = file.content.split(oldBrand).join(newBrand);
-        }
-        if (file.path.endsWith('README.md') && oldBrand) {
-          file.content = file.content.split(oldBrand).join(newBrand);
-        }
-      });
-
       const previewHtml = compilePreviewBundle(updatedFiles);
       const checks = [
         `Brand name updated to "${newBrand}"`,
         'Logo and navbar synchronized',
+        'SVG bottle labels and product assets updated',
         'Page title and footer copyright updated',
         'Preserved existing product catalog and layout',
       ];
@@ -233,7 +248,7 @@ function applyIntentDrivenRefinement(
       return {
         success: true,
         summary: `Renamed brand to "${newBrand}"`,
-        assistantMessage: `I've updated your brand name to **${newBrand}** across your website's header logo, page title, and footer. All other product details and layouts remain intact.`,
+        assistantMessage: `I've updated your brand name to **${newBrand}** across your website header logo, bottle labels, page title, and footer. All formulas, photography, and layout structure remain intact.`,
         suggestedFollowUps: [
           'Change the main heading to focus on lightweight daily sun protection',
           'Use a clean white background with black typography',
@@ -1266,21 +1281,25 @@ html, body {
 export function extractRequestedBrandName(prompt: string): string | null {
   const clean = prompt.trim();
   const patterns = [
-    /(?:rename|change|update|set|switch)\s+(?:the\s+)?brand(?:\s+name)?\s+(?:to|as)\s+["']?([^"'.\n!?]+)["']?/i,
-    /(?:rename|change|update)\s+(?:the\s+)?name\s+to\s+["']?([^"'.\n!?]+)["']?/i,
+    /(?:can\s+you\s+|could\s+you\s+|please\s+)?(?:rename|change|update|set|switch)\s+(?:the\s+)?brand(?:\s+name)?\s+(?:to|as)\s+["']?([^"'.\n!?]+)["']?/i,
+    /(?:can\s+you\s+|could\s+you\s+|please\s+)?(?:rename|change|update)\s+(?:the\s+)?name\s+to\s+["']?([^"'.\n!?]+)["']?/i,
     /(?:call\s+it|call\s+the\s+brand)\s+["']?([^"'.\n!?]+)["']?/i,
     /brand(?:\s+name)?\s+(?:to|as)\s+["']?([^"'.\n!?]+)["']?/i,
     /(?:make\s+the\s+brand\s+name|change\s+to\s+brand\s+name)\s+["']?([^"'.\n!?]+)["']?/i,
+    /(?:rename\s+to|change\s+to)\s+["']?([^"'.\n!?]+)["']?/i,
   ];
 
   for (const pat of patterns) {
     const match = clean.match(pat);
     if (match && match[1]) {
       let extracted = match[1].trim();
-      extracted = extracted.replace(/\b(please|thanks|now|immediately)\b/gi, '').trim();
+      extracted = extracted.replace(/\b(please|thanks|now|immediately|for me|instead)\b/gi, '').trim();
       extracted = extracted.replace(/[.,;!?]+$/, '').trim();
       if (extracted.length > 0) {
-        return extracted.charAt(0).toUpperCase() + extracted.slice(1);
+        return extracted
+          .split(/\s+/)
+          .map((w) => (w.length <= 4 && w === w.toUpperCase() ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+          .join(' ');
       }
     }
   }
@@ -1308,7 +1327,7 @@ export function detectCurrentBrandName(html: string, project?: any): string | nu
   if (footerBrandMatch && footerBrandMatch[1].trim()) return footerBrandMatch[1].trim();
 
   // 5. Check <title>... — ...</title>
-  const titleMatch = html.match(/<title>([^—·\-|]+)/i);
+  const titleMatch = html.match(/<title>([^—–·\-|:]+)/i);
   if (titleMatch && titleMatch[1].trim()) return titleMatch[1].trim();
 
   // 6. Check project metadata

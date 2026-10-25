@@ -438,7 +438,7 @@ export const UserChatStudio: React.FC = () => {
   }, [theme]);
 
   // Sidebar toggle
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 768 : true));
 
   // Threads state
   const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -1205,6 +1205,7 @@ export const UserChatStudio: React.FC = () => {
   };
 
   const handleCreateNewThread = async (forProjectId?: string) => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false);
     const projIdToUse = forProjectId !== undefined ? forProjectId : selectedProjectId;
     const projObj = projIdToUse ? projects.find((p) => p.id === projIdToUse) : null;
     const defaultModel = activeThread.model || 'claude-sonnet-5.5';
@@ -2858,12 +2859,32 @@ export const UserChatStudio: React.FC = () => {
       <div className="flex-1 min-h-0 flex overflow-hidden relative w-full">
         {/* Left: Collapsible Sessions Sidebar */}
         {sidebarOpen && (
-          <aside className={`w-64 sm:w-72 border-r ${c.sidebarBorder} ${c.sidebarBg} flex flex-col shrink-0 h-full overflow-hidden text-xs`}>
+
+          <>
+            {/* Mobile Backdrop Overlay when sidebar drawer is open */}
+
+          <div
+            className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
+          />
+          <aside className={`fixed md:static inset-y-0 left-0 z-50 md:z-auto w-72 sm:w-80 md:w-64 lg:w-72 border-r ${c.sidebarBorder} ${c.sidebarBg} flex flex-col shrink-0 h-full overflow-hidden text-xs shadow-2xl md:shadow-none transition-transform duration-200 ease-in-out`}>
             {/* 1. CREATE SECTION */}
             <div className="p-3 border-b border-black/5 dark:border-white/5 shrink-0 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 px-1">
                 <span>Create</span>
-                <Sparkles className="w-3 h-3 opacity-60" />
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 opacity-60" />
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(false)}
+                    className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 md:hidden cursor-pointer"
+                    title="Close sidebar"
+                    aria-label="Close sidebar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <button
                 type="button"
@@ -2962,7 +2983,7 @@ export const UserChatStudio: React.FC = () => {
               {!archiveView && (
                 <div className="space-y-1 pt-1">
                   <div className="flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
-                    <span className="flex items-center gap-1">
+                    <span className="hidden sm:inline-flex items-center gap-1">
                       <Folder className="w-3 h-3 text-violet-400" />
                       <span>Projects</span>
                     </span>
@@ -3173,6 +3194,7 @@ export const UserChatStudio: React.FC = () => {
               </div>
             </div>
           </aside>
+          </>
         )}
 
         {/* Center: Main Conversational Column */}
@@ -3810,7 +3832,7 @@ export const UserChatStudio: React.FC = () => {
               {/* Dual Model Comparison Active Bar */}
               {isComparingModels && (
                 <div className="mx-4 mt-2 p-2 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
                     <span className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
                       <Scale className="w-3.5 h-3.5" />
                       <span>Comparing Side-by-Side:</span>
@@ -4039,21 +4061,22 @@ export const UserChatStudio: React.FC = () => {
             <div className={`mt-2 px-2 flex items-center justify-between text-[11px] font-mono ${
               isDark ? 'text-slate-400' : 'text-slate-700 font-medium'
             }`}>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                <span className="hidden sm:inline-flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
                   <span>~{threadTokenStats.inputTokens.toLocaleString()} in</span>
                 </span>
                 <span>·</span>
-                <span>{threadTokenStats.outputTokens.toLocaleString()} out</span>
+                <span className="hidden sm:inline">{threadTokenStats.outputTokens.toLocaleString()} out</span>
                 <span>·</span>
                 <span className={Number(remainingTokens) <= 0 ? 'text-rose-500 font-bold' : ''}>
                   {Number(remainingTokens) <= 0 ? '0 remaining' : `${remainingTokensM}M remaining`}
                 </span>
                 <span>·</span>
-                <span>~{threadTokenStats.contextPercent}% of context ({Math.round(threadTokenStats.contextLimit / 1000)}k)</span>
+                <span className="truncate">~{threadTokenStats.contextPercent}% context</span>
+                <span className="hidden sm:inline">({Math.round(threadTokenStats.contextLimit / 1000)}k)</span>
                 <span>·</span>
-                <span className="text-violet-600 dark:text-violet-400 font-semibold">{activeModelMeta?.tokenMultiplier || 1.0}x rate</span>
+                <span className="hidden md:inline text-violet-600 dark:text-violet-400 font-semibold">{activeModelMeta?.tokenMultiplier || 1.0}x rate</span>
                 {threadTokenStats.savingsTokens > 0 && (
                   <>
                     <span>·</span>
@@ -4197,7 +4220,7 @@ export const UserChatStudio: React.FC = () => {
                       }`}
                     >
                       <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
                           <span className="font-bold text-xs truncate max-w-[160px]">
                             {k.name || 'API Key'}
                           </span>
@@ -4455,6 +4478,7 @@ export const UserChatStudio: React.FC = () => {
           setActiveMenuThreadId(null);
           if (window.speechSynthesis) window.speechSynthesis.cancel();
           setSpeakingMsgId(null);
+          if (window.innerWidth < 768) setSidebarOpen(false);
         }}
         className={`group relative p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between border ${
           isActive

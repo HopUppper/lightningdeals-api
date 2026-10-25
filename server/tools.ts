@@ -312,8 +312,6 @@ export async function handleGetModels(req: Request, res: Response) {
         object: 'model',
         created: Math.floor(m.createdAt.getTime() / 1000),
         owned_by: m.provider,
-        family: m.family,
-        protocol: m.protocol,
         display_name: m.displayName,
         description: m.description,
         context_window: m.contextWindow,

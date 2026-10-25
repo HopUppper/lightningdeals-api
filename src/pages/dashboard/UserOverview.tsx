@@ -199,17 +199,10 @@ export const UserOverview: React.FC = () => {
               <div className="p-2 rounded-2xl bg-violet-100 text-violet-700">
                 <Zap className="w-4 h-4 fill-current" />
               </div>
-              {stats?.hasCreditKey ? (
-              <div>
-                <h2 className="text-sm font-bold text-[#1e1b2e]">Pay-As-You-Go Usage Credits</h2>
-                <p className="text-xs text-[#64607d]">Dynamic usage deductions across any supported model</p>
-              </div>
-            ) : (
               <div>
                 <h2 className="text-sm font-bold text-[#1e1b2e]">Rolling 5-Hour Token Allowance</h2>
                 <p className="text-xs text-[#64607d]">Automatic reset cycle guarantees continuous compute</p>
               </div>
-            )}
             </div>
 
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#faf8f5] border border-[#ede8e1] text-xs font-semibold">
@@ -220,53 +213,23 @@ export const UserOverview: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {stats?.hasCreditKey ? (
-              <>
-                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Credits Granted</p>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">
-                    ${((stats.creditBalanceUsd || 0) + (stats.totalCreditsUsedUsd || 0)).toFixed(2)}
-                  </p>
-                  <p className="text-[11px] text-[#64607d]">Total purchased credits</p>
-                </div>
+            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">5-Hour Quota</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">{formatTokens(purchased)}</p>
+              <p className="text-[11px] text-[#64607d]">Tokens per cycle</p>
+            </div>
 
-                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Usage Charges</p>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">
-                    ${(stats.totalCreditsUsedUsd || 0).toFixed(2)}
-                  </p>
-                  <p className="text-[11px] text-[#64607d]">Deducted across models</p>
-                </div>
+            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Used in Cycle</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">{formatTokens(used)}</p>
+              <p className="text-[11px] text-[#64607d]">Active queries & prompts</p>
+            </div>
 
-                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Available Balance</p>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">
-                    ${(stats.creditBalanceUsd || 0).toFixed(2)}
-                  </p>
-                  <p className="text-[11px] text-emerald-700 font-medium">Ready to spend</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">5-Hour Quota</p>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">{formatTokens(purchased)}</p>
-                  <p className="text-[11px] text-[#64607d]">Tokens per cycle</p>
-                </div>
-
-                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Used in Cycle</p>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">{formatTokens(used)}</p>
-                  <p className="text-[11px] text-[#64607d]">Active queries & prompts</p>
-                </div>
-
-                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Tokens Remaining</p>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{formatTokens(remaining)}</p>
-                  <p className="text-[11px] text-emerald-700 font-medium">Ready to spend</p>
-                </div>
-              </>
-            )}
+            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Tokens Remaining</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{formatTokens(remaining)}</p>
+              <p className="text-[11px] text-emerald-700 font-medium">Ready to spend</p>
+            </div>
           </div>
 
           {/* Progress Bar */}

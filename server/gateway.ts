@@ -19,28 +19,6 @@ import { ProviderDiscoveryRegistry } from './providers/ProviderDiscoveryRegistry
 import { settleReservation } from './accounting/tokenReservation';
 
 const rateLimitMap = new Map<string, number[]>();
-export const inFlightReservations = new Map<string, number>();
-export const inFlightCreditReservations = new Map<string, number>();
-
-export function reserveCredits(keyId: string, amount: number) {
-  const current = inFlightCreditReservations.get(keyId) || 0;
-  inFlightCreditReservations.set(keyId, current + amount);
-}
-
-export function releaseCreditReservation(keyId: string, amount: number) {
-  const current = inFlightCreditReservations.get(keyId) || 0;
-  inFlightCreditReservations.set(keyId, Math.max(0, current - amount));
-}
-
-export function reserveTokens(keyId: string, amount: number) {
-  const current = inFlightReservations.get(keyId) || 0;
-  inFlightReservations.set(keyId, current + amount);
-}
-
-export function releaseReservation(keyId: string, amount: number) {
-  const current = inFlightReservations.get(keyId) || 0;
-  inFlightReservations.set(keyId, Math.max(0, current - amount));
-}
 
 export interface CatalogModelEntry {
   id: string;
@@ -140,73 +118,6 @@ export const SUPPORTED_MODELS_CATALOG: CatalogModelEntry[] = [
     displayName: 'Claude Haiku 5',
     aliases: ['claude-3-5-haiku', 'claude-3.5-haiku', '3-5-haiku', '3.5-haiku', 'claude-3-5-haiku-latest', 'claude-3-haiku-20240307', 'claude-3-haiku'],
   },
-  // ScaleMax Non-Claude Models
-  {
-    id: 'gpt-4o',
-    upstreamId: 'gpt-4o',
-    displayName: 'OpenAI GPT-4o',
-    aliases: ['openai-gpt-4o', 'chatgpt-4o', 'gpt4o'],
-  },
-  {
-    id: 'gpt-4o-mini',
-    upstreamId: 'gpt-4o-mini',
-    displayName: 'OpenAI GPT-4o Mini',
-    aliases: ['openai-gpt-4o-mini', 'gpt4o-mini'],
-  },
-  {
-    id: 'o1',
-    upstreamId: 'o1',
-    displayName: 'OpenAI o1 Reasoning',
-    aliases: ['openai-o1', 'o1-reasoning', 'o1-preview'],
-  },
-  {
-    id: 'o1-mini',
-    upstreamId: 'o1-mini',
-    displayName: 'OpenAI o1-mini',
-    aliases: ['openai-o1-mini', 'o1mini'],
-  },
-  {
-    id: 'o3-mini',
-    upstreamId: 'o3-mini',
-    displayName: 'OpenAI o3-mini',
-    aliases: ['openai-o3-mini', 'o3mini'],
-  },
-  {
-    id: 'gemini-2.5-pro',
-    upstreamId: 'gemini-2.5-pro',
-    displayName: 'Google Gemini 2.5 Pro',
-    aliases: ['gemini-pro', 'google-gemini-2.5-pro', 'gemini-2.5'],
-  },
-  {
-    id: 'gemini-2.5-flash',
-    upstreamId: 'gemini-2.5-flash',
-    displayName: 'Google Gemini 2.5 Flash',
-    aliases: ['gemini-flash', 'google-gemini-2.5-flash'],
-  },
-  {
-    id: 'deepseek-chat',
-    upstreamId: 'deepseek-chat',
-    displayName: 'DeepSeek V3 (Chat)',
-    aliases: ['deepseek-v3', 'deepseek', 'deepseek-v3-chat'],
-  },
-  {
-    id: 'deepseek-reasoner',
-    upstreamId: 'deepseek-reasoner',
-    displayName: 'DeepSeek R1 (Reasoner)',
-    aliases: ['deepseek-r1', 'deepseek-r1-reasoner', 'r1'],
-  },
-  {
-    id: 'grok-2',
-    upstreamId: 'grok-2',
-    displayName: 'xAI Grok 2',
-    aliases: ['xai-grok-2', 'grok2', 'grok'],
-  },
-  {
-    id: 'qwen-2.5-72b-instruct',
-    upstreamId: 'qwen-2.5-72b-instruct',
-    displayName: 'Qwen 2.5 72B Instruct',
-    aliases: ['qwen-2.5-72b', 'qwen-72b', 'qwen'],
-  },
 ];
 
 export function findCatalogModel(inputModel: string): CatalogModelEntry | undefined {
@@ -215,7 +126,6 @@ export function findCatalogModel(inputModel: string): CatalogModelEntry | undefi
   const stripped = norm.replace(/[-._\s]/g, '');
 
   return SUPPORTED_MODELS_CATALOG.find((entry) => {
-    if (!entry || !entry.id) return false;
     if (entry.id.toLowerCase() === norm) return true;
     if (entry.upstreamId.toLowerCase() === norm) return true;
     if (entry.id.replace(/[-._\s]/g, '') === stripped) return true;
@@ -500,16 +410,16 @@ export function sanitizeModelResponse(text: string, friendlyModelName: string, c
   let result = text
     // 1. Scrub upstream supplier branding leaks and MiniMax leaks to genuine Anthropic Claude
     .replace(/Auto by ScaleMax/gi, 'Claude by Anthropic')
-    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningAPI')
+    .replace(/ScaleMax(?:\.pro)?/gi, 'Anthropic')
     .replace(/MiniMax(?:-abab|-6\.5)?/gi, 'Anthropic')
     .replace(/abab-6\.5/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/Opus\s*Max/gi, friendlyModelName || 'Claude')
     .replace(/OpusMax/gi, friendlyModelName || 'Claude')
-    .replace(/OpusLive/gi, 'LightningAPI')
+    .replace(/OpusLive/gi, 'Claude')
     // 2. Remove supplier URLs and hostnames
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
-    .replace(/https?:\/\/api2?\.opusmax\.pro(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
-    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
+    .replace(/https?:\/\/api2?\.opusmax\.pro(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
+    .replace(/api2?\.scalemax\.pro/gi, 'api.anthropic.com')
     .replace(/api2?\.opusmax\.pro/gi, 'api.anthropic.com')
     // 3. Remove master API keys and internal credentials
     .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
@@ -572,17 +482,17 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
   result = result.replace(/<[^>]*>/g, ' ');
 
   result = result
-    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningAPI')
+    .replace(/ScaleMax(?:\.pro)?/gi, 'Anthropic')
     .replace(/MiniMax(?:-abab)?/gi, 'Anthropic')
     .replace(/abab-6\.5/gi, 'Claude Sonnet 5.5')
-    .replace(/Opus\s*Max/gi, 'LightningAPI')
-    .replace(/OpusMax/gi, 'LightningAPI')
-    .replace(/OpusLive/gi, 'LightningAPI')
-    .replace(/opusmax(?:\.pro)?/gi, 'lightningapi')
-    .replace(/api\.opusmax\.pro/gi, 'api.lightningapi.pro')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*opusmax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
-    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
+    .replace(/Opus\s*Max/gi, 'Claude')
+    .replace(/OpusMax/gi, 'Claude')
+    .replace(/OpusLive/gi, 'Claude')
+    .replace(/opusmax(?:\.pro)?/gi, 'claude')
+    .replace(/api\.opusmax\.pro/gi, 'api.anthropic.com')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*opusmax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
+    .replace(/api2?\.scalemax\.pro/gi, 'api.anthropic.com')
     .replace(/sk-ant-opm-[a-zA-Z0-9_-]+/g, '••••••••')
     .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
     .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
@@ -617,42 +527,11 @@ export function hashApiKey(key: string): string {
  * 3. Validates provider exists and is not disabled.
  * 4. NEVER falls back to prefix guessing or default_provider_id.
  */
-export async function resolveProviderForApiKey(keyRecord: any, requestedModel?: string): Promise<{
+export async function resolveProviderForApiKey(keyRecord: any): Promise<{
   provider?: any;
   error?: { status: number; type: string; message: string; code?: string };
 }> {
   let providerId = keyRecord?.providerId;
-
-  // 1. Dynamic Model-Level Provider Routing (Zero-code admin configurability)
-  if (requestedModel) {
-    try {
-      const modelRecord = await prisma.model.findFirst({
-        where: {
-          OR: [
-            { modelId: requestedModel },
-            { upstreamModelId: requestedModel },
-            { displayName: { equals: requestedModel, mode: 'insensitive' } },
-          ],
-        },
-      });
-      if (modelRecord) {
-        if (modelRecord.providerSlug) {
-          const matched = await prisma.vendorProvider.findFirst({
-            where: { slug: modelRecord.providerSlug },
-          });
-          if (matched) {
-            providerId = matched.id;
-          } else if (modelRecord.providerId) {
-            providerId = modelRecord.providerId;
-          }
-        } else if (modelRecord.providerId) {
-          providerId = modelRecord.providerId;
-        }
-      }
-    } catch (e) {
-      // Graceful fallback
-    }
-  }
 
   // Resilient Primary Provider Fallback
   if (!providerId) {
@@ -734,21 +613,6 @@ export async function resolveProviderForApiKey(keyRecord: any, requestedModel?: 
     };
   }
 
-  // Explicit billing surface check for ScaleMax: Credit key vs Token key
-  if (keyRecord?.billingType === 'token' && (provider.slug === 'scalemax' || provider.name?.toLowerCase().includes('scalemax'))) {
-    const hasTokenKey = Boolean(provider.tokenApiKeyEncrypted && provider.tokenApiKeyEncrypted.trim().length > 0);
-    if (!hasTokenKey) {
-      return {
-        error: {
-          status: 403,
-          type: 'permission_error',
-          code: 'TOKEN_PLAN_NOT_CONFIGURED',
-          message: 'ScaleMax token plan access is not enabled. Only Credit Plans are supported on this provider.',
-        },
-      };
-    }
-  }
-
   if (provider.status === 'disabled') {
     recordAuditEvent({
       eventType: 'PROVIDER_DISABLED',
@@ -775,182 +639,7 @@ export async function resolveProviderForApiKey(keyRecord: any, requestedModel?: 
 }
 
 
-export async function validateKeyRecordAndCheckAllowance(keyRecord: any, requestedModel?: string, req?: any) {
-  if (keyRecord.status !== 'active') {
-    if (req) {
-      recordAuditEvent({
-        eventType: 'REVOKED_API_KEY_USED',
-        severity: 'LOW',
-        actorType: 'CUSTOMER',
-        actorId: keyRecord.userId,
-        customerId: keyRecord.userId,
-        apiKeyId: keyRecord.id,
-        result: 'BLOCKED',
-        statusCode: 403,
-        failureReason: `API key status is ${keyRecord.status}`,
-        req,
-      });
-    }
-    return { errorStatus: 403, errorType: 'permission_error', errorMessage: `API key is ${keyRecord.status}. Please reactivate key in your dashboard.` };
-  }
-
-  if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
-    if (req) {
-      recordAuditEvent({
-        eventType: 'EXPIRED_KEY_USED',
-        severity: 'LOW',
-        actorType: 'CUSTOMER',
-        actorId: keyRecord.userId,
-        customerId: keyRecord.userId,
-        apiKeyId: keyRecord.id,
-        result: 'BLOCKED',
-        statusCode: 401,
-        failureReason: 'API key has expired',
-        req,
-      });
-    }
-    return { errorStatus: 401, errorType: 'authentication_error', errorMessage: 'API key has expired.' };
-  }
-
-  // 1b. Enforce Model Scope & Allowed Families
-  if (requestedModel && keyRecord.allowedModelFamilies) {
-    try {
-      const allowed = JSON.parse(keyRecord.allowedModelFamilies);
-      if (Array.isArray(allowed) && !allowed.includes('all')) {
-        let modelFamily = 'claude';
-        const norm = requestedModel.toLowerCase();
-        if (norm.includes('gpt') || norm.includes('o1') || norm.includes('o3') || norm.includes('chatgpt')) modelFamily = 'openai';
-        else if (norm.includes('gemini')) modelFamily = 'gemini';
-        else if (norm.includes('deepseek')) modelFamily = 'deepseek';
-        else if (norm.includes('grok')) modelFamily = 'grok';
-        else if (norm.includes('qwen')) modelFamily = 'qwen';
-
-        if (!allowed.map((f: string) => f.toLowerCase()).includes(modelFamily)) {
-          if (req) {
-            recordAuditEvent({
-              eventType: 'UNAUTHORIZED_MODEL_ACCESS',
-              severity: 'MEDIUM',
-              actorType: 'CUSTOMER',
-              actorId: keyRecord.userId,
-              customerId: keyRecord.userId,
-              apiKeyId: keyRecord.id,
-              result: 'BLOCKED',
-              statusCode: 403,
-              failureReason: `Model ${requestedModel} (${modelFamily}) not permitted for key with allowedFamilies: ${keyRecord.allowedModelFamilies}`,
-              req,
-            });
-          }
-          return {
-            errorStatus: 403,
-            errorType: 'permission_error',
-            errorCode: 'unauthorized_model_family',
-            errorMessage: `Model '${requestedModel}' belongs to the '${modelFamily}' family, which is not permitted under your current plan. Permitted families: ${allowed.join(', ')}.`,
-          };
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 2. Multi-Plan Balance & Entitlement Check (Credit, Token Pack, and Rolling Window)
-  const billingType = keyRecord.billingType || 'window';
-
-  if (billingType === 'credit') {
-    const creditBal = Number(keyRecord.creditBalanceUsd ?? 0);
-    const inFlightCredit = inFlightCreditReservations.get(keyRecord.id) || 0;
-    const availableCreditToSpend = creditBal - inFlightCredit;
-    if (creditBal <= 0 || availableCreditToSpend <= 0) {
-      const isConcurrent = creditBal > 0 && availableCreditToSpend <= 0;
-      const reason = isConcurrent ? 'Usage credit balance is reserved by concurrent in-flight requests' : 'Credit balance exhausted ($0.00 remaining)';
-      if (req) {
-        recordAuditEvent({
-          eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
-          severity: 'LOW',
-          actorType: 'CUSTOMER',
-          actorId: keyRecord.userId,
-          customerId: keyRecord.userId,
-          apiKeyId: keyRecord.id,
-          result: 'BLOCKED',
-          statusCode: isConcurrent ? 429 : 402,
-          failureReason: reason,
-          req,
-        });
-      }
-      return {
-        errorStatus: isConcurrent ? 429 : 402,
-        errorType: isConcurrent ? 'rate_limit_error' : 'invalid_request_error',
-        errorCode: isConcurrent ? 'insufficient_quota' : 'insufficient_credit_balance',
-        failureReason: reason,
-        errorMessage: isConcurrent
-          ? 'Usage credit balance is reserved by concurrent in-flight requests. Please wait for active requests to complete or top up.'
-          : 'Account usage credit balance exhausted ($0.00 remaining). Please top up credits in your dashboard.',
-      };
-    }
-    reserveCredits(keyRecord.id, 0.005);
-    return { keyRecord, rawKey: keyRecord.displayKey, effectiveRemaining: creditBal, creditBalanceUsd: creditBal };
-  } else if (billingType === 'token') {
-    const tokensRem = Number(keyRecord.tokensRemaining ?? 0);
-    const inFlight = inFlightReservations.get(keyRecord.id) || 0;
-    const availableToSpend = tokensRem - inFlight;
-    if (tokensRem <= 0 || availableToSpend <= 0) {
-      const reason = tokensRem <= 0 ? 'Prepaid token pack exhausted (0 tokens remaining)' : 'Token pack balance reserved by concurrent in-flight requests';
-      if (req) {
-        recordAuditEvent({
-          eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
-          severity: 'LOW',
-          actorType: 'CUSTOMER',
-          actorId: keyRecord.userId,
-          customerId: keyRecord.userId,
-          apiKeyId: keyRecord.id,
-          result: 'BLOCKED',
-          statusCode: 429,
-          failureReason: reason,
-          req,
-        });
-      }
-      return {
-        errorStatus: 429,
-        errorType: 'rate_limit_error',
-        errorCode: 'insufficient_quota',
-        failureReason: reason,
-        errorMessage: tokensRem <= 0
-          ? 'Prepaid token pack balance exhausted (0 tokens remaining). Please top up in your dashboard.'
-          : 'Prepaid token pack balance is reserved by concurrent in-flight requests. Please wait for active requests to complete or top up.',
-      };
-    }
-    return { keyRecord, rawKey: keyRecord.displayKey, effectiveRemaining: tokensRem, tokensRemaining: tokensRem };
-  } else {
-    // Preserved 5-Hour Rolling Window Plan
-    const windowMetrics = await calculateKeyRollingWindow(keyRecord);
-    const effectiveRemaining = Math.max(0, windowMetrics.remainingNum);
-
-    if (effectiveRemaining <= 0) {
-      if (req) {
-        recordAuditEvent({
-          eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
-          severity: 'LOW',
-          actorType: 'CUSTOMER',
-          actorId: keyRecord.userId,
-          customerId: keyRecord.userId,
-          apiKeyId: keyRecord.id,
-          result: 'BLOCKED',
-          statusCode: 429,
-          failureReason: 'Token allowance exhausted (0 tokens remaining)',
-          req,
-        });
-      }
-      return {
-        errorStatus: 429,
-        errorType: 'rate_limit_error',
-        errorCode: 'insufficient_quota',
-        errorMessage: `Token allowance exhausted (0 tokens remaining). Please top up your API key balance in your dashboard or contact support.`,
-      };
-    }
-
-    return { keyRecord, rawKey: keyRecord.displayKey, windowMetrics, effectiveRemaining };
-  }
-}
-
-export async function validateAndExtractApiKey(req: Request, requestedModel?: string) {
+export async function validateAndExtractApiKey(req: Request) {
   const xApiKey = req.headers['x-api-key']?.toString().trim();
   const authBearer = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
 
@@ -1062,133 +751,32 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
   recentTimestamps.push(nowMs);
   rateLimitMap.set(keyRecord.id, recentTimestamps);
 
-  // 1b. Enforce Model Scope & Allowed Families
-  if (requestedModel && keyRecord.allowedModelFamilies) {
-    try {
-      const allowed = JSON.parse(keyRecord.allowedModelFamilies);
-      if (Array.isArray(allowed) && !allowed.includes('all')) {
-        let modelFamily = 'claude';
-        const norm = requestedModel.toLowerCase();
-        if (norm.includes('gpt') || norm.includes('o1') || norm.includes('o3') || norm.includes('chatgpt')) modelFamily = 'openai';
-        else if (norm.includes('gemini')) modelFamily = 'gemini';
-        else if (norm.includes('deepseek')) modelFamily = 'deepseek';
-        else if (norm.includes('grok')) modelFamily = 'grok';
-        else if (norm.includes('qwen')) modelFamily = 'qwen';
+  // 2. Authoritative Token Balance & Entitlement Check (Layer B)
+  const windowMetrics = await calculateKeyRollingWindow(keyRecord);
+  const effectiveRemaining = Math.max(0, windowMetrics.remainingNum);
 
-        if (!allowed.map((f: string) => f.toLowerCase()).includes(modelFamily)) {
-          recordAuditEvent({
-            eventType: 'UNAUTHORIZED_MODEL_ACCESS',
-            severity: 'MEDIUM',
-            actorType: 'CUSTOMER',
-            actorId: keyRecord.userId,
-            customerId: keyRecord.userId,
-            apiKeyId: keyRecord.id,
-            result: 'BLOCKED',
-            statusCode: 403,
-            failureReason: `Model ${requestedModel} (${modelFamily}) not permitted for key with allowedFamilies: ${keyRecord.allowedModelFamilies}`,
-            req,
-          });
-          return {
-            errorStatus: 403,
-            errorType: 'permission_error',
-            errorCode: 'unauthorized_model_family',
-            errorMessage: `Model '${requestedModel}' belongs to the '${modelFamily}' family, which is not permitted under your current plan. Permitted families: ${allowed.join(', ')}.`,
-          };
-        }
-      }
-    } catch (e) {}
+  if (effectiveRemaining <= 0) {
+    recordAuditEvent({
+      eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
+      severity: 'LOW',
+      actorType: 'CUSTOMER',
+      actorId: keyRecord.userId,
+      customerId: keyRecord.userId,
+      apiKeyId: keyRecord.id,
+      result: 'BLOCKED',
+      statusCode: 429,
+      failureReason: 'Token allowance exhausted (0 tokens remaining)',
+      req,
+    });
+    return {
+      errorStatus: 429,
+      errorType: 'rate_limit_error',
+      errorCode: 'insufficient_quota',
+      errorMessage: `Token allowance exhausted (0 tokens remaining). Please top up your API key balance in your dashboard or contact support.`,
+    };
   }
 
-  // 2. Multi-Plan Balance & Entitlement Check (Credit, Token Pack, and Rolling Window)
-  const billingType = keyRecord.billingType || 'window';
-
-  if (billingType === 'credit') {
-    const creditBal = Number(keyRecord.creditBalanceUsd ?? 0);
-    const inFlightCredit = inFlightCreditReservations.get(keyRecord.id) || 0;
-    const availableCreditToSpend = creditBal - inFlightCredit;
-    if (creditBal <= 0 || availableCreditToSpend <= 0) {
-      const isConcurrent = creditBal > 0 && availableCreditToSpend <= 0;
-      const reason = isConcurrent ? 'Usage credit balance is reserved by concurrent in-flight requests' : 'Credit balance exhausted ($0.00 remaining)';
-      recordAuditEvent({
-        eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
-        severity: 'LOW',
-        actorType: 'CUSTOMER',
-        actorId: keyRecord.userId,
-        customerId: keyRecord.userId,
-        apiKeyId: keyRecord.id,
-        result: 'BLOCKED',
-        statusCode: isConcurrent ? 429 : 402,
-        failureReason: reason,
-        req,
-      });
-      return {
-        errorStatus: isConcurrent ? 429 : 402,
-        errorType: isConcurrent ? 'rate_limit_error' : 'invalid_request_error',
-        errorCode: isConcurrent ? 'insufficient_quota' : 'insufficient_credit_balance',
-        failureReason: reason,
-        errorMessage: isConcurrent
-          ? 'Usage credit balance is reserved by concurrent in-flight requests. Please wait for active requests to complete or top up.'
-          : 'Account usage credit balance exhausted ($0.00 remaining). Please top up credits in your dashboard.',
-      };
-    }
-    reserveCredits(keyRecord.id, 0.005);
-    return { keyRecord, rawKey, effectiveRemaining: creditBal, creditBalanceUsd: creditBal };
-  } else if (billingType === 'token') {
-    const tokensRem = Number(keyRecord.tokensRemaining ?? 0);
-    const inFlight = inFlightReservations.get(keyRecord.id) || 0;
-    const availableToSpend = tokensRem - inFlight;
-    if (tokensRem <= 0 || availableToSpend <= 0) {
-      const reason = tokensRem <= 0 ? 'Prepaid token pack exhausted (0 tokens remaining)' : 'Token pack balance reserved by concurrent in-flight requests';
-      recordAuditEvent({
-        eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
-        severity: 'LOW',
-        actorType: 'CUSTOMER',
-        actorId: keyRecord.userId,
-        customerId: keyRecord.userId,
-        apiKeyId: keyRecord.id,
-        result: 'BLOCKED',
-        statusCode: 429,
-        failureReason: reason,
-        req,
-      });
-      return {
-        errorStatus: 429,
-        errorType: 'rate_limit_error',
-        errorCode: 'insufficient_quota',
-        errorMessage: tokensRem <= 0
-          ? 'Prepaid token pack balance exhausted (0 tokens remaining). Please top up in your dashboard.'
-          : 'Prepaid token pack balance is reserved by concurrent in-flight requests. Please wait for active requests to complete or top up.',
-      };
-    }
-    return { keyRecord, rawKey, effectiveRemaining: tokensRem, tokensRemaining: tokensRem };
-  } else {
-    // Preserved 5-Hour Rolling Window Plan
-    const windowMetrics = await calculateKeyRollingWindow(keyRecord);
-    const effectiveRemaining = Math.max(0, windowMetrics.remainingNum);
-
-    if (effectiveRemaining <= 0) {
-      recordAuditEvent({
-        eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
-        severity: 'LOW',
-        actorType: 'CUSTOMER',
-        actorId: keyRecord.userId,
-        customerId: keyRecord.userId,
-        apiKeyId: keyRecord.id,
-        result: 'BLOCKED',
-        statusCode: 429,
-        failureReason: 'Token allowance exhausted (0 tokens remaining)',
-        req,
-      });
-      return {
-        errorStatus: 429,
-        errorType: 'rate_limit_error',
-        errorCode: 'insufficient_quota',
-        errorMessage: `Token allowance exhausted (0 tokens remaining). Please top up your API key balance in your dashboard or contact support.`,
-      };
-    }
-
-    return { keyRecord, rawKey, windowMetrics, effectiveRemaining };
-  }
+  return { keyRecord, rawKey, windowMetrics, effectiveRemaining };
 }
 
 
@@ -1381,7 +969,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   const idempotencyKey = ((req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || '') as string).trim();
 
   // Authoritative Provider Resolution (ApiKey.providerId -> VendorProvider)
-  const providerResolution = await resolveProviderForApiKey(keyRecord, model);
+  const providerResolution = await resolveProviderForApiKey(keyRecord);
   if (providerResolution.error) {
     await prisma.apiRequest.create({
       data: {
@@ -1503,7 +1091,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   if (decryptedMasterKey && decryptedMasterKey.trim().length > 0) {
     try {
       // Validate Base URL against SSRF threats
-      const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://api.lightningapi.pro');
+      const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://api.anthropic.com');
       if (!ssrfCheck.safe) {
         await releaseReservation(requestId);
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
@@ -1784,7 +1372,10 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
       if (stream) {
         res.setHeader('x-gateway-model', model);
-                                res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+        res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-provider', upstreamProviderName);
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
         res.setHeader('x-model-verified', 'true');
         res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
         res.setHeader('Content-Type', 'text/event-stream');
@@ -1977,7 +1568,10 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }
 
         res.setHeader('x-gateway-model', model);
-                                res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+        res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-model', resolvedUpstreamModel);
+        res.setHeader('x-upstream-provider', upstreamProviderName);
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
         res.setHeader('x-model-verified', 'true');
         res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
         res.setHeader('anthropic-inference-geo', inferenceGeo);
@@ -2095,9 +1689,6 @@ export async function updateTokensAndLog({
     if (requestId) {
       await settleReservation(requestId);
     }
-    if (keyRecord?.id) {
-      releaseCreditReservation(keyRecord.id, 0.005);
-    }
 
     // 2. Authoritative Rolling Window Plan Determination
     const isRolling = isRollingPlan(keyRecord);
@@ -2120,102 +1711,28 @@ export async function updateTokensAndLog({
 
       const tokensUsedBig = BigInt(totalTokens);
 
-      // Multi-Plan Dynamic Deductions by Model & Token Categories
-      const bType = keyRecord.billingType || (isRolling ? 'window' : 'token');
-      let costDeductedUsd = 0;
-      let providerCostUsd = 0;
-
-      // Query model pricing rates
-      let modelRecord = await tx.model.findFirst({
-        where: {
-          OR: [{ modelId: model }, { upstreamModelId: model }],
-        },
-      });
-
-      const inPrice = modelRecord?.inputPrice ? Number(modelRecord.inputPrice) : 2.50;
-      const outPrice = modelRecord?.outputPrice ? Number(modelRecord.outputPrice) : 10.00;
-      const cachedPrice = modelRecord?.costPerMillionCached ? Number(modelRecord.costPerMillionCached) : inPrice * 0.50;
-
-      const pInCost = modelRecord?.providerCostInput ? Number(modelRecord.providerCostInput) : 2.00;
-      const pOutCost = modelRecord?.providerCostOutput ? Number(modelRecord.providerCostOutput) : 8.00;
-      const pCachedCost = modelRecord?.providerCostCached ? Number(modelRecord.providerCostCached) : pInCost * 0.50;
-
-      const actualCached = Math.min(inputTokens, (cachedTokens || 0));
-      const uncachedInput = Math.max(0, inputTokens - actualCached);
-
-      costDeductedUsd = Math.round(((uncachedInput * inPrice + actualCached * cachedPrice + outputTokens * outPrice) / 1000000) * 100000) / 100000;
-      providerCostUsd = Math.round(((uncachedInput * pInCost + actualCached * pCachedCost + outputTokens * pOutCost) / 1000000) * 100000) / 100000;
-
-      let keyUpdateData: any = {
-        tokensUsed: { increment: tokensUsedBig },
-        totalRequests: { increment: 1 },
-        totalInputTokens: { increment: BigInt(inputTokens) },
-        totalOutputTokens: { increment: BigInt(outputTokens) },
-        lastUsedAt: new Date(),
-        lastPlatform: clientPlatform || currentKey.lastPlatform || null,
-        ...(currentKey.firstUsedAt ? {} : { firstUsedAt: new Date() }),
-      };
-
-      if (bType === 'credit') {
-        const curCreditBal = Number((currentKey as any).creditBalanceUsd || 0);
-        const newCreditBal = Math.max(0, Math.round((curCreditBal - costDeductedUsd) * 100000) / 100000);
-        keyUpdateData.creditBalanceUsd = newCreditBal;
-        keyUpdateData.totalCreditsUsedUsd = { increment: costDeductedUsd };
-
-        // Immutable Customer Usage Credit Ledger Entry
-        await tx.customerUsageCreditLedger.create({
-          data: {
-            userId: keyRecord.userId,
-            apiKeyId: keyRecord.id,
-            type: 'USAGE_DEDUCTION',
-            amount: -costDeductedUsd,
-            balanceBefore: curCreditBal,
-            balanceAfter: newCreditBal,
-            currency: 'USD',
-            model,
-            inputTokens: uncachedInput,
-            outputTokens,
-            cachedTokens: actualCached,
-            retailInputPricePerM: inPrice,
-            retailOutputPricePerM: outPrice,
-            reference: requestId || `REQ-${model}`,
-            notes: `${model} usage deduction (${uncachedInput} in, ${actualCached} cached, ${outputTokens} out)`,
-            pricingSnapshotJson: JSON.stringify({
-              inputPrice: inPrice,
-              outputPrice: outPrice,
-              cachedPrice,
-              providerCostInput: pInCost,
-              providerCostOutput: pOutCost,
-            }),
-          },
-        });
-
-        // Upstream Vendor Credit Ledger Entry (separately maintained)
-        if (vendorId) {
-          await tx.vendorCreditLedger.create({
-            data: {
-              providerId: vendorId,
-              type: 'USAGE_CHARGE',
-              creditAmount: providerCostUsd,
-              isEstimated: Boolean(isEstimated),
-              model,
-              tokens: totalTokens,
-              reference: requestId || `REQ-${model}`,
-              notes: `Upstream vendor usage for ${model}`,
-            },
-          });
-        }
-      } else if (bType === 'token') {
-        const safeRem = currentKey.tokensRemaining >= tokensUsedBig ? currentKey.tokensRemaining - tokensUsedBig : 0n;
-        keyUpdateData.tokensRemaining = safeRem;
+      // Safe decrement calculation: never drive remaining tokens below 0
+      let newTokensRemaining = currentKey.tokensRemaining;
+      if (!isRolling) {
+        newTokensRemaining = currentKey.tokensRemaining >= tokensUsedBig
+          ? currentKey.tokensRemaining - tokensUsedBig
+          : 0n;
       }
 
       const updatedKey = await tx.apiKey.update({
         where: { id: keyRecord.id },
-        data: keyUpdateData,
+        data: {
+          tokensUsed: { increment: tokensUsedBig },
+          ...(!isRolling && { tokensRemaining: newTokensRemaining }),
+          totalRequests: { increment: 1 },
+          totalInputTokens: { increment: BigInt(inputTokens) },
+          totalOutputTokens: { increment: BigInt(outputTokens) },
+          lastUsedAt: new Date(),
+          lastPlatform: clientPlatform || currentKey.lastPlatform || null,
+          ...(currentKey.firstUsedAt ? {} : { firstUsedAt: new Date() }),
+        },
         select: {
           tokensRemaining: true,
-          creditBalanceUsd: true,
         },
       });
 
@@ -2252,11 +1769,6 @@ export async function updateTokensAndLog({
           clientPlatform,
           userAgent,
           ipAddress,
-          billingPlanType: bType,
-          costDeductedUsd: costDeductedUsd || 0,
-          providerCostUsd: providerCostUsd || 0,
-          actualProvider: vendorId ? (await tx.vendorProvider.findUnique({ where: { id: vendorId } }))?.slug || 'unknown' : 'unknown',
-          upstreamModel: model,
         },
       });
     });
@@ -2282,160 +1794,3 @@ export async function updateTokensAndLog({
 
 export const recordApiUsage = updateTokensAndLog;
 
-
-
-export async function handleChatCompletionsEndpoint(req: Request, res: Response) {
-  const startTime = Date.now();
-  const requestId = `chatcmpl_${crypto.randomBytes(12).toString('hex')}`;
-  const { platform, userAgent } = detectClientPlatform(req);
-  const clientIp = (req.ip || req.headers['x-forwarded-for']?.toString() || '').split(',')[0].trim() || null;
-
-  const validation = await validateAndExtractApiKey(req);
-  if ('errorStatus' in validation) {
-    return res.status(validation.errorStatus).json({
-      error: {
-        message: validation.errorMessage,
-        type: validation.errorType,
-        code: validation.errorCode,
-      },
-    });
-  }
-
-  const { keyRecord } = validation;
-  const { model, messages, stream, max_tokens, temperature, top_p, tools, tool_choice } = req.body || {};
-
-  if (!model || typeof model !== 'string') {
-    return res.status(400).json({
-      error: { message: 'Missing model parameter in request body.', type: 'invalid_request_error' },
-    });
-  }
-
-  // Authoritative Provider Resolution
-  const providerResolution = await resolveProviderForApiKey(keyRecord, model);
-  if (providerResolution.error) {
-    return res.status(providerResolution.error.status).json({
-      error: {
-        message: providerResolution.error.message,
-        type: providerResolution.error.type,
-      },
-    });
-  }
-
-  const vendor = providerResolution.provider!;
-  let decryptedMasterKey = vendor ? decryptText(vendor.masterApiKeyEncrypted) : '';
-  if (vendor?.slug === 'scalemax' || vendor?.name?.toLowerCase().includes('scale')) {
-    if (keyRecord.billingType === 'token') {
-      decryptedMasterKey = vendor.tokenApiKeyEncrypted ? decryptText(vendor.tokenApiKeyEncrypted) : '';
-    } else {
-      decryptedMasterKey = vendor.creditApiKeyEncrypted ? decryptText(vendor.creditApiKeyEncrypted) : (vendor.masterApiKeyEncrypted ? decryptText(vendor.masterApiKeyEncrypted) : '');
-      if (!decryptedMasterKey) {
-        decryptedMasterKey = process.env.SCALEMAX_LIVE_API_KEY || process.env.SCALEMAX_API_KEY || process.env.SCALEMAX_MASTER_API_KEY || '';
-      }
-    }
-  } else if (!decryptedMasterKey || decryptedMasterKey.includes(':') || (!decryptedMasterKey.startsWith('sm_') && !decryptedMasterKey.startsWith('sk-'))) {
-    decryptedMasterKey = process.env.SCALEMAX_MASTER_API_KEY || process.env.OPUSMAX_MASTER_API_KEY || process.env.ANTHROPIC_MASTER_API_KEY || '';
-  }
-
-  const prepared = buildProviderRequest(vendor, decryptedMasterKey, model, {
-    messages,
-    max_tokens,
-    stream,
-    temperature,
-    top_p,
-    tools,
-    tool_choice,
-  }, keyRecord.billingType || 'credit');
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 180000);
-
-  try {
-    const upstreamRes = await fetch(prepared.url, {
-      method: 'POST',
-      headers: prepared.headers,
-      body: JSON.stringify(prepared.body),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (!upstreamRes.ok) {
-      const errText = await upstreamRes.text();
-      let parsedErr: any = {};
-      try { parsedErr = JSON.parse(errText); } catch {}
-      return res.status(upstreamRes.status).json(parsedErr?.error ? parsedErr : {
-        error: { message: sanitizeErrorMessage(errText), type: 'upstream_error' },
-      });
-    }
-
-    if (stream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('x-gateway-model', model);
-      
-      const reader = upstreamRes.body?.getReader();
-      const decoder = new TextDecoder();
-      let totalStreamedChars = 0;
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          totalStreamedChars += chunk.length;
-          res.write(chunk);
-        }
-      }
-      res.end();
-
-      const inputEst = Math.max(20, Math.ceil(JSON.stringify(messages).length / 3.8));
-      const outputEst = Math.max(10, Math.ceil(totalStreamedChars / 3.8));
-      await updateTokensAndLog({
-        keyRecord,
-        model,
-        inputTokens: inputEst,
-        outputTokens: outputEst,
-        totalTokens: inputEst + outputEst,
-        latencyMs: Date.now() - startTime,
-        streaming: true,
-        requestId,
-        vendorId: vendor.id,
-        clientPlatform: platform,
-        userAgent,
-        ipAddress: clientIp,
-      });
-    } else {
-      const data: any = await upstreamRes.json();
-      res.setHeader('x-gateway-model', model);
-      
-      const inputTokens = data?.usage?.prompt_tokens ?? Math.max(20, Math.ceil(JSON.stringify(messages).length / 3.8));
-      const outputTokens = data?.usage?.completion_tokens ?? 50;
-      const totalTokens = data?.usage?.total_tokens ?? (inputTokens + outputTokens);
-
-      await updateTokensAndLog({
-        keyRecord,
-        model,
-        inputTokens,
-        outputTokens,
-        totalTokens,
-        latencyMs: Date.now() - startTime,
-        streaming: false,
-        requestId,
-        vendorId: vendor.id,
-        clientPlatform: platform,
-        userAgent,
-        ipAddress: clientIp,
-      });
-
-      return res.json(data);
-    }
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    return res.status(502).json({
-      error: {
-        message: `Upstream gateway connection failure: ${sanitizeErrorMessage(err.message)}`,
-        type: 'upstream_error',
-      },
-    });
-  }
-}

@@ -40,13 +40,6 @@ checkoutRouter.get('/plans', async (req: Request, res: Response) => {
       badge: p.badge,
       features: p.features,
       featured: p.featured,
-      planType: p.planType || 'window',
-      creditMultiplier: p.creditMultiplier,
-      creditAmountUsd: p.creditAmountUsd,
-      bonusCreditsUsd: p.bonusCreditsUsd,
-      bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : undefined,
-      providerScope: p.providerScope === 'opus_max' ? 'window' : (p.providerScope || 'all'),
-      allowedModelFamilies: p.allowedModelFamilies,
     }));
     res.json({ success: true, plans });
   } catch (err: any) {

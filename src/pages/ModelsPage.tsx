@@ -18,13 +18,13 @@ export const ModelsPage: React.FC = () => {
             <div className="space-y-2 max-w-2xl">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono font-medium uppercase tracking-wider bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe]">
                 <Sparkles className="w-3 h-3 text-[#6d28d9]" />
-                <span>Multi-Provider Model Intelligence</span>
+                <span>Model Intelligence</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#1c1917]">
-                Supported Multi-Provider Models
+                Supported Claude Models
               </h1>
               <p className="text-sm text-[#57534e] leading-relaxed max-w-xl">
-                From deep-thinking Claude Opus 5.5 to OpenAI o1, GPT-4o, DeepSeek R1, and Gemini 2.5, select the ideal model for your programming, agentic loops, and production workflows.
+                From high-throughput Haiku 5.5 to deep-thinking Opus 5.5, select the ideal model for your programming, research, and production workflows.
               </p>
             </div>
 

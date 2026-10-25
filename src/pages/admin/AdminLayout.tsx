@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift, MessageSquare, Bot, Star, DollarSign } from 'lucide-react';
+import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift, MessageSquare, Bot, Star } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
@@ -57,7 +57,6 @@ export const AdminLayout: React.FC = () => {
     { name: 'Customer Feedback', path: '/deez/feedback', icon: Star, badge: 'FEEDBACK' },
     { name: 'Subscriptions', path: '/deez/subscriptions', icon: Layers, badge: 'CYCLES' },
     { name: 'Plans & Offers', path: '/deez/plans', icon: Zap },
-    { name: 'Credit Economics', path: '/deez/pricing', icon: DollarSign, badge: 'MARGINS' },
     { name: 'Orders & Sales', path: '/deez/orders', icon: ShoppingBag },
     { name: 'WhatsApp Desk', path: '/deez/whatsapp', icon: MessageSquare },
     { name: 'AI Control', path: '/deez/ai-control', icon: Bot },

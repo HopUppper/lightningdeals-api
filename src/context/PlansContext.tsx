@@ -21,12 +21,6 @@ export interface PlanItem {
   features?: string[];
   featured?: boolean;
   sortOrder?: number;
-  planType?: 'window' | 'credit' | 'token';
-  creditMultiplier?: number;
-  creditAmountUsd?: number;
-  bonusCreditsUsd?: number;
-  bonusTokens?: string;
-  providerScope?: string;
 }
 
 export interface PlansContextType {
@@ -227,12 +221,6 @@ export const PlansProvider: React.FC<{
                 ],
           featured: Boolean(p.featured),
           sortOrder: p.sortOrder !== undefined ? Number(p.sortOrder) : 0,
-          planType: p.planType || 'window',
-          creditMultiplier: p.creditMultiplier ? Number(p.creditMultiplier) : 7.0,
-          creditAmountUsd: p.creditAmountUsd ? Number(p.creditAmountUsd) : undefined,
-          bonusCreditsUsd: p.bonusCreditsUsd ? Number(p.bonusCreditsUsd) : undefined,
-          bonusTokens: p.bonusTokens || undefined,
-          providerScope: p.providerScope || 'all',
         }));
         setPlans(mapped);
         setError(null);

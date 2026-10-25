@@ -22,13 +22,6 @@ export interface ServerPlan {
   featured: boolean;
   enabled: boolean;
   displayOrder: number;
-  planType?: 'window' | 'credit' | 'token';
-  creditMultiplier?: number;
-  creditAmountUsd?: number;
-  bonusCreditsUsd?: number;
-  bonusTokens?: bigint;
-  providerScope?: string;
-  allowedModelFamilies?: string[];
 }
 
 export interface PlanPricingCalculation {
@@ -241,7 +234,7 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
       where: {
         status: 'active',
         enabled: true,
-        priceInr: { gte: 50 },
+        priceInr: { gte: 500 },
         NOT: {
           OR: [
             { id: { in: ['free_trial', 'trial'] } },
@@ -283,12 +276,6 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
           featured: p.featured,
           enabled: p.enabled,
           displayOrder: p.sortOrder,
-          planType: (p.planType as any) || 'window',
-          creditMultiplier: p.creditMultiplier !== null && p.creditMultiplier !== undefined ? Number(p.creditMultiplier) : (p.planType === 'credit' ? 7.0 : undefined),
-          creditAmountUsd: p.creditAmountUsd !== null && p.creditAmountUsd !== undefined ? Number(p.creditAmountUsd) : undefined,
-          bonusCreditsUsd: p.bonusCreditsUsd !== null && p.bonusCreditsUsd !== undefined ? Number(p.bonusCreditsUsd) : undefined,
-          bonusTokens: p.bonusTokens !== null && p.bonusTokens !== undefined ? BigInt(p.bonusTokens) : undefined,
-          providerScope: p.providerScope || 'all',
         };
       });
     }
@@ -350,12 +337,6 @@ export async function getPlanByIdAsync(planId: string): Promise<ServerPlan | nul
         featured: dbPlan.featured,
         enabled: dbPlan.enabled,
         displayOrder: dbPlan.sortOrder,
-        planType: (dbPlan.planType as any) || 'window',
-        creditMultiplier: dbPlan.creditMultiplier !== null && dbPlan.creditMultiplier !== undefined ? Number(dbPlan.creditMultiplier) : (dbPlan.planType === 'credit' ? 7.0 : undefined),
-        creditAmountUsd: dbPlan.creditAmountUsd !== null && dbPlan.creditAmountUsd !== undefined ? Number(dbPlan.creditAmountUsd) : undefined,
-        bonusCreditsUsd: dbPlan.bonusCreditsUsd !== null && dbPlan.bonusCreditsUsd !== undefined ? Number(dbPlan.bonusCreditsUsd) : undefined,
-        bonusTokens: dbPlan.bonusTokens !== null && dbPlan.bonusTokens !== undefined ? BigInt(dbPlan.bonusTokens) : undefined,
-        providerScope: dbPlan.providerScope || 'all',
       };
     }
   } catch (err) {

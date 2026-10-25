@@ -55,7 +55,6 @@ export const AdminPlans: React.FC = () => {
     sortOrder: 1,
   });
   const [savingPlan, setSavingPlan] = useState(false);
-  const [marginAudit, setMarginAudit] = useState<any>(null);
 
   // Coupons State
   const [coupons, setCoupons] = useState<any[]>([]);
@@ -98,19 +97,15 @@ export const AdminPlans: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [plansRes, couponsRes, ovRes, subRes, trialRes, emergencyRes, marginRes] = await Promise.all([
+      const [plansRes, couponsRes, ovRes, subRes, trialRes, emergencyRes] = await Promise.all([
         adminFetch('/api/admin/plans-catalog').catch(() => null),
         adminFetch('/api/admin/coupons').catch(() => null),
         adminFetch('/api/admin/claude-plans/overview').catch(() => null),
         adminFetch(`/api/admin/subscriptions?search=${encodeURIComponent(searchQuery)}&planFilter=${planFilter}&statusFilter=${statusFilter}`).catch(() => null),
         adminFetch('/api/admin/trials').catch(() => null),
         adminFetch('/api/admin/emergency/status').catch(() => null),
-        adminFetch('/api/admin/plans/margin-audit').catch(() => null),
       ]);
 
-      if (marginRes && marginRes.ok) {
-        setMarginAudit(await marginRes.json());
-      }
       if (plansRes && plansRes.ok) {
         const pData = await plansRes.json();
         setPlans(pData.plans || []);

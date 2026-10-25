@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import crypto from 'crypto';
 
-import { handleMessagesEndpoint, handleChatCompletionsEndpoint } from './gateway';
+import { handleMessagesEndpoint } from './gateway';
 import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
 import adminRouter from './admin';
 import adminAuthRouter from './adminAuth';
@@ -186,7 +186,6 @@ app.post('/api/analytics/beacon', handleAnalyticsBeacon);
 app.get('/v1', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
 app.get('/v1/', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
 app.post('/v1/messages', handleMessagesEndpoint);
-app.post('/v1/chat/completions', handleChatCompletionsEndpoint);
 app.get('/v1/models', handleGetModels);
 app.post('/v1/messages/count_tokens', handleCountTokens);
 

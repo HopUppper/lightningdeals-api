@@ -26,11 +26,6 @@ export interface VendorProviderRecord {
   lastTestedAt?: Date | null;
   lastError?: string | null;
   notes?: string | null;
-  apiCreditBaseUrl?: string | null;
-  tokenPackBaseUrl?: string | null;
-  supportedFamiliesJson?: string | null;
-  costPerMillionInput?: number | null;
-  costPerMillionOutput?: number | null;
 }
 
 export interface PreparedProviderRequest {
@@ -404,190 +399,6 @@ export class AnthropicOfficialProviderAdapter extends BaseProviderAdapter {
 /**
  * Concrete Adapter: Opus Max
  */
-
-/**
- * Concrete Adapter: ScaleMax
- * Supports OpenAI, Gemini, DeepSeek, Grok, Qwen, and multi-model family requests.
- * Dual routing for Credit-based keys and Token-pack keys:
- * - Credit keys: apiCreditBaseUrl (default: https://api.scalemax.pro/v1)
- * - Token pack keys: tokenPackBaseUrl (default: https://api.scalemax.pro/token/v1)
- */
-export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
-  apiCreditBaseUrl: string;
-  tokenPackBaseUrl: string;
-  supportedFamilies: string[];
-
-  constructor(record: VendorProviderRecord) {
-    super({
-      ...record,
-      name: record.name || 'ScaleMax',
-      slug: record.slug || 'scalemax',
-      protocol: record.protocol || 'openai-compatible',
-    });
-    this.apiCreditBaseUrl = (record.apiCreditBaseUrl || 'https://api.scalemax.pro/v1').replace(/\/$/, '');
-    this.tokenPackBaseUrl = (record.tokenPackBaseUrl || 'https://api.scalemax.pro/token/v1').replace(/\/$/, '');
-    try {
-      this.supportedFamilies = record.supportedFamiliesJson ? JSON.parse(record.supportedFamiliesJson) : ['openai', 'gemini', 'deepseek', 'grok', 'qwen', 'claude'];
-    } catch {
-      this.supportedFamilies = ['openai', 'gemini', 'deepseek', 'grok', 'qwen', 'claude'];
-    }
-  }
-
-  override buildRequest(
-    decryptedMasterKey: string,
-    internalModel: string,
-    payload: any,
-    billingType?: string
-  ): PreparedProviderRequest {
-    const targetModel = this.resolveModel(internalModel);
-    const headers: Record<string, string> = {
-      'content-type': 'application/json',
-      'authorization': `Bearer ${decryptedMasterKey}`,
-      ...this.customHeaders,
-    };
-
-    let effectiveBaseUrl = (billingType === 'token') ? this.tokenPackBaseUrl : this.apiCreditBaseUrl;
-    if (!effectiveBaseUrl) {
-      effectiveBaseUrl = this.baseUrl;
-    }
-
-    if (this.protocol === 'openai-compatible' || this.protocol === 'openai') {
-      const targetUrl = effectiveBaseUrl.endsWith('/chat/completions')
-        ? effectiveBaseUrl
-        : `${effectiveBaseUrl}/chat/completions`;
-
-      let openAiMessages: any[] = [];
-      let effectiveSystem = payload.system;
-
-      if (payload.messages && Array.isArray(payload.messages)) {
-        for (const msg of payload.messages) {
-          if (msg.role === 'system' && !effectiveSystem) {
-            effectiveSystem = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-          } else {
-            let content = msg.content;
-            if (Array.isArray(msg.content)) {
-              content = msg.content
-                .map((b: any) => (typeof b === 'string' ? b : b.text || ''))
-                .filter(Boolean)
-                .join('\n');
-            }
-            openAiMessages.push({
-              role: msg.role === 'user' || msg.role === 'assistant' ? msg.role : 'user',
-              content: content || '',
-            });
-          }
-        }
-      }
-
-      if (effectiveSystem) {
-        openAiMessages.unshift({
-          role: 'system',
-          content: typeof effectiveSystem === 'string' ? effectiveSystem : JSON.stringify(effectiveSystem),
-        });
-      }
-
-      const body: Record<string, any> = {
-        model: targetModel,
-        messages: openAiMessages,
-        max_tokens: payload.max_tokens || 4096,
-        stream: !!payload.stream,
-      };
-
-      if (payload.temperature !== undefined) body.temperature = payload.temperature;
-      if (payload.top_p !== undefined) body.top_p = payload.top_p;
-      if (payload.tools && Array.isArray(payload.tools)) body.tools = payload.tools;
-      if (payload.tool_choice) body.tool_choice = payload.tool_choice;
-
-      return {
-        url: targetUrl,
-        headers,
-        targetModel,
-        timeoutMs: this.timeoutMs,
-        body,
-      };
-    }
-
-    // Anthropic-compatible protocol
-    headers['x-api-key'] = decryptedMasterKey;
-    headers['anthropic-version'] = '2023-06-01';
-    const targetUrl = effectiveBaseUrl.endsWith('/messages')
-      ? effectiveBaseUrl
-      : `${effectiveBaseUrl}/v1/messages`;
-
-    return {
-      url: targetUrl,
-      headers,
-      targetModel,
-      timeoutMs: this.timeoutMs,
-      body: {
-        model: targetModel,
-        messages: payload.messages || [],
-        max_tokens: payload.max_tokens || 4096,
-        stream: !!payload.stream,
-        system: payload.system,
-        tools: payload.tools,
-        tool_choice: payload.tool_choice,
-      },
-    };
-  }
-
-  override normalizeResponse(
-    statusCode: number,
-    responseJson: any,
-    fallbackInputTokens: number,
-    fallbackOutputTokens: number
-  ): NormalizedProviderResponse {
-    if (statusCode >= 400 || !responseJson) {
-      return {
-        ok: false,
-        statusCode,
-        error: this.normalizeError(statusCode, responseJson).error,
-        usage: {
-          inputTokens: fallbackInputTokens,
-          outputTokens: fallbackOutputTokens,
-          totalTokens: fallbackInputTokens + fallbackOutputTokens,
-          isEstimated: true,
-          usageSource: 'SIMULATED_ESTIMATE',
-        },
-      };
-    }
-
-    let inputTokens = responseJson?.usage?.prompt_tokens ?? responseJson?.usage?.input_tokens;
-    let outputTokens = responseJson?.usage?.completion_tokens ?? responseJson?.usage?.output_tokens;
-    let isEstimated = false;
-
-    if (inputTokens === undefined || inputTokens === null) {
-      inputTokens = fallbackInputTokens;
-      isEstimated = true;
-    }
-    if (outputTokens === undefined || outputTokens === null) {
-      outputTokens = fallbackOutputTokens;
-      isEstimated = true;
-    }
-
-    return {
-      ok: true,
-      statusCode,
-      data: responseJson,
-      usage: {
-        inputTokens: Number(inputTokens),
-        outputTokens: Number(outputTokens),
-        totalTokens: Number(inputTokens) + Number(outputTokens),
-        isEstimated,
-        usageSource: isEstimated ? 'LOCAL_CALCULATED' : 'PROVIDER_REPORTED',
-      },
-    };
-  }
-
-  override sanitizeErrorMessage(message: string): string {
-    return super.sanitizeErrorMessage(message)
-      .replace(/scalemax/gi, 'LightningAPI')
-      .replace(/api\.scalemax\.pro/gi, 'api.lightningapi.pro')
-      .replace(/sm_live_[a-zA-Z0-9_-]+/g, 'ld_live_••••••••')
-      .replace(/sk-[a-zA-Z0-9_-]{20,}/g, 'sk_live_••••••••');
-  }
-}
-
 export class OpusMaxProviderAdapter extends BaseProviderAdapter {
   constructor(record: VendorProviderRecord) {
     super({
@@ -643,11 +454,8 @@ export class ProviderRegistry {
   /**
    * Factory method to instantiate the correct adapter subclass
    */
-    static createAdapterInstance(record: VendorProviderRecord): ProviderAdapter {
+  static createAdapterInstance(record: VendorProviderRecord): ProviderAdapter {
     const slug = (record.slug || record.name).toLowerCase();
-    if (slug.includes('scale') || record.name.toLowerCase().includes('scale') || record.protocol === 'openai-compatible' || record.providerType === 'openai-compatible') {
-      return new ScaleMaxProviderAdapter(record);
-    }
     if (slug.includes('opus')) {
       return new OpusMaxProviderAdapter(record);
     }
@@ -667,33 +475,6 @@ export class ProviderRegistry {
     await this.getAllAdapters();
 
     let targetProviderId = keyRecord.providerId;
-
-    // Model-level dynamic provider routing (Admin configurable without code changes)
-    if (requestedModel) {
-      try {
-        const modelRecord = await prisma.model.findFirst({
-          where: {
-            OR: [
-              { modelId: requestedModel },
-              { upstreamModelId: requestedModel },
-              { displayName: { equals: requestedModel, mode: 'insensitive' } },
-            ],
-          },
-        });
-        if (modelRecord) {
-          if (modelRecord.providerId) {
-            targetProviderId = modelRecord.providerId;
-          } else if (modelRecord.providerSlug) {
-            const matchedProvider = await prisma.vendorProvider.findFirst({
-              where: { slug: modelRecord.providerSlug, status: { not: 'disabled' } },
-            });
-            if (matchedProvider) targetProviderId = matchedProvider.id;
-          }
-        }
-      } catch (e) {
-        // Fall back gracefully
-      }
-    }
 
     // Fallback 1: Routing hint by key prefix if DB providerId is unset
     if (!targetProviderId) {
@@ -872,55 +653,25 @@ export class ProviderRegistry {
     }
 
     try {
+      const probeUrl = `${url}/v1/messages`;
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
-      let res: Response;
 
-      if (proto === 'openai-compatible' || proto === 'openai') {
-        const probeUrl = url.endsWith('/models') ? url : url.endsWith('/v1') ? `${url}/models` : `${url}/v1/models`;
-        try {
-          res = await fetch(probeUrl, {
-            method: 'GET',
-            headers: {
-              'authorization': `Bearer ${key}`,
-            },
-            signal: controller.signal,
-          });
-        } catch {
-          // Fallback to chat completions probe
-          const chatUrl = url.endsWith('/chat/completions') ? url : `${url}/chat/completions`;
-          res = await fetch(chatUrl, {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              'authorization': `Bearer ${key}`,
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o',
-              max_tokens: 1,
-              messages: [{ role: 'user', content: 'ping' }],
-            }),
-            signal: controller.signal,
-          });
-        }
-      } else {
-        const probeUrl = `${url}/v1/messages`;
-        res = await fetch(probeUrl, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-api-key': key,
-            'authorization': `Bearer ${key}`,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-3-5-haiku-20241022',
-            max_tokens: 5,
-            messages: [{ role: 'user', content: 'ping' }],
-          }),
-          signal: controller.signal,
-        });
-      }
+      const res = await fetch(probeUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': key,
+          'authorization': `Bearer ${key}`,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 5,
+          messages: [{ role: 'user', content: 'ping' }],
+        }),
+        signal: controller.signal,
+      });
 
       clearTimeout(timeout);
       const latencyMs = Date.now() - startTime;
@@ -1005,8 +756,7 @@ export function buildProviderRequest(
   vendor: VendorProviderRecord | null,
   decryptedMasterKey: string,
   internalModel: string,
-  payload: any,
-  billingType?: string
+  payload: any
 ): PreparedProviderRequest {
   if (!vendor) {
     const dummy: VendorProviderRecord = {
@@ -1022,7 +772,7 @@ export function buildProviderRequest(
     return new OpusMaxProviderAdapter(dummy).buildRequest(decryptedMasterKey, internalModel, payload);
   }
   const adapter = ProviderRegistry.createAdapterInstance(vendor);
-  return (adapter as any).buildRequest(decryptedMasterKey, internalModel, payload, billingType);
+  return adapter.buildRequest(decryptedMasterKey, internalModel, payload);
 }
 
 export function normalizeProviderResponse(

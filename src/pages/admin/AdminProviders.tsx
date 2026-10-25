@@ -58,10 +58,6 @@ interface VendorProviderItem {
   lastTestedAt?: string;
   lastError?: string;
   notes?: string;
-  apiCreditBaseUrl?: string;
-  tokenPackBaseUrl?: string;
-  costPerMillionInput?: number;
-  costPerMillionOutput?: number;
   activeKeyCount?: number;
   totalKeyCount?: number;
   requestCount?: number;
@@ -102,10 +98,6 @@ export const AdminProviders: React.FC = () => {
   const [modelMappingsJson, setModelMappingsJson] = useState('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
   const [headersJson, setHeadersJson] = useState('');
   const [notes, setNotes] = useState('');
-  const [apiCreditBaseUrl, setApiCreditBaseUrl] = useState('');
-  const [tokenPackBaseUrl, setTokenPackBaseUrl] = useState('');
-  const [costPerMillionInput, setCostPerMillionInput] = useState('1.5');
-  const [costPerMillionOutput, setCostPerMillionOutput] = useState('6.0');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -311,15 +303,11 @@ export const AdminProviders: React.FC = () => {
     setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     setHeadersJson('');
     setNotes('');
-    setApiCreditBaseUrl('');
-    setTokenPackBaseUrl('');
-    setCostPerMillionInput('1.5');
-    setCostPerMillionOutput('6.0');
     setFormError(null);
     setShowModal(true);
   };
 
-  const applyPreset = (preset: 'opus_max' | 'anthropic_direct' | 'openai_compat' | 'scalemax') => {
+  const applyPreset = (preset: 'opus_max' | 'anthropic_direct' | 'openai_compat') => {
     if (preset === 'opus_max') {
       setName('Opus Max');
       setProviderType('custom_http');
@@ -368,10 +356,6 @@ export const AdminProviders: React.FC = () => {
     setModelMappingsJson(p.modelMappingsJson || '');
     setHeadersJson(p.headersJson || '');
     setNotes(p.notes || '');
-    setApiCreditBaseUrl(p.apiCreditBaseUrl || '');
-    setTokenPackBaseUrl(p.tokenPackBaseUrl || '');
-    setCostPerMillionInput(p.costPerMillionInput !== undefined ? String(p.costPerMillionInput) : '1.5');
-    setCostPerMillionOutput(p.costPerMillionOutput !== undefined ? String(p.costPerMillionOutput) : '6.0');
     setFormError(null);
     setShowModal(true);
   };
@@ -1547,9 +1531,6 @@ export const AdminProviders: React.FC = () => {
                 <button type="button" onClick={() => applyPreset('openai_compat')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 transition-colors">
                   OpenAI Compat
                 </button>
-                <button type="button" onClick={() => applyPreset('scalemax')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-600/10 text-indigo-600 hover:bg-indigo-600/20 transition-colors">
-                  ScaleMax Peer
-                </button>
               </div>
 
               <div>
@@ -1681,58 +1662,6 @@ export const AdminProviders: React.FC = () => {
                   placeholder="https://api.opusmax.pro"
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-fg mb-1 uppercase">Pay-As-You-Go Credit Base URL</label>
-                  <input
-                    type="url"
-                    value={apiCreditBaseUrl}
-                    onChange={(e) => setApiCreditBaseUrl(e.target.value)}
-                    placeholder="https://api.scalemax.pro/v1"
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
-                  />
-                  <p className="text-[10px] text-muted mt-0.5">ScaleMax credit deduction endpoint (/v1)</p>
-                </div>
-                <div>
-                  <label className="block font-bold text-fg mb-1 uppercase">Prepaid Token Pack Base URL</label>
-                  <input
-                    type="url"
-                    value={tokenPackBaseUrl}
-                    onChange={(e) => setTokenPackBaseUrl(e.target.value)}
-                    placeholder="https://api.scalemax.pro/token/v1"
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
-                  />
-                  <p className="text-[10px] text-muted mt-0.5">ScaleMax token pack endpoint (/token/v1)</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-fg mb-1 uppercase">Provider Cost / M Input ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={costPerMillionInput}
-                    onChange={(e) => setCostPerMillionInput(e.target.value)}
-                    placeholder="1.50"
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-fg mb-1 uppercase">Provider Cost / M Output ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={costPerMillionOutput}
-                    onChange={(e) => setCostPerMillionOutput(e.target.value)}
-                    placeholder="6.00"
-                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
-                  />
-                </div>
               </div>
 
               <div>

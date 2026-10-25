@@ -33,11 +33,33 @@
   --shadow-e2: 0 2px 4px rgba(28, 25, 23, 0.05), 0 1px 2px rgba(28, 25, 23, 0.03);
   --shadow-e3: 0 4px 8px -1px rgba(28, 25, 23, 0.06), 0 2px 4px -1px rgba(28, 25, 23, 0.04);
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Intelligence Layer Design Tokens */
+  --color-intel-bg: #F8F6F2;
+  --color-intel-text: #191719;
+  --color-intel-violet: #7136E8;
+  --color-intel-deep: #4F21B5;
+  --color-intel-soft: #EEE6FF;
+  --color-intel-dark: #141217;
+  --color-intel-muted: #68636B;
+  --color-intel-border: #E6E1E8;
+  --color-intel-success: #087F5B;
 }
 
 :root {
+  /* Intelligence Layer Specific Root Variables */
+  --intel-bg: #F8F6F2;
+  --intel-text: #191719;
+  --intel-violet: #7136E8;
+  --intel-deep: #4F21B5;
+  --intel-soft: #EEE6FF;
+  --intel-dark: #141217;
+  --intel-muted: #68636B;
+  --intel-border: #E6E1E8;
+  --intel-success: #087F5B;
   --ui-bg: #fbf9f5;
   --ui-surface: #ffffff;
   --ui-surface-subtle: #f5f2eb;
@@ -367,4 +389,44 @@ pre::-webkit-scrollbar-thumb:hover {
   pointer-events: none;
   opacity: 0.6;
 }
+
+/* ============================================================ */
+/* THE INTELLIGENCE LAYER — EDITORIAL TYPOGRAPHY & LAYOUT       */
+/* ============================================================ */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.hero-headline {
+  font-size: clamp(3.25rem, 7.5vw, 7.25rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+.section-headline {
+  font-size: clamp(2.25rem, 5vw, 4.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.intel-surface {
+  background-color: #F8F6F2;
+  color: #191719;
+}
+
+.intel-dark-surface {
+  background-color: #141217;
+  color: #F8F6F2;
+}
+
+.intel-border {
+  border-color: #E6E1E8;
+}
+
+.intel-dark-border {
+  border-color: #26222C;
+}
+
 

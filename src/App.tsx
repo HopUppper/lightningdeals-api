@@ -33,19 +33,18 @@ const ScrollToHash: React.FC = () => {
   return null;
 };
 
-// Public Landing Components (Electric Editorial Direction)
-import { ElectricNavbar } from './components/ElectricNavbar';
-import { ProductHero } from './components/ProductHero';
-import { CredVelocityMetrics } from './components/CredVelocityMetrics';
-import { ElectricCapacitySection } from './components/ElectricCapacitySection';
-import { ElectricPublicReviews } from './components/ElectricPublicReviews';
-import { ElectricFinalCta } from './components/ElectricFinalCta';
-import { ElectricFooter } from './components/ElectricFooter';
+// Public Landing Components (The Intelligence Layer — Editorial Architecture)
+import { SiteHeader } from './components/SiteHeader';
+import { EditorialHero } from './components/homepage/EditorialHero';
+import { ModelUniverse } from './components/homepage/ModelUniverse';
+import { GatewayDemo } from './components/homepage/GatewayDemo';
+import { CapabilitySection } from './components/homepage/CapabilitySection';
+import { CompatibilitySection } from './components/homepage/CompatibilitySection';
+import { CapacityPlans } from './components/homepage/CapacityPlans';
+import { TrustAndTransparency } from './components/homepage/TrustAndTransparency';
+import { FinalCTA } from './components/homepage/FinalCTA';
+import { SiteFooter } from './components/SiteFooter';
 import { SupportWidget } from './components/SupportWidget';
-import { PromotionalOfferBanner } from './components/PromotionalOfferBanner';
-import { PromotionalOfferModal } from './components/PromotionalOfferModal';
-import { HomePlatformNavigator } from './components/HomePlatformNavigator';
-import { StudioFlagshipSection } from './components/StudioFlagshipSection';
 
 const PageLoader: React.FC = () => (
   <div className="min-h-screen bg-bg text-muted flex flex-col items-center justify-center space-y-3 font-mono text-xs">
@@ -213,33 +212,19 @@ const AdminAIControl = safeLazy(() => import('./pages/admin/AdminAIControl').the
 
 export const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#fbf9f5] text-[#1c1917] selection:bg-[#6d28d9]/10 selection:text-[#6d28d9] font-sans antialiased">
-      <PromotionalOfferBanner />
-      <ElectricNavbar />
-      <PromotionalOfferModal />
+    <div className="min-h-screen bg-[#F8F6F2] text-[#191719] selection:bg-[#7136E8]/10 selection:text-[#7136E8] font-sans antialiased">
+      <SiteHeader />
       <main id="main-content">
-        {/* Section A: Hero (Product introduction & visual gateway concept) */}
-        <ProductHero />
-
-        {/* CRED-Style Kinetic Telemetry & Live Hardware Metrics Ticker */}
-        <CredVelocityMetrics />
-
-        {/* Section B: Flagship Product Workspace */}
-        <StudioFlagshipSection />
-
-        {/* Section C: Billion-Dollar Platform Portals Navigator */}
-        <HomePlatformNavigator />
-
-        {/* Section C: Capacity Plans Preview */}
-        <ElectricCapacitySection />
-
-        {/* Section D: Developer Community Reviews & Testimonials */}
-        <ElectricPublicReviews />
-
-        {/* Section E: Final Call to Action */}
-        <ElectricFinalCta />
+        <EditorialHero />
+        <ModelUniverse />
+        <GatewayDemo />
+        <CapabilitySection />
+        <CompatibilitySection />
+        <CapacityPlans />
+        <TrustAndTransparency />
+        <FinalCTA />
       </main>
-      <ElectricFooter />
+      <SiteFooter />
       <SupportWidget />
     </div>
   );

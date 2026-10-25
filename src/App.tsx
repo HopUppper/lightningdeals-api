@@ -38,9 +38,11 @@ import { SiteHeader } from './components/SiteHeader';
 import { EditorialHero } from './components/homepage/EditorialHero';
 import { ModelUniverse } from './components/homepage/ModelUniverse';
 import { GatewayDemo } from './components/homepage/GatewayDemo';
+import { RollingPoolAnimation } from './components/homepage/RollingPoolAnimation';
 import { CapabilitySection } from './components/homepage/CapabilitySection';
 import { CompatibilitySection } from './components/homepage/CompatibilitySection';
 import { CapacityPlans } from './components/homepage/CapacityPlans';
+import { ApiKeyLifecycleAnimation } from './components/homepage/ApiKeyLifecycleAnimation';
 import { TrustAndTransparency } from './components/homepage/TrustAndTransparency';
 import { FinalCTA } from './components/homepage/FinalCTA';
 import { SiteFooter } from './components/SiteFooter';
@@ -218,9 +220,11 @@ export const LandingPage: React.FC = () => {
         <EditorialHero />
         <ModelUniverse />
         <GatewayDemo />
+        <RollingPoolAnimation />
         <CapabilitySection />
         <CompatibilitySection />
         <CapacityPlans />
+        <ApiKeyLifecycleAnimation />
         <TrustAndTransparency />
         <FinalCTA />
       </main>

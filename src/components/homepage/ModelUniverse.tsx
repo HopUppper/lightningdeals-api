@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Check, Copy, ExternalLink, Cpu, Terminal, Sparkles, Layers } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { ArrowRight, Check, Copy, ExternalLink, Cpu, Terminal, Sparkles, Layers, ShieldCheck, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface ModelDefinition {
@@ -12,8 +12,8 @@ interface ModelDefinition {
   capabilities: string[];
   summary: string;
   status: 'Operational';
-  tokenPriceInput: string;
-  tokenPriceOutput: string;
+  recommendedFor: string;
+  latencyTier: string;
 }
 
 const SUPPORTED_CATALOG: ModelDefinition[] = [
@@ -23,11 +23,11 @@ const SUPPORTED_CATALOG: ModelDefinition[] = [
     family: 'Anthropic Claude',
     contextWindow: '1,000,000 tokens',
     category: 'coding',
-    capabilities: ['Autonomous Coding', 'Multi-File Refactoring', 'Tool Calling'],
+    capabilities: ['Autonomous Coding', 'Multi-File Refactoring', 'Tool Calling', 'Vision'],
     summary: 'Flagship engineering workhorse engineered for Cursor, Windsurf, and Claude Code CLI with high precision.',
     status: 'Operational',
-    tokenPriceInput: '$3.00 / 1M',
-    tokenPriceOutput: '$15.00 / 1M',
+    recommendedFor: 'Full-stack software engineering and agentic workflows',
+    latencyTier: 'Fast (sub-100ms first token)',
   },
   {
     id: 'claude-opus-5.5',
@@ -35,11 +35,11 @@ const SUPPORTED_CATALOG: ModelDefinition[] = [
     family: 'Anthropic Claude',
     contextWindow: '1,000,000 tokens',
     category: 'reasoning',
-    capabilities: ['Formal Verification', 'Systems Architecture', 'Deep Synthesis'],
+    capabilities: ['Formal Verification', 'Systems Architecture', 'Deep Synthesis', 'Invariants'],
     summary: 'Pinnacle frontier intelligence model for ultra-complex architectural proofs and deep autonomous systems design.',
     status: 'Operational',
-    tokenPriceInput: '$15.00 / 1M',
-    tokenPriceOutput: '$75.00 / 1M',
+    recommendedFor: 'Mission-critical architecture proofs and deep analysis',
+    latencyTier: 'Balanced deep inference',
   },
   {
     id: 'claude-3-7-sonnet-20250219',
@@ -47,11 +47,11 @@ const SUPPORTED_CATALOG: ModelDefinition[] = [
     family: 'Anthropic Claude',
     contextWindow: '200,000 tokens',
     category: 'coding',
-    capabilities: ['Hybrid Reasoning', 'Extended Thinking', 'Agentic Coding'],
+    capabilities: ['Hybrid Reasoning', 'Extended Thinking', 'Agentic Coding', 'Streaming SSE'],
     summary: 'Frontier hybrid reasoning and agentic coding engine with controllable extended thinking buffers.',
     status: 'Operational',
-    tokenPriceInput: '$3.00 / 1M',
-    tokenPriceOutput: '$15.00 / 1M',
+    recommendedFor: 'Complex algorithmic refactoring with thought introspection',
+    latencyTier: 'Adaptive hybrid latency',
   },
   {
     id: 'claude-fable-5',
@@ -59,11 +59,11 @@ const SUPPORTED_CATALOG: ModelDefinition[] = [
     family: 'Anthropic Claude',
     contextWindow: '1,000,000 tokens',
     category: 'velocity',
-    capabilities: ['Real-Time Completion', 'Inline Diffs', 'Sub-Second SSE'],
+    capabilities: ['Real-Time Completion', 'Inline Diffs', 'Sub-Second SSE', 'Tab Autocomplete'],
     summary: 'Ultra-fast response model optimized for real-time IDE completion, inline diff generation, and rapid interaction loops.',
     status: 'Operational',
-    tokenPriceInput: '$0.80 / 1M',
-    tokenPriceOutput: '$4.00 / 1M',
+    recommendedFor: 'Inline code completion and instant interactive typing',
+    latencyTier: 'Ultra-fast (< 50ms first token)',
   },
   {
     id: 'claude-opus-5-thinking',
@@ -71,11 +71,11 @@ const SUPPORTED_CATALOG: ModelDefinition[] = [
     family: 'Anthropic Claude',
     contextWindow: '1,000,000 tokens',
     category: 'reasoning',
-    capabilities: ['Internal Thought Buffers', 'Audit Edge Cases', 'Invariant Verification'],
+    capabilities: ['Internal Thought Buffers', 'Audit Edge Cases', 'Invariant Verification', 'Proof Generation'],
     summary: 'Deep reflective reasoning engine featuring explicit internal thought buffers for auditing intricate edge-case bugs.',
     status: 'Operational',
-    tokenPriceInput: '$15.00 / 1M',
-    tokenPriceOutput: '$75.00 / 1M',
+    recommendedFor: 'Security audit, invariant checking, and complex algorithmic proofs',
+    latencyTier: 'Deep reflective reasoning',
   },
   {
     id: 'claude-haiku-5.5',
@@ -83,11 +83,11 @@ const SUPPORTED_CATALOG: ModelDefinition[] = [
     family: 'Anthropic Claude',
     contextWindow: '500,000 tokens',
     category: 'velocity',
-    capabilities: ['Instant Streaming', 'High-Traffic Webhooks', 'Automated Triage'],
+    capabilities: ['Instant Streaming', 'High-Traffic Webhooks', 'Automated Triage', 'JSON Extraction'],
     summary: 'Next-generation high-velocity model delivering instant streaming completions for high-traffic developer tools.',
     status: 'Operational',
-    tokenPriceInput: '$0.50 / 1M',
-    tokenPriceOutput: '$2.50 / 1M',
+    recommendedFor: 'CI/CD triage, structured JSON data extraction, and high-frequency webhook pipelines',
+    latencyTier: 'Ultra-fast streaming',
   },
 ];
 
@@ -147,8 +147,8 @@ export const ModelUniverse: React.FC = () => {
             </h2>
 
             <p className="text-base sm:text-lg text-[#A39EAA] leading-relaxed">
-              Explore the models available through LightningAPI and choose the ones that fit your
-              workflow.
+              Explore supported frontier models accessible via LightningAPI. Route requests seamlessly
+              using your drop-in Anthropic-compatible integration.
             </p>
           </div>
 
@@ -202,11 +202,11 @@ export const ModelUniverse: React.FC = () => {
         </div>
 
         {/* ============================================================ */}
-        {/* STRUCTURED EDITORIAL DIRECTORY + INSPECTOR LAYOUT             */}
+        {/* STRUCTURED DIRECTORY + ANIMATED INSPECTOR PANE                */}
         {/* ============================================================ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Left Column: Structured Model List (7 Cols) */}
+          {/* Left Column: Model List with Animated Selection (7 Cols) */}
           <div className="lg:col-span-7 space-y-2.5">
             {filteredModels.map((model) => {
               const isSelected = model.id === selectedModel.id;
@@ -214,10 +214,10 @@ export const ModelUniverse: React.FC = () => {
                 <div
                   key={model.id}
                   onClick={() => setSelectedModelId(model.id)}
-                  className={`p-4 sm:p-5 rounded-xl border transition-all duration-150 cursor-pointer ${
+                  className={`relative p-4 sm:p-5 rounded-xl border transition-all duration-200 cursor-pointer overflow-hidden ${
                     isSelected
-                      ? 'bg-[#1D1923] border-[#7136E8] shadow-sm ring-1 ring-[#7136E8]/40'
-                      : 'bg-[#18161D] border-[#26222C] hover:border-[#3D3746] hover:bg-[#1A1820]'
+                      ? 'bg-[#1E1926] border-[#7136E8] shadow-md ring-1 ring-[#7136E8]/50'
+                      : 'bg-[#18161D] border-[#26222C] hover:border-[#3E3747] hover:bg-[#1A1820]'
                   }`}
                   role="button"
                   tabIndex={0}
@@ -228,6 +228,14 @@ export const ModelUniverse: React.FC = () => {
                   }}
                   aria-pressed={isSelected}
                 >
+                  {/* Active Selection Indicator Pill */}
+                  {isSelected && (
+                    <div 
+                      className="absolute left-0 top-0 bottom-0 w-1 bg-[#7136E8]" 
+                      aria-hidden="true"
+                    />
+                  )}
+
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     
                     {/* Model Info */}
@@ -239,17 +247,23 @@ export const ModelUniverse: React.FC = () => {
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.06] text-[#A39EAA]">
                           {model.contextWindow}
                         </span>
+                        {isSelected && (
+                          <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-[#EEE6FF] bg-[#7136E8]/30 border border-[#7136E8]/40">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#7136E8] animate-pulse" />
+                            SELECTED
+                          </span>
+                        )}
                       </div>
 
-                      {/* Actual Model Identifier with Copy */}
+                      {/* Actual Model Identifier with 1-Click Copy */}
                       <div className="flex items-center gap-2 pt-0.5">
-                        <code className="text-xs font-mono text-[#EEE6FF]/80 bg-[#121015] px-2 py-0.5 rounded border border-[#26222C]">
+                        <code className="text-xs font-mono text-[#EEE6FF]/90 bg-[#121015] px-2 py-0.5 rounded border border-[#26222C]">
                           {model.id}
                         </code>
                         <button
                           type="button"
                           onClick={(e) => handleCopyId(model.id, e)}
-                          className="p-1 rounded text-[#A39EAA] hover:text-[#EEE6FF] transition-colors"
+                          className="p-1 rounded text-[#A39EAA] hover:text-[#EEE6FF] transition-colors cursor-pointer"
                           title={`Copy identifier: ${model.id}`}
                           aria-label={`Copy identifier: ${model.id}`}
                         >
@@ -262,15 +276,15 @@ export const ModelUniverse: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Operational Indicator & Capability Tags */}
-                    <div className="flex sm:flex-col sm:items-end justify-between sm:justify-center gap-2">
+                    {/* Operational Indicator & Family Badge (Zero Dollar Tokens) */}
+                    <div className="flex sm:flex-col sm:items-end justify-between sm:justify-center gap-1.5">
                       <div className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#087F5B]">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#087F5B] animate-pulse" />
                         <span>{model.status}</span>
                       </div>
 
-                      <span className="text-xs text-[#A39EAA] font-mono">
-                        {model.tokenPriceInput}
+                      <span className="text-[11px] text-[#A39EAA] font-mono">
+                        {model.latencyTier}
                       </span>
                     </div>
 
@@ -291,86 +305,108 @@ export const ModelUniverse: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Column: Live Model Inspector Pane (5 Cols) */}
+          {/* Right Column: Live Model Inspector Pane with Smooth Transition (5 Cols) */}
           <div className="lg:col-span-5 sticky top-24">
-            <div className="p-6 rounded-2xl bg-[#18161D] border border-[#2A2631] space-y-6 shadow-md">
-              
-              {/* Header */}
-              <div className="space-y-1.5 pb-4 border-b border-[#26222C]">
-                <div className="flex items-center justify-between text-[11px] font-mono text-[#A39EAA]">
-                  <span>MODEL INSPECTOR</span>
-                  <span className="text-[#087F5B] flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#087F5B]" />
-                    VERIFIED INGRESS
-                  </span>
-                </div>
-                <h3 className="text-xl font-bold text-white font-display">
-                  {selectedModel.name}
-                </h3>
-                <p className="text-xs text-[#A39EAA] font-mono">
-                  Family: {selectedModel.family} · Context: {selectedModel.contextWindow}
-                </p>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-mono text-[#68636B] uppercase tracking-wider">
-                  Summary
-                </span>
-                <p className="text-sm text-[#E6E1E8] leading-relaxed">
-                  {selectedModel.summary}
-                </p>
-              </div>
-
-              {/* Verified Capabilities */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-mono text-[#68636B] uppercase tracking-wider">
-                  Verified Capabilities
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedModel.capabilities.map((cap) => (
-                    <span
-                      key={cap}
-                      className="px-2.5 py-1 rounded-md bg-[#221E29] border border-[#2E2838] text-xs font-mono text-[#EEE6FF]"
-                    >
-                      {cap}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedModel.id}
+                initial={{ opacity: prefersReducedMotion ? 1 : 0, y: prefersReducedMotion ? 0 : 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: prefersReducedMotion ? 1 : 0, y: prefersReducedMotion ? 0 : -8 }}
+                transition={{ duration: prefersReducedMotion ? 0.01 : 0.22 }}
+                className="p-6 rounded-2xl bg-[#18161D] border border-[#2A2631] space-y-6 shadow-md"
+              >
+                {/* Header */}
+                <div className="space-y-1.5 pb-4 border-b border-[#26222C]">
+                  <div className="flex items-center justify-between text-[11px] font-mono text-[#A39EAA]">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#7136E8] animate-ping" />
+                      INSPECTOR ACTIVE
                     </span>
-                  ))}
+                    <span className="text-[#087F5B] flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#087F5B]" />
+                      VERIFIED INGRESS
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold text-white font-display">
+                    {selectedModel.name}
+                  </h3>
+                  <p className="text-xs text-[#A39EAA] font-mono">
+                    Family: {selectedModel.family} · Context: {selectedModel.contextWindow}
+                  </p>
                 </div>
-              </div>
 
-              {/* Live Request Snippet Preview */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-mono text-[#68636B] uppercase tracking-wider">
-                  Ingress Request Header Preview
-                </span>
-                <div className="p-3 rounded-lg bg-[#110F14] border border-[#26222C] font-mono text-xs text-[#A39EAA] space-y-1">
-                  <div><span className="text-[#7136E8]">POST</span> https://lightningapi.pro/v1/messages</div>
-                  <div><span className="text-[#68636B]">x-api-key:</span> ld_live_••••••••••••</div>
-                  <div><span className="text-[#68636B]">model:</span> <span className="text-emerald-400 font-semibold">{selectedModel.id}</span></div>
+                {/* Description */}
+                <div className="space-y-2 text-left">
+                  <span className="text-[11px] font-mono text-[#68636B] uppercase tracking-wider">
+                    Summary
+                  </span>
+                  <p className="text-sm text-[#E6E1E8] leading-relaxed">
+                    {selectedModel.summary}
+                  </p>
                 </div>
-              </div>
 
-              {/* Footer CTA in Inspector */}
-              <div className="pt-2 flex items-center justify-between">
-                <Link
-                  to="/docs#models"
-                  className="text-xs font-medium text-[#EEE6FF] hover:text-white inline-flex items-center gap-1.5"
-                >
-                  <span>Model docs</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
+                {/* Recommended Use Case */}
+                <div className="space-y-2 text-left">
+                  <span className="text-[11px] font-mono text-[#68636B] uppercase tracking-wider">
+                    Recommended Application
+                  </span>
+                  <p className="text-xs text-[#EEE6FF] font-mono bg-[#110F14] p-2.5 rounded-lg border border-[#26222C]">
+                    {selectedModel.recommendedFor}
+                  </p>
+                </div>
 
-                <Link
-                  to="/pricing"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#7136E8] hover:bg-[#4F21B5] text-white text-xs font-semibold transition-colors"
-                >
-                  <span>Use Model in Plan</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
+                {/* Verified Capabilities */}
+                <div className="space-y-2 text-left">
+                  <span className="text-[11px] font-mono text-[#68636B] uppercase tracking-wider">
+                    Verified Capabilities
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedModel.capabilities.map((cap) => (
+                      <span
+                        key={cap}
+                        className="px-2.5 py-1 rounded-md bg-[#221E29] border border-[#2E2838] text-xs font-mono text-[#EEE6FF]"
+                      >
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
+                </div>
 
-            </div>
+                {/* Live Request Ingress Preview (Zero dollar prices) */}
+                <div className="space-y-2 text-left">
+                  <span className="text-[11px] font-mono text-[#68636B] uppercase tracking-wider">
+                    Ingress Request Preview
+                  </span>
+                  <div className="p-3 rounded-lg bg-[#110F14] border border-[#26222C] font-mono text-xs text-[#A39EAA] space-y-1">
+                    <div><span className="text-[#7136E8]">POST</span> https://lightningapi.pro/v1/messages</div>
+                    <div><span className="text-[#68636B]">x-api-key:</span> ld_live_••••••••••••</div>
+                    <div><span className="text-[#68636B]">model:</span> <span className="text-emerald-400 font-semibold">{selectedModel.id}</span></div>
+                    <div><span className="text-[#68636B]">quota-accounting:</span> 5h continuous rolling window</div>
+                  </div>
+                </div>
+
+                {/* Footer CTA in Inspector */}
+                <div className="pt-2 flex items-center justify-between">
+                  <Link
+                    to="/docs#models"
+                    className="text-xs font-medium text-[#EEE6FF] hover:text-white inline-flex items-center gap-1.5"
+                  >
+                    <span>Inspect API Specs</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+
+                  <Link
+                    to="/pricing"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#7136E8] hover:bg-[#4F21B5] text-white text-xs font-semibold transition-colors"
+                  >
+                    <span>Use Model in Plan</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+              </motion.div>
+            </AnimatePresence>
           </div>
 
         </div>

@@ -27,6 +27,7 @@ export const ElectricCapacitySection: React.FC = () => {
 
   const { plans, loading } = usePlans();
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
+  const [planTab, setPlanTab] = useState<'window' | 'credit' | 'token'>('window');
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<PlanItem | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'compare'>('grid');
   
@@ -78,16 +79,27 @@ export const ElectricCapacitySection: React.FC = () => {
   };
 
   // Filter for regular capacity tiers (excluding trial passes) and sort by price
+  const configuredCreditMultiplier = useMemo(() => {
+    const cp = displayPlans.find((p) => (p.planType === 'credit' || !p.windowHours) && p.creditMultiplier);
+    return cp?.creditMultiplier || 7;
+  }, [displayPlans]);
+
   const capacityPlans = useMemo(() => {
     const valid = displayPlans.filter((p) => {
       const name = (p.name || '').toLowerCase();
       const slug = (p.slug || '').toLowerCase();
       const id = (p.id || '').toLowerCase();
       const isTrial = name.includes('trial') || slug.includes('trial') || id.includes('trial') || slug.includes('test');
-      return !isTrial && p.priceInr >= 500;
+      if (isTrial) return false;
+
+      const pType = p.planType || ((p.windowHours && p.windowHours > 0) ? 'window' : 'credit');
+      if (planTab === 'window') return pType === 'window';
+      if (planTab === 'credit') return pType === 'credit';
+      if (planTab === 'token') return pType === 'token';
+      return true;
     });
-    return (valid.length > 0 ? valid : displayPlans).sort((a, b) => a.priceInr - b.priceInr);
-  }, [displayPlans]);
+    return valid.sort((a, b) => a.priceInr - b.priceInr);
+  }, [displayPlans, planTab]);
 
   // Dynamic Calculator recommendation proportionally mapped across all capacity tiers
   const recommendedPlan = useMemo(() => {
@@ -234,6 +246,55 @@ export const ElectricCapacitySection: React.FC = () => {
               </span>
             )}
           </div>
+        </div>
+
+        
+        {/* Plan Type Selector Tabs: Rolling Window, Credits, Token Packs */}
+        <div className="flex flex-col items-center justify-center space-y-3 pt-2">
+          <div className="inline-flex p-1.5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs">
+            <button
+              type="button"
+              onClick={() => setPlanTab('window')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                planTab === 'window'
+                  ? 'bg-[#6d28d9] text-white shadow-plum'
+                  : 'text-[#78716c] hover:text-[#1c1917]'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>5-Hour Rolling Window (OpusMax)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlanTab('credit')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                planTab === 'credit'
+                  ? 'bg-[#6d28d9] text-white shadow-plum'
+                  : 'text-[#78716c] hover:text-[#1c1917]'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Pay-As-You-Go Credits (ScaleMax · ₹1 = ${configuredCreditMultiplier})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlanTab('token')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                planTab === 'token'
+                  ? 'bg-[#6d28d9] text-white shadow-plum'
+                  : 'text-[#78716c] hover:text-[#1c1917]'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Prepaid Token Packs</span>
+            </button>
+          </div>
+
+          <p className="text-xs text-[#78716c] font-medium text-center">
+            {planTab === 'window' && 'Claude models · Guaranteed 5-hour rolling refill windows · Zero rate throttling'}
+            {planTab === 'credit' && `Universal access to OpenAI, Gemini, DeepSeek & Claude · ₹1 paid = ${configuredCreditMultiplier} usage credits`}
+            {planTab === 'token' && 'Non-expiring token packs for any model family · High RPM concurrency'}
+          </p>
         </div>
 
         {/* Authoritative Monthly / Annual Billing Toggle */}

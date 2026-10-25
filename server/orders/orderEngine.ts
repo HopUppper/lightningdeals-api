@@ -131,13 +131,27 @@ export class OrderEngine {
 
     const internalOrderId = `LD-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
-    // 4. Create Internal Order Record
+    // 4. Create Internal Order Record (with multi-provider planType support)
+    const orderPlanType = (plan.planType as any) || 'window';
+    const orderType = orderPlanType === 'credit' ? 'CREDIT_PACK' : orderPlanType === 'token' ? 'TOKEN_PACK' : 'PLAN';
+    const creditsPurchased = orderPlanType === 'credit'
+      ? (plan.creditAmountUsd || (payableAmountInr * (plan.creditMultiplier || 7.0)))
+      : 0;
+    const bonusCredits = orderPlanType === 'credit' ? (plan.bonusCreditsUsd || 0) : 0;
+    const tokensPurchased = orderPlanType === 'token' ? plan.tokenAllowance : 0n;
+    const bonusTokens = plan.bonusTokens || 0n;
+
     const order = await prisma.order.create({
       data: {
         internalOrderId,
         userId: user.id,
         planId: plan.id,
         planName: plan.name,
+        orderType,
+        creditsPurchased,
+        bonusCredits,
+        tokensPurchased,
+        bonusTokens,
         tokenQuantity: plan.tokenAllowance,
         windowHours: plan.windowHours,
         billingPeriod,
@@ -301,6 +315,9 @@ export class OrderEngine {
         gatewayOrderId: gatewayResult.gatewayOrderId,
         planId: plan.id,
         planName: plan.name,
+        orderType: updatedOrder.orderType,
+        creditsPurchased: updatedOrder.creditsPurchased,
+        tokensPurchased: updatedOrder.tokensPurchased,
         billingPeriod,
         validityDays,
         amountInr: payableAmountInr,

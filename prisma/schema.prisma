@@ -98,6 +98,10 @@ model ApiKey {
   totalInputTokens  BigInt        @default(0)
   totalOutputTokens BigInt        @default(0)
   allowedModels     String        @default("all")
+  billingType       String        @default("window") // "window" | "credit" | "token"
+  creditBalanceUsd  Float?        @default(0)
+  totalCreditsUsedUsd Float?      @default(0)
+  allowedModelFamilies String?    @default("all")
   plan              String        @default("Prepaid")
   firstUsedAt       DateTime?
   lastUsedAt        DateTime?
@@ -129,6 +133,15 @@ model ApiRequest {
   latencyMs      Int       @default(0)
   streaming      Boolean   @default(false)
   providerId     String?
+  actualProvider String?
+  upstreamModel  String?
+  billingPlanType String?   @default("window") // "window" | "credit" | "token"
+  costDeductedUsd Float?    @default(0)
+  providerCostUsd Float?    @default(0)
+  wholesaleCostDeductedUsd Float? @default(0)
+  retailCreditDeductedUsd  Float? @default(0)
+  actualCashMarginUsd      Float? @default(0)
+  grossMarginPct           Float? @default(0)
   errorCode      String?
   errorMessage   String?
   isEstimated    Boolean   @default(false)
@@ -156,6 +169,8 @@ model VendorProvider {
   providerType           String              @default("anthropic") // "anthropic" | "openai" | "custom_http"
   protocol               String              @default("anthropic") // "anthropic" | "openai-compatible" | "custom_http"
   masterApiKeyEncrypted  String              @default("")
+  creditApiKeyEncrypted  String?             @default("")
+  tokenApiKeyEncrypted   String?             @default("")
   baseUrl                String              @default("https://api.anthropic.com")
   status                 String              @default("connected") // "connected" | "invalid_credential" | "ssrf_blocked" | "timeout" | "rate_limited" | "provider_error" | "disabled"
   isPrimary              Boolean             @default(true)
@@ -195,6 +210,24 @@ model VendorProvider {
   lastTestedAt           DateTime?
   lastError              String?
   notes                  String?
+  apiCreditBaseUrl       String?             @default("https://api.scalemax.pro/v1")
+  tokenPackBaseUrl       String?             @default("https://api.scalemax.pro/token/v1")
+  supportedFamiliesJson  String?             @default("[\"openai\",\"gemini\",\"deepseek\",\"grok\",\"qwen\"]")
+  costPerMillionInput    Float?              @default(0)
+  costPerMillionOutput   Float?              @default(0)
+  billingCurrency        String              @default("USD")
+  wholesalePurchaseAmount Float              @default(100)
+  wholesaleCreditsReceived Float             @default(1000)
+  wholesaleMultiplier    Float               @default(10.0)
+  cashCostPerCredit      Float               @default(0.10)
+  usdToInrExchangeRate   Float               @default(86.5)
+  exchangeRateSource     String              @default("MANUAL")
+  costPerMillionCached   Float?              @default(0)
+  additionalUsageFeePercent Float?           @default(0)
+  economicsEffectiveDate DateTime?           @default(now())
+  isEconomicsVerified    Boolean             @default(true)
+  allowCustomerSales     Boolean             @default(true)
+  billingModel           String              @default("credit_wallet")
   vendorSubscriptionStatus String              @default("active") // "active" | "renewing" | "expired" | "failed"
   vendorCurrentPeriodStart DateTime?
   vendorCurrentPeriodEnd   DateTime?
@@ -322,6 +355,12 @@ model Order {
   subscriptionId    String?       // Linked subscription if this is a renewal
   slaPriority       String        @default("NORMAL") // "LOW" | "NORMAL" | "HIGH" | "URGENT"
   channel           String        @default("WEBSITE") // "WEBSITE" | "WHATSAPP" | "MANUAL"
+  orderType         String        @default("PLAN") // "PLAN" | "CREDIT_PACK" | "TOKEN_PACK"
+  creditsPurchased  Float?        @default(0)
+  bonusCredits      Float?        @default(0)
+  tokensPurchased   BigInt?       @default(0)
+  bonusTokens       BigInt?       @default(0)
+  providerId        String?
   priceSource       String        @default("STANDARD") // "STANDARD" | "ADMIN_NEGOTIATED"
   billingPeriod     String        @default("monthly") // "monthly" | "yearly"
   validityDays      Int           @default(30)
@@ -443,6 +482,21 @@ model Plan {
   annualOriginalPriceInr Float?
   annualValidityDays     Int?     @default(365)
   currency               String   @default("INR")
+  planType               String   @default("window") // "window" | "credit" | "token"
+  creditMultiplier       Float?   @default(7.0) // ₹1 paid = $7 credits
+  customerCurrency       String   @default("INR")
+  retailMultiplier       Float?   @default(7.0)
+  minGrossMarginPct      Float?   @default(15.0)
+  minContributionMarginPct Float? @default(10.0)
+  paymentProcessingFeePct Float?  @default(2.5)
+  isDraft                Boolean  @default(false)
+  isEconomicsApproved    Boolean  @default(true)
+  creditAmountUsd        Float?   @default(0)
+  bonusCreditsUsd        Float?   @default(0)
+  bonusTokens            BigInt?  @default(0)
+  providerId             String?
+  providerScope          String?  @default("all") // "all" | "opus_max" | "scalemax" | "openai"
+  allowedModelFamilies   String?  @default("all")
   tagline                String?
   badge                  String?
   featuresJson           String?
@@ -512,9 +566,21 @@ model Model {
   enabled           Boolean  @default(true)
   inputPrice        Float    @default(3.0)
   outputPrice       Float    @default(15.0)
+  cachedInputPrice  Float?   @default(0.75)
+  providerCostCachedInput Float? @default(0.50)
   supportsStreaming Boolean  @default(true)
   supportsTools     Boolean  @default(true)
   supportsVision    Boolean  @default(true)
+  providerId        String?
+  providerSlug      String?  @default("opus_max") // "opus_max" | "scalemax"
+  upstreamModelId   String?
+  family            String?  @default("claude") // "claude" | "openai" | "gemini" | "deepseek" | "grok" | "qwen"
+  protocol          String?  @default("anthropic") // "anthropic" | "openai-compatible"
+  providerCostInput Float?   @default(0)
+  providerCostOutput Float?  @default(0)
+  supportedPlans    String?  @default("[\"window\",\"credit\",\"token\"]")
+  isCustomerAvailable Boolean @default(true)
+  lastSyncAt        DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

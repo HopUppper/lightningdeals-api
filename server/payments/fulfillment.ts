@@ -284,22 +284,46 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
 
     let createdApiKey: any = null;
 
-    // Check if API key is needed (Prepaid / AI gateway tokens)
-    if (tokenAllowanceBigInt > 0n || plan.windowHours > 0) {
+    // Multi-Provider & Multi-Plan Key Provisioning (Credit, Token Pack, Rolling Window)
+    const isCreditPlan = plan.planType === 'credit' || (order.orderType === 'CREDIT_PACK') || (order.creditsPurchased && Number(order.creditsPurchased) > 0);
+    const isTokenPack = plan.planType === 'token' || (order.orderType === 'TOKEN_PACK') || (order.tokensPurchased && Number(order.tokensPurchased) > 0);
+    const isWindowPlan = !isCreditPlan && !isTokenPack;
+
+    if (isCreditPlan || isTokenPack || tokenAllowanceBigInt > 0n || plan.windowHours > 0) {
+      const totalCreditBalance = isCreditPlan
+        ? Number(order.creditsPurchased || plan.creditAmountUsd || (Number(order.amountInr) * 7.0)) + Number(order.bonusCredits || plan.bonusCreditsUsd || 0)
+        : 0;
+
+      const keyBillingType = isCreditPlan ? 'credit' : isTokenPack ? 'token' : 'window';
+
+      let keyProviderId = providerId;
+      if (isCreditPlan || isTokenPack) {
+        const scalemax = await prisma.vendorProvider.findFirst({
+          where: { slug: 'scalemax', status: { not: 'disabled' } },
+        });
+        if (scalemax) keyProviderId = scalemax.id;
+      }
+
+      const finalPurchasedTokens = isTokenPack
+        ? BigInt(order.tokensPurchased || tokenAllowanceBigInt)
+        : tokenAllowanceBigInt;
+
       createdApiKey = await prisma.apiKey.create({
         data: {
           userId: order.userId,
-          providerId,
+          providerId: keyProviderId,
           keyPrefix,
           keyHash,
           displayKey,
           keyEncrypted: encryptText(rawKeySecret),
-          name: `Claude Max ${plan.name} (${order.internalOrderId.substring(0, 8)})`,
+          name: `${plan.name} (${order.internalOrderId.substring(0, 8)})`,
           type: 'production',
           status: 'active',
-          purchasedTokens: tokenAllowanceBigInt,
+          billingType: keyBillingType,
+          creditBalanceUsd: totalCreditBalance,
+          purchasedTokens: finalPurchasedTokens,
           tokensUsed: 0n,
-          tokensRemaining: tokenAllowanceBigInt,
+          tokensRemaining: finalPurchasedTokens,
           plan: plan.name,
           rateLimitRpm: plan.rateLimitRpm || 100,
           maxConcurrency: 5,
@@ -311,11 +335,13 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         data: {
           userId: order.userId,
           apiKeyId: createdApiKey.id,
-          amount: tokenAllowanceBigInt,
-          balanceAfter: tokenAllowanceBigInt,
+          amount: isCreditPlan ? BigInt(Math.floor(totalCreditBalance)) : finalPurchasedTokens,
+          balanceAfter: isCreditPlan ? BigInt(Math.floor(totalCreditBalance)) : finalPurchasedTokens,
           type: 'PURCHASE',
           reference: order.internalOrderId,
-          notes: `Automated fulfillment for ${plan.displayName}`,
+          notes: isCreditPlan
+            ? `Automated credit fulfillment for ${plan.displayName} (${totalCreditBalance} usage credits)`
+            : `Automated fulfillment for ${plan.displayName}`,
         },
       });
     }

@@ -303,6 +303,11 @@ router.post('/providers', async (req: AuthRequest, res: Response) => {
         notes,
         modelMappingsJson,
         headersJson,
+        apiCreditBaseUrl: req.body.apiCreditBaseUrl || null,
+        tokenPackBaseUrl: req.body.tokenPackBaseUrl || null,
+        costPerMillionInput: req.body.costPerMillionInput !== undefined ? Number(req.body.costPerMillionInput) : 1.5,
+        costPerMillionOutput: req.body.costPerMillionOutput !== undefined ? Number(req.body.costPerMillionOutput) : 6.0,
+        supportedFamiliesJson: req.body.supportedFamiliesJson || null,
       },
     });
 
@@ -379,6 +384,18 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
     if (warningThresholdTokens !== undefined) updateData.warningThresholdTokens = BigInt(warningThresholdTokens);
     if (criticalThresholdTokens !== undefined) updateData.criticalThresholdTokens = BigInt(criticalThresholdTokens);
     if (availableTokens !== undefined) updateData.availableTokens = BigInt(availableTokens);
+
+    if (req.body.apiCreditBaseUrl !== undefined) {
+      const ssrfCheck = validateVendorBaseUrl(req.body.apiCreditBaseUrl);
+      if (ssrfCheck.safe) updateData.apiCreditBaseUrl = ssrfCheck.normalizedUrl;
+    }
+    if (req.body.tokenPackBaseUrl !== undefined) {
+      const ssrfCheck = validateVendorBaseUrl(req.body.tokenPackBaseUrl);
+      if (ssrfCheck.safe) updateData.tokenPackBaseUrl = ssrfCheck.normalizedUrl;
+    }
+    if (req.body.costPerMillionInput !== undefined) updateData.costPerMillionInput = Number(req.body.costPerMillionInput);
+    if (req.body.costPerMillionOutput !== undefined) updateData.costPerMillionOutput = Number(req.body.costPerMillionOutput);
+    if (req.body.supportedFamiliesJson !== undefined) updateData.supportedFamiliesJson = req.body.supportedFamiliesJson;
 
     if (baseUrl !== undefined) {
       const ssrfCheck = validateVendorBaseUrl(baseUrl);
@@ -1032,7 +1049,691 @@ router.delete('/pricing/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// ============================================================================
+// 3b. Credit Economics & Wholesale-to-Retail Margin Management (/admin/economics)
+// ============================================================================
+
+router.get('/economics', async (req: AuthRequest, res: Response) => {
+  try {
+    const [providers, plans, models, recentRequests] = await Promise.all([
+      prisma.vendorProvider.findMany({
+        orderBy: { priority: 'asc' },
+      }),
+      prisma.plan.findMany({
+        where: { planType: { in: ['credit', 'token', 'window'] } },
+        orderBy: [{ planType: 'asc' }, { sortOrder: 'asc' }],
+      }),
+      prisma.model.findMany({
+        orderBy: [{ family: 'asc' }, { displayName: 'asc' }],
+      }),
+      prisma.apiRequest.findMany({
+        where: { statusCode: 200 },
+        take: 300,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          costDeductedUsd: true,
+          providerCostUsd: true,
+          wholesaleCostDeductedUsd: true,
+          retailCreditDeductedUsd: true,
+          actualCashMarginUsd: true,
+          grossMarginPct: true,
+          billingPlanType: true,
+        },
+      }),
+    ]);
+
+    const providerMap = new Map<string, any>();
+    const safeProviders = providers.map((p) => {
+      const hasCredit = Boolean(p.creditApiKeyEncrypted && p.creditApiKeyEncrypted.length > 0);
+      const hasToken = Boolean(p.tokenApiKeyEncrypted && p.tokenApiKeyEncrypted.length > 0);
+      const hasMaster = Boolean(p.masterApiKeyEncrypted && p.masterApiKeyEncrypted.length > 0);
+
+      const entry = {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        status: p.status,
+        healthStatus: p.healthStatus,
+        protocol: p.protocol,
+        baseUrl: p.baseUrl,
+        apiCreditBaseUrl: p.apiCreditBaseUrl,
+        tokenPackBaseUrl: p.tokenPackBaseUrl,
+        billingCurrency: p.billingCurrency || 'USD',
+        wholesalePurchaseAmount: p.wholesalePurchaseAmount || 100.0,
+        wholesaleCreditsReceived: p.wholesaleCreditsReceived || 1000.0,
+        wholesaleMultiplier: p.wholesaleMultiplier || 10.0,
+        cashCostPerCredit: p.cashCostPerCredit || 0.10,
+        usdToInrExchangeRate: p.usdToInrExchangeRate || 86.5,
+        exchangeRateSource: p.exchangeRateSource || 'MANUAL',
+        costPerMillionInput: p.costPerMillionInput || 0,
+        costPerMillionOutput: p.costPerMillionOutput || 0,
+        costPerMillionCached: p.costPerMillionCached || 0,
+        isEconomicsVerified: p.isEconomicsVerified ?? true,
+        allowCustomerSales: p.allowCustomerSales ?? true,
+        billingModel: p.billingModel || 'credit_wallet',
+        hasCreditKey: hasCredit || hasMaster,
+        hasTokenKey: hasToken,
+        tokenPlanEnabled: hasToken,
+        creditPlanEnabled: hasCredit || hasMaster,
+        lastTestedAt: p.lastTestedAt,
+        lastError: p.lastError,
+      };
+      providerMap.set(p.id, entry);
+      if (p.slug) providerMap.set(p.slug, entry);
+      return entry;
+    });
+
+    const enrichedModels = models.map((m) => {
+      const prov = (m.providerId ? providerMap.get(m.providerId) : null) || (m.providerSlug ? providerMap.get(m.providerSlug) : null);
+      const inPrice = Number(m.inputPrice || 0);
+      const outPrice = Number(m.outputPrice || 0);
+      const cachedInPrice = Number(m.cachedInputPrice || inPrice * 0.25);
+
+      const provInCost = Number(m.providerCostInput || prov?.costPerMillionInput || 0);
+      const provOutCost = Number(m.providerCostOutput || prov?.costPerMillionOutput || 0);
+      const provCachedCost = Number(m.providerCostCachedInput || prov?.costPerMillionCached || provInCost * 0.25);
+
+      const cashCostUnit = prov?.cashCostPerCredit || 0.10;
+      const realInCashCost = provInCost * cashCostUnit;
+      const realOutCashCost = provOutCost * cashCostUnit;
+
+      const customerAvgPrice = (inPrice * 0.7 + outPrice * 0.3);
+      const realCashCostAvg = (realInCashCost * 0.7 + realOutCashCost * 0.3);
+
+      const retailCashRevenue = customerAvgPrice / 7.0;
+      const grossMarginPct = retailCashRevenue > 0
+        ? Math.round(((retailCashRevenue - realCashCostAvg) / retailCashRevenue) * 1000) / 10
+        : 0;
+
+      return {
+        id: m.id,
+        modelId: m.modelId,
+        displayName: m.displayName,
+        family: m.family,
+        providerSlug: m.providerSlug,
+        providerName: prov?.name || m.providerSlug,
+        inputPrice: inPrice,
+        outputPrice: outPrice,
+        cachedInputPrice: cachedInPrice,
+        providerCostInput: provInCost,
+        providerCostOutput: provOutCost,
+        providerCostCachedInput: provCachedCost,
+        actualCashCostInput: Math.round(realInCashCost * 100) / 100,
+        actualCashCostOutput: Math.round(realOutCashCost * 100) / 100,
+        grossMarginPct,
+        isCustomerAvailable: m.isCustomerAvailable ?? true,
+        enabled: m.enabled,
+      };
+    });
+
+    const enrichedPlans = plans.map((p) => {
+      const priceInr = Number(p.priceInr || 0);
+      const exchangeRate = 86.5;
+      const revenueUsd = Math.round((priceInr / exchangeRate) * 100) / 100;
+      const retailMultiplier = Number(p.retailMultiplier || p.creditMultiplier || 7.0);
+      const creditsIssued = Math.round((revenueUsd * retailMultiplier) * 100) / 100 + Number(p.bonusCreditsUsd || 0);
+      const minGrossMarginPct = Number(p.minGrossMarginPct || 15.0);
+      const paymentFeePct = Number(p.paymentProcessingFeePct || 2.5);
+
+      const estimatedNominalVendorCost = creditsIssued * 0.60;
+      const estimatedCashCostUsd = estimatedNominalVendorCost * 0.10;
+      const estimatedGrossProfitUsd = revenueUsd - estimatedCashCostUsd;
+      const estimatedGrossMarginPct = revenueUsd > 0 ? Math.round(((revenueUsd - estimatedCashCostUsd) / revenueUsd) * 1000) / 10 : 0;
+      const estimatedContributionMarginPct = Math.round((estimatedGrossMarginPct - paymentFeePct) * 10) / 10;
+
+      return {
+        id: p.id,
+        name: p.name,
+        displayName: p.displayName,
+        planType: p.planType,
+        priceInr,
+        revenueUsd,
+        customerCurrency: p.currency || 'INR',
+        retailMultiplier,
+        creditsIssued,
+        bonusCreditsUsd: Number(p.bonusCreditsUsd || 0),
+        minGrossMarginPct,
+        minContributionMarginPct: Number(p.minContributionMarginPct || 10.0),
+        paymentProcessingFeePct: paymentFeePct,
+        estimatedCashCostUsd: Math.round(estimatedCashCostUsd * 100) / 100,
+        estimatedGrossProfitUsd: Math.round(estimatedGrossProfitUsd * 100) / 100,
+        estimatedGrossMarginPct,
+        estimatedContributionMarginPct,
+        isDraft: p.isDraft ?? false,
+        isEconomicsApproved: p.isEconomicsApproved ?? true,
+        enabled: p.enabled,
+        status: p.status,
+      };
+    });
+
+    let totalRetailDeducted = 0;
+    let totalWholesaleCashCost = 0;
+    let creditReqCount = 0;
+
+    for (const r of recentRequests) {
+      if (r.retailCreditDeductedUsd || r.wholesaleCostDeductedUsd) {
+        totalRetailDeducted += Number(r.retailCreditDeductedUsd || r.costDeductedUsd || 0);
+        totalWholesaleCashCost += Number(r.wholesaleCostDeductedUsd || 0);
+        creditReqCount++;
+      }
+    }
+
+    const blendedRealizedMarginPct = totalRetailDeducted > 0
+      ? Math.round(((totalRetailDeducted / 7.0 - totalWholesaleCashCost) / (totalRetailDeducted / 7.0)) * 1000) / 10
+      : 58.0;
+
+    res.json({
+      providers: safeProviders,
+      plans: enrichedPlans,
+      models: enrichedModels,
+      summary: {
+        totalRequestsAudited: recentRequests.length,
+        creditRequestsCount: creditReqCount,
+        blendedRealizedMarginPct,
+        defaultExchangeRate: 86.5,
+        defaultRetailMultiplier: 7.0,
+        defaultWholesaleMultiplier: 10.0,
+        defaultCashCostPerCredit: 0.10,
+      },
+    });
+  } catch (err: any) {
+    console.error('Error fetching economics overview:', err);
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.put('/economics/provider/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      wholesalePurchaseAmount,
+      wholesaleCreditsReceived,
+      usdToInrExchangeRate,
+      exchangeRateSource,
+      costPerMillionInput,
+      costPerMillionOutput,
+      costPerMillionCached,
+      isEconomicsVerified,
+      allowCustomerSales,
+      billingModel,
+      creditApiKey,
+      tokenApiKey,
+      apiCreditBaseUrl,
+      tokenPackBaseUrl,
+    } = req.body;
+
+    const updateData: any = {};
+    if (wholesalePurchaseAmount !== undefined) updateData.wholesalePurchaseAmount = Number(wholesalePurchaseAmount);
+    if (wholesaleCreditsReceived !== undefined) updateData.wholesaleCreditsReceived = Number(wholesaleCreditsReceived);
+
+    if (updateData.wholesalePurchaseAmount && updateData.wholesaleCreditsReceived) {
+      updateData.wholesaleMultiplier = Number((updateData.wholesaleCreditsReceived / updateData.wholesalePurchaseAmount).toFixed(4));
+      updateData.cashCostPerCredit = Number((updateData.wholesalePurchaseAmount / updateData.wholesaleCreditsReceived).toFixed(4));
+    }
+
+    if (usdToInrExchangeRate !== undefined) updateData.usdToInrExchangeRate = Number(usdToInrExchangeRate);
+    if (exchangeRateSource !== undefined) updateData.exchangeRateSource = String(exchangeRateSource);
+    if (costPerMillionInput !== undefined) updateData.costPerMillionInput = Number(costPerMillionInput);
+    if (costPerMillionOutput !== undefined) updateData.costPerMillionOutput = Number(costPerMillionOutput);
+    if (costPerMillionCached !== undefined) updateData.costPerMillionCached = Number(costPerMillionCached);
+    if (isEconomicsVerified !== undefined) updateData.isEconomicsVerified = Boolean(isEconomicsVerified);
+    if (allowCustomerSales !== undefined) updateData.allowCustomerSales = Boolean(allowCustomerSales);
+    if (billingModel !== undefined) updateData.billingModel = String(billingModel);
+
+    if (creditApiKey && typeof creditApiKey === 'string' && creditApiKey.trim()) {
+      updateData.creditApiKeyEncrypted = encryptText(creditApiKey.trim());
+      updateData.masterApiKeyEncrypted = encryptText(creditApiKey.trim());
+    }
+    if (tokenApiKey !== undefined) {
+      updateData.tokenApiKeyEncrypted = tokenApiKey && tokenApiKey.trim() ? encryptText(tokenApiKey.trim()) : null;
+    }
+    if (apiCreditBaseUrl !== undefined) {
+      const ssrf = validateVendorBaseUrl(apiCreditBaseUrl);
+      if (ssrf.safe) updateData.apiCreditBaseUrl = ssrf.normalizedUrl;
+    }
+    if (tokenPackBaseUrl !== undefined) {
+      const ssrf = validateVendorBaseUrl(tokenPackBaseUrl);
+      if (ssrf.safe) updateData.tokenPackBaseUrl = ssrf.normalizedUrl;
+    }
+
+    updateData.economicsEffectiveDate = new Date();
+
+    const updated = await prisma.vendorProvider.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json({
+      success: true,
+      provider: {
+        id: updated.id,
+        name: updated.name,
+        slug: updated.slug,
+        wholesaleMultiplier: updated.wholesaleMultiplier,
+        cashCostPerCredit: updated.cashCostPerCredit,
+        usdToInrExchangeRate: updated.usdToInrExchangeRate,
+        isEconomicsVerified: updated.isEconomicsVerified,
+        hasCreditKey: Boolean(updated.creditApiKeyEncrypted),
+        hasTokenKey: Boolean(updated.tokenApiKeyEncrypted),
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.put('/economics/plan/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      priceInr,
+      retailMultiplier,
+      creditMultiplier,
+      bonusCreditsUsd,
+      minGrossMarginPct,
+      minContributionMarginPct,
+      paymentProcessingFeePct,
+      isDraft,
+      isEconomicsApproved,
+      enabled,
+    } = req.body;
+
+    const updateData: any = {};
+    if (priceInr !== undefined) updateData.priceInr = Number(priceInr);
+    if (retailMultiplier !== undefined) {
+      updateData.retailMultiplier = Number(retailMultiplier);
+      updateData.creditMultiplier = Number(retailMultiplier);
+    } else if (creditMultiplier !== undefined) {
+      updateData.creditMultiplier = Number(creditMultiplier);
+      updateData.retailMultiplier = Number(creditMultiplier);
+    }
+    if (bonusCreditsUsd !== undefined) updateData.bonusCreditsUsd = Number(bonusCreditsUsd);
+    if (minGrossMarginPct !== undefined) updateData.minGrossMarginPct = Number(minGrossMarginPct);
+    if (minContributionMarginPct !== undefined) updateData.minContributionMarginPct = Number(minContributionMarginPct);
+    if (paymentProcessingFeePct !== undefined) updateData.paymentProcessingFeePct = Number(paymentProcessingFeePct);
+    if (isDraft !== undefined) updateData.isDraft = Boolean(isDraft);
+    if (isEconomicsApproved !== undefined) updateData.isEconomicsApproved = Boolean(isEconomicsApproved);
+    if (enabled !== undefined) updateData.enabled = Boolean(enabled);
+
+    const updated = await prisma.plan.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json({ success: true, plan: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.put('/economics/model/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      inputPrice,
+      outputPrice,
+      cachedInputPrice,
+      providerCostInput,
+      providerCostOutput,
+      providerCostCachedInput,
+      providerSlug,
+      isCustomerAvailable,
+      enabled,
+    } = req.body;
+
+    const updateData: any = {};
+    if (inputPrice !== undefined) updateData.inputPrice = Number(inputPrice);
+    if (outputPrice !== undefined) updateData.outputPrice = Number(outputPrice);
+    if (cachedInputPrice !== undefined) updateData.cachedInputPrice = Number(cachedInputPrice);
+    if (providerCostInput !== undefined) updateData.providerCostInput = Number(providerCostInput);
+    if (providerCostOutput !== undefined) updateData.providerCostOutput = Number(providerCostOutput);
+    if (providerCostCachedInput !== undefined) updateData.providerCostCachedInput = Number(providerCostCachedInput);
+    if (providerSlug !== undefined) updateData.providerSlug = String(providerSlug);
+    if (isCustomerAvailable !== undefined) updateData.isCustomerAvailable = Boolean(isCustomerAvailable);
+    if (enabled !== undefined) updateData.enabled = Boolean(enabled);
+
+    const updated = await prisma.model.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json({ success: true, model: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.post('/economics/preview', async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      depositAmountInr = 1000,
+      exchangeRate = 86.5,
+      retailMultiplier = 7.0,
+      bonusCreditsUsd = 0,
+      wholesaleMultiplier = 10.0,
+      cashCostPerCredit = 0.10,
+      providerCostRatio = 0.60,
+      paymentFeePct = 2.5,
+      minGrossMarginPct = 15.0,
+    } = req.body;
+
+    const numDepositInr = Number(depositAmountInr) || 1000;
+    const numExchangeRate = Number(exchangeRate) || 86.5;
+    const numRetailMultiplier = Number(retailMultiplier) || 7.0;
+    const numBonusCredits = Number(bonusCreditsUsd) || 0;
+    const numWholesaleMultiplier = Number(wholesaleMultiplier) || 10.0;
+    const numCashCostPerCredit = Number(cashCostPerCredit) || (1.0 / numWholesaleMultiplier);
+    const numCostRatio = Number(providerCostRatio) || 0.60;
+    const numPaymentFeePct = Number(paymentFeePct) || 2.5;
+    const numMinMargin = Number(minGrossMarginPct) || 15.0;
+
+    const revenueUsd = numDepositInr / numExchangeRate;
+    const paymentFeeUsd = revenueUsd * (numPaymentFeePct / 100.0);
+    const netRevenueUsd = revenueUsd - paymentFeeUsd;
+
+    const baseCreditsIssued = revenueUsd * numRetailMultiplier;
+    const totalCreditsIssued = baseCreditsIssued + numBonusCredits;
+    const retailCreditsPerInr = totalCreditsIssued / numDepositInr;
+
+    const upstreamNominalCreditsConsumed = totalCreditsIssued * numCostRatio;
+    const upstreamActualCashCostUsd = upstreamNominalCreditsConsumed * numCashCostPerCredit;
+    const upstreamActualCashCostInr = upstreamActualCashCostUsd * numExchangeRate;
+
+    const grossProfitUsd = revenueUsd - upstreamActualCashCostUsd;
+    const grossProfitInr = grossProfitUsd * numExchangeRate;
+    const grossMarginPct = revenueUsd > 0 ? (grossProfitUsd / revenueUsd) * 100.0 : 0;
+
+    const contributionProfitUsd = netRevenueUsd - upstreamActualCashCostUsd;
+    const contributionProfitInr = contributionProfitUsd * numExchangeRate;
+    const contributionMarginPct = grossMarginPct - numPaymentFeePct;
+
+    const warnings: string[] = [];
+    if (grossMarginPct < numMinMargin) {
+      warnings.push(`Gross margin (${grossMarginPct.toFixed(1)}%) is below the safeguard threshold of ${numMinMargin.toFixed(1)}%.`);
+    }
+    if (grossProfitUsd <= 0) {
+      warnings.push(`Negative or zero gross margin! Wholesale cash cost exceeds customer revenue.`);
+    }
+
+    res.json({
+      inputs: {
+        depositAmountInr: numDepositInr,
+        exchangeRate: numExchangeRate,
+        retailMultiplier: numRetailMultiplier,
+        bonusCreditsUsd: numBonusCredits,
+        wholesaleMultiplier: numWholesaleMultiplier,
+        cashCostPerCredit: numCashCostPerCredit,
+        providerCostRatio: numCostRatio,
+        paymentFeePct: numPaymentFeePct,
+        minGrossMarginPct: numMinMargin,
+      },
+      results: {
+        revenueUsd: Math.round(revenueUsd * 100) / 100,
+        paymentFeeUsd: Math.round(paymentFeeUsd * 100) / 100,
+        netRevenueUsd: Math.round(netRevenueUsd * 100) / 100,
+        baseCreditsIssued: Math.round(baseCreditsIssued * 100) / 100,
+        totalCreditsIssued: Math.round(totalCreditsIssued * 100) / 100,
+        retailCreditsPerInr: Math.round(retailCreditsPerInr * 1000) / 1000,
+        upstreamNominalCreditsConsumed: Math.round(upstreamNominalCreditsConsumed * 100) / 100,
+        upstreamActualCashCostUsd: Math.round(upstreamActualCashCostUsd * 100) / 100,
+        upstreamActualCashCostInr: Math.round(upstreamActualCashCostInr * 100) / 100,
+        grossProfitUsd: Math.round(grossProfitUsd * 100) / 100,
+        grossProfitInr: Math.round(grossProfitInr * 100) / 100,
+        grossMarginPct: Math.round(grossMarginPct * 10) / 10,
+        contributionProfitUsd: Math.round(contributionProfitUsd * 100) / 100,
+        contributionProfitInr: Math.round(contributionProfitInr * 100) / 100,
+        contributionMarginPct: Math.round(contributionMarginPct * 10) / 10,
+        isSafe: grossMarginPct >= numMinMargin && grossProfitUsd > 0,
+        warnings,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+
 // 4. API Key Management (/admin/keys)
+
+// ============================================================================
+// 2b. Model Catalog & Multi-Provider Routing Management (/admin/models)
+// ============================================================================
+router.get('/models', async (req: AuthRequest, res: Response) => {
+  try {
+    const [models, providers] = await Promise.all([
+      prisma.model.findMany({
+        orderBy: [{ family: 'asc' }, { displayName: 'asc' }],
+      }),
+      prisma.vendorProvider.findMany(),
+    ]);
+
+    const providerMap = new Map<string, any>();
+    providers.forEach((p) => {
+      providerMap.set(p.id, p);
+      if (p.slug) providerMap.set(p.slug, p);
+    });
+
+    const enriched = models.map((m) => {
+      const inPrice = Number(m.inputPrice || 0);
+      const outPrice = Number(m.outputPrice || 0);
+      const vendorProvider = (m.providerId ? providerMap.get(m.providerId) : null) || (m.providerSlug ? providerMap.get(m.providerSlug) : null);
+      const inCost = Number(m.providerCostInput || vendorProvider?.costPerMillionInput || 0);
+      const outCost = Number(m.providerCostOutput || vendorProvider?.costPerMillionOutput || 0);
+      const inputMargin = Math.round((inPrice - inCost) * 100) / 100;
+      const outputMargin = Math.round((outPrice - outCost) * 100) / 100;
+      const totalCustomer = inPrice + outPrice;
+      const totalCost = inCost + outCost;
+      const marginPercent = totalCustomer > 0 ? Math.round(((totalCustomer - totalCost) / totalCustomer) * 100) : 0;
+
+      let supportedPlansArray = ['window', 'credit', 'token'];
+      if (m.supportedPlans) {
+        try { supportedPlansArray = JSON.parse(m.supportedPlans); } catch {}
+      }
+
+      return {
+        id: m.id,
+        modelId: m.modelId,
+        displayName: m.displayName,
+        family: m.family || 'claude',
+        protocol: m.protocol || 'anthropic',
+        providerSlug: m.providerSlug || 'opus_max',
+        providerId: m.providerId || m.vendorProvider?.id || null,
+        providerName: m.vendorProvider?.name || (m.providerSlug === 'scalemax' ? 'ScaleMax' : 'Opus Max'),
+        providerStatus: m.vendorProvider?.status || 'connected',
+        upstreamModelId: m.upstreamModelId || m.modelId,
+        description: m.description,
+        contextWindow: m.contextWindow || 128000,
+        inputPrice: inPrice,
+        outputPrice: outPrice,
+        providerCostInput: inCost,
+        providerCostOutput: outCost,
+        inputMargin,
+        outputMargin,
+        marginPercent,
+        supportsStreaming: m.supportsStreaming ?? true,
+        supportsTools: m.supportsTools ?? true,
+        supportsVision: m.supportsVision ?? false,
+        supportedPlans: supportedPlansArray,
+        enabled: m.enabled,
+        isCustomerAvailable: m.isCustomerAvailable ?? true,
+        lastSyncAt: m.lastSyncAt,
+        createdAt: m.createdAt,
+      };
+    });
+
+    res.json(enriched);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.post('/models', async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      modelId,
+      displayName,
+      family,
+      protocol,
+      providerSlug,
+      providerId,
+      upstreamModelId,
+      description,
+      contextWindow,
+      inputPrice,
+      outputPrice,
+      providerCostInput,
+      providerCostOutput,
+      supportsStreaming,
+      supportsTools,
+      supportsVision,
+      supportedPlans,
+      enabled,
+      isCustomerAvailable,
+    } = req.body;
+
+    if (!modelId || !displayName) {
+      return res.status(400).json({ error: { message: 'modelId and displayName are required.' } });
+    }
+
+    // Resolve providerId if not supplied
+    let effectiveProviderId = providerId;
+    if (!effectiveProviderId && providerSlug) {
+      const p = await prisma.vendorProvider.findFirst({ where: { slug: providerSlug } });
+      if (p) effectiveProviderId = p.id;
+    }
+
+    const model = await prisma.model.create({
+      data: {
+        modelId,
+        displayName,
+        family: family || (modelId.startsWith('claude') ? 'claude' : 'openai'),
+        protocol: protocol || (family === 'claude' ? 'anthropic' : 'openai-compatible'),
+        providerSlug: providerSlug || (family === 'claude' ? 'opus_max' : 'scalemax'),
+        providerId: effectiveProviderId,
+        upstreamModelId: upstreamModelId || modelId,
+        provider: providerSlug || 'ScaleMax',
+        description,
+        contextWindow: Number(contextWindow) || 128000,
+        inputPrice: Number(inputPrice) || 2.50,
+        outputPrice: Number(outputPrice) || 10.00,
+        providerCostInput: providerCostInput !== undefined ? Number(providerCostInput) : 2.00,
+        providerCostOutput: providerCostOutput !== undefined ? Number(providerCostOutput) : 8.00,
+        supportsStreaming: supportsStreaming ?? true,
+        supportsTools: supportsTools ?? true,
+        supportsVision: supportsVision ?? false,
+        supportedPlans: supportedPlans ? JSON.stringify(supportedPlans) : JSON.stringify(['window', 'credit', 'token']),
+        enabled: enabled ?? true,
+        isCustomerAvailable: isCustomerAvailable ?? true,
+        lastSyncAt: new Date(),
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'CREATE_MODEL',
+        targetType: 'Model',
+        targetId: model.id,
+        metadata: `Created model ${model.displayName} assigned to provider ${model.providerSlug}`,
+      },
+    });
+
+    res.json({ success: true, model });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.put('/models/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      displayName,
+      family,
+      protocol,
+      providerSlug,
+      providerId,
+      upstreamModelId,
+      description,
+      contextWindow,
+      inputPrice,
+      outputPrice,
+      providerCostInput,
+      providerCostOutput,
+      supportsStreaming,
+      supportsTools,
+      supportsVision,
+      supportedPlans,
+      enabled,
+      isCustomerAvailable,
+    } = req.body;
+
+    const existing = await prisma.model.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Model not found.' } });
+
+    let effectiveProviderId = providerId !== undefined ? providerId : existing.providerId;
+    if (providerSlug && !providerId) {
+      const p = await prisma.vendorProvider.findFirst({ where: { slug: providerSlug } });
+      if (p) effectiveProviderId = p.id;
+    }
+
+    const updated = await prisma.model.update({
+      where: { id },
+      data: {
+        ...(displayName !== undefined && { displayName }),
+        ...(family !== undefined && { family }),
+        ...(protocol !== undefined && { protocol }),
+        ...(providerSlug !== undefined && { providerSlug, provider: providerSlug }),
+        ...(effectiveProviderId !== undefined && { providerId: effectiveProviderId }),
+        ...(upstreamModelId !== undefined && { upstreamModelId }),
+        ...(description !== undefined && { description }),
+        ...(planType !== undefined && { planType }),
+        ...(creditMultiplier !== undefined && { creditMultiplier: Number(creditMultiplier) }),
+        ...(creditAmountUsd !== undefined && { creditAmountUsd: Number(creditAmountUsd) }),
+        ...(bonusCreditsUsd !== undefined && { bonusCreditsUsd: Number(bonusCreditsUsd) }),
+        ...(bonusTokens !== undefined && { bonusTokens: BigInt(bonusTokens) }),
+        ...(providerScope !== undefined && { providerScope }),
+        ...(contextWindow !== undefined && { contextWindow: Number(contextWindow) }),
+        ...(inputPrice !== undefined && { inputPrice: Number(inputPrice) }),
+        ...(outputPrice !== undefined && { outputPrice: Number(outputPrice) }),
+        ...(providerCostInput !== undefined && { providerCostInput: Number(providerCostInput) }),
+        ...(providerCostOutput !== undefined && { providerCostOutput: Number(providerCostOutput) }),
+        ...(supportsStreaming !== undefined && { supportsStreaming }),
+        ...(supportsTools !== undefined && { supportsTools }),
+        ...(supportsVision !== undefined && { supportsVision }),
+        ...(supportedPlans !== undefined && { supportedPlans: Array.isArray(supportedPlans) ? JSON.stringify(supportedPlans) : supportedPlans }),
+        ...(enabled !== undefined && { enabled }),
+        ...(isCustomerAvailable !== undefined && { isCustomerAvailable }),
+        lastSyncAt: new Date(),
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'UPDATE_MODEL',
+        targetType: 'Model',
+        targetId: updated.id,
+        metadata: `Updated model ${updated.displayName}: provider=${updated.providerSlug}, enabled=${updated.enabled}`,
+      },
+    });
+
+    res.json({ success: true, model: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.delete('/models/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    await prisma.model.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // 3b. Admin Plan Management (/admin/plans)
 router.get('/plans', async (req: AuthRequest, res: Response) => {
   try {
@@ -1042,11 +1743,25 @@ router.get('/plans', async (req: AuthRequest, res: Response) => {
       name: p.name,
       displayName: p.displayName,
       tokenAllowance: p.tokenAllowance.toString(),
+      tokenDisplay: p.tokenDisplay,
       windowHours: p.windowHours,
       validityDays: p.validityDays,
       rateLimitRpm: p.rateLimitRpm,
+      priceInr: p.priceInr,
+      originalPriceInr: p.originalPriceInr,
+      annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : null,
+      planType: p.planType || 'window',
+      creditMultiplier: p.creditMultiplier ? Number(p.creditMultiplier) : 7.0,
+      creditAmountUsd: p.creditAmountUsd ? Number(p.creditAmountUsd) : null,
+      bonusCreditsUsd: p.bonusCreditsUsd ? Number(p.bonusCreditsUsd) : null,
+      bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : null,
+      providerScope: p.providerScope || 'all',
+      featured: p.featured,
+      enabled: p.enabled,
       status: p.status,
       description: p.description,
+      tagline: p.tagline,
+      badge: p.badge,
       createdAt: p.createdAt,
     }));
     res.json(formatted);
@@ -4010,6 +4725,12 @@ router.get('/plans-catalog', async (req: AuthRequest, res: Response) => {
           enabled: p.enabled,
           sortOrder: p.sortOrder,
           status: p.status,
+          planType: p.planType || 'window',
+          creditMultiplier: p.creditMultiplier ? Number(p.creditMultiplier) : 7.0,
+          creditAmountUsd: p.creditAmountUsd ? Number(p.creditAmountUsd) : null,
+          bonusCreditsUsd: p.bonusCreditsUsd ? Number(p.bonusCreditsUsd) : null,
+          bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : null,
+          providerScope: p.providerScope || 'all',
           activeSubCount,
           totalSalesCount,
           createdAt: p.createdAt,
@@ -4407,6 +5128,95 @@ router.delete('/coupons/:id', async (req: AuthRequest, res: Response) => {
     });
 
     res.json({ success: true, message: 'Coupon deleted successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+
+// GET /api/admin/plans/margin-audit — Authoritative Margin & Economics Audit
+router.get('/plans/margin-audit', async (req: AuthRequest, res: Response) => {
+  try {
+    const plans = await prisma.plan.findMany({
+      where: { status: 'active', enabled: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    const thresholdSetting = await prisma.systemSetting.findUnique({
+      where: { key: 'min_gross_margin_threshold_pct' },
+    });
+    const minThresholdPct = thresholdSetting ? Number(thresholdSetting.value) : 15.0;
+
+    const scaleMaxProvider = await prisma.vendorProvider.findFirst({
+      where: { slug: 'scalemax' },
+    });
+    const avgCostInput = scaleMaxProvider?.costPerMillionInput ? Number(scaleMaxProvider.costPerMillionInput) : 1.50;
+    const avgCostOutput = scaleMaxProvider?.costPerMillionOutput ? Number(scaleMaxProvider.costPerMillionOutput) : 6.00;
+    // Blend ratio 25% input, 75% output:
+    const blendProviderCostPerMillion = (avgCostInput * 0.25) + (avgCostOutput * 0.75); // ~$4.875 / M
+
+    const audits = plans.map((p) => {
+      const priceInr = p.priceInr;
+      const revenueUsd = Math.round((priceInr / 86.5) * 100) / 100; // USD conversion
+      let maxCostUsd = 0;
+      let marginPct = 0;
+      let status: 'HEALTHY' | 'UNACCEPTABLE_MARGIN' | 'NEGATIVE_MARGIN' = 'HEALTHY';
+      let warning: string | null = null;
+
+      if (p.planType === 'credit') {
+        const mult = p.creditMultiplier ? Number(p.creditMultiplier) : 7.0;
+        const totalCredits = (priceInr * mult) + (p.bonusCreditsUsd ? Number(p.bonusCreditsUsd) : 0);
+        // Customer pays priceInr, receives totalCredits USD.
+        // Assuming retail rate $2.50 in / $10.00 out (blend $8.125/M), cost is blendProviderCost / blendRetail = ~60%
+        maxCostUsd = Math.round((totalCredits * (blendProviderCostPerMillion / 8.125)) * 100) / 100;
+        marginPct = revenueUsd > 0 ? Math.round(((revenueUsd - maxCostUsd) / revenueUsd) * 1000) / 10 : -100;
+
+        if (marginPct < 0) {
+          status = 'NEGATIVE_MARGIN';
+          warning = `NEGATIVE MARGIN DETECTED (${marginPct}%): Customer receives ${totalCredits.toLocaleString()} credits for ₹${priceInr} (~${revenueUsd} USD). Estimated upstream cost is ${maxCostUsd.toLocaleString()} USD.`;
+        } else if (marginPct < minThresholdPct) {
+          status = 'UNACCEPTABLE_MARGIN';
+          warning = `LOW MARGIN WARNING (${marginPct}% < ${minThresholdPct}% threshold). Consider reducing credit multiplier or adjusting retail rates.`;
+        }
+      } else if (p.planType === 'token') {
+        const allowance = Number(p.tokenAllowance || 5000000n);
+        maxCostUsd = Math.round(((allowance / 1000000) * blendProviderCostPerMillion) * 100) / 100;
+        marginPct = revenueUsd > 0 ? Math.round(((revenueUsd - maxCostUsd) / revenueUsd) * 1000) / 10 : -100;
+
+        if (marginPct < 0) {
+          status = 'NEGATIVE_MARGIN';
+          warning = `NEGATIVE MARGIN DETECTED (${marginPct}%): Token cost (${maxCostUsd}) exceeds revenue (${revenueUsd}).`;
+        } else if (marginPct < minThresholdPct) {
+          status = 'UNACCEPTABLE_MARGIN';
+          warning = `LOW MARGIN WARNING (${marginPct}% < ${minThresholdPct}% threshold).`;
+        }
+      } else {
+        // Rolling window: continuous subscription
+        status = 'HEALTHY';
+        marginPct = 75.0;
+      }
+
+      return {
+        planId: p.id,
+        name: p.name,
+        planType: p.planType || 'window',
+        priceInr,
+        revenueUsd,
+        maxCostUsd,
+        marginPct,
+        status,
+        warning,
+      };
+    });
+
+    const hasWarnings = audits.some((a) => a.status !== 'HEALTHY');
+
+    res.json({
+      success: true,
+      minThresholdPct,
+      hasWarnings,
+      audits,
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

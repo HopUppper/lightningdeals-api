@@ -42,21 +42,21 @@ const INITIAL_REQUESTS: SimulatedRequest[] = [
     id: 'req_01',
     minuteSent: 0, // 10:00 AM
     tokens: 850_000,
-    model: 'Claude 3.7 Sonnet',
+    model: 'Claude Sonnet 5.5',
     description: 'Extended reasoning refactor',
   },
   {
     id: 'req_02',
     minuteSent: 90, // 11:30 AM
     tokens: 1_200_000,
-    model: 'Claude 3.7 Sonnet',
+    model: 'Claude Sonnet 5.5',
     description: 'Full-repo architectural indexing',
   },
   {
     id: 'req_03',
     minuteSent: 180, // 01:00 PM
     tokens: 950_000,
-    model: 'Claude 3.5 Opus',
+    model: 'Claude Opus 5.5',
     description: 'Deep mathematical proof verification',
   },
 ];
@@ -205,7 +205,7 @@ export const RollingPoolAnimation: React.FC = () => {
         id: newId,
         minuteSent: simTimeMinutes,
         tokens: tokensToConsume,
-        model: 'Claude 3.7 Sonnet',
+        model: 'Claude Sonnet 5.5',
         description: 'Autonomous agent sub-task',
       };
       setRequests((prev) => [...prev, newReq]);
@@ -925,7 +925,7 @@ export const RollingPoolAnimation: React.FC = () => {
 
             <div className="p-3 rounded-lg bg-[#0E0C13] border border-[#231F2D] space-y-1">
               <span className="text-[10px] text-[#68636B] block">03 / UPSTREAM</span>
-              <span className="font-bold text-white">Claude 3.7 Sonnet</span>
+              <span className="font-bold text-white">Claude Sonnet 5.5</span>
               <span className="text-[11px] text-[#A39EAA] block">Inference executed</span>
             </div>
 

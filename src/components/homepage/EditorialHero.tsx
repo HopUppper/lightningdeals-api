@@ -383,7 +383,7 @@ export const EditorialHero: React.FC = () => {
                   <circle cx="0" cy="0" r="4" fill="#7136E8" />
                   <circle cx="0" cy="0" r="9" fill="none" stroke="#7136E8" strokeWidth="1" strokeDasharray="2 2" />
                   <text x="14" y="3" fontSize="9" fontWeight="bold" fill="#191719" fontFamily="monospace">
-                    Sonnet 3.7
+                    Sonnet 5.5
                   </text>
                 </g>
 
@@ -391,7 +391,7 @@ export const EditorialHero: React.FC = () => {
                   <circle cx="0" cy="0" r="4" fill="#7136E8" />
                   <circle cx="0" cy="0" r="9" fill="none" stroke="#7136E8" strokeWidth="1" strokeDasharray="2 2" />
                   <text x="14" y="3" fontSize="9" fontWeight="bold" fill="#191719" fontFamily="monospace">
-                    Opus 3.5
+                    Opus 5.5
                   </text>
                 </g>
 
@@ -399,7 +399,7 @@ export const EditorialHero: React.FC = () => {
                   <circle cx="0" cy="0" r="4" fill="#7136E8" />
                   <circle cx="0" cy="0" r="9" fill="none" stroke="#7136E8" strokeWidth="1" strokeDasharray="2 2" />
                   <text x="14" y="3" fontSize="9" fontWeight="bold" fill="#191719" fontFamily="monospace">
-                    Haiku 3.5
+                    Haiku 5.5
                   </text>
                 </g>
 

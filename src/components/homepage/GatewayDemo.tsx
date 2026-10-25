@@ -127,7 +127,7 @@ print(message.content[0].text)`,
             >
               <option value="claude-sonnet-5.5">claude-sonnet-5.5</option>
               <option value="claude-opus-5.5">claude-opus-5.5</option>
-              <option value="claude-3-7-sonnet-20250219">claude-3-7-sonnet-20250219</option>
+              <option value="claude-sonnet-5">claude-sonnet-5</option>
               <option value="claude-fable-5">claude-fable-5</option>
               <option value="claude-haiku-5.5">claude-haiku-5.5</option>
             </select>

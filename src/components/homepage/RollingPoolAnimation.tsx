@@ -1,67 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Play, Pause, RotateCcw, Clock, ShieldCheck, Zap, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-interface IllustrativeRequest {
-  id: string;
-  name: string;
-  timestampHours: number; // e.g. 1.0 = 01:00
-  timeLabel: string;
-  tokens: number; // in tokens
-  tokensLabel: string;
-  description: string;
-}
-
-const SAMPLE_REQUESTS: IllustrativeRequest[] = [
-  {
-    id: 'req-1',
-    name: 'Req 1: Code Review Burst',
-    timestampHours: 1.0,
-    timeLabel: '01:00',
-    tokens: 800_000,
-    tokensLabel: '800k',
-    description: 'Autonomous multi-file refactoring in Cursor',
-  },
-  {
-    id: 'req-2',
-    name: 'Req 2: Test Generation',
-    timestampHours: 2.5,
-    timeLabel: '02:30',
-    tokens: 1_200_000,
-    tokensLabel: '1.2M',
-    description: 'Full test suite synthesis in Claude Code CLI',
-  },
-  {
-    id: 'req-3',
-    name: 'Req 3: Architecture Audit',
-    timestampHours: 4.0,
-    timeLabel: '04:00',
-    tokens: 600_000,
-    tokensLabel: '600k',
-    description: 'System boundary formal verification',
-  },
-  {
-    id: 'req-4',
-    name: 'Req 4: CI/CD Pipeline',
-    timestampHours: 6.2,
-    timeLabel: '06:12',
-    tokens: 900_000,
-    tokensLabel: '900k',
-    description: 'Automated PR triage and inline diffing',
-  },
-];
-
-const TOTAL_POOL_CAPACITY = 5_000_000; // 5M illustrative tokens for Max 5x plan
-const WINDOW_DURATION_HOURS = 5.0; // Continuous 5-hour rolling window
-
 export const RollingPoolAnimation: React.FC = () => {
-  const [currentHour, setCurrentHour] = useState<number>(5.5); // starting at 05:30
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const animationRef = useRef<number | null>(null);
+  const [rotationAngle, setRotationAngle] = useState<number>(0);
+  const [restoredCount, setRestoredCount] = useState<number>(14);
+  const animationFrameRef = useRef<number | null>(null);
   const prefersReducedMotion = useReducedMotion();
 
-  // Playback timer
+  // Smooth, continuous clock rotation loop
   useEffect(() => {
     if (prefersReducedMotion) {
       setIsPlaying(false);
@@ -69,405 +18,333 @@ export const RollingPoolAnimation: React.FC = () => {
     }
 
     if (!isPlaying) {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       return;
     }
 
     let lastTime = performance.now();
-    const tick = (now: number) => {
-      const delta = (now - lastTime) / 1000; // seconds
+    const animate = (now: number) => {
+      const delta = (now - lastTime) / 1000;
       lastTime = now;
 
-      // Advance by ~0.35 hours per real second
-      setCurrentHour((prev) => {
-        const next = prev + delta * 0.35;
-        if (next >= 9.5) {
-          return 1.5; // loop back smoothly
-        }
+      setRotationAngle((prev) => {
+        const next = (prev + delta * 24) % 360; // 24 degrees per second (smooth orbital rotation)
         return next;
       });
 
-      animationRef.current = requestAnimationFrame(tick);
+      animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    animationRef.current = requestAnimationFrame(tick);
+    animationFrameRef.current = requestAnimationFrame(animate);
     return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
   }, [isPlaying, prefersReducedMotion]);
 
-  // Rolling window calculations
-  const windowStart = Math.max(0, currentHour - WINDOW_DURATION_HOURS);
-  const windowEnd = currentHour;
-
-  // Requests currently inside the 5-hour window
-  const activeInWindow = SAMPLE_REQUESTS.filter(
-    (r) => r.timestampHours >= windowStart && r.timestampHours <= windowEnd
-  );
-
-  // Requests that have aged beyond the 5-hour window
-  const expiredAndRestored = SAMPLE_REQUESTS.filter(
-    (r) => r.timestampHours < windowStart
-  );
-
-  // Requests that haven't happened yet
-  const futureRequests = SAMPLE_REQUESTS.filter(
-    (r) => r.timestampHours > windowEnd
-  );
-
-  // Tokens currently consumed inside the window
-  const activeTokensConsumed = activeInWindow.reduce((acc, r) => acc + r.tokens, 0);
-
-  // Remaining available tokens right now
-  const availableTokens = Math.max(0, TOTAL_POOL_CAPACITY - activeTokensConsumed);
-
-  // Capacity percentage available
-  const availablePercent = Math.round((availableTokens / TOTAL_POOL_CAPACITY) * 100);
-
-  // Format hour into HH:MM
-  const formatTime = (h: number) => {
-    const hours = Math.floor(h);
-    const minutes = Math.floor((h - hours) * 60);
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  };
-
-  const handleReset = () => {
-    setCurrentHour(2.0);
-    setIsPlaying(true);
-  };
+  // Increment restored capacity counter subtly on threshold revolutions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isPlaying && !prefersReducedMotion) {
+        setRestoredCount((prev) => (prev >= 99 ? 12 : prev + 1));
+      }
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [isPlaying, prefersReducedMotion]);
 
   return (
     <section
       id="rolling-pool"
-      className="relative py-20 sm:py-28 lg:py-36 bg-[#141217] text-[#F8F6F2] font-sans overflow-hidden border-b border-[#26222C]"
+      className="relative py-24 sm:py-32 lg:py-40 bg-[#0E0C13] text-[#F8F6F2] font-sans overflow-hidden border-b border-[#26222C]"
     >
-      {/* Background Subtle Atmosphere */}
+      {/* Subtle Atmospheric Radial Violet Diffusion */}
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-[#7136E8]/10 blur-[130px] rounded-full pointer-events-none"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-gradient-to-b from-[#7136E8]/10 via-[#4F21B5]/05 to-transparent rounded-full blur-[160px] pointer-events-none"
         aria-hidden="true"
       />
 
-      <div className="relative max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16">
+      <div className="relative max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-16 lg:space-y-20">
         
         {/* ============================================================ */}
-        {/* SECTION HEADER                                               */}
+        {/* EDITORIAL SECTION HEADER (Integrated Directly, No Box)       */}
         {/* ============================================================ */}
         <div className="max-w-3xl space-y-4 text-left">
           <div className="inline-flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#7136E8]" />
-            <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#EEE6FF]/70">
-              CONTINUOUS 5-HOUR QUOTA ENGINE
+            <span className="text-[11px] font-mono uppercase tracking-[0.24em] text-[#EEE6FF]/70 font-semibold">
+              QUOTA ARCHITECTURE
             </span>
           </div>
 
-          <h2 className="section-headline text-white font-display">
+          <h2 className="section-headline text-white font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
             Your capacity replenishes as you work.
           </h2>
 
-          <p className="text-base sm:text-lg text-[#A39EAA] leading-relaxed">
+          <p className="text-base sm:text-lg text-[#A39EAA] leading-relaxed max-w-2xl font-normal">
             Understand how LightningAPI's continuous five-hour rolling pool works, and how previously
             consumed capacity becomes available again as eligible requests age beyond the rolling window.
           </p>
         </div>
 
         {/* ============================================================ */}
-        {/* MAIN INTERACTIVE TIMELINE WORKSPACE                           */}
+        {/* THE EVOLVING RING OF CAPACITY (Sculptural Orbital Artwork)   */}
         {/* ============================================================ */}
-        <div className="p-6 sm:p-8 rounded-[24px] bg-[#18161D] border border-[#2A2631] shadow-xl space-y-8">
+        <div className="relative flex flex-col items-center justify-center py-6 sm:py-10">
           
-          {/* Top Telemetry Bar: Live Clock & Real-Time Capacity Gauge */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pb-6 border-b border-[#26222C] items-center">
+          <div className="relative w-full max-w-[560px] aspect-square flex items-center justify-center">
             
-            {/* Clock Indicator */}
-            <div className="md:col-span-4 flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-[#221E2A] text-[#7136E8] border border-[#2E2838]">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-[11px] font-mono text-[#A39EAA] uppercase block">
-                  Illustrative Simulation Time
-                </span>
-                <span className="text-2xl font-bold font-mono text-white tracking-wider">
-                  {formatTime(currentHour)}
-                </span>
-              </div>
-            </div>
+            <svg
+              viewBox="0 0 520 520"
+              className="w-full h-full select-none overflow-visible"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                {/* Active 5-Hour Window Violet Arc Gradient */}
+                <linearGradient id="ringActiveViolet" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#7136E8" stopOpacity="0.2" />
+                  <stop offset="30%" stopColor="#7136E8" stopOpacity="0.95" />
+                  <stop offset="70%" stopColor="#A77DFF" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#087F5B" stopOpacity="0.8" />
+                </linearGradient>
 
-            {/* Rolling Window Range Annotation */}
-            <div className="md:col-span-4 font-mono text-xs text-[#A39EAA] space-y-1">
-              <div className="flex items-center justify-between">
-                <span>Active 5h Window:</span>
-                <span className="text-[#EEE6FF] font-semibold">
-                  {formatTime(windowStart)} – {formatTime(windowEnd)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span>Window Allowance:</span>
-                <span className="text-white">5,000,000 Tokens</span>
-              </div>
-            </div>
+                {/* Restored Inflow Emerald Shimmer */}
+                <linearGradient id="inflowEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#087F5B" stopOpacity="0.9" />
+                  <stop offset="100%" stopColor="#10B981" stopOpacity="0.1" />
+                </linearGradient>
 
-            {/* Current Available Gauge */}
-            <div className="md:col-span-4 space-y-1.5 font-mono">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#A39EAA]">Available Allowance:</span>
-                <span className="text-[#087F5B] font-bold">
-                  {(availableTokens / 1_000_000).toFixed(2)}M ({availablePercent}%)
-                </span>
-              </div>
-              {/* Meter bar */}
-              <div className="w-full h-2 rounded-full bg-[#110F14] overflow-hidden border border-[#26222C]">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-[#7136E8] via-[#087F5B] to-[#087F5B]"
-                  style={{ width: `${availablePercent}%` }}
-                  transition={{ duration: 0.1 }}
-                />
-              </div>
-            </div>
+                {/* Central Core Breathing Aura */}
+                <radialGradient id="coreAura" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#7136E8" stopOpacity="0.25" />
+                  <stop offset="50%" stopColor="#7136E8" stopOpacity="0.08" />
+                  <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+                </radialGradient>
 
-          </div>
+                {/* Luminous Glow Filter */}
+                <filter id="ringGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
 
-          {/* ============================================================ */}
-          {/* VISUAL TIMELINE SVG GRAPHIC                                   */}
-          {/* ============================================================ */}
-          <div className="relative w-full aspect-[16/7] min-h-[260px] bg-[#110F14] rounded-xl border border-[#26222C] p-4 flex flex-col justify-between overflow-hidden">
-            
-            {/* Timeline Coordinate Scale (0h to 10h) */}
-            <div className="relative w-full h-full flex flex-col justify-center">
-              
-              {/* Baseline Horizontal Axis */}
-              <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-[#26222C] -translate-y-1/2" />
+              {/* Ambient Core Lighting */}
+              <circle cx="260" cy="260" r="170" fill="url(#coreAura)" />
 
-              {/* 5-Hour Rolling Window Highlight Box */}
-              <div
-                className="absolute top-3 bottom-3 rounded-lg border-2 border-[#7136E8] bg-[#7136E8]/10 transition-all duration-75 pointer-events-none"
+              {/* Background Orbital Guide Rings */}
+              <circle
+                cx="260"
+                cy="260"
+                r="210"
+                fill="none"
+                stroke="#1F1C26"
+                strokeWidth="1.5"
+                strokeDasharray="4 8"
+              />
+              <circle
+                cx="260"
+                cy="260"
+                r="165"
+                fill="none"
+                stroke="#1B1822"
+                strokeWidth="1"
+              />
+
+              {/* Static Background Time Horizon Track */}
+              <circle
+                cx="260"
+                cy="260"
+                r="190"
+                fill="none"
+                stroke="#1C1924"
+                strokeWidth="5"
+              />
+
+              {/* ======================================================== */}
+              {/* ROTATING 5-HOUR ACTIVE WINDOW ORBITAL SEGMENT            */}
+              {/* ======================================================== */}
+              <g
+                transform={`rotate(${rotationAngle} 260 260)`}
                 style={{
-                  left: `${(windowStart / 10) * 100}%`,
-                  width: `${(WINDOW_DURATION_HOURS / 10) * 100}%`,
+                  transition: prefersReducedMotion ? 'none' : 'transform 0.05s linear',
                 }}
               >
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-[#7136E8] text-white text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 whitespace-nowrap shadow-xs">
-                  Continuous 5-Hour Active Boundary
-                </div>
-              </div>
+                {/* Active 5-Hour Arc (approx 150 degrees of 360 circle) */}
+                <path
+                  d="M 260 70 A 190 190 0 0 1 424 355"
+                  fill="none"
+                  stroke="url(#ringActiveViolet)"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  filter="url(#ringGlow)"
+                />
 
-              {/* Current Time Playhead Line */}
-              <div
-                className="absolute top-0 bottom-0 w-[2px] bg-white transition-all duration-75 pointer-events-none z-10"
-                style={{ left: `${(windowEnd / 10) * 100}%` }}
+                {/* Luminous Arc Trailing Edge Indicator */}
+                <circle cx="424" cy="355" r="5" fill="#087F5B" filter="url(#ringGlow)" />
+
+                {/* Inbound Request Droplets along the Arc */}
+                <circle cx="260" cy="70" r="4.5" fill="#FFFFFF" />
+                <circle cx="340" cy="98" r="4" fill="#A77DFF" />
+                <circle cx="400" cy="155" r="4" fill="#7136E8" />
+                <circle cx="438" cy="250" r="3.5" fill="#7136E8" />
+
+                {/* Flow Lines Inward from Aged Horizon to Core */}
+                <path
+                  d="M 424 355 C 380 340, 330 300, 260 260"
+                  fill="none"
+                  stroke="url(#inflowEmerald)"
+                  strokeWidth="2"
+                  strokeDasharray="3 3"
+                />
+              </g>
+
+              {/* ======================================================== */}
+              {/* CENTRAL SCULPTURAL REPLENISHMENT CORE                    */}
+              {/* ======================================================== */}
+              {/* Outer Core Glass Boundary */}
+              <circle
+                cx="260"
+                cy="260"
+                r="92"
+                fill="#121016"
+                stroke="#2A2634"
+                strokeWidth="1.5"
+              />
+
+              {/* Breathing Inner Capacity Wave */}
+              <circle
+                cx="260"
+                cy="260"
+                r="74"
+                fill="#17141E"
+                stroke="#7136E8"
+                strokeWidth="1.5"
+                strokeDasharray="2 4"
+                opacity="0.8"
+              />
+
+              {/* Central Typographic Heartbeat */}
+              <text
+                x="260"
+                y="244"
+                textAnchor="middle"
+                fontSize="10"
+                fontWeight="bold"
+                fill="#087F5B"
+                fontFamily="monospace"
+                letterSpacing="0.18em"
               >
-                <div className="absolute -bottom-2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-white text-[#141217] text-[10px] font-mono font-bold whitespace-nowrap">
-                  Now: {formatTime(currentHour)}
-                </div>
-              </div>
+                ● REPLENISHING
+              </text>
+              <text
+                x="260"
+                y="266"
+                textAnchor="middle"
+                fontSize="18"
+                fontWeight="bold"
+                fill="#FFFFFF"
+                fontFamily="sans-serif"
+                letterSpacing="-0.02em"
+              >
+                Continuous Flow
+              </text>
+              <text
+                x="260"
+                y="284"
+                textAnchor="middle"
+                fontSize="9"
+                fill="#A39EAA"
+                fontFamily="monospace"
+              >
+                5-Hour Rolling Horizon
+              </text>
 
-              {/* Request Event Nodes Placed on Timeline */}
-              {SAMPLE_REQUESTS.map((req) => {
-                const isInside = req.timestampHours >= windowStart && req.timestampHours <= windowEnd;
-                const isExpired = req.timestampHours < windowStart;
-                const isFuture = req.timestampHours > windowEnd;
-
-                const leftPercent = (req.timestampHours / 10) * 100;
-
-                return (
-                  <div
-                    key={req.id}
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 group"
-                    style={{ left: `${leftPercent}%` }}
-                  >
-                    {/* Node Dot */}
-                    <div
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                        isInside
-                          ? 'bg-[#7136E8] border-white text-white shadow-md scale-110'
-                          : isExpired
-                          ? 'bg-[#087F5B] border-[#087F5B] text-white'
-                          : 'bg-[#1C1920] border-[#3D3746] text-[#68636B]'
-                      }`}
-                    >
-                      <span className="text-[10px] font-mono font-bold">
-                        {req.id.replace('req-', '')}
-                      </span>
-                    </div>
-
-                    {/* Tooltip Card Showing State */}
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col p-2.5 rounded-lg bg-[#1C1920] border border-[#2E2838] text-left font-mono text-[11px] whitespace-nowrap shadow-lg z-30">
-                      <span className="font-bold text-white">{req.name}</span>
-                      <span className="text-[#A39EAA]">Time: {req.timeLabel} · Quota: {req.tokensLabel}</span>
-                      <span
-                        className={`text-[10px] font-bold mt-1 ${
-                          isInside
-                            ? 'text-[#7136E8]'
-                            : isExpired
-                            ? 'text-[#087F5B]'
-                            : 'text-[#68636B]'
-                        }`}
-                      >
-                        {isInside
-                          ? '● Active in 5-Hour Window'
-                          : isExpired
-                          ? '✓ Aged beyond 5h: Capacity Restored'
-                          : 'Pending Request'}
-                      </span>
-                    </div>
-
-                    {/* Below Label */}
-                    <div className="absolute top-7 left-1/2 -translate-x-1/2 text-center font-mono text-[10px] whitespace-nowrap">
-                      <span className="text-[#A39EAA] block">{req.timeLabel}</span>
-                      <span
-                        className={`font-semibold ${
-                          isInside
-                            ? 'text-[#EEE6FF]'
-                            : isExpired
-                            ? 'text-[#087F5B]'
-                            : 'text-[#68636B]'
-                        }`}
-                      >
-                        {req.tokensLabel}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-
-            </div>
-
-            {/* Scale Hours Markers (00:00 to 10:00) */}
-            <div className="flex justify-between font-mono text-[10px] text-[#68636B] pt-2 border-t border-[#26222C]">
-              <span>00:00</span>
-              <span>02:00</span>
-              <span>04:00</span>
-              <span>06:00</span>
-              <span>08:00</span>
-              <span>10:00</span>
-            </div>
+              {/* Floating Aesthetic Compass Marks */}
+              <text x="260" y="44" textAnchor="middle" fontSize="9" fill="#68636B" fontFamily="monospace">
+                T-0h (Now)
+              </text>
+              <text x="475" y="264" textAnchor="start" fontSize="9" fill="#7136E8" fontFamily="monospace">
+                5h Boundary
+              </text>
+              <text x="260" y="482" textAnchor="middle" fontSize="9" fill="#087F5B" fontFamily="monospace">
+                Capacity Restored
+              </text>
+              <text x="45" y="264" textAnchor="end" fontSize="9" fill="#68636B" fontFamily="monospace">
+                Available Pool
+              </text>
+            </svg>
 
           </div>
 
           {/* ============================================================ */}
-          {/* INTERACTIVE PLAYBACK & SCRUBBER CONTROLS                     */}
+          {/* SATELLITE EDITORIAL ANNOTATIONS (Organic & Balanced)          */}
           {/* ============================================================ */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-[#110F14] border border-[#26222C]">
+          <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-[#26222C]/70">
             
-            {/* Play/Pause & Reset Buttons */}
-            <div className="flex items-center gap-2">
+            {/* Left Annotation */}
+            <div className="space-y-2 text-left">
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#7136E8] font-bold block">
+                01 / IN-FLIGHT ALLOCATION
+              </span>
+              <h3 className="text-lg font-bold text-white font-display">
+                Prompts Debit The Rolling Pool
+              </h3>
+              <p className="text-xs sm:text-sm text-[#A39EAA] leading-relaxed">
+                When you initiate a prompt in Cursor or Claude Code, tokens are deducted from your
+                active five-hour allowance immediately.
+              </p>
+            </div>
+
+            {/* Center: Quiet, Discreet Motion Control */}
+            <div className="flex flex-col items-center justify-center space-y-3 py-2">
               <button
                 type="button"
                 onClick={() => setIsPlaying(!isPlaying)}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#7136E8] hover:bg-[#4F21B5] text-white text-xs font-semibold font-mono transition-colors cursor-pointer"
-                aria-label={isPlaying ? 'Pause simulation' : 'Play simulation'}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-[#2E2838] text-xs font-mono text-[#EEE6FF] transition-all cursor-pointer shadow-2xs"
+                aria-label={isPlaying ? 'Pause orbital motion' : 'Resume orbital motion'}
               >
                 {isPlaying ? (
                   <>
-                    <Pause className="w-3.5 h-3.5" />
-                    <span>Pause</span>
+                    <Pause className="w-3.5 h-3.5 text-[#7136E8]" />
+                    <span>Pause Orbital Motion</span>
                   </>
                 ) : (
                   <>
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Play</span>
+                    <Play className="w-3.5 h-3.5 fill-[#7136E8] text-[#7136E8]" />
+                    <span>Resume Orbital Motion</span>
                   </>
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={handleReset}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-xs font-mono text-[#A39EAA] hover:text-white transition-colors cursor-pointer"
-                title="Reset simulation to beginning"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
-              </button>
-            </div>
-
-            {/* Interactive Timeline Scrubber Slider */}
-            <div className="flex items-center gap-3 w-full sm:max-w-md">
-              <span className="text-[11px] font-mono text-[#A39EAA] shrink-0">Scrub Time:</span>
-              <input
-                type="range"
-                min="0.5"
-                max="9.5"
-                step="0.05"
-                value={currentHour}
-                onChange={(e) => {
-                  setIsPlaying(false);
-                  setCurrentHour(parseFloat(e.target.value));
-                }}
-                className="w-full accent-[#7136E8] cursor-pointer"
-                aria-label="Timeline scrubber"
-              />
-              <span className="text-xs font-mono font-bold text-white shrink-0">
-                {formatTime(currentHour)}
-              </span>
-            </div>
-
-          </div>
-
-          {/* ============================================================ */}
-          {/* 5-STAGE EXPLANATORY BREAKDOWN                                */}
-          {/* ============================================================ */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            
-            <div className="p-4 rounded-xl bg-[#110F14] border border-[#26222C] space-y-2 text-left">
-              <span className="text-[10px] font-mono font-bold text-[#7136E8] uppercase tracking-wider block">
-                01 / IN-WINDOW CONSUMPTION
-              </span>
-              <h4 className="text-sm font-bold text-white font-display">
-                Requests Consume Allowance
-              </h4>
-              <p className="text-xs text-[#A39EAA] leading-relaxed">
-                When you initiate a prompt in Cursor or Claude Code, its token count is debited against
-                your current 5-hour rolling allowance.
-              </p>
-              <div className="text-[11px] font-mono text-[#EEE6FF]">
-                Active now: {(activeTokensConsumed / 1_000_000).toFixed(2)}M Tokens
+              <div className="text-[11px] font-mono text-[#087F5B] flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#087F5B] animate-pulse" />
+                <span>Simulated quota cycles continuously</span>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#110F14] border border-[#26222C] space-y-2 text-left">
-              <span className="text-[10px] font-mono font-bold text-[#087F5B] uppercase tracking-wider block">
-                02 / CONTINUOUS RECOVERY
+            {/* Right Annotation */}
+            <div className="space-y-2 text-left">
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#087F5B] font-bold block">
+                02 / CONTINUOUS RESTORATION
               </span>
-              <h4 className="text-sm font-bold text-white font-display">
-                Replenishment As You Work
-              </h4>
-              <p className="text-xs text-[#A39EAA] leading-relaxed">
-                As soon as an individual request ages beyond the 5-hour threshold, its exact tokens are
-                restored. You do not wait for a calendar month reset.
+              <h3 className="text-lg font-bold text-white font-display">
+                Replenishment Without Cliff Resets
+              </h3>
+              <p className="text-xs sm:text-sm text-[#A39EAA] leading-relaxed">
+                As individual requests age past 5 hours, their consumed capacity returns to your
+                available pool. High-throughput workflows never stall waiting for a monthly renewal.
               </p>
-              <div className="text-[11px] font-mono text-[#087F5B]">
-                Restored count: {expiredAndRestored.length} request(s) aged out
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-[#110F14] border border-[#26222C] space-y-2 text-left">
-              <span className="text-[10px] font-mono font-bold text-[#A39EAA] uppercase tracking-wider block">
-                03 / STEADY HIGH CAPACITY
-              </span>
-              <h4 className="text-sm font-bold text-white font-display">
-                No Surprise Lockouts
-              </h4>
-              <p className="text-xs text-[#A39EAA] leading-relaxed">
-                Because replenishment is ongoing, active developers experience continuous capacity
-                throughput throughout long engineering sessions.
-              </p>
-              <div className="text-[11px] font-mono text-white">
-                Available: {availablePercent}% of pool ready
-              </div>
             </div>
 
           </div>
 
         </div>
 
-        {/* Footer Note */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono text-[#A39EAA] pt-2">
+        {/* Section Footer Specification Link */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono text-[#A39EAA] pt-4 border-t border-[#26222C]/40">
           <span>
-            Accurately models LightningAPI sliding-window quota verification logic. Zero periodic cutoff cliffs.
+            Accurately models LightningAPI sliding-window quota verification logic.
           </span>
           <Link
-            to="/how-it-works"
+            to="/how-it-works#rolling-window"
             className="text-[#EEE6FF] hover:text-white inline-flex items-center gap-1.5 transition-colors"
           >
             <span>Read Complete Algorithm Specification</span>

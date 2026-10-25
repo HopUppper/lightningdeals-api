@@ -42,7 +42,6 @@ import { RollingPoolAnimation } from './components/homepage/RollingPoolAnimation
 import { CapabilitySection } from './components/homepage/CapabilitySection';
 import { CompatibilitySection } from './components/homepage/CompatibilitySection';
 import { CapacityPlans } from './components/homepage/CapacityPlans';
-import { ApiKeyLifecycleAnimation } from './components/homepage/ApiKeyLifecycleAnimation';
 import { TrustAndTransparency } from './components/homepage/TrustAndTransparency';
 import { FinalCTA } from './components/homepage/FinalCTA';
 import { SiteFooter } from './components/SiteFooter';
@@ -224,7 +223,6 @@ export const LandingPage: React.FC = () => {
         <CapabilitySection />
         <CompatibilitySection />
         <CapacityPlans />
-        <ApiKeyLifecycleAnimation />
         <TrustAndTransparency />
         <FinalCTA />
       </main>

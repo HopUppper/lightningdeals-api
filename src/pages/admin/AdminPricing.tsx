@@ -29,7 +29,9 @@ import { adminFetch } from '../../utils/api';
 export const AdminPricing: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'wholesale' | 'retail' | 'models' | 'calculator'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'wholesale' | 'retail' | 'models' | 'calculator' | 'ledgers'>('overview');
+  const [ledgersData, setLedgersData] = useState<any>(null);
+  const [ledgersLoading, setLedgersLoading] = useState(false);
 
   // Economics State from API
   const [providers, setProviders] = useState<any[]>([]);
@@ -84,6 +86,29 @@ export const AdminPricing: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const loadLedgers = async () => {
+    try {
+      setLedgersLoading(true);
+      const res = await adminFetch('/api/admin/economics/ledgers');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success) {
+          setLedgersData(data);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching ledgers:', err);
+    } finally {
+      setLedgersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'ledgers' && !ledgersData) {
+      loadLedgers();
+    }
+  }, [activeTab]);
 
   const runPreviewCalc = async () => {
     try {
@@ -242,11 +267,11 @@ export const AdminPricing: React.FC = () => {
 
         <div className="bg-card border border-border rounded-panel p-4 space-y-1">
           <div className="flex items-center justify-between text-muted text-xs">
-            <span className="font-mono uppercase">USD / INR Exchange Rate</span>
+            <span className="font-mono uppercase">Actual Cash Exchange Rate</span>
             <DollarSign className="w-4 h-4 text-blue-500" />
           </div>
           <div className="text-2xl font-bold font-mono text-fg">₹{summary.defaultExchangeRate || 86.5}</div>
-          <p className="text-[11px] text-muted">Configurable base rate for INR customer transactions</p>
+          <p className="text-[11px] text-muted">Monetary FX conversion only (independent of credit multipliers)</p>
         </div>
 
         <div className="bg-card border border-border rounded-panel p-4 space-y-1">
@@ -267,6 +292,7 @@ export const AdminPricing: React.FC = () => {
           { id: 'retail', label: '2. Customer Retail Plans', icon: Zap },
           { id: 'models', label: '3. Model Costs & Prices', icon: Layers },
           { id: 'calculator', label: '4. Margin Calculator', icon: Calculator },
+          { id: 'ledgers', label: '5. Financial Ledgers', icon: ShieldCheck },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -982,6 +1008,129 @@ export const AdminPricing: React.FC = () => {
               ) : (
                 <div className="py-12 text-center text-xs text-muted">Calculating scenario outcome...</div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* TAB 5: FINANCIAL & USAGE LEDGERS */}
+      {activeTab === 'ledgers' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-fg flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span>Separate Financial & Usage Credit Ledgers</span>
+              </h3>
+              <p className="text-xs text-muted">
+                Audit-ready independent ledgers for customer usage credits, upstream vendor charges, and realized margins.
+              </p>
+            </div>
+            <button
+              onClick={loadLedgers}
+              disabled={ledgersLoading}
+              className="px-3 py-1.5 bg-bg border border-border hover:bg-card text-xs font-semibold rounded-control transition-colors"
+            >
+              {ledgersLoading ? 'Refreshing...' : 'Refresh Ledgers'}
+            </button>
+          </div>
+
+          {/* Section A: Customer Usage Credit Ledger */}
+          <div className="bg-card border border-border rounded-panel overflow-hidden">
+            <div className="p-4 border-b border-border bg-bg/50">
+              <h4 className="text-sm font-bold text-fg">Customer Usage Credit Ledger</h4>
+              <p className="text-xs text-muted">Independent customer usage credits granted, bonuses, and usage deductions.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-bg border-b border-border text-muted">
+                  <tr>
+                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Type</th>
+                    <th className="py-2.5 px-3">User</th>
+                    <th className="py-2.5 px-3">Amount</th>
+                    <th className="py-2.5 px-3">Balance (Before ➔ After)</th>
+                    <th className="py-2.5 px-3">Model / Reference</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {ledgersData?.customerLedgers?.length > 0 ? (
+                    ledgersData.customerLedgers.map((l: any) => (
+                      <tr key={l.id} className="hover:bg-bg/40">
+                        <td className="py-2 px-3 text-muted">{new Date(l.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                        <td className="py-2 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            l.type === 'CREDITS_GRANTED'
+                              ? 'bg-emerald-500/10 text-emerald-600'
+                              : l.type === 'PROMOTIONAL_BONUS'
+                              ? 'bg-amber-500/10 text-amber-600'
+                              : 'bg-blue-500/10 text-blue-600'
+                          }`}>
+                            {l.type}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-fg">{l.user?.email || l.userId?.substring(0, 8)}</td>
+                        <td className={`py-2 px-3 font-bold ${l.amount >= 0 ? 'text-emerald-600' : 'text-fg'}`}>
+                          {l.amount >= 0 ? `+${l.amount.toFixed(2)}` : `-${Math.abs(l.amount).toFixed(4)}`}
+                        </td>
+                        <td className="py-2 px-3 text-muted">
+                          ${l.balanceBefore.toFixed(2)} ➔ <strong className="text-fg">${l.balanceAfter.toFixed(2)}</strong>
+                        </td>
+                        <td className="py-2 px-3 text-muted">{l.model || l.reference || '—'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-muted">No customer usage credit entries recorded yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section B: Upstream Vendor Credit Ledger */}
+          <div className="bg-card border border-border rounded-panel overflow-hidden">
+            <div className="p-4 border-b border-border bg-bg/50">
+              <h4 className="text-sm font-bold text-fg">Upstream Provider Credit Ledger</h4>
+              <p className="text-xs text-muted">Wholesale credits received, payments, and actual provider usage charges.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-bg border-b border-border text-muted">
+                  <tr>
+                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Provider</th>
+                    <th className="py-2.5 px-3">Type</th>
+                    <th className="py-2.5 px-3">Cost / Credits</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3">Model / Reference</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {ledgersData?.vendorLedgers?.length > 0 ? (
+                    ledgersData.vendorLedgers.map((v: any) => (
+                      <tr key={v.id} className="hover:bg-bg/40">
+                        <td className="py-2 px-3 text-muted">{new Date(v.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                        <td className="py-2 px-3 font-semibold text-fg">{v.provider?.name || 'Upstream'}</td>
+                        <td className="py-2 px-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-500/10 text-violet-600">
+                            {v.type}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 font-bold text-fg">${Number(v.creditAmount || v.cashAmount || 0).toFixed(4)}</td>
+                        <td className="py-2 px-3">
+                          <span className="text-[10px] text-muted">{v.isEstimated ? 'ESTIMATED' : 'CONFIRMED'}</span>
+                        </td>
+                        <td className="py-2 px-3 text-muted">{v.model || v.reference || '—'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-muted">No provider usage entries recorded yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

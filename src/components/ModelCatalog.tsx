@@ -9,6 +9,7 @@ interface ModelCard {
   provider: string;
   tier: string;
   type: 'flagship' | 'fast' | 'reasoning';
+  billingType: 'window' | 'credit';
   context: string;
   inputPrice: string;
   outputPrice: string;
@@ -17,14 +18,15 @@ interface ModelCard {
 }
 
 const STATIC_MODELS: ModelCard[] = [
-  // OpusMax Claude Models
+  // Anthropic Claude Models (5-Hour Rolling Window)
   {
     id: 'claude-opus-5.5',
     name: 'Claude Opus 5.5',
     family: 'claude',
-    provider: 'OpusMax',
+    provider: 'Anthropic',
     tier: 'Cognitive Frontier',
     type: 'flagship',
+    billingType: 'window',
     context: '1,000,000 Tokens',
     inputPrice: '$3.00',
     outputPrice: '$15.00',
@@ -35,9 +37,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'claude-sonnet-5.5',
     name: 'Claude Sonnet 5.5',
     family: 'claude',
-    provider: 'OpusMax',
+    provider: 'Anthropic',
     tier: 'Flagship Engineering',
     type: 'flagship',
+    billingType: 'window',
     context: '1,000,000 Tokens',
     inputPrice: '$3.00',
     outputPrice: '$15.00',
@@ -48,9 +51,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'claude-opus-5',
     name: 'Claude Opus 5',
     family: 'claude',
-    provider: 'OpusMax',
+    provider: 'Anthropic',
     tier: 'Cognitive Heavyweight',
     type: 'flagship',
+    billingType: 'window',
     context: '1,000,000 Tokens',
     inputPrice: '$3.00',
     outputPrice: '$15.00',
@@ -61,9 +65,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'claude-sonnet-5',
     name: 'Claude Sonnet 5',
     family: 'claude',
-    provider: 'OpusMax',
+    provider: 'Anthropic',
     tier: 'Production Workhorse',
     type: 'flagship',
+    billingType: 'window',
     context: '1,000,000 Tokens',
     inputPrice: '$3.00',
     outputPrice: '$15.00',
@@ -74,9 +79,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'claude-fable-5',
     name: 'Claude Fable 5',
     family: 'claude',
-    provider: 'OpusMax',
+    provider: 'Anthropic',
     tier: 'Ultra-Fast IDE Specialist',
     type: 'fast',
+    billingType: 'window',
     context: '1,000,000 Tokens',
     inputPrice: '$1.00',
     outputPrice: '$5.00',
@@ -87,9 +93,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'claude-haiku-5.5',
     name: 'Claude Haiku 5.5',
     family: 'claude',
-    provider: 'OpusMax',
+    provider: 'Anthropic',
     tier: 'High-Throughput Streaming',
     type: 'fast',
+    billingType: 'window',
     context: '500,000 Tokens',
     inputPrice: '$0.80',
     outputPrice: '$4.00',
@@ -97,14 +104,15 @@ const STATIC_MODELS: ModelCard[] = [
     latency: '18ms TTFT',
   },
 
-  // ScaleMax Models
+  // Pay-As-You-Go Credit Models
   {
     id: 'gpt-4o',
     name: 'OpenAI GPT-4o',
     family: 'openai',
-    provider: 'ScaleMax',
+    provider: 'OpenAI',
     tier: 'Multimodal Frontier',
     type: 'flagship',
+    billingType: 'credit',
     context: '128,000 Tokens',
     inputPrice: '$2.50',
     outputPrice: '$10.00',
@@ -115,9 +123,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'gpt-4o-mini',
     name: 'OpenAI GPT-4o Mini',
     family: 'openai',
-    provider: 'ScaleMax',
+    provider: 'OpenAI',
     tier: 'High-Velocity Efficiency',
     type: 'fast',
+    billingType: 'credit',
     context: '128,000 Tokens',
     inputPrice: '$0.15',
     outputPrice: '$0.60',
@@ -128,9 +137,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'o1',
     name: 'OpenAI o1 Reasoning',
     family: 'openai',
-    provider: 'ScaleMax',
+    provider: 'OpenAI',
     tier: 'Formal Reasoning Engine',
     type: 'reasoning',
+    billingType: 'credit',
     context: '200,000 Tokens',
     inputPrice: '$15.00',
     outputPrice: '$60.00',
@@ -141,9 +151,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'o3-mini',
     name: 'OpenAI o3-mini',
     family: 'openai',
-    provider: 'ScaleMax',
+    provider: 'OpenAI',
     tier: 'High-Speed Deliberation',
     type: 'reasoning',
+    billingType: 'credit',
     context: '200,000 Tokens',
     inputPrice: '$1.10',
     outputPrice: '$4.40',
@@ -154,9 +165,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'deepseek-reasoner',
     name: 'DeepSeek R1 (Reasoner)',
     family: 'deepseek',
-    provider: 'ScaleMax',
+    provider: 'DeepSeek',
     tier: 'Open Reasoning Pioneer',
     type: 'reasoning',
+    billingType: 'credit',
     context: '64,000 Tokens',
     inputPrice: '$0.55',
     outputPrice: '$2.19',
@@ -167,9 +179,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'deepseek-chat',
     name: 'DeepSeek V3 (Chat)',
     family: 'deepseek',
-    provider: 'ScaleMax',
+    provider: 'DeepSeek',
     tier: 'MoE Code & Chat',
     type: 'flagship',
+    billingType: 'credit',
     context: '64,000 Tokens',
     inputPrice: '$0.14',
     outputPrice: '$0.28',
@@ -180,9 +193,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'gemini-2.5-pro',
     name: 'Google Gemini 2.5 Pro',
     family: 'gemini',
-    provider: 'ScaleMax',
+    provider: 'Google',
     tier: '2M Long-Context Leader',
     type: 'flagship',
+    billingType: 'credit',
     context: '2,000,000 Tokens',
     inputPrice: '$1.25',
     outputPrice: '$5.00',
@@ -193,9 +207,10 @@ const STATIC_MODELS: ModelCard[] = [
     id: 'grok-2',
     name: 'xAI Grok 2',
     family: 'grok',
-    provider: 'ScaleMax',
+    provider: 'xAI',
     tier: 'Autonomous Reasoning',
     type: 'flagship',
+    billingType: 'credit',
     context: '128,000 Tokens',
     inputPrice: '$2.00',
     outputPrice: '$10.00',
@@ -206,10 +221,10 @@ const STATIC_MODELS: ModelCard[] = [
 
 export const ModelCatalog: React.FC = () => {
   const [familyFilter, setFamilyFilter] = useState<string>('all');
-  const [providerFilter, setProviderFilter] = useState<'all' | 'OpusMax' | 'ScaleMax'>('all');
+  const [billingFilter, setBillingFilter] = useState<'all' | 'window' | 'credit'>('all');
 
   const filtered = STATIC_MODELS.filter((m) => {
-    if (providerFilter !== 'all' && m.provider !== providerFilter) return false;
+    if (billingFilter !== 'all' && m.billingType !== billingFilter) return false;
     if (familyFilter !== 'all' && m.family !== familyFilter) return false;
     return true;
   });
@@ -229,39 +244,39 @@ export const ModelCatalog: React.FC = () => {
               Frontier Model Catalog
             </h2>
             <p className="text-sm text-[#57534e] leading-relaxed">
-              Independently routed across dedicated upstream suppliers: <strong>OpusMax</strong> (Anthropic Claude rolling windows) and <strong>ScaleMax</strong> (OpenAI, Gemini, DeepSeek, and Grok).
+              Independently routed across dedicated enterprise clusters: <strong>5-Hour Rolling Window Engine</strong> (Anthropic Claude) and <strong>Pay-As-You-Go Credits</strong> (OpenAI, Gemini, DeepSeek, and Grok).
             </p>
           </div>
 
-          {/* Provider Filter Tabs */}
+          {/* Billing Architecture Filter Tabs */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="inline-flex rounded-xl bg-white border border-[#e7e5e4] p-1 text-xs font-semibold shadow-xs">
               <button
                 type="button"
-                onClick={() => setProviderFilter('all')}
+                onClick={() => setBillingFilter('all')}
                 className={`rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
-                  providerFilter === 'all' ? 'bg-[#1c1917] text-white shadow-xs' : 'text-[#78716c] hover:text-[#1c1917]'
+                  billingFilter === 'all' ? 'bg-[#1c1917] text-white shadow-xs' : 'text-[#78716c] hover:text-[#1c1917]'
                 }`}
               >
-                All Providers ({STATIC_MODELS.length})
+                All Models ({STATIC_MODELS.length})
               </button>
               <button
                 type="button"
-                onClick={() => setProviderFilter('OpusMax')}
+                onClick={() => setBillingFilter('window')}
                 className={`rounded-lg px-3 py-1.5 transition-all cursor-pointer flex items-center gap-1.5 ${
-                  providerFilter === 'OpusMax' ? 'bg-[#6d28d9] text-white shadow-plum' : 'text-[#78716c] hover:text-[#1c1917]'
+                  billingFilter === 'window' ? 'bg-[#6d28d9] text-white shadow-plum' : 'text-[#78716c] hover:text-[#1c1917]'
                 }`}
               >
-                <span>OpusMax (Claude)</span>
+                <span>5-Hour Rolling Window</span>
               </button>
               <button
                 type="button"
-                onClick={() => setProviderFilter('ScaleMax')}
+                onClick={() => setBillingFilter('credit')}
                 className={`rounded-lg px-3 py-1.5 transition-all cursor-pointer flex items-center gap-1.5 ${
-                  providerFilter === 'ScaleMax' ? 'bg-blue-600 text-white shadow-xs' : 'text-[#78716c] hover:text-[#1c1917]'
+                  billingFilter === 'credit' ? 'bg-blue-600 text-white shadow-xs' : 'text-[#78716c] hover:text-[#1c1917]'
                 }`}
               >
-                <span>ScaleMax (OpenAI/DeepSeek)</span>
+                <span>Pay-As-You-Go Credits</span>
               </button>
             </div>
           </div>
@@ -322,7 +337,7 @@ export const ModelCatalog: React.FC = () => {
         {/* Models Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((m) => {
-            const isOpus = m.provider === 'OpusMax';
+            const isWindow = m.billingType === 'window';
             return (
               <div
                 key={m.id}
@@ -337,9 +352,15 @@ export const ModelCatalog: React.FC = () => {
                         </h3>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
-                            isOpus
+                            m.family === 'claude'
                               ? 'bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe]'
-                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : m.family === 'openai'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : m.family === 'deepseek'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : m.family === 'gemini'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-stone-50 text-stone-700 border border-stone-200'
                           }`}
                         >
                           {m.provider}
@@ -375,7 +396,7 @@ export const ModelCatalog: React.FC = () => {
 
                 <div className="mt-6 pt-4 border-t border-[#f5f2eb] flex items-center justify-between">
                   <span className="text-[11px] text-[#78716c] font-medium">
-                    {isOpus ? '5h Rolling Window Plan' : 'Pay-As-You-Go Credits (₹1 = $7)'}
+                    {isWindow ? '5-Hour Rolling Window' : 'Pay-As-You-Go Usage Credits'}
                   </span>
                   <Link
                     to="/pricing"

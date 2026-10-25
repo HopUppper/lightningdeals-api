@@ -45,7 +45,7 @@ checkoutRouter.get('/plans', async (req: Request, res: Response) => {
       creditAmountUsd: p.creditAmountUsd,
       bonusCreditsUsd: p.bonusCreditsUsd,
       bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : undefined,
-      providerScope: p.providerScope || 'all',
+      providerScope: p.providerScope === 'opus_max' ? 'window' : (p.providerScope || 'all'),
       allowedModelFamilies: p.allowedModelFamilies,
     }));
     res.json({ success: true, plans });

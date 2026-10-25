@@ -24,7 +24,7 @@ export const ModelsPage: React.FC = () => {
                 Supported Multi-Provider Models
               </h1>
               <p className="text-sm text-[#57534e] leading-relaxed max-w-xl">
-                From deep-thinking Claude Opus 5.5 on OpusMax to OpenAI o1, GPT-4o, DeepSeek R1, and Gemini 2.5 on ScaleMax, select the ideal model for your programming, agentic loops, and production workflows.
+                From deep-thinking Claude Opus 5.5 to OpenAI o1, GPT-4o, DeepSeek R1, and Gemini 2.5, select the ideal model for your programming, agentic loops, and production workflows.
               </p>
             </div>
 

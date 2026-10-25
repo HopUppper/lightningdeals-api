@@ -52,7 +52,7 @@ export const getGatewayUrl = (): string => {
 export const validateApiKey = async (apiKey: string): Promise<KeyStatusResult> => {
   let cleanKey = apiKey.trim();
 
-  // Normalize common user copy-paste prefixes for both ScaleMax (ld_) and Opus Max (sk_)
+  // Normalize common user copy-paste prefixes for keys
   if (cleanKey.startsWith('id_trial_')) {
     cleanKey = 'ld_trial_' + cleanKey.substring(9);
   } else if (cleanKey.startsWith('id_live_')) {

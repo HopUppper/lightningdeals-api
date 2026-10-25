@@ -1501,7 +1501,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
           success: false,
           error: {
             code: 'UPSTREAM_QUOTA_REFILL',
-            message: 'AI Gateway Capacity Peak: The upstream provider key is currently refilling its 5-hour rolling token window. Zero tokens were deducted from your balance. Please retry once refilled, or add an active master key in Admin > Providers.',
+            message: 'AI Gateway Capacity Peak: The capacity cluster is currently cycling its 5-hour rolling token window. Zero tokens were deducted from your balance. Please retry shortly.',
           },
           usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
           latencyMs,
@@ -2142,6 +2142,9 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           isOverAllocated,
           totalInputTokens: k.totalInputTokens?.toString() ?? '0',
           totalOutputTokens: k.totalOutputTokens?.toString() ?? '0',
+          billingType: k.billingType || 'window',
+          creditBalanceUsd: k.creditBalanceUsd !== null && k.creditBalanceUsd !== undefined ? Number(k.creditBalanceUsd) : 0,
+          totalCreditsUsedUsd: k.totalCreditsUsedUsd !== null && k.totalCreditsUsedUsd !== undefined ? Number(k.totalCreditsUsedUsd) : 0,
           expiresAt: k.expiresAt,
           lastPlatform: k.lastPlatform || null,
           lastUsedAt: k.lastUsedAt || null,
@@ -2226,16 +2229,25 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
     let totalPurchased = 0n;
     let totalUsed = 0n;
     let totalRemaining = 0n;
+    let totalCreditBalanceUsd = 0;
+    let totalCreditsUsedUsd = 0;
+    let hasCreditKey = false;
 
     for (const k of keys) {
-      totalPurchased += k.purchasedTokens;
-      totalUsed += k.tokensUsed;
-      const metrics = await calculateCustomerRollingWindow(k);
-      totalRemaining += BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+      if (k.billingType === 'credit') {
+        hasCreditKey = true;
+        totalCreditBalanceUsd += Number(k.creditBalanceUsd || 0);
+        totalCreditsUsedUsd += Number(k.totalCreditsUsedUsd || 0);
+      } else {
+        totalPurchased += k.purchasedTokens;
+        totalUsed += k.tokensUsed;
+        const metrics = await calculateCustomerRollingWindow(k);
+        totalRemaining += BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+      }
     }
 
-    // No default allowance for keyless users — must be assigned by admin or purchased
-    if (totalPurchased === 0n) {
+    // No default allowance for keyless users - must be assigned by admin or purchased
+    if (totalPurchased === 0n && !hasCreditKey) {
       totalPurchased = 0n;
       totalRemaining = 0n;
     }
@@ -2253,10 +2265,20 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
       take: 20,
     });
 
+    const creditLedgerEntries = await prisma.customerUsageCreditLedger.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
     res.json({
       totalPurchased: totalPurchased.toString(),
       totalUsed: totalUsed.toString(),
       totalRemaining: totalRemaining.toString(),
+      hasCreditKey,
+      creditBalanceUsd: Math.round(totalCreditBalanceUsd * 100) / 100,
+      totalCreditsUsedUsd: Math.round(totalCreditsUsedUsd * 100) / 100,
+      creditLedgerEntries,
       activeKeysCount: keys.filter(k => k.status === 'active').length,
       recentRequests: recentRequests.map(r => ({
         ...r,

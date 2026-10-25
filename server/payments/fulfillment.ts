@@ -290,9 +290,10 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
     const isWindowPlan = !isCreditPlan && !isTokenPack;
 
     if (isCreditPlan || isTokenPack || tokenAllowanceBigInt > 0n || plan.windowHours > 0) {
-      const totalCreditBalance = isCreditPlan
-        ? Number(order.creditsPurchased || plan.creditAmountUsd || (Number(order.amountInr) * 7.0)) + Number(order.bonusCredits || plan.bonusCreditsUsd || 0)
-        : 0;
+      const retailMultiplier = Number(plan.retailMultiplier || plan.creditMultiplier || 7.0);
+      const baseCreditAmount = Number(order.creditsPurchased || plan.creditAmountUsd || (Number(order.amountInr) * retailMultiplier));
+      const bonusCreditAmount = Number(order.bonusCredits || plan.bonusCreditsUsd || 0);
+      const totalCreditBalance = isCreditPlan ? baseCreditAmount + bonusCreditAmount : 0;
 
       const keyBillingType = isCreditPlan ? 'credit' : isTokenPack ? 'token' : 'window';
 
@@ -306,7 +307,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
 
       const finalPurchasedTokens = isTokenPack
         ? BigInt(order.tokensPurchased || tokenAllowanceBigInt)
-        : tokenAllowanceBigInt;
+        : isCreditPlan ? 0n : tokenAllowanceBigInt;
 
       createdApiKey = await prisma.apiKey.create({
         data: {
@@ -344,6 +345,58 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
             : `Automated fulfillment for ${plan.displayName}`,
         },
       });
+
+      // Maintain separate immutable CustomerUsageCreditLedger and FinancialAccountingLedger
+      if (isCreditPlan) {
+        await prisma.customerUsageCreditLedger.create({
+          data: {
+            userId: order.userId,
+            apiKeyId: createdApiKey.id,
+            orderId: order.id,
+            type: 'CREDITS_GRANTED',
+            amount: baseCreditAmount,
+            balanceBefore: 0,
+            balanceAfter: baseCreditAmount,
+            currency: 'USD',
+            reference: order.internalOrderId,
+            notes: `Purchased usage credits for ${plan.displayName}`,
+            configVersion: (order as any).configVersion || (plan as any).configVersion || 1,
+            pricingSnapshotJson: order.pricingSnapshotJson,
+          },
+        });
+
+        if (bonusCreditAmount > 0) {
+          await prisma.customerUsageCreditLedger.create({
+            data: {
+              userId: order.userId,
+              apiKeyId: createdApiKey.id,
+              orderId: order.id,
+              type: 'PROMOTIONAL_BONUS',
+              amount: bonusCreditAmount,
+              balanceBefore: baseCreditAmount,
+              balanceAfter: totalCreditBalance,
+              currency: 'USD',
+              reference: order.internalOrderId,
+              notes: `Promotional bonus credits for ${plan.displayName}`,
+              configVersion: (order as any).configVersion || (plan as any).configVersion || 1,
+              pricingSnapshotJson: order.pricingSnapshotJson,
+            },
+          });
+        }
+
+        await prisma.financialAccountingLedger.create({
+          data: {
+            orderId: order.id,
+            type: 'CUSTOMER_PAYMENT',
+            grossRevenueInr: order.amountInr,
+            grossRevenueUsd: order.currency === 'USD' ? order.amountInr : (order.amountInr / 86.5),
+            processingFeeUsd: ((order.currency === 'USD' ? order.amountInr : order.amountInr / 86.5) * 0.025),
+            cashExchangeRate: order.currency === 'USD' ? 1.0 : 86.5,
+            reference: order.internalOrderId,
+            notes: `Customer payment for ${plan.displayName}`,
+          },
+        });
+      }
     }
 
     // 8. SUBSCRIPTION LIFECYCLE: Activate New or Extend Existing Subscription

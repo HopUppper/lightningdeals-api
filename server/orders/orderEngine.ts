@@ -68,6 +68,62 @@ export interface ProcessPaymentEventParams {
  * PAYMENT -> VERIFIED -> ORDER CREATED/UPDATED -> ORDER COMPLETED ->
  * FULFILLMENT -> LIGHTNING REWARD -> CUSTOMER UPDATE -> NOTIFICATION -> AUDIT LOG
  */
+/**
+ * Customer credit allocation calculation engine.
+ * Computes exact credit allocation from active package configuration or retail allocation multiplier.
+ * Keeps credit economics completely independent of monetary currency conversion.
+ */
+export function calculateOrderCreditAllocation(
+  plan: {
+    id?: string;
+    name?: string;
+    retailMultiplier?: number | null;
+    creditMultiplier?: number | null;
+    creditAmountUsd?: number | null;
+    bonusCreditsUsd?: number | null;
+    configVersion?: number | null;
+  },
+  paymentUsd: number,
+  paymentInr?: number
+) {
+  const retailMultiplier = Number(plan.retailMultiplier || plan.creditMultiplier || 7.0);
+  let customerCreditsGranted = 0;
+  let formula = '';
+
+  if (plan.creditAmountUsd && Number(plan.creditAmountUsd) > 0) {
+    customerCreditsGranted = Number(plan.creditAmountUsd);
+    formula = `Explicit Credit Package: ${customerCreditsGranted.toFixed(2)} credits`;
+  } else {
+    customerCreditsGranted = Math.round(paymentUsd * retailMultiplier * 100) / 100;
+    formula = `${paymentUsd.toFixed(2)} payment × ${retailMultiplier}x Retail Allocation Multiplier = ${customerCreditsGranted.toFixed(2)} credits`;
+  }
+
+  const bonusCredits = Number(plan.bonusCreditsUsd || 0);
+  const configVersion = Number(plan.configVersion || 1);
+
+  const pricingSnapshot = {
+    planId: plan.id,
+    planName: plan.name,
+    paymentUsd,
+    paymentInr,
+    retailMultiplier,
+    customerCreditsGranted,
+    bonusCredits,
+    configVersion,
+    calculationFormula: formula,
+    createdAt: new Date().toISOString(),
+  };
+
+  return {
+    customerCreditsGranted,
+    bonusCredits,
+    retailMultiplier,
+    calculationFormula: formula,
+    configVersion,
+    pricingSnapshotJson: JSON.stringify(pricingSnapshot),
+  };
+}
+
 export class OrderEngine {
   /**
    * 1. CREATE WEBSITE ORDER (From Checkout Flow)
@@ -134,12 +190,16 @@ export class OrderEngine {
     // 4. Create Internal Order Record (with multi-provider planType support)
     const orderPlanType = (plan.planType as any) || 'window';
     const orderType = orderPlanType === 'credit' ? 'CREDIT_PACK' : orderPlanType === 'token' ? 'TOKEN_PACK' : 'PLAN';
-    const creditsPurchased = orderPlanType === 'credit'
-      ? (plan.creditAmountUsd || (payableAmountInr * (plan.creditMultiplier || 7.0)))
-      : 0;
-    const bonusCredits = orderPlanType === 'credit' ? (plan.bonusCreditsUsd || 0) : 0;
+    // Customer credit allocation calculated from saved package configuration
+    const paymentUsd = plan.currency === 'USD' ? (Number((plan as any).priceUsd) || payableAmountInr) : (payableAmountInr / 86.5);
+    const creditAlloc = calculateOrderCreditAllocation(plan, paymentUsd, payableAmountInr);
+    const creditsPurchased = orderPlanType === 'credit' ? creditAlloc.customerCreditsGranted : 0;
+    const bonusCredits = orderPlanType === 'credit' ? creditAlloc.bonusCredits : 0;
     const tokensPurchased = orderPlanType === 'token' ? plan.tokenAllowance : 0n;
     const bonusTokens = plan.bonusTokens || 0n;
+
+    const orderConfigVersion = creditAlloc.configVersion;
+    const pricingSnapshotJson = creditAlloc.pricingSnapshotJson;
 
     const order = await prisma.order.create({
       data: {
@@ -150,6 +210,8 @@ export class OrderEngine {
         orderType,
         creditsPurchased,
         bonusCredits,
+        pricingSnapshotJson,
+        configVersion: orderConfigVersion,
         tokensPurchased,
         bonusTokens,
         tokenQuantity: plan.tokenAllowance,

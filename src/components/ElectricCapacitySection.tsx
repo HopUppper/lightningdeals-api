@@ -262,7 +262,7 @@ export const ElectricCapacitySection: React.FC = () => {
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>5-Hour Rolling Window (OpusMax)</span>
+              <span>5-Hour Rolling Window</span>
             </button>
             <button
               type="button"
@@ -274,7 +274,7 @@ export const ElectricCapacitySection: React.FC = () => {
               }`}
             >
               <Zap className="w-3.5 h-3.5" />
-              <span>Pay-As-You-Go Credits (ScaleMax · ₹1 = ${configuredCreditMultiplier})</span>
+              <span>Pay-As-You-Go Usage Credits</span>
             </button>
             <button
               type="button"
@@ -292,7 +292,7 @@ export const ElectricCapacitySection: React.FC = () => {
 
           <p className="text-xs text-[#78716c] font-medium text-center">
             {planTab === 'window' && 'Claude models · Guaranteed 5-hour rolling refill windows · Zero rate throttling'}
-            {planTab === 'credit' && `Universal access to OpenAI, Gemini, DeepSeek & Claude · ₹1 paid = ${configuredCreditMultiplier} usage credits`}
+            {planTab === 'credit' && 'Universal access to OpenAI, Gemini, DeepSeek & Claude · Dynamic usage-based deductions'}
             {planTab === 'token' && 'Non-expiring token packs for any model family · High RPM concurrency'}
           </p>
         </div>

@@ -20,6 +20,17 @@ import { settleReservation } from './accounting/tokenReservation';
 
 const rateLimitMap = new Map<string, number[]>();
 export const inFlightReservations = new Map<string, number>();
+export const inFlightCreditReservations = new Map<string, number>();
+
+export function reserveCredits(keyId: string, amount: number) {
+  const current = inFlightCreditReservations.get(keyId) || 0;
+  inFlightCreditReservations.set(keyId, current + amount);
+}
+
+export function releaseCreditReservation(keyId: string, amount: number) {
+  const current = inFlightCreditReservations.get(keyId) || 0;
+  inFlightCreditReservations.set(keyId, Math.max(0, current - amount));
+}
 
 export function reserveTokens(keyId: string, amount: number) {
   const current = inFlightReservations.get(keyId) || 0;
@@ -489,16 +500,16 @@ export function sanitizeModelResponse(text: string, friendlyModelName: string, c
   let result = text
     // 1. Scrub upstream supplier branding leaks and MiniMax leaks to genuine Anthropic Claude
     .replace(/Auto by ScaleMax/gi, 'Claude by Anthropic')
-    .replace(/ScaleMax(?:\.pro)?/gi, 'Anthropic')
+    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningAPI')
     .replace(/MiniMax(?:-abab|-6\.5)?/gi, 'Anthropic')
     .replace(/abab-6\.5/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/Opus\s*Max/gi, friendlyModelName || 'Claude')
     .replace(/OpusMax/gi, friendlyModelName || 'Claude')
-    .replace(/OpusLive/gi, 'Claude')
+    .replace(/OpusLive/gi, 'LightningAPI')
     // 2. Remove supplier URLs and hostnames
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
-    .replace(/https?:\/\/api2?\.opusmax\.pro(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
-    .replace(/api2?\.scalemax\.pro/gi, 'api.anthropic.com')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
+    .replace(/https?:\/\/api2?\.opusmax\.pro(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
+    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
     .replace(/api2?\.opusmax\.pro/gi, 'api.anthropic.com')
     // 3. Remove master API keys and internal credentials
     .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
@@ -561,17 +572,17 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
   result = result.replace(/<[^>]*>/g, ' ');
 
   result = result
-    .replace(/ScaleMax(?:\.pro)?/gi, 'Anthropic')
+    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningAPI')
     .replace(/MiniMax(?:-abab)?/gi, 'Anthropic')
     .replace(/abab-6\.5/gi, 'Claude Sonnet 5.5')
-    .replace(/Opus\s*Max/gi, 'Claude')
-    .replace(/OpusMax/gi, 'Claude')
-    .replace(/OpusLive/gi, 'Claude')
-    .replace(/opusmax(?:\.pro)?/gi, 'claude')
-    .replace(/api\.opusmax\.pro/gi, 'api.anthropic.com')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*opusmax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.anthropic.com')
-    .replace(/api2?\.scalemax\.pro/gi, 'api.anthropic.com')
+    .replace(/Opus\s*Max/gi, 'LightningAPI')
+    .replace(/OpusMax/gi, 'LightningAPI')
+    .replace(/OpusLive/gi, 'LightningAPI')
+    .replace(/opusmax(?:\.pro)?/gi, 'lightningapi')
+    .replace(/api\.opusmax\.pro/gi, 'api.lightningapi.pro')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*opusmax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
+    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
     .replace(/sk-ant-opm-[a-zA-Z0-9_-]+/g, '••••••••')
     .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
     .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
@@ -845,7 +856,11 @@ export async function validateKeyRecordAndCheckAllowance(keyRecord: any, request
 
   if (billingType === 'credit') {
     const creditBal = Number(keyRecord.creditBalanceUsd ?? 0);
-    if (creditBal <= 0) {
+    const inFlightCredit = inFlightCreditReservations.get(keyRecord.id) || 0;
+    const availableCreditToSpend = creditBal - inFlightCredit;
+    if (creditBal <= 0 || availableCreditToSpend <= 0) {
+      const isConcurrent = creditBal > 0 && availableCreditToSpend <= 0;
+      const reason = isConcurrent ? 'Usage credit balance is reserved by concurrent in-flight requests' : 'Credit balance exhausted ($0.00 remaining)';
       if (req) {
         recordAuditEvent({
           eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
@@ -855,18 +870,22 @@ export async function validateKeyRecordAndCheckAllowance(keyRecord: any, request
           customerId: keyRecord.userId,
           apiKeyId: keyRecord.id,
           result: 'BLOCKED',
-          statusCode: 402,
-          failureReason: 'Credit balance exhausted ($0.00 remaining)',
+          statusCode: isConcurrent ? 429 : 402,
+          failureReason: reason,
           req,
         });
       }
       return {
-        errorStatus: 402,
-        errorType: 'invalid_request_error',
-        errorCode: 'insufficient_credit_balance',
-        errorMessage: 'Account usage credit balance exhausted ($0.00 remaining). Please top up credits in your dashboard.',
+        errorStatus: isConcurrent ? 429 : 402,
+        errorType: isConcurrent ? 'rate_limit_error' : 'invalid_request_error',
+        errorCode: isConcurrent ? 'insufficient_quota' : 'insufficient_credit_balance',
+        failureReason: reason,
+        errorMessage: isConcurrent
+          ? 'Usage credit balance is reserved by concurrent in-flight requests. Please wait for active requests to complete or top up.'
+          : 'Account usage credit balance exhausted ($0.00 remaining). Please top up credits in your dashboard.',
       };
     }
+    reserveCredits(keyRecord.id, 0.005);
     return { keyRecord, rawKey: keyRecord.displayKey, effectiveRemaining: creditBal, creditBalanceUsd: creditBal };
   } else if (billingType === 'token') {
     const tokensRem = Number(keyRecord.tokensRemaining ?? 0);
@@ -1085,7 +1104,11 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
 
   if (billingType === 'credit') {
     const creditBal = Number(keyRecord.creditBalanceUsd ?? 0);
-    if (creditBal <= 0) {
+    const inFlightCredit = inFlightCreditReservations.get(keyRecord.id) || 0;
+    const availableCreditToSpend = creditBal - inFlightCredit;
+    if (creditBal <= 0 || availableCreditToSpend <= 0) {
+      const isConcurrent = creditBal > 0 && availableCreditToSpend <= 0;
+      const reason = isConcurrent ? 'Usage credit balance is reserved by concurrent in-flight requests' : 'Credit balance exhausted ($0.00 remaining)';
       recordAuditEvent({
         eventType: 'RESOURCE_EXHAUSTION_ATTEMPT',
         severity: 'LOW',
@@ -1094,17 +1117,21 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
         customerId: keyRecord.userId,
         apiKeyId: keyRecord.id,
         result: 'BLOCKED',
-        statusCode: 402,
-        failureReason: 'Credit balance exhausted ($0.00 remaining)',
+        statusCode: isConcurrent ? 429 : 402,
+        failureReason: reason,
         req,
       });
       return {
-        errorStatus: 402,
-        errorType: 'invalid_request_error',
-        errorCode: 'insufficient_credit_balance',
-        errorMessage: 'Account usage credit balance exhausted ($0.00 remaining). Please top up credits in your dashboard.',
+        errorStatus: isConcurrent ? 429 : 402,
+        errorType: isConcurrent ? 'rate_limit_error' : 'invalid_request_error',
+        errorCode: isConcurrent ? 'insufficient_quota' : 'insufficient_credit_balance',
+        failureReason: reason,
+        errorMessage: isConcurrent
+          ? 'Usage credit balance is reserved by concurrent in-flight requests. Please wait for active requests to complete or top up.'
+          : 'Account usage credit balance exhausted ($0.00 remaining). Please top up credits in your dashboard.',
       };
     }
+    reserveCredits(keyRecord.id, 0.005);
     return { keyRecord, rawKey, effectiveRemaining: creditBal, creditBalanceUsd: creditBal };
   } else if (billingType === 'token') {
     const tokensRem = Number(keyRecord.tokensRemaining ?? 0);
@@ -1476,7 +1503,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   if (decryptedMasterKey && decryptedMasterKey.trim().length > 0) {
     try {
       // Validate Base URL against SSRF threats
-      const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://api.anthropic.com');
+      const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://api.lightningapi.pro');
       if (!ssrfCheck.safe) {
         await releaseReservation(requestId);
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
@@ -1757,10 +1784,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
       if (stream) {
         res.setHeader('x-gateway-model', model);
-        res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
-        res.setHeader('x-upstream-model', resolvedUpstreamModel);
-        res.setHeader('x-upstream-provider', upstreamProviderName);
-        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+                                res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
         res.setHeader('x-model-verified', 'true');
         res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
         res.setHeader('Content-Type', 'text/event-stream');
@@ -1953,10 +1977,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }
 
         res.setHeader('x-gateway-model', model);
-        res.setHeader('x-gateway-resolved-model', resolvedUpstreamModel);
-        res.setHeader('x-upstream-model', resolvedUpstreamModel);
-        res.setHeader('x-upstream-provider', upstreamProviderName);
-        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+                                res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
         res.setHeader('x-model-verified', 'true');
         res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
         res.setHeader('anthropic-inference-geo', inferenceGeo);
@@ -2074,6 +2095,9 @@ export async function updateTokensAndLog({
     if (requestId) {
       await settleReservation(requestId);
     }
+    if (keyRecord?.id) {
+      releaseCreditReservation(keyRecord.id, 0.005);
+    }
 
     // 2. Authoritative Rolling Window Plan Determination
     const isRolling = isRollingPlan(keyRecord);
@@ -2096,7 +2120,7 @@ export async function updateTokensAndLog({
 
       const tokensUsedBig = BigInt(totalTokens);
 
-      // Multi-Plan Deductions (Credit, Token Pack, Window)
+      // Multi-Plan Dynamic Deductions by Model & Token Categories
       const bType = keyRecord.billingType || (isRolling ? 'window' : 'token');
       let costDeductedUsd = 0;
       let providerCostUsd = 0;
@@ -2110,11 +2134,17 @@ export async function updateTokensAndLog({
 
       const inPrice = modelRecord?.inputPrice ? Number(modelRecord.inputPrice) : 2.50;
       const outPrice = modelRecord?.outputPrice ? Number(modelRecord.outputPrice) : 10.00;
+      const cachedPrice = modelRecord?.costPerMillionCached ? Number(modelRecord.costPerMillionCached) : inPrice * 0.50;
+
       const pInCost = modelRecord?.providerCostInput ? Number(modelRecord.providerCostInput) : 2.00;
       const pOutCost = modelRecord?.providerCostOutput ? Number(modelRecord.providerCostOutput) : 8.00;
+      const pCachedCost = modelRecord?.providerCostCached ? Number(modelRecord.providerCostCached) : pInCost * 0.50;
 
-      costDeductedUsd = Math.round(((inputTokens * inPrice + outputTokens * outPrice) / 1000000) * 100000) / 100000;
-      providerCostUsd = Math.round(((inputTokens * pInCost + outputTokens * pOutCost) / 1000000) * 100000) / 100000;
+      const actualCached = Math.min(inputTokens, (cachedTokens || 0));
+      const uncachedInput = Math.max(0, inputTokens - actualCached);
+
+      costDeductedUsd = Math.round(((uncachedInput * inPrice + actualCached * cachedPrice + outputTokens * outPrice) / 1000000) * 100000) / 100000;
+      providerCostUsd = Math.round(((uncachedInput * pInCost + actualCached * pCachedCost + outputTokens * pOutCost) / 1000000) * 100000) / 100000;
 
       let keyUpdateData: any = {
         tokensUsed: { increment: tokensUsedBig },
@@ -2127,8 +2157,54 @@ export async function updateTokensAndLog({
       };
 
       if (bType === 'credit') {
-        keyUpdateData.creditBalanceUsd = { decrement: costDeductedUsd };
+        const curCreditBal = Number((currentKey as any).creditBalanceUsd || 0);
+        const newCreditBal = Math.max(0, Math.round((curCreditBal - costDeductedUsd) * 100000) / 100000);
+        keyUpdateData.creditBalanceUsd = newCreditBal;
         keyUpdateData.totalCreditsUsedUsd = { increment: costDeductedUsd };
+
+        // Immutable Customer Usage Credit Ledger Entry
+        await tx.customerUsageCreditLedger.create({
+          data: {
+            userId: keyRecord.userId,
+            apiKeyId: keyRecord.id,
+            type: 'USAGE_DEDUCTION',
+            amount: -costDeductedUsd,
+            balanceBefore: curCreditBal,
+            balanceAfter: newCreditBal,
+            currency: 'USD',
+            model,
+            inputTokens: uncachedInput,
+            outputTokens,
+            cachedTokens: actualCached,
+            retailInputPricePerM: inPrice,
+            retailOutputPricePerM: outPrice,
+            reference: requestId || `REQ-${model}`,
+            notes: `${model} usage deduction (${uncachedInput} in, ${actualCached} cached, ${outputTokens} out)`,
+            pricingSnapshotJson: JSON.stringify({
+              inputPrice: inPrice,
+              outputPrice: outPrice,
+              cachedPrice,
+              providerCostInput: pInCost,
+              providerCostOutput: pOutCost,
+            }),
+          },
+        });
+
+        // Upstream Vendor Credit Ledger Entry (separately maintained)
+        if (vendorId) {
+          await tx.vendorCreditLedger.create({
+            data: {
+              providerId: vendorId,
+              type: 'USAGE_CHARGE',
+              creditAmount: providerCostUsd,
+              isEstimated: Boolean(isEstimated),
+              model,
+              tokens: totalTokens,
+              reference: requestId || `REQ-${model}`,
+              notes: `Upstream vendor usage for ${model}`,
+            },
+          });
+        }
       } else if (bType === 'token') {
         const safeRem = currentKey.tokensRemaining >= tokensUsedBig ? currentKey.tokensRemaining - tokensUsedBig : 0n;
         keyUpdateData.tokensRemaining = safeRem;
@@ -2296,8 +2372,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('x-gateway-model', model);
-      res.setHeader('x-upstream-model', prepared.targetModel);
-
+      
       const reader = upstreamRes.body?.getReader();
       const decoder = new TextDecoder();
       let totalStreamedChars = 0;
@@ -2332,8 +2407,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     } else {
       const data: any = await upstreamRes.json();
       res.setHeader('x-gateway-model', model);
-      res.setHeader('x-upstream-model', prepared.targetModel);
-
+      
       const inputTokens = data?.usage?.prompt_tokens ?? Math.max(20, Math.ceil(JSON.stringify(messages).length / 3.8));
       const outputTokens = data?.usage?.completion_tokens ?? 50;
       const totalTokens = data?.usage?.total_tokens ?? (inputTokens + outputTokens);

@@ -1248,6 +1248,10 @@ router.put('/economics/provider/:id', async (req: AuthRequest, res: Response) =>
     const {
       wholesalePurchaseAmount,
       wholesaleCreditsReceived,
+      wholesaleMultiplier,
+      cashCostPerCredit,
+      upstreamCreditDenomination,
+      billingSemantics,
       usdToInrExchangeRate,
       exchangeRateSource,
       costPerMillionInput,
@@ -1266,11 +1270,20 @@ router.put('/economics/provider/:id', async (req: AuthRequest, res: Response) =>
     if (wholesalePurchaseAmount !== undefined) updateData.wholesalePurchaseAmount = Number(wholesalePurchaseAmount);
     if (wholesaleCreditsReceived !== undefined) updateData.wholesaleCreditsReceived = Number(wholesaleCreditsReceived);
 
-    if (updateData.wholesalePurchaseAmount && updateData.wholesaleCreditsReceived) {
+    if (wholesaleMultiplier !== undefined) {
+      updateData.wholesaleMultiplier = Number(wholesaleMultiplier);
+    } else if (updateData.wholesalePurchaseAmount && updateData.wholesaleCreditsReceived) {
       updateData.wholesaleMultiplier = Number((updateData.wholesaleCreditsReceived / updateData.wholesalePurchaseAmount).toFixed(4));
+    }
+
+    if (cashCostPerCredit !== undefined) {
+      updateData.cashCostPerCredit = Number(cashCostPerCredit);
+    } else if (updateData.wholesalePurchaseAmount && updateData.wholesaleCreditsReceived) {
       updateData.cashCostPerCredit = Number((updateData.wholesalePurchaseAmount / updateData.wholesaleCreditsReceived).toFixed(4));
     }
 
+    if (upstreamCreditDenomination !== undefined) updateData.upstreamCreditDenomination = String(upstreamCreditDenomination);
+    if (billingSemantics !== undefined) updateData.billingSemantics = String(billingSemantics);
     if (usdToInrExchangeRate !== undefined) updateData.usdToInrExchangeRate = Number(usdToInrExchangeRate);
     if (exchangeRateSource !== undefined) updateData.exchangeRateSource = String(exchangeRateSource);
     if (costPerMillionInput !== undefined) updateData.costPerMillionInput = Number(costPerMillionInput);
@@ -1297,6 +1310,7 @@ router.put('/economics/provider/:id', async (req: AuthRequest, res: Response) =>
     }
 
     updateData.economicsEffectiveDate = new Date();
+    updateData.configVersion = { increment: 1 };
 
     const updated = await prisma.vendorProvider.update({
       where: { id },
@@ -1311,6 +1325,9 @@ router.put('/economics/provider/:id', async (req: AuthRequest, res: Response) =>
         slug: updated.slug,
         wholesaleMultiplier: updated.wholesaleMultiplier,
         cashCostPerCredit: updated.cashCostPerCredit,
+        upstreamCreditDenomination: (updated as any).upstreamCreditDenomination,
+        billingSemantics: (updated as any).billingSemantics,
+        configVersion: (updated as any).configVersion,
         usdToInrExchangeRate: updated.usdToInrExchangeRate,
         isEconomicsVerified: updated.isEconomicsVerified,
         hasCreditKey: Boolean(updated.creditApiKeyEncrypted),
@@ -1327,9 +1344,13 @@ router.put('/economics/plan/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const {
       priceInr,
+      priceUsd,
       retailMultiplier,
       creditMultiplier,
+      creditAmountUsd,
       bonusCreditsUsd,
+      minPurchaseAmount,
+      creditExpiryDays,
       minGrossMarginPct,
       minContributionMarginPct,
       paymentProcessingFeePct,
@@ -1340,6 +1361,7 @@ router.put('/economics/plan/:id', async (req: AuthRequest, res: Response) => {
 
     const updateData: any = {};
     if (priceInr !== undefined) updateData.priceInr = Number(priceInr);
+    if (priceUsd !== undefined) updateData.priceUsd = Number(priceUsd);
     if (retailMultiplier !== undefined) {
       updateData.retailMultiplier = Number(retailMultiplier);
       updateData.creditMultiplier = Number(retailMultiplier);
@@ -1347,13 +1369,26 @@ router.put('/economics/plan/:id', async (req: AuthRequest, res: Response) => {
       updateData.creditMultiplier = Number(creditMultiplier);
       updateData.retailMultiplier = Number(creditMultiplier);
     }
+    if (creditAmountUsd !== undefined) updateData.creditAmountUsd = Number(creditAmountUsd);
     if (bonusCreditsUsd !== undefined) updateData.bonusCreditsUsd = Number(bonusCreditsUsd);
+    if (minPurchaseAmount !== undefined) updateData.minPurchaseAmount = Number(minPurchaseAmount);
+    if (creditExpiryDays !== undefined) updateData.creditExpiryDays = Number(creditExpiryDays);
     if (minGrossMarginPct !== undefined) updateData.minGrossMarginPct = Number(minGrossMarginPct);
     if (minContributionMarginPct !== undefined) updateData.minContributionMarginPct = Number(minContributionMarginPct);
     if (paymentProcessingFeePct !== undefined) updateData.paymentProcessingFeePct = Number(paymentProcessingFeePct);
     if (isDraft !== undefined) updateData.isDraft = Boolean(isDraft);
     if (isEconomicsApproved !== undefined) updateData.isEconomicsApproved = Boolean(isEconomicsApproved);
     if (enabled !== undefined) updateData.enabled = Boolean(enabled);
+
+    updateData.configVersion = { increment: 1 };
+    updateData.pricingSnapshotJson = JSON.stringify({
+      retailMultiplier: updateData.retailMultiplier,
+      creditAmountUsd: updateData.creditAmountUsd,
+      bonusCreditsUsd: updateData.bonusCreditsUsd,
+      priceInr: updateData.priceInr,
+      priceUsd: updateData.priceUsd,
+      updatedAt: new Date().toISOString(),
+    });
 
     const updated = await prisma.plan.update({
       where: { id },
@@ -1398,6 +1433,37 @@ router.put('/economics/model/:id', async (req: AuthRequest, res: Response) => {
     });
 
     res.json({ success: true, model: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 3c. Separate Financial Ledgers & Audit Reporting (/admin/economics/ledgers)
+router.get('/economics/ledgers', async (req: AuthRequest, res: Response) => {
+  try {
+    const [customerLedgers, vendorLedgers, financialLedgers] = await Promise.all([
+      prisma.customerUsageCreditLedger.findMany({
+        take: 100,
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { email: true, name: true } } },
+      }),
+      prisma.vendorCreditLedger.findMany({
+        take: 100,
+        orderBy: { createdAt: 'desc' },
+        include: { provider: { select: { name: true, slug: true } } },
+      }),
+      prisma.financialAccountingLedger.findMany({
+        take: 100,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      customerLedgers,
+      vendorLedgers,
+      financialLedgers,
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

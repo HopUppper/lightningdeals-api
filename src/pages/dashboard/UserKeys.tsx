@@ -14,6 +14,9 @@ interface ApiKeyItem {
   purchasedTokens: string;
   tokensUsed: string;
   tokensRemaining: string;
+  billingType?: string;
+  creditBalanceUsd?: number;
+  totalCreditsUsedUsd?: number;
   lastPlatform?: string | null;
   lastUsedAt?: string | null;
   expiresAt?: string | null;
@@ -262,9 +265,21 @@ export const UserKeys: React.FC = () => {
                           {k.status}
                         </span>
                       </td>
-                      <td className="py-4 px-5 font-bold text-[#1e1b2e]">{formatTokens(k.purchasedTokens)}</td>
-                      <td className="py-4 px-5 text-amber-600 font-semibold">{formatTokens(k.tokensUsed)}</td>
-                      <td className="py-4 px-5 font-bold text-emerald-700">{formatTokens(k.tokensRemaining)}</td>
+                      <td className="py-4 px-5 font-bold text-[#1e1b2e]">
+                        {k.billingType === 'credit'
+                          ? `${((k.creditBalanceUsd || 0) + (k.totalCreditsUsedUsd || 0)).toFixed(2)} Credits`
+                          : formatTokens(k.purchasedTokens)}
+                      </td>
+                      <td className="py-4 px-5 text-amber-600 font-semibold">
+                        {k.billingType === 'credit'
+                          ? `${(k.totalCreditsUsedUsd || 0).toFixed(2)} Credits`
+                          : formatTokens(k.tokensUsed)}
+                      </td>
+                      <td className="py-4 px-5 font-bold text-emerald-700">
+                        {k.billingType === 'credit'
+                          ? `${(k.creditBalanceUsd || 0).toFixed(2)} Available Balance`
+                          : formatTokens(k.tokensRemaining)}
+                      </td>
                       <td className="py-4 px-5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {k.status === 'active' && (

@@ -239,7 +239,7 @@ export async function seedFivePlanArchitecture() {
         '5,000,000 Tokens / 5h Window Refill',
         'Continuous 5-Hour Rolling Replenishment',
         'Claude Sonnet 5 & Haiku 4.5 Access',
-        'Sub-50ms OpusMax Gateway Routing',
+        'Sub-50ms Ultra-Low Latency Gateway Routing',
         'Instant Automated Delivery',
       ]),
       sortOrder: 1,

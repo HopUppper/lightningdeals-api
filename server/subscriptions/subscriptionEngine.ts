@@ -130,6 +130,8 @@ export interface ActivateOrRenewSubscriptionParams {
   apiKeyId?: string;
   durationDays?: number;
   billingPeriod?: 'monthly' | 'yearly';
+  quotaLimit?: bigint;
+  quotaWindowHours?: number;
   existingSubscriptionId?: string;
   notes?: string;
   tx?: any;
@@ -199,6 +201,8 @@ export async function activateOrRenewSubscription(
         orderId: validOrderId,
         apiKeyId: apiKeyId || existingSub.apiKeyId,
         notes: notes || `Renewed via Order ${orderId}`,
+        ...(params.quotaLimit !== undefined && { quotaLimit: params.quotaLimit }),
+        ...(params.quotaWindowHours !== undefined && { quotaWindowHours: params.quotaWindowHours }),
       },
     });
 
@@ -263,8 +267,8 @@ export async function activateOrRenewSubscription(
         durationDays,
         billingPeriod: newBillingPeriod,
         renewalCount: 0,
-        quotaLimit: 5000000n,
-        quotaWindowHours: 5,
+        quotaLimit: params.quotaLimit !== undefined ? params.quotaLimit : 5000000n,
+        quotaWindowHours: params.quotaWindowHours !== undefined ? params.quotaWindowHours : 5,
         currentUsage: 0n,
         nextResetTime: new Date(now.getTime() + 5 * 3600 * 1000),
         status: 'ACTIVE',

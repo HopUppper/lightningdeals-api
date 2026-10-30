@@ -58,11 +58,17 @@ interface VendorProviderItem {
   lastTestedAt?: string;
   lastError?: string;
   notes?: string;
+  apiCreditBaseUrl?: string;
+  tokenPackBaseUrl?: string;
+  costPerMillionInput?: number;
+  costPerMillionOutput?: number;
   activeKeyCount?: number;
   totalKeyCount?: number;
   requestCount?: number;
   errorRate?: number;
   avgLatencyMs?: number;
+  hasCreditKey?: boolean;
+  hasTokenKey?: boolean;
 }
 
 export const AdminProviders: React.FC = () => {
@@ -86,6 +92,8 @@ export const AdminProviders: React.FC = () => {
   const [providerType, setProviderType] = useState('anthropic');
   const [protocol, setProtocol] = useState('anthropic');
   const [masterApiKey, setMasterApiKey] = useState('');
+  const [creditApiKey, setCreditApiKey] = useState('');
+  const [tokenApiKey, setTokenApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('https://api.anthropic.com');
   const [isPrimary, setIsPrimary] = useState(false);
   const [status, setStatus] = useState('connected');
@@ -98,6 +106,10 @@ export const AdminProviders: React.FC = () => {
   const [modelMappingsJson, setModelMappingsJson] = useState('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
   const [headersJson, setHeadersJson] = useState('');
   const [notes, setNotes] = useState('');
+  const [apiCreditBaseUrl, setApiCreditBaseUrl] = useState('');
+  const [tokenPackBaseUrl, setTokenPackBaseUrl] = useState('');
+  const [costPerMillionInput, setCostPerMillionInput] = useState('1.5');
+  const [costPerMillionOutput, setCostPerMillionOutput] = useState('6.0');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -291,6 +303,8 @@ export const AdminProviders: React.FC = () => {
     setProviderType('custom_http');
     setProtocol('anthropic');
     setMasterApiKey('');
+    setCreditApiKey('');
+    setTokenApiKey('');
     setBaseUrl('https://api.opusmax.pro');
     setIsPrimary(false);
     setStatus('connected');
@@ -303,11 +317,15 @@ export const AdminProviders: React.FC = () => {
     setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
     setHeadersJson('');
     setNotes('');
+    setApiCreditBaseUrl('');
+    setTokenPackBaseUrl('');
+    setCostPerMillionInput('1.5');
+    setCostPerMillionOutput('6.0');
     setFormError(null);
     setShowModal(true);
   };
 
-  const applyPreset = (preset: 'opus_max' | 'anthropic_direct' | 'openai_compat') => {
+  const applyPreset = (preset: 'opus_max' | 'anthropic_direct' | 'openai_compat' | 'scalemax') => {
     if (preset === 'opus_max') {
       setName('Opus Max');
       setProviderType('custom_http');
@@ -329,12 +347,23 @@ export const AdminProviders: React.FC = () => {
       setWarningThresholdTokens('20000000');
       setCriticalThresholdTokens('5000000');
       setModelMappingsJson('{\n  "claude-sonnet-5.5": "claude-sonnet-5.5",\n  "claude-opus-5.5": "claude-opus-5.5"\n}');
-    } else if (preset === 'openai_compat') {
+        } else if (preset === 'openai_compat') {
       setName('OpenAI Gateway');
       setProviderType('openai');
       setProtocol('openai-compatible');
       setCapacityModel('lifetime_prepaid');
       setModelMappingsJson('{\n  "claude-sonnet-5": "gpt-4o",\n  "claude-opus-5": "o3-mini"\n}');
+    } else if (preset === 'scalemax') {
+      setName('ScaleMax Peer');
+      setProviderType('openai');
+      setProtocol('openai-compatible');
+      setBaseUrl('https://api.scalemax.pro/v1');
+      setApiCreditBaseUrl('https://api.scalemax.pro/v1');
+      setTokenPackBaseUrl('https://api.scalemax.pro/token/v1');
+      setStatus('disabled');
+      setCapacityModel('lifetime_prepaid');
+      setCostPerMillionInput('1.5');
+      setCostPerMillionOutput('6.0');
     }
   };
 
@@ -344,6 +373,8 @@ export const AdminProviders: React.FC = () => {
     setProviderType(p.providerType || 'anthropic');
     setProtocol(p.protocol || p.providerType || 'anthropic');
     setMasterApiKey('');
+    setCreditApiKey('');
+    setTokenApiKey('');
     setBaseUrl(p.baseUrl);
     setIsPrimary(p.isPrimary);
     setStatus(p.status || 'connected');
@@ -356,6 +387,10 @@ export const AdminProviders: React.FC = () => {
     setModelMappingsJson(p.modelMappingsJson || '');
     setHeadersJson(p.headersJson || '');
     setNotes(p.notes || '');
+    setApiCreditBaseUrl(p.apiCreditBaseUrl || '');
+    setTokenPackBaseUrl(p.tokenPackBaseUrl || '');
+    setCostPerMillionInput(p.costPerMillionInput !== undefined ? String(p.costPerMillionInput) : '1.5');
+    setCostPerMillionOutput(p.costPerMillionOutput !== undefined ? String(p.costPerMillionOutput) : '6.0');
     setFormError(null);
     setShowModal(true);
   };
@@ -386,6 +421,12 @@ export const AdminProviders: React.FC = () => {
 
       if (masterApiKey.trim()) {
         payload.masterApiKey = masterApiKey.trim();
+      }
+      if (creditApiKey.trim()) {
+        payload.creditApiKey = creditApiKey.trim();
+      }
+      if (tokenApiKey.trim()) {
+        payload.tokenApiKey = tokenApiKey.trim();
       }
 
       const url = editingProvider
@@ -1115,6 +1156,20 @@ export const AdminProviders: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span className="text-[10px] text-muted font-mono">{p.displayMasterKey}</span>
+                              <span className="inline-flex items-center gap-1">
+                                <span className={`px-1.5 py-0.2 rounded text-[8px] font-mono font-bold ${
+                                  p.hasCreditKey ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted/20 text-muted'
+                                }`}>
+                                  Credit: {p.hasCreditKey ? '● Configured' : '○ Not Set'}
+                                </span>
+                                <span className={`px-1.5 py-0.2 rounded text-[8px] font-mono font-bold ${
+                                  p.hasTokenKey
+                                    ? (p.name.toLowerCase().includes('scalemax') ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20')
+                                    : 'bg-muted/20 text-muted'
+                                }`}>
+                                  Token: {p.hasTokenKey ? (p.name.toLowerCase().includes('scalemax') ? '⚠️ Suspended' : '● Configured') : '○ Not Set'}
+                                </span>
+                              </span>
                               {p.capacityModel === 'rolling_window' && (
                                 <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20 font-mono">
                                   {p.windowHours || 5}H ROLLING ({formatTokens(p.windowAllowance || 5000000)})
@@ -1531,6 +1586,9 @@ export const AdminProviders: React.FC = () => {
                 <button type="button" onClick={() => applyPreset('openai_compat')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600/20 transition-colors">
                   OpenAI Compat
                 </button>
+                <button type="button" onClick={() => applyPreset('scalemax')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-600/10 text-indigo-600 hover:bg-indigo-600/20 transition-colors">
+                  ScaleMax Peer
+                </button>
               </div>
 
               <div>
@@ -1664,6 +1722,58 @@ export const AdminProviders: React.FC = () => {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">Pay-As-You-Go Credit Base URL</label>
+                  <input
+                    type="url"
+                    value={apiCreditBaseUrl}
+                    onChange={(e) => setApiCreditBaseUrl(e.target.value)}
+                    placeholder="https://api.scalemax.pro/v1"
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  />
+                  <p className="text-[10px] text-muted mt-0.5">ScaleMax credit deduction endpoint (/v1)</p>
+                </div>
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">Prepaid Token Pack Base URL</label>
+                  <input
+                    type="url"
+                    value={tokenPackBaseUrl}
+                    onChange={(e) => setTokenPackBaseUrl(e.target.value)}
+                    placeholder="https://api.scalemax.pro/token/v1"
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  />
+                  <p className="text-[10px] text-muted mt-0.5">ScaleMax token pack endpoint (/token/v1)</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">Provider Cost / M Input ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={costPerMillionInput}
+                    onChange={(e) => setCostPerMillionInput(e.target.value)}
+                    placeholder="1.50"
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-fg mb-1 uppercase">Provider Cost / M Output ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={costPerMillionOutput}
+                    onChange={(e) => setCostPerMillionOutput(e.target.value)}
+                    placeholder="6.00"
+                    className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-fg mb-1 uppercase">
                   Master API Key {editingProvider ? '(Leave blank to keep existing encrypted key)' : '*'}
@@ -1676,6 +1786,34 @@ export const AdminProviders: React.FC = () => {
                   placeholder={editingProvider ? '••••••••••••••••' : 'sk-ant-api03-...'}
                   className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
                 />
+              </div>
+
+              <div>
+                <label className="block font-bold text-fg mb-1 uppercase">
+                  Credit Master API Key (Pay-As-You-Go) {editingProvider?.hasCreditKey ? '(Configured — leave blank to keep)' : ''}
+                </label>
+                <input
+                  type="password"
+                  value={creditApiKey}
+                  onChange={(e) => setCreditApiKey(e.target.value)}
+                  placeholder={editingProvider?.hasCreditKey ? '•••••••••••••••• (Configured)' : 'sm_live_...'}
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                />
+                <p className="text-[10px] text-muted mt-0.5">Write-only secret used for credit deductions at apiCreditBaseUrl</p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-fg mb-1 uppercase">
+                  Token Master API Key (Prepaid Token Packs) {editingProvider?.hasTokenKey ? '(Configured — leave blank to keep)' : ''}
+                </label>
+                <input
+                  type="password"
+                  value={tokenApiKey}
+                  onChange={(e) => setTokenApiKey(e.target.value)}
+                  placeholder={editingProvider?.hasTokenKey ? '•••••••••••••••• (Configured)' : 'sm_live_...'}
+                  className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-violet-500 text-fg font-mono"
+                />
+                <p className="text-[10px] text-muted mt-0.5">Write-only secret used for token deductions at tokenPackBaseUrl</p>
               </div>
 
               <div>

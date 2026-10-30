@@ -5,7 +5,8 @@ import { DiscoverySource, DiscoveryStatus, DiscoveryConfidence } from '../provid
 export interface UpstreamMasterMetrics {
   providerId: string;
   providerName: string;
-  capacityModel: 'lifetime_prepaid' | 'rolling_window';
+  capacityModel: 'lifetime_prepaid' | 'rolling_window' | 'credit';
+  billingModel?: string;
   windowHours: number;
   upstreamLimit: number | null;
   upstreamConsumedLifetime: number;
@@ -156,7 +157,7 @@ export async function getUpstreamMasterAccounting(providerId?: string): Promise<
   const warningThresh = Math.min(Number(provider.warningThresholdTokens || 20000000), Math.max(2000, Math.round(baseLimit * 0.2)));
 
   let status: 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'DEPLETED' | 'NOT_CONFIGURED' = 'HEALTHY';
-  if (provider.status === 'disabled' || !provider.masterApiKeyEncrypted) {
+  if (provider.status === 'disabled' || (!provider.masterApiKeyEncrypted && !provider.creditApiKeyEncrypted && !provider.tokenApiKeyEncrypted)) {
     status = 'NOT_CONFIGURED';
   } else if (effectiveAvailableTokens <= 0) {
     status = 'DEPLETED';
@@ -170,6 +171,7 @@ export async function getUpstreamMasterAccounting(providerId?: string): Promise<
     providerId: provider.id,
     providerName: provider.name,
     capacityModel: (provider.capacityModel as any) || 'rolling_window',
+    billingModel: provider.billingModel || 'rolling_window',
     windowHours,
     upstreamLimit: limitTokens,
     upstreamConsumedLifetime: consumedLifetime,

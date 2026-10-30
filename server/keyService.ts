@@ -108,19 +108,28 @@ export async function generateProviderApiKey(options: {
   const provider = await resolveProviderForNewKey(options.providerId);
   const keyPrefix = determineKeyPrefix(provider, Boolean(options.isTrial));
 
-  const randomEntropy = crypto.randomBytes(24).toString('hex'); // 48 chars
-  const rawKeySecret = `${keyPrefix}${randomEntropy}`;
-  const keyHash = crypto.createHash('sha256').update(rawKeySecret).digest('hex');
-  const displayKey = `${keyPrefix}${randomEntropy.substring(0, 6)}...${randomEntropy.substring(randomEntropy.length - 4)}`;
+  let attempts = 0;
+  while (attempts < 5) {
+    const randomEntropy = crypto.randomBytes(24).toString('hex'); // 48 chars
+    const rawKeySecret = `${keyPrefix}${randomEntropy}`;
+    const keyHash = crypto.createHash('sha256').update(rawKeySecret).digest('hex');
 
-  return {
-    providerId: provider.id,
-    providerName: provider.name,
-    rawKeySecret,
-    keyPrefix,
-    keyHash,
-    displayKey,
-  };
+    // Collision protection: verify hash does not already exist
+    const collision = await prisma.apiKey.findUnique({ where: { keyHash } });
+    if (!collision) {
+      const displayKey = `${keyPrefix}${randomEntropy.substring(0, 6)}...${randomEntropy.substring(randomEntropy.length - 4)}`;
+      return {
+        providerId: provider.id,
+        providerName: provider.name,
+        rawKeySecret,
+        keyPrefix,
+        keyHash,
+        displayKey,
+      };
+    }
+    attempts++;
+  }
+  throw new Error('Failed to generate unique API key material after multiple attempts.');
 }
 
 /**
@@ -144,10 +153,18 @@ export async function generateRotatedKeyMaterial(existingKey: {
     prefix = isTrial ? 'sk_trial_' : 'sk_live_';
   }
 
-  const randomEntropy = crypto.randomBytes(24).toString('hex');
-  const rawKeySecret = `${prefix}${randomEntropy}`;
-  const keyHash = crypto.createHash('sha256').update(rawKeySecret).digest('hex');
-  const displayKey = `${prefix}${randomEntropy.substring(0, 6)}...${randomEntropy.substring(randomEntropy.length - 4)}`;
+  let attempts = 0;
+  while (attempts < 5) {
+    const randomEntropy = crypto.randomBytes(24).toString('hex');
+    const rawKeySecret = `${prefix}${randomEntropy}`;
+    const keyHash = crypto.createHash('sha256').update(rawKeySecret).digest('hex');
 
-  return { rawKeySecret, keyPrefix: prefix, keyHash, displayKey };
+    const collision = await prisma.apiKey.findUnique({ where: { keyHash } });
+    if (!collision) {
+      const displayKey = `${prefix}${randomEntropy.substring(0, 6)}...${randomEntropy.substring(randomEntropy.length - 4)}`;
+      return { rawKeySecret, keyPrefix: prefix, keyHash, displayKey };
+    }
+    attempts++;
+  }
+  throw new Error('Failed to generate unique rotated API key material after multiple attempts.');
 }

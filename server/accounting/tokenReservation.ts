@@ -1,6 +1,60 @@
 import { prisma } from '../db';
 
 // Fast in-memory cache for ultra-low latency gateway lookup
+// Credit plan in-flight reservation tracking
+export const inFlightCreditReservations = new Map<string, number>();
+export const inFlightCreditByRequest = new Map<string, { keyId: string; amount: number }>();
+
+export function reserveCredits(keyId: string, amount = 0.005, requestId?: string) {
+  const current = inFlightCreditReservations.get(keyId) || 0;
+  inFlightCreditReservations.set(keyId, current + amount);
+  if (requestId) {
+    inFlightCreditByRequest.set(requestId, { keyId, amount });
+  }
+}
+
+export function releaseCreditReservation(keyId: string, amount = 0.005) {
+  const current = inFlightCreditReservations.get(keyId) || 0;
+  inFlightCreditReservations.set(keyId, Math.max(0, current - amount));
+}
+
+export function releaseCreditForRequest(requestId: string): boolean {
+  const res = inFlightCreditByRequest.get(requestId);
+  if (res) {
+    inFlightCreditByRequest.delete(requestId);
+    releaseCreditReservation(res.keyId, res.amount);
+    return true;
+  }
+  return false;
+}
+
+// Token plan in-flight reservation tracking
+export const inFlightTokenReservations = new Map<string, number>();
+export const inFlightTokensByRequest = new Map<string, { keyId: string; amount: number }>();
+
+export function reserveInFlightTokens(keyId: string, amount = 1000, requestId?: string) {
+  const current = inFlightTokenReservations.get(keyId) || 0;
+  inFlightTokenReservations.set(keyId, current + amount);
+  if (requestId) {
+    inFlightTokensByRequest.set(requestId, { keyId, amount });
+  }
+}
+
+export function releaseInFlightTokens(keyId: string, amount = 1000) {
+  const current = inFlightTokenReservations.get(keyId) || 0;
+  inFlightTokenReservations.set(keyId, Math.max(0, current - amount));
+}
+
+export function releaseInFlightTokensForRequest(requestId: string): boolean {
+  const res = inFlightTokensByRequest.get(requestId);
+  if (res) {
+    inFlightTokensByRequest.delete(requestId);
+    releaseInFlightTokens(res.keyId, res.amount);
+    return true;
+  }
+  return false;
+}
+
 interface MemoryReservation {
   apiKeyId?: string;
   providerId?: string;
@@ -164,11 +218,41 @@ export async function reserveCustomerQuota({
         const activeReservations = resAgg._sum.tokens || 0;
 
         // 3. Evaluate customer entitlement based on plan model
+        const bType = key.billingType || (isRollingPlan(key) ? 'window' : 'token');
         const isRolling = isRollingPlan(key);
         const purchasedNum = Number(key.purchasedTokens || 0);
         let availableTokens = 0;
 
-        if (isRolling) {
+        if (bType === 'credit') {
+          // Usage Credit Plan: Validates USD balance & active in-flight credit reservations
+          const creditBal = Number(key.creditBalanceUsd || 0);
+          if (creditBal <= 0) {
+            return {
+              success: false,
+              code: 'QUOTA_EXHAUSTED',
+              message: 'Account usage credit balance exhausted ($0.00 remaining). Please top up credits in your dashboard.',
+              availableTokens: 0,
+              reservedTokens: activeReservations,
+              isRollingWindow: false,
+            };
+          }
+
+          const inFlightCredit = inFlightCreditReservations.get(apiKeyId) || 0;
+          const availableCreditToSpend = creditBal - inFlightCredit;
+          if (availableCreditToSpend <= 0) {
+            return {
+              success: false,
+              code: 'QUOTA_EXHAUSTED',
+              message: 'Usage credit balance is reserved by concurrent in-flight requests. Please wait for active requests to complete or top up.',
+              availableTokens: 0,
+              reservedTokens: activeReservations,
+              isRollingWindow: false,
+            };
+          }
+
+          // Convert available USD credit to an equivalent token headroom (approx ~200k tokens per $1 at $5/M blended rate)
+          availableTokens = Math.max(1000, Math.floor(availableCreditToSpend * 200000));
+        } else if (isRolling) {
           // Rolling-window plan (e.g. 2M or 5M tokens per 5 hours)
           const windowHours = key.windowHours || 5;
           const windowStart = new Date(now.getTime() - windowHours * 3600 * 1000);
@@ -212,7 +296,9 @@ export async function reserveCustomerQuota({
             };
           }
 
-          const rawAvailable = tokensRemainingNum - activeReservations;
+          const inFlight = inFlightTokenReservations.get(apiKeyId) || 0;
+          const totalActiveReservations = Math.max(activeReservations, inFlight);
+          const rawAvailable = tokensRemainingNum - totalActiveReservations;
           availableTokens = Math.max(0, rawAvailable);
 
           if (rawAvailable < effectiveEstimatedTokens) {
@@ -221,7 +307,7 @@ export async function reserveCustomerQuota({
               code: 'QUOTA_EXHAUSTED',
               message: `Insufficient token balance: You have ${availableTokens.toLocaleString()} tokens available, but this request requires an estimated ${effectiveEstimatedTokens.toLocaleString()} tokens. Please recharge your API key.`,
               availableTokens,
-              reservedTokens: activeReservations,
+              reservedTokens: totalActiveReservations,
               isRollingWindow: false,
             };
           }
@@ -254,6 +340,7 @@ export async function reserveCustomerQuota({
           tokens: effectiveEstimatedTokens,
           expiresAtMs: expiresAt.getTime(),
         });
+        reserveInFlightTokens(apiKeyId, effectiveEstimatedTokens, requestId);
 
         return {
           success: true,
@@ -344,6 +431,8 @@ export async function reserveTokens({
  */
 export async function settleReservation(requestId: string): Promise<void> {
   memoryReservations.delete(requestId);
+  releaseCreditForRequest(requestId);
+  releaseInFlightTokensForRequest(requestId);
 
   try {
     await prisma.tokenReservation.updateMany({
@@ -360,6 +449,8 @@ export async function settleReservation(requestId: string): Promise<void> {
  */
 export async function releaseReservation(requestId: string): Promise<void> {
   memoryReservations.delete(requestId);
+  releaseCreditForRequest(requestId);
+  releaseInFlightTokensForRequest(requestId);
 
   try {
     await prisma.tokenReservation.updateMany({

@@ -284,22 +284,47 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
 
     let createdApiKey: any = null;
 
-    // Check if API key is needed (Prepaid / AI gateway tokens)
-    if (tokenAllowanceBigInt > 0n || plan.windowHours > 0) {
+    // Multi-Provider & Multi-Plan Key Provisioning (Credit, Token Pack, Rolling Window)
+    const isCreditPlan = plan.planType === 'credit' || (order.orderType === 'CREDIT_PACK') || (order.creditsPurchased && Number(order.creditsPurchased) > 0);
+    const isTokenPack = plan.planType === 'token' || (order.orderType === 'TOKEN_PACK') || (order.tokensPurchased && Number(order.tokensPurchased) > 0);
+    const isWindowPlan = !isCreditPlan && !isTokenPack;
+
+    if (isCreditPlan || isTokenPack || tokenAllowanceBigInt > 0n || plan.windowHours > 0) {
+      const retailMultiplier = Number(plan.retailMultiplier || plan.creditMultiplier || 7.0);
+      const baseCreditAmount = Number(order.creditsPurchased || plan.creditAmountUsd || (Number(order.amountInr) * retailMultiplier));
+      const bonusCreditAmount = Number(order.bonusCredits || plan.bonusCreditsUsd || 0);
+      const totalCreditBalance = isCreditPlan ? baseCreditAmount + bonusCreditAmount : 0;
+
+      const keyBillingType = isCreditPlan ? 'credit' : isTokenPack ? 'token' : 'window';
+
+      let keyProviderId = providerId;
+      if (isCreditPlan || isTokenPack) {
+        const scalemax = await prisma.vendorProvider.findFirst({
+          where: { slug: 'scalemax', status: { not: 'disabled' } },
+        });
+        if (scalemax) keyProviderId = scalemax.id;
+      }
+
+      const finalPurchasedTokens = isTokenPack
+        ? BigInt(order.tokensPurchased || tokenAllowanceBigInt)
+        : isCreditPlan ? 0n : tokenAllowanceBigInt;
+
       createdApiKey = await prisma.apiKey.create({
         data: {
           userId: order.userId,
-          providerId,
+          providerId: keyProviderId,
           keyPrefix,
           keyHash,
           displayKey,
           keyEncrypted: encryptText(rawKeySecret),
-          name: `Claude Max ${plan.name} (${order.internalOrderId.substring(0, 8)})`,
+          name: `${plan.name} (${order.internalOrderId.substring(0, 8)})`,
           type: 'production',
           status: 'active',
-          purchasedTokens: tokenAllowanceBigInt,
+          billingType: keyBillingType,
+          creditBalanceUsd: totalCreditBalance,
+          purchasedTokens: finalPurchasedTokens,
           tokensUsed: 0n,
-          tokensRemaining: tokenAllowanceBigInt,
+          tokensRemaining: finalPurchasedTokens,
           plan: plan.name,
           rateLimitRpm: plan.rateLimitRpm || 100,
           maxConcurrency: 5,
@@ -311,13 +336,67 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         data: {
           userId: order.userId,
           apiKeyId: createdApiKey.id,
-          amount: tokenAllowanceBigInt,
-          balanceAfter: tokenAllowanceBigInt,
+          amount: isCreditPlan ? BigInt(Math.floor(totalCreditBalance)) : finalPurchasedTokens,
+          balanceAfter: isCreditPlan ? BigInt(Math.floor(totalCreditBalance)) : finalPurchasedTokens,
           type: 'PURCHASE',
           reference: order.internalOrderId,
-          notes: `Automated fulfillment for ${plan.displayName}`,
+          notes: isCreditPlan
+            ? `Automated credit fulfillment for ${plan.displayName} (${totalCreditBalance} usage credits)`
+            : `Automated fulfillment for ${plan.displayName}`,
         },
       });
+
+      // Maintain separate immutable CustomerUsageCreditLedger and FinancialAccountingLedger
+      if (isCreditPlan) {
+        await prisma.customerUsageCreditLedger.create({
+          data: {
+            userId: order.userId,
+            apiKeyId: createdApiKey.id,
+            orderId: order.id,
+            type: 'CREDITS_GRANTED',
+            amount: baseCreditAmount,
+            balanceBefore: 0,
+            balanceAfter: baseCreditAmount,
+            currency: 'USD',
+            reference: order.internalOrderId,
+            notes: `Purchased usage credits for ${plan.displayName}`,
+            configVersion: (order as any).configVersion || (plan as any).configVersion || 1,
+            pricingSnapshotJson: order.pricingSnapshotJson,
+          },
+        });
+
+        if (bonusCreditAmount > 0) {
+          await prisma.customerUsageCreditLedger.create({
+            data: {
+              userId: order.userId,
+              apiKeyId: createdApiKey.id,
+              orderId: order.id,
+              type: 'PROMOTIONAL_BONUS',
+              amount: bonusCreditAmount,
+              balanceBefore: baseCreditAmount,
+              balanceAfter: totalCreditBalance,
+              currency: 'USD',
+              reference: order.internalOrderId,
+              notes: `Promotional bonus credits for ${plan.displayName}`,
+              configVersion: (order as any).configVersion || (plan as any).configVersion || 1,
+              pricingSnapshotJson: order.pricingSnapshotJson,
+            },
+          });
+        }
+
+        await prisma.financialAccountingLedger.create({
+          data: {
+            orderId: order.id,
+            type: 'CUSTOMER_PAYMENT',
+            grossRevenueInr: order.amountInr,
+            grossRevenueUsd: order.currency === 'USD' ? order.amountInr : (order.amountInr / 86.5),
+            processingFeeUsd: ((order.currency === 'USD' ? order.amountInr : order.amountInr / 86.5) * 0.025),
+            cashExchangeRate: order.currency === 'USD' ? 1.0 : 86.5,
+            reference: order.internalOrderId,
+            notes: `Customer payment for ${plan.displayName}`,
+          },
+        });
+      }
     }
 
     // 8. SUBSCRIPTION LIFECYCLE: Activate New or Extend Existing Subscription
@@ -331,6 +410,8 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         apiKeyId: createdApiKey?.id,
         durationDays,
         billingPeriod,
+        quotaLimit: isCreditPlan ? 0n : plan.tokenAllowance,
+        quotaWindowHours: isCreditPlan ? 0 : plan.windowHours,
         existingSubscriptionId: order.subscriptionId || undefined,
         notes: `Fulfilled via ${order.internalOrderId} (${billingPeriod.toUpperCase()}, ${durationDays} days)`,
       });

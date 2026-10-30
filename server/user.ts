@@ -17,7 +17,7 @@ import {
 } from './authSecurity';
 import { extractClientIp, resolveIpLocation } from './geoService';
 import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
-import { generateProviderApiKey } from './keyService';
+import { generateProviderApiKey, generateRotatedKeyMaterial } from './keyService';
 import { buildProviderRequest } from './providerAdapter';
 import { sanitizeErrorMessage, sanitizeModelResponse, getFriendlyModelName } from './gateway';
 import { ReferralEngine } from './referrals/referralEngine';
@@ -1171,10 +1171,13 @@ router.post('/auth/reset-password', async (req: Request, res: Response) => {
 
 // POST /api/user/keys — Generate API Key (Requires Verified Email)
 router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequest, res: Response) => {
-  const { name, plan } = req.body;
+  const { name, plan, billingType } = req.body;
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: { message: 'API key name is required.' } });
   }
+
+  const validBillingTypes = ['window', 'credit', 'token'];
+  const effectiveBillingType = billingType && validBillingTypes.includes(billingType) ? billingType : 'window';
 
   try {
     const keyMaterial = await generateProviderApiKey({ isTrial: false });
@@ -1190,8 +1193,10 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
         keyEncrypted: encryptText(rawKeySecret),
         name: name.trim(),
         purchasedTokens: BigInt(1000000),
-        tokensRemaining: BigInt(1000000),
-        plan: plan || 'Prepaid',
+        tokensRemaining: effectiveBillingType === 'token' ? BigInt(1000000) : BigInt(0),
+        creditBalanceUsd: effectiveBillingType === 'credit' ? 0.0 : 0.0,
+        billingType: effectiveBillingType,
+        plan: plan || (effectiveBillingType === 'credit' ? 'Usage Credit' : effectiveBillingType === 'token' ? 'Prepaid Token Pack' : 'Prepaid'),
       },
     });
 
@@ -1200,19 +1205,72 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
       email: req.user!.email,
       req,
       eventType: 'API_KEY_CREATED',
-      metadata: { apiKeyId: key.id, keyPrefix: key.keyPrefix },
+      metadata: { apiKeyId: key.id, keyPrefix: key.keyPrefix, billingType: effectiveBillingType },
     });
 
     const { keyEncrypted: _unusedKeyEnc, ...safeKeyFields } = key;
     res.status(201).json({
       key: {
         ...safeKeyFields,
+        billingType: key.billingType,
+        creditBalanceUsd: Number(key.creditBalanceUsd || 0),
         purchasedTokens: key.purchasedTokens.toString(),
         tokensUsed: key.tokensUsed.toString(),
         tokensRemaining: key.tokensRemaining.toString(),
         totalInputTokens: key.totalInputTokens.toString(),
         totalOutputTokens: key.totalOutputTokens.toString(),
         secretKey: rawKeySecret, // Exposed ONCE on creation
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/keys/:id/rotate — Rotate Customer's Own API Key (IDOR Protected)
+router.post('/keys/:id/rotate', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const key = await prisma.apiKey.findFirst({
+      where: { id: req.params.id, userId: req.user!.id },
+    });
+
+    if (!key) {
+      return res.status(404).json({ error: { message: 'API key not found or unauthorized.' } });
+    }
+
+    if (key.status === 'revoked') {
+      return res.status(400).json({ error: { message: 'Cannot rotate a revoked API key.' } });
+    }
+
+    const keyMaterial = await generateRotatedKeyMaterial(key);
+
+    const updated = await prisma.apiKey.update({
+      where: { id: key.id },
+      data: {
+        keyPrefix: keyMaterial.keyPrefix,
+        keyHash: keyMaterial.keyHash,
+        displayKey: keyMaterial.displayKey,
+        keyEncrypted: encryptText(keyMaterial.rawKeySecret),
+        status: 'active',
+      },
+    });
+
+    await recordSecurityLog({
+      userId: req.user!.id,
+      email: req.user!.email,
+      req,
+      eventType: 'API_KEY_ROTATED',
+      metadata: { apiKeyId: key.id, displayKey: updated.displayKey },
+    });
+
+    res.json({
+      success: true,
+      key: {
+        id: updated.id,
+        name: updated.name,
+        displayKey: updated.displayKey,
+        status: updated.status,
+        secretKey: keyMaterial.rawKeySecret, // Returned ONCE upon rotation
       },
     });
   } catch (err: any) {
@@ -1501,7 +1559,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
           success: false,
           error: {
             code: 'UPSTREAM_QUOTA_REFILL',
-            message: 'AI Gateway Capacity Peak: The upstream provider key is currently refilling its 5-hour rolling token window. Zero tokens were deducted from your balance. Please retry once refilled, or add an active master key in Admin > Providers.',
+            message: 'AI Gateway Capacity Peak: The capacity cluster is currently cycling its 5-hour rolling token window. Zero tokens were deducted from your balance. Please retry shortly.',
           },
           usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
           latencyMs,
@@ -2142,6 +2200,9 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           isOverAllocated,
           totalInputTokens: k.totalInputTokens?.toString() ?? '0',
           totalOutputTokens: k.totalOutputTokens?.toString() ?? '0',
+          billingType: k.billingType || 'window',
+          creditBalanceUsd: k.creditBalanceUsd !== null && k.creditBalanceUsd !== undefined ? Number(k.creditBalanceUsd) : 0,
+          totalCreditsUsedUsd: k.totalCreditsUsedUsd !== null && k.totalCreditsUsedUsd !== undefined ? Number(k.totalCreditsUsedUsd) : 0,
           expiresAt: k.expiresAt,
           lastPlatform: k.lastPlatform || null,
           lastUsedAt: k.lastUsedAt || null,
@@ -2198,14 +2259,31 @@ router.get('/plan', authenticateJwt, async (req: AuthRequest, res: Response) => 
 
     let totalWindowAllowance = 0n;
     let totalRemaining = 0n;
+    let totalCreditBalanceUsd = 0;
+    let hasCreditKey = false;
+    let hasTokenKey = false;
+
     keys.forEach((k) => {
-      totalWindowAllowance += k.purchasedTokens;
-      totalRemaining += k.tokensRemaining;
+      if (k.billingType === 'credit') {
+        hasCreditKey = true;
+        totalCreditBalanceUsd += Number(k.creditBalanceUsd || 0);
+      } else if (k.billingType === 'token') {
+        hasTokenKey = true;
+        totalRemaining += k.tokensRemaining;
+        totalWindowAllowance += k.purchasedTokens;
+      } else {
+        totalWindowAllowance += k.purchasedTokens;
+        totalRemaining += k.tokensRemaining;
+      }
     });
 
+    const primaryBillingType = hasCreditKey ? 'credit' : hasTokenKey ? 'token' : 'window';
+
     res.json({
-      planName: keys.length > 0 ? (keys[0].plan || 'Prepaid API Token Plan') : 'No Active Plan',
+      planName: keys.length > 0 ? (keys[0].plan || 'API Plan') : 'No Active Plan',
       status: req.user!.emailVerified ? 'active' : 'pending_verification',
+      billingType: primaryBillingType,
+      creditBalanceUsd: Math.round(totalCreditBalanceUsd * 100) / 100,
       windowAllowance: totalWindowAllowance.toString(),
       tokensRemaining: totalRemaining.toString(),
       activeKeysCount: keys.length,
@@ -2218,6 +2296,9 @@ router.get('/plan', authenticateJwt, async (req: AuthRequest, res: Response) => 
 // GET /api/user/usage — Get Current User Usage & Metrics (Derived strictly from req.user.id)
 router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+
     const keys = await prisma.apiKey.findMany({
       where: { userId: req.user!.id },
       orderBy: { createdAt: 'desc' },
@@ -2226,16 +2307,25 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
     let totalPurchased = 0n;
     let totalUsed = 0n;
     let totalRemaining = 0n;
+    let totalCreditBalanceUsd = 0;
+    let totalCreditsUsedUsd = 0;
+    let hasCreditKey = false;
 
     for (const k of keys) {
-      totalPurchased += k.purchasedTokens;
-      totalUsed += k.tokensUsed;
-      const metrics = await calculateCustomerRollingWindow(k);
-      totalRemaining += BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+      if (k.billingType === 'credit') {
+        hasCreditKey = true;
+        totalCreditBalanceUsd += Number(k.creditBalanceUsd || 0);
+        totalCreditsUsedUsd += Number(k.totalCreditsUsedUsd || 0);
+      } else {
+        totalPurchased += k.purchasedTokens;
+        totalUsed += k.tokensUsed;
+        const metrics = await calculateCustomerRollingWindow(k);
+        totalRemaining += BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+      }
     }
 
-    // No default allowance for keyless users — must be assigned by admin or purchased
-    if (totalPurchased === 0n) {
+    // No default allowance for keyless users - must be assigned by admin or purchased
+    if (totalPurchased === 0n && !hasCreditKey) {
       totalPurchased = 0n;
       totalRemaining = 0n;
     }
@@ -2244,19 +2334,69 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
     const recentRequests = keyIds.length > 0 ? await prisma.apiRequest.findMany({
       where: { apiKeyId: { in: keyIds } },
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      skip: offset,
+      take: limit,
+      select: {
+        id: true,
+        model: true,
+        statusCode: true,
+        inputTokens: true,
+        outputTokens: true,
+        totalTokens: true,
+        latencyMs: true,
+        streaming: true,
+        usageSource: true,
+        createdAt: true,
+      },
     }) : [];
 
     const ledgerEntries = await prisma.tokenLedger.findMany({
       where: { userId: req.user!.id },
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      skip: offset,
+      take: limit,
+      select: {
+        id: true,
+        amount: true,
+        balanceAfter: true,
+        type: true,
+        reference: true,
+        notes: true,
+        createdAt: true,
+      },
+    });
+
+    // Sanitized credit ledger entries (strictly omit pricingSnapshotJson to protect wholesale provider rates)
+    const rawCreditLedgerEntries = await prisma.customerUsageCreditLedger.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limit,
+      select: {
+        id: true,
+        type: true,
+        amount: true,
+        balanceBefore: true,
+        balanceAfter: true,
+        currency: true,
+        model: true,
+        inputTokens: true,
+        outputTokens: true,
+        cachedTokens: true,
+        reference: true,
+        notes: true,
+        createdAt: true,
+      },
     });
 
     res.json({
       totalPurchased: totalPurchased.toString(),
       totalUsed: totalUsed.toString(),
       totalRemaining: totalRemaining.toString(),
+      hasCreditKey,
+      creditBalanceUsd: Math.round(totalCreditBalanceUsd * 100) / 100,
+      totalCreditsUsedUsd: Math.round(totalCreditsUsedUsd * 100) / 100,
+      creditLedgerEntries: rawCreditLedgerEntries,
       activeKeysCount: keys.filter(k => k.status === 'active').length,
       recentRequests: recentRequests.map(r => ({
         ...r,
@@ -2271,6 +2411,79 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
         amount: (l.amount ?? 0n).toString(),
         balanceAfter: (l.balanceAfter ?? 0n).toString(),
       })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// GET /api/user/transactions — Unified Customer Transaction & Ledger History (IDOR Protected)
+router.get('/transactions', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+
+    const [creditLedgers, tokenLedgers, purchases] = await Promise.all([
+      prisma.customerUsageCreditLedger.findMany({
+        where: { userId: req.user!.id },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          balanceBefore: true,
+          balanceAfter: true,
+          currency: true,
+          model: true,
+          reference: true,
+          notes: true,
+          createdAt: true,
+        },
+      }),
+      prisma.tokenLedger.findMany({
+        where: { userId: req.user!.id },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          balanceAfter: true,
+          reference: true,
+          notes: true,
+          createdAt: true,
+        },
+      }),
+      prisma.purchase.findMany({
+        where: { userId: req.user!.id },
+        orderBy: { purchaseDate: 'desc' },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          productName: true,
+          description: true,
+          amountPaid: true,
+          channel: true,
+          status: true,
+          referenceId: true,
+          purchaseDate: true,
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      creditTransactions: creditLedgers,
+      tokenTransactions: tokenLedgers.map((t) => ({
+        ...t,
+        amount: t.amount.toString(),
+        balanceAfter: t.balanceAfter.toString(),
+      })),
+      purchases,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

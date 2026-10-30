@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import crypto from 'crypto';
 
-import { handleMessagesEndpoint } from './gateway';
+import { handleMessagesEndpoint, handleChatCompletionsEndpoint } from './gateway';
 import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
 import adminRouter from './admin';
 import adminAuthRouter from './adminAuth';
@@ -186,6 +186,7 @@ app.post('/api/analytics/beacon', handleAnalyticsBeacon);
 app.get('/v1', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
 app.get('/v1/', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
 app.post('/v1/messages', handleMessagesEndpoint);
+app.post('/v1/chat/completions', handleChatCompletionsEndpoint);
 app.get('/v1/models', handleGetModels);
 app.post('/v1/messages/count_tokens', handleCountTokens);
 
@@ -225,6 +226,12 @@ export const serializePublicPlans = (plansList: any[]) => {
     featured: p.featured || false,
     enabled: p.enabled,
     sortOrder: p.displayOrder,
+    planType: p.planType || 'window',
+    creditMultiplier: p.creditMultiplier,
+    creditAmountUsd: p.creditAmountUsd,
+    bonusCreditsUsd: p.bonusCreditsUsd,
+    bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : undefined,
+    allowedModelFamilies: p.allowedModelFamilies,
   }));
 };
 
@@ -245,7 +252,7 @@ const getPublicPackagesHandler = async (req: express.Request, res: express.Respo
 app.get('/api/pricing/packages', getPublicPackagesHandler);
 app.get('/api/plans', getPublicPackagesHandler);
 
-import { checkoutRouter, handlePaymentWebhook, handlePayUOrderRedirect } from './payments/paymentRoutes';
+import { checkoutRouter, handlePaymentWebhook, handleCashfreeWebhook, handlePayUOrderRedirect } from './payments/paymentRoutes';
 
 import { healthRouter } from './health';
 import { notificationsRouter } from './notifications';
@@ -291,7 +298,7 @@ app.use('/api/checkout', checkoutRouter);
 app.get('/pay/:orderId', handlePayUOrderRedirect);
 app.post('/api/webhooks/payment', handlePaymentWebhook);
 app.post('/api/webhooks/payu', handlePaymentWebhook);
-app.post('/api/webhooks/cashfree', handlePaymentWebhook);
+app.post('/api/webhooks/cashfree', handleCashfreeWebhook);
 
 app.use('/api/user/studio', studioRouter);
 app.use('/api/user', userRouter);

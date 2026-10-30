@@ -22,6 +22,13 @@ export interface ServerPlan {
   featured: boolean;
   enabled: boolean;
   displayOrder: number;
+  planType?: 'window' | 'credit' | 'token';
+  creditMultiplier?: number;
+  creditAmountUsd?: number;
+  bonusCreditsUsd?: number;
+  bonusTokens?: bigint;
+  providerScope?: string;
+  allowedModelFamilies?: string[];
 }
 
 export interface PlanPricingCalculation {
@@ -201,6 +208,66 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     enabled: true,
     displayOrder: 4,
   },
+  credit_starter: {
+    id: 'credit_starter',
+    slug: 'credit_starter',
+    name: 'Credit Starter',
+    displayName: 'Credit Starter ($50 ScaleMax Credits)',
+    tokenAllowance: 0n,
+    tokenDisplay: '$50 SCALE-MAX CREDITS',
+    windowHours: 0,
+    validityDays: 90,
+    rateLimitRpm: 120,
+    priceInr: 3999,
+    originalPriceInr: 4999,
+    currency: 'INR',
+    tagline: 'ScaleMax credit-based pay-as-you-go balance for coding and LLM completions',
+    badge: 'PAY AS YOU GO',
+    features: [
+      '$50 USD Usage Credit Balance',
+      '90-Day Flexible Validity',
+      'Claude Sonnet & Opus Access',
+      'Sub-50ms Gateway Routing',
+      'Instant Automated Delivery',
+    ],
+    featured: false,
+    enabled: true,
+    displayOrder: 5,
+    planType: 'credit',
+    creditMultiplier: 7.0,
+    creditAmountUsd: 50.0,
+    bonusCreditsUsd: 5.0,
+    providerScope: 'scalemax',
+  },
+  token_pack_50m: {
+    id: 'token_pack_50m',
+    slug: 'token_pack_50m',
+    name: 'Token Pack 50M',
+    displayName: 'Token Pack (50M Consumable Tokens)',
+    tokenAllowance: 50000000n,
+    tokenDisplay: '50M CONSUMABLE TOKENS',
+    windowHours: 0,
+    validityDays: 90,
+    rateLimitRpm: 120,
+    priceInr: 4999,
+    originalPriceInr: 6999,
+    currency: 'INR',
+    tagline: 'ScaleMax high-volume consumable token pack without 5-hour window resets',
+    badge: 'CONSUMABLE PACK',
+    features: [
+      '50,000,000 Consumable Tokens',
+      '90-Day Flexible Validity',
+      'Consumable Quota (No 5-Hour Reset)',
+      'Claude Sonnet & Haiku Access',
+      'Instant Automated Delivery',
+    ],
+    featured: false,
+    enabled: true,
+    displayOrder: 6,
+    planType: 'token',
+    bonusTokens: 5000000n,
+    providerScope: 'scalemax',
+  },
 };
 
 export const FREE_TRIAL_PLAN: ServerPlan = {
@@ -234,7 +301,7 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
       where: {
         status: 'active',
         enabled: true,
-        priceInr: { gte: 500 },
+        priceInr: { gte: 50 },
         NOT: {
           OR: [
             { id: { in: ['free_trial', 'trial'] } },
@@ -247,7 +314,7 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
     });
 
     if (dbPlans && dbPlans.length > 0) {
-      return dbPlans.map((p) => {
+      const mapped: any[] = dbPlans.map((p) => {
         let features: string[] = [];
         if (p.featuresJson) {
           try {
@@ -276,8 +343,25 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
           featured: p.featured,
           enabled: p.enabled,
           displayOrder: p.sortOrder,
+          planType: (p.planType as any) || 'window',
+          creditMultiplier: p.creditMultiplier !== null && p.creditMultiplier !== undefined ? Number(p.creditMultiplier) : (p.planType === 'credit' ? 7.0 : undefined),
+          creditAmountUsd: p.creditAmountUsd !== null && p.creditAmountUsd !== undefined ? Number(p.creditAmountUsd) : undefined,
+          bonusCreditsUsd: p.bonusCreditsUsd !== null && p.bonusCreditsUsd !== undefined ? Number(p.bonusCreditsUsd) : undefined,
+          bonusTokens: p.bonusTokens !== null && p.bonusTokens !== undefined ? BigInt(p.bonusTokens) : undefined,
+          providerScope: p.providerScope || 'all',
         };
       });
+      const hasCredit = mapped.some((p: any) => p.planType === 'credit');
+      const hasToken = mapped.some((p: any) => p.planType === 'token');
+      if (!hasCredit || !hasToken) {
+        const memPlans = getAllActivePlans();
+        for (const mp of memPlans) {
+          if (!mapped.some((p: any) => p.id === mp.id || p.slug === mp.slug)) {
+            mapped.push(mp);
+          }
+        }
+      }
+      return mapped;
     }
   } catch (err) {
     console.warn('Error querying DB plans, using memory fallback:', err);
@@ -337,6 +421,12 @@ export async function getPlanByIdAsync(planId: string): Promise<ServerPlan | nul
         featured: dbPlan.featured,
         enabled: dbPlan.enabled,
         displayOrder: dbPlan.sortOrder,
+        planType: (dbPlan.planType as any) || 'window',
+        creditMultiplier: dbPlan.creditMultiplier !== null && dbPlan.creditMultiplier !== undefined ? Number(dbPlan.creditMultiplier) : (dbPlan.planType === 'credit' ? 7.0 : undefined),
+        creditAmountUsd: dbPlan.creditAmountUsd !== null && dbPlan.creditAmountUsd !== undefined ? Number(dbPlan.creditAmountUsd) : undefined,
+        bonusCreditsUsd: dbPlan.bonusCreditsUsd !== null && dbPlan.bonusCreditsUsd !== undefined ? Number(dbPlan.bonusCreditsUsd) : undefined,
+        bonusTokens: dbPlan.bonusTokens !== null && dbPlan.bonusTokens !== undefined ? BigInt(dbPlan.bonusTokens) : undefined,
+        providerScope: dbPlan.providerScope || 'all',
       };
     }
   } catch (err) {
@@ -363,6 +453,12 @@ export function getPlanById(planId: string): ServerPlan | null {
     cleanId === '36b000a6-69da-4b3d-9574-68f2769a765d'
   ) {
     return AUTHORITATIVE_PLANS['max_100x'];
+  }
+  if (cleanId === 'credit_starter' || cleanId === 'credit_pack' || cleanId === 'credit_50') {
+    return AUTHORITATIVE_PLANS['credit_starter'];
+  }
+  if (cleanId === 'token_pack_50m' || cleanId === 'token_pack' || cleanId === 'tokens_50m') {
+    return AUTHORITATIVE_PLANS['token_pack_50m'];
   }
 
   const plan = AUTHORITATIVE_PLANS[cleanId];

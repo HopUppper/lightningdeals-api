@@ -1,6 +1,7 @@
 import { prisma, decryptText } from './db';
 import { mapToUpstreamModel, getFriendlyModelName } from './gateway';
 import { validateVendorBaseUrl } from './ssrf';
+import { convertAnthropicToolsToOpenAI, convertAnthropicToolChoiceToOpenAI, convertAnthropicMessagesToOpenAI } from './providers/protocolBridge';
 
 export interface VendorProviderRecord {
   id: string;
@@ -26,6 +27,11 @@ export interface VendorProviderRecord {
   lastTestedAt?: Date | null;
   lastError?: string | null;
   notes?: string | null;
+  apiCreditBaseUrl?: string | null;
+  tokenPackBaseUrl?: string | null;
+  supportedFamiliesJson?: string | null;
+  costPerMillionInput?: number | null;
+  costPerMillionOutput?: number | null;
 }
 
 export interface PreparedProviderRequest {
@@ -117,7 +123,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     this.id = record.id;
     this.name = record.name;
     this.slug = record.slug || record.name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-    this.baseUrl = (record.baseUrl || 'https://api.anthropic.com').replace(/\/$/, '');
+    this.baseUrl = (record.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
     this.protocol = record.protocol || record.providerType || 'anthropic';
     this.isPrimary = !!record.isPrimary;
     this.isDefault = !!record.isDefault;
@@ -187,7 +193,12 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
 
     if (this.protocol === 'openai-compatible' || this.protocol === 'openai') {
       headers['authorization'] = `Bearer ${decryptedMasterKey}`;
-      const targetUrl = this.baseUrl.endsWith('/chat/completions') ? this.baseUrl : `${this.baseUrl}/chat/completions`;
+      const cleanBase = this.baseUrl.replace(/\/+$/, '');
+      const targetUrl = cleanBase.endsWith('/chat/completions')
+        ? cleanBase
+        : cleanBase.endsWith('/v1')
+          ? `${cleanBase}/chat/completions`
+          : `${cleanBase}/v1/chat/completions`;
 
       const openAiMessages: any[] = [];
       if (effectiveSystem) {
@@ -225,7 +236,12 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     if (hasDocuments && !headers['anthropic-beta']) {
       headers['anthropic-beta'] = 'pdfs-2024-09-25';
     }
-    const targetUrl = this.baseUrl.endsWith('/v1/messages') ? this.baseUrl : `${this.baseUrl}/v1/messages`;
+    const cleanBase = this.baseUrl.replace(/\/+$/, '');
+    const targetUrl = cleanBase.endsWith('/messages')
+      ? cleanBase
+      : cleanBase.endsWith('/v1')
+        ? `${cleanBase}/messages`
+        : `${cleanBase}/v1/messages`;
 
     const hasTools = Array.isArray(payload.tools) && payload.tools.length > 0;
     const toolChoice = hasTools ? payload.tool_choice : undefined;
@@ -297,8 +313,11 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
 
     // 1. Anthropic Response Format
     if (responseJson?.usage && typeof responseJson.usage.input_tokens === 'number') {
-      const inputTokens = responseJson.usage.input_tokens || fallbackInputTokens;
-      const outputTokens = responseJson.usage.output_tokens || fallbackOutputTokens;
+      const rawIn = responseJson.usage.input_tokens;
+      const rawOut = responseJson.usage.output_tokens;
+      const isValid = Number.isFinite(rawIn) && rawIn >= 0 && Number.isFinite(rawOut) && rawOut >= 0;
+      const inputTokens = isValid ? Math.floor(rawIn) : fallbackInputTokens;
+      const outputTokens = isValid ? Math.floor(rawOut) : fallbackOutputTokens;
       return {
         ok: true,
         statusCode,
@@ -307,16 +326,22 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
           inputTokens,
           outputTokens,
           totalTokens: inputTokens + outputTokens,
-          isEstimated: false,
-          usageSource: 'PROVIDER_REPORTED',
+          isEstimated: !isValid,
+          usageSource: isValid ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
         },
       };
     }
 
     // 2. OpenAI Response Format
     if (responseJson?.usage && typeof responseJson.usage.prompt_tokens === 'number') {
-      const inputTokens = responseJson.usage.prompt_tokens || fallbackInputTokens;
-      const outputTokens = responseJson.usage.completion_tokens || fallbackOutputTokens;
+      const rawIn = responseJson.usage.prompt_tokens;
+      const rawOut = responseJson.usage.completion_tokens;
+      const isValid = Number.isFinite(rawIn) && rawIn >= 0 && Number.isFinite(rawOut) && rawOut >= 0;
+      const inputTokens = isValid ? Math.floor(rawIn) : fallbackInputTokens;
+      const outputTokens = isValid ? Math.floor(rawOut) : fallbackOutputTokens;
+      const totalTokens = (Number.isFinite(responseJson.usage.total_tokens) && responseJson.usage.total_tokens >= 0)
+        ? Math.floor(responseJson.usage.total_tokens)
+        : inputTokens + outputTokens;
       return {
         ok: true,
         statusCode,
@@ -324,9 +349,9 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
         usage: {
           inputTokens,
           outputTokens,
-          totalTokens: responseJson.usage.total_tokens || inputTokens + outputTokens,
-          isEstimated: false,
-          usageSource: 'PROVIDER_REPORTED',
+          totalTokens,
+          isEstimated: !isValid,
+          usageSource: isValid ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
         },
       };
     }
@@ -399,6 +424,182 @@ export class AnthropicOfficialProviderAdapter extends BaseProviderAdapter {
 /**
  * Concrete Adapter: Opus Max
  */
+
+/**
+ * Concrete Adapter: ScaleMax
+ * Supports OpenAI, Gemini, DeepSeek, Grok, Qwen, and multi-model family requests.
+ * Dual routing for Credit-based keys and Token-pack keys:
+ * - Credit keys: apiCreditBaseUrl (default: https://api.scalemax.pro/v1)
+ * - Token pack keys: tokenPackBaseUrl (default: https://api.scalemax.pro/token/v1)
+ */
+export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
+  apiCreditBaseUrl: string;
+  tokenPackBaseUrl: string;
+  supportedFamilies: string[];
+
+  constructor(record: VendorProviderRecord) {
+    super({
+      ...record,
+      name: record.name || 'ScaleMax',
+      slug: record.slug || 'scalemax',
+      protocol: record.protocol || 'openai-compatible',
+    });
+    this.apiCreditBaseUrl = (record.apiCreditBaseUrl || 'https://api.scalemax.pro/v1').replace(/\/+$/, '');
+    this.tokenPackBaseUrl = (record.tokenPackBaseUrl || 'https://api.scalemax.pro/token/v1').replace(/\/+$/, '');
+    try {
+      this.supportedFamilies = record.supportedFamiliesJson ? JSON.parse(record.supportedFamiliesJson) : ['openai', 'gemini', 'deepseek', 'grok', 'qwen', 'claude'];
+    } catch {
+      this.supportedFamilies = ['openai', 'gemini', 'deepseek', 'grok', 'qwen', 'claude'];
+    }
+  }
+
+  override buildRequest(
+    decryptedMasterKey: string,
+    internalModel: string,
+    payload: any,
+    billingType?: string
+  ): PreparedProviderRequest {
+    const targetModel = this.resolveModel(internalModel);
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'authorization': `Bearer ${decryptedMasterKey}`,
+      ...this.customHeaders,
+    };
+
+    let effectiveBaseUrl = (billingType === 'token') ? this.tokenPackBaseUrl : this.apiCreditBaseUrl;
+    if (!effectiveBaseUrl) {
+      effectiveBaseUrl = this.baseUrl;
+    }
+
+    if (this.protocol === 'openai-compatible' || this.protocol === 'openai') {
+      const cleanBase = (effectiveBaseUrl || 'https://api.scalemax.pro/v1').replace(/\/+$/, '');
+      const targetUrl = cleanBase.endsWith('/chat/completions')
+        ? cleanBase
+        : cleanBase.endsWith('/v1')
+          ? `${cleanBase}/chat/completions`
+          : `${cleanBase}/v1/chat/completions`;
+
+
+
+      const openAiMessages = convertAnthropicMessagesToOpenAI(payload.messages, payload.system);
+      const openAiTools = convertAnthropicToolsToOpenAI(payload.tools);
+      const openAiToolChoice = convertAnthropicToolChoiceToOpenAI(payload.tool_choice);
+
+      const body: Record<string, any> = {
+        model: targetModel,
+        messages: openAiMessages,
+        max_tokens: payload.max_tokens || 4096,
+        stream: !!payload.stream,
+      };
+
+      if (payload.temperature !== undefined) body.temperature = payload.temperature;
+      if (payload.top_p !== undefined) body.top_p = payload.top_p;
+      if (openAiTools) body.tools = openAiTools;
+      if (openAiToolChoice) body.tool_choice = openAiToolChoice;
+      if (payload.stop_sequences && Array.isArray(payload.stop_sequences)) body.stop = payload.stop_sequences;
+
+
+      return {
+        url: targetUrl,
+        headers,
+        targetModel,
+        timeoutMs: this.timeoutMs,
+        body,
+      };
+    }
+
+    // Anthropic-compatible protocol
+    headers['x-api-key'] = decryptedMasterKey;
+    headers['anthropic-version'] = '2023-06-01';
+    const cleanBase = (effectiveBaseUrl || 'https://api.scalemax.pro/v1').replace(/\/+$/, '');
+    const targetUrl = cleanBase.endsWith('/messages')
+      ? cleanBase
+      : cleanBase.endsWith('/v1')
+        ? `${cleanBase}/messages`
+        : `${cleanBase}/v1/messages`;
+
+
+
+    return {
+      url: targetUrl,
+      headers,
+      targetModel,
+      timeoutMs: this.timeoutMs,
+      body: {
+        model: targetModel,
+        messages: payload.messages || [],
+        max_tokens: payload.max_tokens || 4096,
+        stream: !!payload.stream,
+        system: payload.system,
+        tools: payload.tools,
+        tool_choice: payload.tool_choice,
+      },
+    };
+  }
+
+  override normalizeResponse(
+    statusCode: number,
+    responseJson: any,
+    fallbackInputTokens: number,
+    fallbackOutputTokens: number
+  ): NormalizedProviderResponse {
+    if (statusCode >= 400 || !responseJson) {
+      return {
+        ok: false,
+        statusCode,
+        error: this.normalizeError(statusCode, responseJson).error,
+        usage: {
+          inputTokens: fallbackInputTokens,
+          outputTokens: fallbackOutputTokens,
+          totalTokens: fallbackInputTokens + fallbackOutputTokens,
+          isEstimated: true,
+          usageSource: 'SIMULATED_ESTIMATE',
+        },
+      };
+    }
+
+    let rawIn = responseJson?.usage?.prompt_tokens ?? responseJson?.usage?.input_tokens;
+    let rawOut = responseJson?.usage?.completion_tokens ?? responseJson?.usage?.output_tokens;
+    let isEstimated = false;
+
+    let inputTokens = fallbackInputTokens;
+    let outputTokens = fallbackOutputTokens;
+
+    if (rawIn !== undefined && rawIn !== null && Number.isFinite(Number(rawIn)) && Number(rawIn) >= 0) {
+      inputTokens = Math.floor(Number(rawIn));
+    } else {
+      isEstimated = true;
+    }
+
+    if (rawOut !== undefined && rawOut !== null && Number.isFinite(Number(rawOut)) && Number(rawOut) >= 0) {
+      outputTokens = Math.floor(Number(rawOut));
+    } else {
+      isEstimated = true;
+    }
+
+    return {
+      ok: true,
+      statusCode,
+      data: responseJson,
+      usage: {
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        isEstimated,
+        usageSource: isEstimated ? 'LOCAL_CALCULATED' : 'PROVIDER_REPORTED',
+      },
+    };
+  }
+
+  override sanitizeErrorMessage(message: string): string {
+    return super.sanitizeErrorMessage(message)
+      .replace(/scalemax/gi, 'LightningAPI')
+      .replace(/api\.scalemax\.pro/gi, 'api.lightningapi.pro')
+      .replace(/sm_live_[a-zA-Z0-9_-]+/g, 'ld_live_••••••••')
+      .replace(/sk-[a-zA-Z0-9_-]{20,}/g, 'sk_live_••••••••');
+  }
+}
+
 export class OpusMaxProviderAdapter extends BaseProviderAdapter {
   constructor(record: VendorProviderRecord) {
     super({
@@ -454,8 +655,11 @@ export class ProviderRegistry {
   /**
    * Factory method to instantiate the correct adapter subclass
    */
-  static createAdapterInstance(record: VendorProviderRecord): ProviderAdapter {
+    static createAdapterInstance(record: VendorProviderRecord): ProviderAdapter {
     const slug = (record.slug || record.name).toLowerCase();
+    if (slug.includes('scale') || record.name.toLowerCase().includes('scale') || record.protocol === 'openai-compatible' || record.providerType === 'openai-compatible') {
+      return new ScaleMaxProviderAdapter(record);
+    }
     if (slug.includes('opus')) {
       return new OpusMaxProviderAdapter(record);
     }
@@ -475,6 +679,33 @@ export class ProviderRegistry {
     await this.getAllAdapters();
 
     let targetProviderId = keyRecord.providerId;
+
+    // Model-level dynamic provider routing (Admin configurable without code changes)
+    if (requestedModel) {
+      try {
+        const modelRecord = await prisma.model.findFirst({
+          where: {
+            OR: [
+              { modelId: requestedModel },
+              { upstreamModelId: requestedModel },
+              { displayName: { equals: requestedModel, mode: 'insensitive' } },
+            ],
+          },
+        });
+        if (modelRecord) {
+          if (modelRecord.providerId) {
+            targetProviderId = modelRecord.providerId;
+          } else if (modelRecord.providerSlug) {
+            const matchedProvider = await prisma.vendorProvider.findFirst({
+              where: { slug: modelRecord.providerSlug, status: { not: 'disabled' } },
+            });
+            if (matchedProvider) targetProviderId = matchedProvider.id;
+          }
+        }
+      } catch (e) {
+        // Fall back gracefully
+      }
+    }
 
     // Fallback 1: Routing hint by key prefix if DB providerId is unset
     if (!targetProviderId) {
@@ -653,25 +884,60 @@ export class ProviderRegistry {
     }
 
     try {
-      const probeUrl = `${url}/v1/messages`;
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
+      let res: Response;
 
-      const res = await fetch(probeUrl, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': key,
-          'authorization': `Bearer ${key}`,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-haiku-20241022',
-          max_tokens: 5,
-          messages: [{ role: 'user', content: 'ping' }],
-        }),
-        signal: controller.signal,
-      });
+      if (proto === 'openai-compatible' || proto === 'openai') {
+        const probeUrl = url.endsWith('/models') ? url : url.endsWith('/v1') ? `${url}/models` : `${url}/v1/models`;
+        try {
+          res = await fetch(probeUrl, {
+            method: 'GET',
+            headers: {
+              'authorization': `Bearer ${key}`,
+            },
+            signal: controller.signal,
+          });
+        } catch {
+          // Fallback to chat completions probe
+          const chatUrl = url.endsWith('/chat/completions') ? url : `${url}/chat/completions`;
+          res = await fetch(chatUrl, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'authorization': `Bearer ${key}`,
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              max_tokens: 1,
+              messages: [{ role: 'user', content: 'ping' }],
+            }),
+            signal: controller.signal,
+          });
+        }
+      } else {
+        const cleanUrl = url.replace(/\/+$/, '');
+        const probeUrl = cleanUrl.endsWith('/messages')
+          ? cleanUrl
+          : cleanUrl.endsWith('/v1')
+            ? `${cleanUrl}/messages`
+            : `${cleanUrl}/v1/messages`;
+        res = await fetch(probeUrl, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': key,
+            'authorization': `Bearer ${key}`,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 5,
+            messages: [{ role: 'user', content: 'ping' }],
+          }),
+          signal: controller.signal,
+        });
+      }
 
       clearTimeout(timeout);
       const latencyMs = Date.now() - startTime;
@@ -756,7 +1022,8 @@ export function buildProviderRequest(
   vendor: VendorProviderRecord | null,
   decryptedMasterKey: string,
   internalModel: string,
-  payload: any
+  payload: any,
+  billingType?: string
 ): PreparedProviderRequest {
   if (!vendor) {
     const dummy: VendorProviderRecord = {
@@ -772,7 +1039,7 @@ export function buildProviderRequest(
     return new OpusMaxProviderAdapter(dummy).buildRequest(decryptedMasterKey, internalModel, payload);
   }
   const adapter = ProviderRegistry.createAdapterInstance(vendor);
-  return adapter.buildRequest(decryptedMasterKey, internalModel, payload);
+  return (adapter as any).buildRequest(decryptedMasterKey, internalModel, payload, billingType);
 }
 
 export function normalizeProviderResponse(

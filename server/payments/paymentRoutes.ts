@@ -40,6 +40,13 @@ checkoutRouter.get('/plans', async (req: Request, res: Response) => {
       badge: p.badge,
       features: p.features,
       featured: p.featured,
+      planType: p.planType || 'window',
+      creditMultiplier: p.creditMultiplier,
+      creditAmountUsd: p.creditAmountUsd,
+      bonusCreditsUsd: p.bonusCreditsUsd,
+      bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : undefined,
+      providerScope: p.providerScope === 'opus_max' ? 'window' : (p.providerScope || 'all'),
+      allowedModelFamilies: p.allowedModelFamilies,
     }));
     res.json({ success: true, plans });
   } catch (err: any) {
@@ -223,6 +230,15 @@ checkoutRouter.all('/payu/response', async (req: Request, res: Response) => {
 export async function handlePaymentWebhook(req: Request, res: Response) {
   try {
     const result = await OrderEngine.verifyAndProcessPayUCallback(req, 'WEBHOOK');
+    res.status(200).json({ status: 'SUCCESS', ...result });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+export async function handleCashfreeWebhook(req: Request, res: Response) {
+  try {
+    const result = await OrderEngine.verifyAndProcessCashfreeWebhook(req);
     res.status(200).json({ status: 'SUCCESS', ...result });
   } catch (err: any) {
     res.status(400).json({ error: err.message });

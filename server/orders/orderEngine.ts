@@ -68,6 +68,62 @@ export interface ProcessPaymentEventParams {
  * PAYMENT -> VERIFIED -> ORDER CREATED/UPDATED -> ORDER COMPLETED ->
  * FULFILLMENT -> LIGHTNING REWARD -> CUSTOMER UPDATE -> NOTIFICATION -> AUDIT LOG
  */
+/**
+ * Customer credit allocation calculation engine.
+ * Computes exact credit allocation from active package configuration or retail allocation multiplier.
+ * Keeps credit economics completely independent of monetary currency conversion.
+ */
+export function calculateOrderCreditAllocation(
+  plan: {
+    id?: string;
+    name?: string;
+    retailMultiplier?: number | null;
+    creditMultiplier?: number | null;
+    creditAmountUsd?: number | null;
+    bonusCreditsUsd?: number | null;
+    configVersion?: number | null;
+  },
+  paymentUsd: number,
+  paymentInr?: number
+) {
+  const retailMultiplier = Number(plan.retailMultiplier || plan.creditMultiplier || 7.0);
+  let customerCreditsGranted = 0;
+  let formula = '';
+
+  if (plan.creditAmountUsd && Number(plan.creditAmountUsd) > 0) {
+    customerCreditsGranted = Number(plan.creditAmountUsd);
+    formula = `Explicit Credit Package: ${customerCreditsGranted.toFixed(2)} credits`;
+  } else {
+    customerCreditsGranted = Math.round(paymentUsd * retailMultiplier * 100) / 100;
+    formula = `${paymentUsd.toFixed(2)} payment × ${retailMultiplier}x Retail Allocation Multiplier = ${customerCreditsGranted.toFixed(2)} credits`;
+  }
+
+  const bonusCredits = Number(plan.bonusCreditsUsd || 0);
+  const configVersion = Number(plan.configVersion || 1);
+
+  const pricingSnapshot = {
+    planId: plan.id,
+    planName: plan.name,
+    paymentUsd,
+    paymentInr,
+    retailMultiplier,
+    customerCreditsGranted,
+    bonusCredits,
+    configVersion,
+    calculationFormula: formula,
+    createdAt: new Date().toISOString(),
+  };
+
+  return {
+    customerCreditsGranted,
+    bonusCredits,
+    retailMultiplier,
+    calculationFormula: formula,
+    configVersion,
+    pricingSnapshotJson: JSON.stringify(pricingSnapshot),
+  };
+}
+
 export class OrderEngine {
   /**
    * 1. CREATE WEBSITE ORDER (From Checkout Flow)
@@ -131,13 +187,33 @@ export class OrderEngine {
 
     const internalOrderId = `LD-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
-    // 4. Create Internal Order Record
+    // 4. Create Internal Order Record (with multi-provider planType support)
+    const orderPlanType = (plan.planType as any) || 'window';
+    const orderType = orderPlanType === 'credit' ? 'CREDIT_PACK' : orderPlanType === 'token' ? 'TOKEN_PACK' : 'PLAN';
+    // Customer credit allocation calculated from saved package configuration
+    const paymentUsd = plan.currency === 'USD' ? (Number((plan as any).priceUsd) || payableAmountInr) : (payableAmountInr / 86.5);
+    const creditAlloc = calculateOrderCreditAllocation(plan, paymentUsd, payableAmountInr);
+    const creditsPurchased = orderPlanType === 'credit' ? creditAlloc.customerCreditsGranted : 0;
+    const bonusCredits = orderPlanType === 'credit' ? creditAlloc.bonusCredits : 0;
+    const tokensPurchased = orderPlanType === 'token' ? plan.tokenAllowance : 0n;
+    const bonusTokens = plan.bonusTokens || 0n;
+
+    const orderConfigVersion = creditAlloc.configVersion;
+    const pricingSnapshotJson = creditAlloc.pricingSnapshotJson;
+
     const order = await prisma.order.create({
       data: {
         internalOrderId,
         userId: user.id,
         planId: plan.id,
         planName: plan.name,
+        orderType,
+        creditsPurchased,
+        bonusCredits,
+        pricingSnapshotJson,
+        configVersion: orderConfigVersion,
+        tokensPurchased,
+        bonusTokens,
         tokenQuantity: plan.tokenAllowance,
         windowHours: plan.windowHours,
         billingPeriod,
@@ -301,6 +377,9 @@ export class OrderEngine {
         gatewayOrderId: gatewayResult.gatewayOrderId,
         planId: plan.id,
         planName: plan.name,
+        orderType: updatedOrder.orderType,
+        creditsPurchased: updatedOrder.creditsPurchased,
+        tokensPurchased: updatedOrder.tokensPurchased,
         billingPeriod,
         validityDays,
         amountInr: payableAmountInr,
@@ -645,7 +724,84 @@ export class OrderEngine {
       }
     }
 
+    // Guard A: Check if order has already been refunded (Out-of-Order Late Event Protection)
+    if (order.paymentStatus === 'REFUNDED' || (order as any).status === 'REFUNDED') {
+      await recordAuditEvent({
+        eventType: 'LATE_PAYMENT_EVENT_ON_REFUNDED_ORDER_IGNORED',
+        severity: 'HIGH',
+        actorType: 'PAYMENT_PROVIDER',
+        actorId: provider,
+        customerId: order.userId,
+        resourceType: 'ORDER',
+        resourceId: order.id,
+        action: 'PROCESS_PAYMENT_EVENT',
+        result: 'REJECTED',
+        metadata: { internalOrderId, eventId, eventType, orderStatus: order.paymentStatus },
+        req,
+      });
+      return {
+        success: false,
+        status: 'ORDER_ALREADY_REFUNDED',
+        message: 'Order has already been refunded. Late payment event ignored.',
+      };
+    }
+
+    // Guard B: Check if order was CANCELLED
     const isSuccess = eventType === 'payment.captured' || rawPayload.status === 'success' || rawPayload.status === 'captured';
+
+    if (order.paymentStatus === 'CANCELLED' || (order as any).status === 'CANCELLED') {
+      if (isSuccess) {
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            paymentStatus: 'RECONCILIATION_REQUIRED',
+            failureReason: 'Payment captured for previously cancelled order. Flagged for administrative reconciliation.',
+          },
+        });
+        await recordAuditEvent({
+          eventType: 'PAYMENT_RECEIVED_FOR_CANCELLED_ORDER',
+          severity: 'HIGH',
+          actorType: 'PAYMENT_PROVIDER',
+          actorId: provider,
+          customerId: order.userId,
+          resourceType: 'ORDER',
+          resourceId: order.id,
+          action: 'RECONCILE_PAYMENT',
+          result: 'NEEDS_REVIEW',
+          metadata: { internalOrderId, eventId, gatewayPaymentId },
+          req,
+        });
+        return {
+          success: false,
+          status: 'RECONCILIATION_REQUIRED',
+          message: 'Payment received on cancelled order. Flagged for administrative reconciliation.',
+        };
+      }
+    }
+
+    // Guard C: If order already CAPTURED or FULFILLED, ignore late failure notification
+    if (['CAPTURED', 'PAID'].includes(order.paymentStatus) || order.fulfillmentStatus === 'FULFILLED') {
+      if (!isSuccess) {
+        await recordAuditEvent({
+          eventType: 'LATE_FAILURE_EVENT_ON_CAPTURED_ORDER_IGNORED',
+          severity: 'MEDIUM',
+          actorType: 'PAYMENT_PROVIDER',
+          actorId: provider,
+          customerId: order.userId,
+          resourceType: 'ORDER',
+          resourceId: order.id,
+          action: 'PROCESS_PAYMENT_EVENT',
+          result: 'IGNORED',
+          metadata: { internalOrderId, eventId, rawPayload },
+          req,
+        });
+        return {
+          success: true,
+          ignored: true,
+          message: 'Payment failure event arrived after successful capture. Preserving verified captured status.',
+        };
+      }
+    }
 
     // 5. Handle Payment Success
     if (isSuccess) {
@@ -902,6 +1058,36 @@ export class OrderEngine {
    * Reverses order status, claws back awarded Lightning Credits,
    * restores redeemed credits, and revokes/suspends API key.
    */
+  /**
+   * 4b. VERIFY AND PROCESS CASHFREE WEBHOOK
+   */
+  static async verifyAndProcessCashfreeWebhook(req: Request) {
+    const { CashfreeAdapter } = await import('../payments/adapters/cashfreeAdapter');
+    const cashfree = new CashfreeAdapter();
+    const verification = await cashfree.verifyWebhook(req);
+    if (!verification.isValid) {
+      throw new Error(verification.error || 'Invalid Cashfree webhook signature.');
+    }
+    const internalOrderId = verification.internalOrderId || verification.gatewayOrderId;
+    if (!internalOrderId) {
+      throw new Error('Missing order identifier in Cashfree webhook payload.');
+    }
+    const eventId = verification.rawEventId || (verification.gatewayPaymentId ? `cf_evt_${verification.gatewayPaymentId}` : `cf_evt_${internalOrderId}_${Date.now()}`);
+    return await this.processPaymentEvent({
+      provider: 'CASHFREE',
+      eventId,
+      eventType: verification.eventType,
+      internalOrderId,
+      gatewayOrderId: verification.gatewayOrderId || internalOrderId,
+      gatewayPaymentId: verification.gatewayPaymentId || '',
+      paidAmount: verification.paidAmount || 0,
+      rawPayload: req.body || {},
+      signature: (req.headers['x-webhook-signature'] || req.headers['x-cashfree-signature']) as string,
+      source: 'WEBHOOK',
+      req,
+    });
+  }
+
   static async refundOrder(params: {
     internalOrderId: string;
     reason: string;
@@ -917,6 +1103,15 @@ export class OrderEngine {
 
     if (!order) {
       throw new Error(`Order '${internalOrderId}' not found.`);
+    }
+
+    if (order.paymentStatus === 'REFUNDED' || (order as any).status === 'REFUNDED') {
+      return {
+        success: true,
+        alreadyRefunded: true,
+        order,
+        message: 'Order has already been refunded.',
+      };
     }
 
     // 1. Reverse Lightning Credits (Clawback earned + restore redeemed)

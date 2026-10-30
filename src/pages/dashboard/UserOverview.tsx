@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles, Gift, Play, Bot } from 'lucide-react';
+import { Zap, Key, ArrowRight, Activity, LifeBuoy, BookOpen, ShieldCheck, Clock, CheckCircle2, AlertCircle, Flame, Sparkles, Gift, Play, Bot, Layers } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { userFetch } from '../../utils/api';
 
@@ -42,7 +42,7 @@ export const UserOverview: React.FC = () => {
     loadData();
   }, []);
 
-  // Live countdown timer to next 5-hour window refresh
+  // Live countdown timer to next 5-hour window refresh (relevant for window plans)
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
@@ -99,10 +99,24 @@ export const UserOverview: React.FC = () => {
     );
   }
 
+  const isCreditPlan = stats?.billingType === 'credit' || Boolean(stats?.hasCreditKey);
+  const isTokenPlan = stats?.billingType === 'token';
+  const isWindowPlan = !isCreditPlan && !isTokenPlan;
+
   const purchased = Number(stats?.totalPurchased || 0);
   const used = Number(stats?.totalUsed || 0);
   const remaining = Number(stats?.totalRemaining || 0);
-  const percentUsed = purchased > 0 ? ((used / purchased) * 100).toFixed(1) : '0';
+
+  // Compute percentage used safely
+  let percentUsed = '0';
+  if (isCreditPlan) {
+    const totalCredit = (Number(stats.creditBalanceUsd) || 0) + (Number(stats.totalCreditsUsedUsd) || 0);
+    percentUsed = totalCredit > 0 ? (((Number(stats.totalCreditsUsedUsd) || 0) / totalCredit) * 100).toFixed(1) : '0';
+  } else {
+    percentUsed = purchased > 0 ? ((used / purchased) * 100).toFixed(1) : '0';
+  }
+
+  const hasAnyKey = stats?.activeKeysCount > 0 || purchased > 0 || (Number(stats?.creditBalanceUsd) || 0) > 0;
 
   return (
     <div className="space-y-6">
@@ -148,7 +162,7 @@ export const UserOverview: React.FC = () => {
                 ⚡ {activeOffer.multiplier}X Bonus Credits
               </span>
               <span>•</span>
-              <span>Max Reward: ₹{activeOffer.maxCredits.toLocaleString()} Credits</span>
+              <span>Max Reward: ₹{activeOffer.maxCredits?.toLocaleString()} Credits</span>
             </div>
           </div>
 
@@ -164,8 +178,8 @@ export const UserOverview: React.FC = () => {
         </div>
       )}
 
-      {/* Main 5-Hour Window Token Allowance Card OR Keyless Empty State */}
-      {purchased === 0 ? (
+      {/* Main Balance Overview Card OR Empty State */}
+      {!hasAnyKey ? (
         <div className="bg-white p-8 rounded-3xl border border-[#ede8e1] text-center space-y-4 shadow-2xs">
           <div className="w-14 h-14 rounded-2xl bg-violet-100 text-violet-700 mx-auto flex items-center justify-center shadow-2xs">
             <Zap className="w-7 h-7 fill-current" />
@@ -173,7 +187,7 @@ export const UserOverview: React.FC = () => {
           <div className="max-w-md mx-auto space-y-1">
             <h2 className="text-lg font-extrabold text-[#1e1b2e]">No Active API Key Allocated Yet</h2>
             <p className="text-xs text-[#64607d] leading-relaxed">
-              Activate your free 1,000,000 token trial or choose a capacity tier to start prompting in Cursor, Claude Code, and Windsurf.
+              Activate your free 200,000 token trial or choose a capacity tier to start prompting in Cursor, Claude Code, and Windsurf.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -197,39 +211,110 @@ export const UserOverview: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#ede8e1] pb-4">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-2xl bg-violet-100 text-violet-700">
-                <Zap className="w-4 h-4 fill-current" />
+                {isTokenPlan ? <Layers className="w-4 h-4 fill-current" /> : <Zap className="w-4 h-4 fill-current" />}
               </div>
-              <div>
-                <h2 className="text-sm font-bold text-[#1e1b2e]">Rolling 5-Hour Token Allowance</h2>
-                <p className="text-xs text-[#64607d]">Automatic reset cycle guarantees continuous compute</p>
-              </div>
+              {isCreditPlan ? (
+                <div>
+                  <h2 className="text-sm font-bold text-[#1e1b2e]">Pay-As-You-Go Usage Credits</h2>
+                  <p className="text-xs text-[#64607d]">Dynamic usage deductions across any supported model</p>
+                </div>
+              ) : isTokenPlan ? (
+                <div>
+                  <h2 className="text-sm font-bold text-[#1e1b2e]">Prepaid Token Pack Pool</h2>
+                  <p className="text-xs text-[#64607d]">Dedicated non-expiring tokens for heavy engineering workloads</p>
+                </div>
+              ) : (
+                <div>
+                  <h2 className="text-sm font-bold text-[#1e1b2e]">Rolling 5-Hour Token Allowance</h2>
+                  <p className="text-xs text-[#64607d]">Automatic reset cycle guarantees continuous compute</p>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#faf8f5] border border-[#ede8e1] text-xs font-semibold">
-              <Clock className="w-3.5 h-3.5 text-violet-600" />
-              <span className="text-[#64607d]">Next Reload:</span>
-              <span className="font-bold font-mono text-[#1e1b2e]">{timeLeft}</span>
-            </div>
+            {isWindowPlan ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#faf8f5] border border-[#ede8e1] text-xs font-semibold">
+                <Clock className="w-3.5 h-3.5 text-violet-600" />
+                <span className="text-[#64607d]">Next Reload:</span>
+                <span className="font-bold font-mono text-[#1e1b2e]">{timeLeft}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span>Non-Expiring Quota</span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">5-Hour Quota</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">{formatTokens(purchased)}</p>
-              <p className="text-[11px] text-[#64607d]">Tokens per cycle</p>
-            </div>
+            {isCreditPlan ? (
+              <>
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Credits Granted</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">
+                    ${((Number(stats.creditBalanceUsd) || 0) + (Number(stats.totalCreditsUsedUsd) || 0)).toFixed(2)}
+                  </p>
+                  <p className="text-[11px] text-[#64607d]">Total purchased credits</p>
+                </div>
 
-            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Used in Cycle</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">{formatTokens(used)}</p>
-              <p className="text-[11px] text-[#64607d]">Active queries & prompts</p>
-            </div>
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Usage Charges</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">
+                    ${(Number(stats.totalCreditsUsedUsd) || 0).toFixed(2)}
+                  </p>
+                  <p className="text-[11px] text-[#64607d]">Deducted across models</p>
+                </div>
 
-            <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
-              <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Tokens Remaining</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{formatTokens(remaining)}</p>
-              <p className="text-[11px] text-emerald-700 font-medium">Ready to spend</p>
-            </div>
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Available Balance</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">
+                    ${(Number(stats.creditBalanceUsd) || 0).toFixed(2)}
+                  </p>
+                  <p className="text-[11px] text-emerald-700 font-medium">Ready to spend</p>
+                </div>
+              </>
+            ) : isTokenPlan ? (
+              <>
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Total Pack Size</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">
+                    {formatTokens(purchased || (remaining + used))}
+                  </p>
+                  <p className="text-[11px] text-[#64607d]">Prepaid token quota</p>
+                </div>
+
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Tokens Consumed</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">{formatTokens(used)}</p>
+                  <p className="text-[11px] text-[#64607d]">Completed completions</p>
+                </div>
+
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Tokens Remaining</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{formatTokens(remaining)}</p>
+                  <p className="text-[11px] text-emerald-700 font-medium">Available now</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">5-Hour Quota</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">{formatTokens(purchased)}</p>
+                  <p className="text-[11px] text-[#64607d]">Tokens per cycle</p>
+                </div>
+
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Used in Cycle</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-amber-600">{formatTokens(used)}</p>
+                  <p className="text-[11px] text-[#64607d]">Active queries & prompts</p>
+                </div>
+
+                <div className="p-4.5 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-[#64607d] uppercase tracking-wider">Tokens Remaining</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{formatTokens(remaining)}</p>
+                  <p className="text-[11px] text-emerald-700 font-medium">Ready to spend</p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Progress Bar */}
@@ -320,7 +405,7 @@ export const UserOverview: React.FC = () => {
             </div>
             <div>
               <h4 className="text-sm font-bold text-[#1e1b2e] group-hover:text-violet-700 transition-colors">Your API Keys</h4>
-              <p className="text-xs text-[#64607d] mt-1 leading-snug">Copy key, reveal secrets, or generate env snippets.</p>
+              <p className="text-xs text-[#64607d] mt-1 leading-snug">Generate keys, rotate credentials, or inspect active limits.</p>
             </div>
           </Link>
 
@@ -346,7 +431,7 @@ export const UserOverview: React.FC = () => {
             </div>
             <div>
               <h4 className="text-sm font-bold text-[#1e1b2e] group-hover:text-violet-700 transition-colors">Usage & Ledger</h4>
-              <p className="text-xs text-[#64607d] mt-1 leading-snug">Inspect token deductions and cache hits.</p>
+              <p className="text-xs text-[#64607d] mt-1 leading-snug">Inspect token deductions, usage records, and audit ledgers.</p>
             </div>
           </Link>
 

@@ -14,17 +14,38 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
   supportsRateLimitHeaders = true;
 
   /**
+   * Constructs the authoritative models catalogue discovery URL based on provider configuration and billing mode.
+   * Handles trailing slashes, existing /v1 path segments, and preserves /token prefixes without duplication.
+   */
+  buildModelsUrl(provider: any, billingType?: string): string {
+    let rawBase: string;
+    if (billingType === 'token') {
+      rawBase = provider?.tokenPackBaseUrl || provider?.baseUrl || 'https://api.openai.com';
+    } else if (billingType === 'credit') {
+      rawBase = provider?.apiCreditBaseUrl || provider?.baseUrl || 'https://api.openai.com';
+    } else {
+      rawBase = provider?.apiCreditBaseUrl || provider?.baseUrl || 'https://api.openai.com';
+    }
+    const cleanBase = String(rawBase).replace(/\/+$/, '');
+    return cleanBase.endsWith('/models')
+      ? cleanBase
+      : cleanBase.endsWith('/v1')
+        ? `${cleanBase}/models`
+        : `${cleanBase}/v1/models`;
+  }
+
+  /**
    * Discovers capacity for an OpenAI-compatible provider.
    * Tests connection using standard /v1/models and inspects response headers.
    */
-  async discoverCapacity(provider: any, decryptedMasterKey: string): Promise<DiscoveredCapacity> {
+  async discoverCapacity(provider: any, decryptedMasterKey: string, billingType?: string): Promise<DiscoveredCapacity> {
     const now = new Date();
     const windowHours = provider.windowHours || 5;
     const windowMs = windowHours * 60 * 60 * 1000;
     const windowStart = new Date(now.getTime() - windowMs);
 
-    const baseUrl = (provider.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const modelsUrl = `${baseUrl}/v1/models`;
+    const modelsUrl = this.buildModelsUrl(provider, billingType || provider?.billingType || provider?.billingModel);
+
 
     let rateLimitsFromProbe: RateLimitMetadata | null = null;
     let probeError: string | null = null;

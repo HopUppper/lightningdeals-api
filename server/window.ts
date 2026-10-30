@@ -7,6 +7,15 @@ import {
   settleReservation,
   getActiveCustomerReservations,
   isRollingPlan,
+  reserveCredits,
+  releaseCreditReservation,
+  releaseCreditForRequest,
+  inFlightCreditReservations,
+  inFlightTokenReservations,
+  inFlightTokensByRequest,
+  reserveInFlightTokens,
+  releaseInFlightTokens,
+  releaseInFlightTokensForRequest,
 } from './accounting/tokenReservation';
 
 export {
@@ -15,6 +24,15 @@ export {
   releaseReservation,
   getActiveCustomerReservations,
   isRollingPlan,
+  reserveCredits,
+  releaseCreditReservation,
+  releaseCreditForRequest,
+  inFlightCreditReservations,
+  inFlightTokenReservations,
+  inFlightTokensByRequest,
+  reserveInFlightTokens,
+  releaseInFlightTokens,
+  releaseInFlightTokensForRequest,
 };
 
 /**

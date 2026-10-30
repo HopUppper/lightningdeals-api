@@ -48,6 +48,29 @@ export async function checkMasterCapacity(providerId?: string, requiredTokens = 
     };
   }
 
+  // Credit-based wholesale providers (like ScaleMax Wholesale Credit) are billed on actual usage,
+  // not constrained by a rolling-window token ceiling or prepaid token pack.
+  if (upstream.capacityModel === 'credit' || upstream.billingModel === 'credit' || upstream.billingModel === 'credit_wallet') {
+    return {
+      available: true,
+      availableTokens: 100000000,
+      rawAvailableTokens: '100000000',
+      reservedTokens: 0,
+      providerId: upstream.providerId,
+      providerName: upstream.providerName,
+      status: 'HEALTHY',
+      capacityModel: 'credit',
+      windowHours: 0,
+      windowAllowance: 'unlimited',
+      windowTokensUsed: 0,
+      nextResetAt: null,
+      windowResetSeconds: null,
+      discoverySource: upstream.discoverySource,
+      discoveryStatus: upstream.discoveryStatus,
+      discoveryConfidence: upstream.discoveryConfidence,
+    };
+  }
+
   const isAvailable = upstream.effectiveAvailableTokens >= requiredTokens;
 
   return {

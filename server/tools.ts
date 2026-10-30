@@ -28,6 +28,39 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     return res.status(401).json({ valid: false, error: { type: 'unauthenticated', message: 'API key parameter or Authorization header is required.' } });
   }
 
+  // Handle direct ScaleMax provider keys inspection
+  if (rawKey.startsWith('sm_live_')) {
+    try {
+      const upstreamResp = await fetch('https://api.scalemax.pro/v1/usage', {
+        headers: { Authorization: `Bearer ${rawKey}` },
+      });
+      if (upstreamResp.ok) {
+        const uData: any = await upstreamResp.json();
+        return res.json({
+          valid: true,
+          provider: 'ScaleMax',
+          key: rawKey.slice(0, 12) + '••••••••',
+          label: uData.key?.label || 'ScaleMax Key',
+          status: uData.key?.status || 'active',
+          plan: uData.key?.mode === 'credit' ? `ScaleMax Credit (${uData.key?.label || 'Universal'})` : 'ScaleMax Token Pack',
+          billingType: uData.key?.mode || 'credit',
+          providerScope: uData.key?.provider_scope || 'both',
+          rateLimitRpm: uData.key?.rpm_limit ?? 60,
+          creditBalanceUsd: uData.credits?.balance ?? uData.credits?.remaining_usd ?? 0,
+          purchasedTokens: uData.credits?.total_purchased ? String(uData.credits.total_purchased) : '0',
+          tokensUsed: String(uData.tokens?.total || 0),
+          tokensRemaining: uData.key?.mode === 'credit' ? String(uData.credits?.remaining_usd ?? 0) : String(uData.tokens?.remaining ?? 0),
+          lifetimeSpendUsd: uData.credits?.lifetime_spend ?? 0,
+          requestsCount: uData.requests?.total ?? 0,
+          tokenDisplay: uData.key?.mode === 'credit' ? `${(uData.credits?.balance ?? 0).toFixed(2)} USD Credits` : `${uData.tokens?.total || 0} Tokens`,
+          windowActive: false,
+          availableModels: [],
+          recentRequests: [],
+        });
+      }
+    } catch (e) {}
+  }
+
   const keyHash = hashApiKey(rawKey);
 
   const keyRecord = await prisma.apiKey.findUnique({
@@ -183,6 +216,9 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     nextResetAt: windowMetrics.nextResetAt,
     windowResetSeconds: windowMetrics.windowResetSeconds,
     consumptionPercent: windowMetrics.consumptionPercent,
+    billingType: (keyRecord as any).billingType || 'window',
+    creditBalanceUsd: (keyRecord as any).creditBalanceUsd ? Number((keyRecord as any).creditBalanceUsd) : undefined,
+    tokensRemaining: (keyRecord as any).tokensRemaining ? String((keyRecord as any).tokensRemaining) : undefined,
     recentRequests: recentRequests.map((r) => ({
       ...r,
       exactFailureReason: r.statusCode >= 400 ? (r.errorMessage || r.errorCode || `HTTP ${r.statusCode} Request Failed`) : null,

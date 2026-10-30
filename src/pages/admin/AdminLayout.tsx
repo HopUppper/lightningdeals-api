@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift, MessageSquare, Bot, Star } from 'lucide-react';
+import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift, MessageSquare, Bot, Star, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 
@@ -67,6 +67,7 @@ export const AdminLayout: React.FC = () => {
     { name: 'Support Tickets', path: '/deez/support', icon: LifeBuoy },
     { name: 'API Keys', path: '/deez/keys', icon: Key },
     { name: 'Providers', path: '/deez/providers', icon: Server },
+    { name: 'ScaleMax Live Keys', path: '/deez/scalemax', icon: ShieldCheck, badge: 'LIVE' },
     { name: 'Usage', path: '/deez/usage', icon: Activity },
     { name: 'Audit Logs', path: '/deez/logs', icon: FileText },
     { name: 'Emergency Controls', path: '/deez/emergency', icon: ShieldAlert },

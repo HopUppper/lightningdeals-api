@@ -22,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
+import { AdminScaleMaxLive } from './AdminScaleMaxLive';
 
 interface VendorProviderItem {
   id: string;
@@ -84,7 +85,7 @@ export const AdminProviders: React.FC = () => {
   const [now, setNow] = useState<Date>(new Date());
 
   // Main navigation tab
-  const [mainTab, setMainTab] = useState<'capacity' | 'providers' | 'routing' | 'ledger'>('capacity');
+  const [mainTab, setMainTab] = useState<'capacity' | 'providers' | 'routing' | 'ledger' | 'scalemax'>('capacity');
   const [showAccountingDetails, setShowAccountingDetails] = useState(false);
 
   // Vendor Form State
@@ -1381,6 +1382,12 @@ export const AdminProviders: React.FC = () => {
       {/* ============================================================== */}
       {/* TAB 4: TOKEN ACCOUNTING LEDGER                                  */}
       {/* ============================================================== */}
+      {mainTab === 'scalemax' && (
+        <div className="pt-2">
+          <AdminScaleMaxLive />
+        </div>
+      )}
+
       {mainTab === 'ledger' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -210,6 +210,7 @@ const AdminEmergencyControls = safeLazy(() => import('./pages/admin/AdminEmergen
 const AdminRewards = safeLazy(() => import('./pages/admin/AdminRewards').then(m => ({ default: m.AdminRewards })));
 const AdminWhatsApp = safeLazy(() => import('./pages/admin/AdminWhatsApp').then(m => ({ default: m.AdminWhatsApp })));
 const AdminAIControl = safeLazy(() => import('./pages/admin/AdminAIControl').then(m => ({ default: m.AdminAIControl })));
+const AdminScaleMaxLive = safeLazy(() => import('./pages/admin/AdminScaleMaxLive').then(m => ({ default: m.AdminScaleMaxLive })));
 
 export const LandingPage: React.FC = () => {
   return (
@@ -335,6 +336,7 @@ export function App() {
                   <Route path="ai-control" element={<AdminAIControl />} />
                   <Route path="whatsapp-ai" element={<AdminAIControl />} />
                   <Route path="providers" element={<AdminProviders />} />
+                  <Route path="scalemax" element={<AdminScaleMaxLive />} />
                   <Route path="plans" element={<AdminPlans />} />
                   <Route path="customers" element={<AdminCustomers />} />
                   <Route path="keys" element={<AdminKeys />} />

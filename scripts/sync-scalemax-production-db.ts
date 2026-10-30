@@ -53,16 +53,15 @@ async function main() {
 
   console.log(`✅ ScaleMax Provider configured: ID=${scalemaxProvider.id}, status=${scalemaxProvider.status}`);
 
-  // 2. Synchronize and activate Credit Starter and Token Pack 50M plans
+  // 2. Synchronize and activate full suite of Credit and Token plans
   const plansToSync = [
-    {
-      authPlan: AUTHORITATIVE_PLANS.credit_starter,
-      dbId: 'credit_starter',
-    },
-    {
-      authPlan: AUTHORITATIVE_PLANS.token_pack_50m,
-      dbId: 'token_pack_50m',
-    }
+    { authPlan: AUTHORITATIVE_PLANS.credit_starter, dbId: 'credit_starter' },
+    { authPlan: AUTHORITATIVE_PLANS.credit_growth, dbId: 'credit_growth' },
+    { authPlan: AUTHORITATIVE_PLANS.credit_pro, dbId: 'credit_pro' },
+    { authPlan: AUTHORITATIVE_PLANS.credit_scale, dbId: 'credit_scale' },
+    { authPlan: AUTHORITATIVE_PLANS.token_pack_5m, dbId: 'token_pack_5m' },
+    { authPlan: AUTHORITATIVE_PLANS.token_pack_20m, dbId: 'token_pack_20m' },
+    { authPlan: AUTHORITATIVE_PLANS.token_pack_50m, dbId: 'token_pack_50m' },
   ];
 
   for (const item of plansToSync) {

@@ -28,10 +28,10 @@ export const PricingPage: React.FC = () => {
                 <span>Dedicated Token Capacity</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#1c1917]">
-                Capacity Plans & Token Reservoirs
+                Model Ecosystems & Capacity Architecture
               </h1>
               <p className="text-sm text-[#57534e] leading-relaxed max-w-xl">
-                Zero rate-limit throttling. Fixed 5-hour rolling refill windows with dedicated supplier isolation. Choose your throughput capacity below or simulate custom workloads.
+                Choose your AI model family (Claude, OpenAI, or Local Models), then select your billing architecture: continuous 5-hour rolling pool refills (Claude exclusive), wholesale usage credits with 7x purchasing value, or fixed consumable token packs.
               </p>
             </div>
 

@@ -482,6 +482,283 @@ router.post('/providers/:id/set-default', async (req: AuthRequest, res: Response
   }
 });
 
+// GET /api/admin/providers/scalemax/live-status - Real-time upstream verification for all 3 ScaleMax keys
+router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Response) => {
+  try {
+    const scalemaxCreditKey = process.env.SCALEMAX_CREDIT_API_KEY || process.env.SCALEMAX_MASTER_API_KEY || '';
+    const scalemaxTokenKey = process.env.SCALEMAX_TOKEN_API_KEY || '';
+    const scalemaxLocalKey = process.env.SCALEMAX_LOCAL_TOKEN_API_KEY || '';
+
+    // Check database encrypted keys as well
+    const scalemaxProvider = await prisma.vendorProvider.findFirst({
+      where: {
+        OR: [
+          { slug: 'scalemax' },
+          { name: { contains: 'scalemax', mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    const dbCreditKey = scalemaxProvider?.creditApiKeyEncrypted ? decryptText(scalemaxProvider.creditApiKeyEncrypted) : '';
+    const dbTokenKey = scalemaxProvider?.tokenApiKeyEncrypted ? decryptText(scalemaxProvider.tokenApiKeyEncrypted) : '';
+
+    const activeCreditKey = dbCreditKey || scalemaxCreditKey;
+    const activeTokenKey = dbTokenKey || scalemaxTokenKey;
+    const activeLocalKey = scalemaxLocalKey;
+
+    const keysToInspect = [
+      {
+        keyIndex: 1,
+        role: 'Claude & OpenAI Frontier Key',
+        shortRole: 'Claude + OpenAI',
+        description: 'Dedicated supplier key provisioned for Claude 3.7 / 3.5 Sonnet, Opus and OpenAI models',
+        key: activeTokenKey,
+        targetModels: 'Claude + OpenAI Family',
+        endpoint: 'https://api.scalemax.pro/v1',
+        isPrimaryActive: true,
+      },
+      {
+        keyIndex: 2,
+        role: 'Local & Open-Weights Models Key',
+        shortRole: 'Local Models',
+        description: 'Dedicated supplier key provisioned for open-weights models (DeepSeek, Grok, Qwen, GLM)',
+        key: activeLocalKey,
+        targetModels: 'Open-Weights & Labs (DeepSeek, Grok, Qwen, GLM)',
+        endpoint: 'https://api.scalemax.pro/v1',
+        isPrimaryActive: true,
+      },
+      {
+        keyIndex: 3,
+        role: 'Initial Provisioned Master Key',
+        shortRole: 'Credit Master (Rotated)',
+        description: 'Initial wholesale master key; superseded by vendor with the 2 dedicated replacement keys above',
+        key: activeCreditKey,
+        targetModels: 'Universal (Legacy Test Quota)',
+        endpoint: 'https://api.scalemax.pro/v1',
+        isPrimaryActive: false,
+      },
+    ];
+
+    const results = await Promise.all(
+      keysToInspect.map(async (item) => {
+        if (!item.key) {
+          return {
+            keyIndex: item.keyIndex,
+            role: item.role,
+            shortRole: item.shortRole,
+            description: item.description,
+            keyPrefix: 'Not Configured',
+            status: 'UNCONFIGURED',
+            latencyMs: null,
+            error: 'Key not configured in environment or database',
+            targetModels: item.targetModels,
+            endpoint: item.endpoint,
+            modelsCount: 0,
+            models: [],
+          };
+        }
+
+        const keyPrefix = item.key.slice(0, 12) + '••••••••';
+        const start = Date.now();
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 6000);
+
+          const [usageResp, modelsResp] = await Promise.all([
+            fetch('https://api.scalemax.pro/v1/usage', {
+              method: 'GET',
+              headers: {
+                Authorization: 'Bearer ' + item.key,
+                'User-Agent': 'LightningAPI-Admin/1.0',
+              },
+              signal: controller.signal,
+            }).catch((err) => ({ ok: false, status: 500, error: err })),
+            fetch('https://api.scalemax.pro/v1/models', {
+              method: 'GET',
+              headers: {
+                Authorization: 'Bearer ' + item.key,
+                'User-Agent': 'LightningAPI-Admin/1.0',
+              },
+              signal: controller.signal,
+            }).catch(() => null),
+          ]);
+          clearTimeout(timeout);
+          const latencyMs = Date.now() - start;
+
+          let modelsList: string[] = [];
+          if (modelsResp && 'ok' in modelsResp && modelsResp.ok) {
+            try {
+              const mData: any = await modelsResp.json();
+              if (mData.data && Array.isArray(mData.data)) {
+                modelsList = mData.data.map((m: any) => m.id);
+              }
+            } catch {}
+          }
+
+          if (usageResp && 'ok' in usageResp && usageResp.ok) {
+            const data: any = await usageResp.json();
+            return {
+              keyIndex: item.keyIndex,
+              role: item.role,
+              shortRole: item.shortRole,
+              description: item.description,
+              keyPrefix,
+              status: 'HEALTHY',
+              latencyMs,
+              vendorLabel: data.key?.label || 'ScaleMax',
+              mode: data.key?.mode || 'credit',
+              providerScope: data.key?.provider_scope || 'both',
+              rpmLimit: data.key?.rpm_limit || 60,
+              creditsBalanceUsd: data.credits?.balance ?? data.credits?.remaining_usd ?? 0,
+              totalPurchasedUsd: data.credits?.total_purchased ?? 0,
+              lifetimeSpendUsd: data.credits?.lifetime_spend ?? 0,
+              todaySpendUsd: data.credits?.today_spend ?? 0,
+              requestsTotal: data.requests?.total ?? 0,
+              tokensInput: data.tokens?.input ?? 0,
+              tokensOutput: data.tokens?.output ?? 0,
+              targetModels: item.targetModels,
+              endpoint: item.endpoint,
+              modelsCount: modelsList.length,
+              models: modelsList,
+              rawSummary: data,
+            };
+          } else {
+            const uStatus = usageResp?.status || 500;
+            let errMessage = 'Upstream call failed';
+            if (usageResp && typeof usageResp.text === 'function') {
+              try {
+                const errText = await usageResp.text();
+                const parsed = JSON.parse(errText);
+                errMessage = parsed?.error?.message || errText;
+              } catch (parseErr) {}
+            }
+
+            const isSuperseded = uStatus === 401 && !item.isPrimaryActive;
+
+            return {
+              keyIndex: item.keyIndex,
+              role: item.role,
+              shortRole: item.shortRole,
+              description: item.description,
+              keyPrefix,
+              status: isSuperseded ? 'SUPERSEDED' : 'ERROR',
+              statusCode: uStatus,
+              latencyMs,
+              error: isSuperseded
+                ? 'Vendor superseded this initial test key with the 2 dedicated replacement keys (sm_live_9438 & sm_live_8bea)'
+                : errMessage,
+              targetModels: item.targetModels,
+              endpoint: item.endpoint,
+              modelsCount: 0,
+              models: [],
+            };
+          }
+        } catch (fetchErr: any) {
+          return {
+            keyIndex: item.keyIndex,
+            role: item.role,
+            shortRole: item.shortRole,
+            description: item.description,
+            keyPrefix,
+            status: 'UNREACHABLE',
+            latencyMs: Date.now() - start,
+            error: fetchErr.message || 'Connection timeout to ScaleMax upstream',
+            targetModels: item.targetModels,
+            endpoint: item.endpoint,
+            modelsCount: 0,
+            models: [],
+          };
+        }
+      })
+    );
+
+    res.json({
+      success: true,
+      provider: 'ScaleMax',
+      timestamp: new Date().toISOString(),
+      keys: results,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/admin/providers/scalemax/test-inference - Live upstream inference test
+router.post('/providers/scalemax/test-inference', async (req: AuthRequest, res: Response) => {
+  const { keyIndex, model, prompt } = req.body;
+  try {
+    const scalemaxTokenKey = process.env.SCALEMAX_TOKEN_API_KEY || '';
+    const scalemaxLocalKey = process.env.SCALEMAX_LOCAL_TOKEN_API_KEY || '';
+    const scalemaxCreditKey = process.env.SCALEMAX_CREDIT_API_KEY || process.env.SCALEMAX_MASTER_API_KEY || '';
+
+    let key = '';
+    if (keyIndex === 1) key = scalemaxTokenKey;
+    else if (keyIndex === 2) key = scalemaxLocalKey;
+    else if (keyIndex === 3) key = scalemaxCreditKey;
+    else key = scalemaxTokenKey || scalemaxLocalKey;
+
+    if (!key) {
+      return res.status(400).json({ error: { message: 'Key not found for key index ' + keyIndex } });
+    }
+
+    const testModel = model || (keyIndex === 2 ? 'qwen-3.7-flash' : 'claude-sonnet-4-6[1m]');
+    const testPrompt = prompt || 'Say hello and state your model name';
+    const start = Date.now();
+
+    const isAnthropicStyle = testModel.includes('claude') || testModel.includes('fable');
+    const endpoint = isAnthropicStyle
+      ? 'https://api.scalemax.pro/v1/messages'
+      : 'https://api.scalemax.pro/v1/chat/completions';
+
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + key,
+    };
+    if (isAnthropicStyle) {
+      headers['x-api-key'] = key;
+      headers['anthropic-version'] = '2023-06-01';
+    }
+
+    const payload = isAnthropicStyle
+      ? {
+          model: testModel,
+          messages: [{ role: 'user', content: testPrompt }],
+          max_tokens: 25,
+        }
+      : {
+          model: testModel,
+          messages: [{ role: 'user', content: testPrompt }],
+          max_tokens: 25,
+        };
+
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    const latencyMs = Date.now() - start;
+    const respText = await resp.text();
+    let parsed = null;
+    try {
+      parsed = JSON.parse(respText);
+    } catch {
+      parsed = { raw: respText };
+    }
+
+    res.json({
+      success: resp.ok,
+      statusCode: resp.status,
+      latencyMs,
+      endpoint,
+      model: testModel,
+      response: parsed,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // GET /api/admin/providers/failover-config - Get failover & default provider routing settings
 router.get('/providers/failover-config', async (req: AuthRequest, res: Response) => {
   try {

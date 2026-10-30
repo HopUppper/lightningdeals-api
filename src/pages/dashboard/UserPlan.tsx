@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag, Sparkles, Copy, Check } from 'lucide-react';
+import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag, Sparkles, Copy, Check, Cpu, Coins, DollarSign, Info } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { userFetch } from '../../utils/api';
@@ -28,6 +28,8 @@ export const UserPlan: React.FC = () => {
   // Time remaining states for live countdown
   const [resetCountdown, setResetCountdown] = useState<string>('');
   const [expiryCountdown, setExpiryCountdown] = useState<string>('');
+  const [selectedFamily, setSelectedFamily] = useState<'claude' | 'openai' | 'local'>('claude');
+  const [selectedBillingMode, setSelectedBillingMode] = useState<'window' | 'credit' | 'token'>('window');
 
   const fetchSubscriptions = async () => {
     try {
@@ -386,191 +388,340 @@ export const UserPlan: React.FC = () => {
         </div>
       )}
 
-      {/* AVAILABLE PLANS CATALOG */}
-      <div className="space-y-4">
+      {/* AVAILABLE PLANS CATALOG (2-Stage Segregated) */}
+      <div className="space-y-6">
         <div>
-          <h2 className="text-base font-extrabold text-[#1e1b2e] flex items-center gap-2">
-            <Zap className="w-4 h-4 text-violet-600 fill-current" />
-            <span>Available Capacity Plans</span>
+          <h2 className="text-lg font-extrabold text-[#1e1b2e] flex items-center gap-2">
+            <Zap className="w-5 h-5 text-violet-600 fill-current" />
+            <span>Select Model Ecosystem & Capacity Plan</span>
           </h2>
-          <p className="text-xs text-[#64607d]">
-            30-day fixed validity • 5-hour rolling token reload • Instant automated key delivery
+          <p className="text-xs text-[#64607d] mt-1">
+            Choose your model family, then pick the billing architecture that matches your development workflow.
           </p>
         </div>
 
-        <div className={`grid grid-cols-1 sm:grid-cols-2 ${(availablePlans.length > 0 ? availablePlans : [1, 2, 3, 4]).length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
-          {(availablePlans.length > 0
-            ? availablePlans
-            : [
-                {
-                  id: 'pro',
-                  name: 'PRO CREATOR',
-                  displayName: 'PRO (5M / 5h Window)',
-                  tokenAllowance: '5000000',
-                  tokenDisplay: '5M TOKENS / 5 HOURS',
-                  windowHours: 5,
-                  validityDays: 30,
-                  priceInr: 2499,
-                  originalPriceInr: 3499,
-                  badge: 'STARTER CHOICE',
-                  featured: false,
-                  features: ['5,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Sonnet 5.5 & Haiku 5.5 Access', 'Sub-50ms Gateway Routing', 'Instant Automated Delivery'],
-                },
-                {
-                  id: 'max',
-                  name: 'STUDIO MAX',
-                  displayName: 'MAX (20M / 5h Window)',
-                  tokenAllowance: '20000000',
-                  tokenDisplay: '20M TOKENS / 5 HOURS',
-                  windowHours: 5,
-                  validityDays: 30,
-                  priceInr: 5999,
-                  originalPriceInr: 22999,
-                  badge: 'MOST POPULAR',
-                  featured: true,
-                  features: ['20,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Claude Opus 5.5, Sonnet 5.5 & Fable 5 Access', 'Cursor, Windsurf & CLI Ready', 'Instant Automated Delivery'],
-                },
-                {
-                  id: 'ultra',
-                  name: 'ENTERPRISE SCALE',
-                  displayName: 'ULTRA (40M / 5h Window)',
-                  tokenAllowance: '40000000',
-                  tokenDisplay: '40M TOKENS / 5 HOURS',
-                  windowHours: 5,
-                  validityDays: 30,
-                  priceInr: 8999,
-                  originalPriceInr: 12999,
-                  badge: 'HIGH CAPACITY',
-                  featured: false,
-                  features: ['40,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'Max Concurrency & Throughput', 'All Top Claude Opus 5.5, Sonnet 5.5 & Fable 5 Models', 'VIP Priority Support'],
-                },
-                {
-                  id: '36b000a6-69da-4b3d-9574-68f2769a765d',
-                  name: 'MAX 100x',
-                  displayName: 'Supreme ( 100m / 5 hours )',
-                  tokenAllowance: '100000000',
-                  tokenDisplay: '100M TOKENS / 5 HOURS',
-                  windowHours: 5,
-                  validityDays: 30,
-                  priceInr: 16999,
-                  originalPriceInr: 69999,
-                  badge: 'MAX SCALE',
-                  featured: false,
-                  features: ['100,000,000 Tokens / 5h Window', '30-Day Fixed Validity', 'All Top Claude Opus 5.5, Sonnet 5.5 & Haiku Access', 'VIP Priority Concurrency & Dedicated Gateway Ingress', 'Instant Automated Delivery'],
-                },
-              ]
-          ).map((p: any) => (
-            <div
-              key={p.id}
-              className={`p-7 rounded-3xl bg-white flex flex-col justify-between space-y-5 relative transition-all shadow-2xs ${
-                p.featured
-                  ? 'border-2 border-violet-500 shadow-playful ring-4 ring-violet-500/10'
-                  : 'border border-[#ede8e1] hover:border-violet-300'
+        {/* STEP 1: Model Ecosystem */}
+        <div className="space-y-2">
+          <div className="text-[11px] font-mono uppercase tracking-wider text-[#64607d] font-bold">
+            Step 1: Select Model Family
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedFamily('claude')}
+              className={`p-4 rounded-2xl text-left border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                selectedFamily === 'claude'
+                  ? 'bg-white border-violet-600 shadow-sm ring-2 ring-violet-500/20'
+                  : 'bg-white/70 border-[#ede8e1] hover:bg-white'
               }`}
             >
-              {p.badge && (
-                <div className="absolute -top-3.5 left-7 bg-violet-600 text-white text-[10px] font-bold uppercase px-3 py-1 rounded-full shadow-xs tracking-wider">
-                  {p.badge}
-                </div>
-              )}
-
-              <div className="space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-violet-800 bg-violet-100 px-3 py-1 rounded-full border border-violet-200">
-                    {p.name}
-                  </span>
-                  <span className="text-xs text-[#64607d]">{p.validityDays || 30} Days</span>
-                </div>
-                <div>
-                  <h3 className="text-xl font-extrabold text-[#1e1b2e]">{p.displayName || p.name}</h3>
-                  <p className="text-xs font-bold text-violet-700 mt-0.5">{p.tokenDisplay}</p>
-                </div>
-                <div className="pt-2 border-t border-[#ede8e1] flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-[#1e1b2e]">
-                    ₹{p.priceInr.toLocaleString()}
-                  </span>
-                  {p.originalPriceInr && (
-                    <span className="text-xs text-[#64607d] line-through">
-                      ₹{p.originalPriceInr.toLocaleString()}
-                    </span>
-                  )}
-                  <span className="text-xs text-[#64607d]"> / 30 days</span>
-                </div>
-
-                <ul className="space-y-2 text-xs text-[#4b485c] pt-2">
-                  {p.features && p.features.length > 0 ? (
-                    p.features.map((feat: string, idx: number) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>{feat}</span>
-                      </li>
-                    ))
-                  ) : (
-                    <>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>{p.tokenDisplay}</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>{p.windowHours || 5}h Refresh Window</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Instant Automated Delivery</span>
-                      </li>
-                    </>
-                  )}
-                </ul>
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-[#1e1b2e] flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-violet-600" />
+                  Claude (Anthropic)
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-100 text-violet-700 font-bold">
+                  All 3 Modes
+                </span>
               </div>
+              <p className="text-[11px] text-[#64607d]">Sonnet 4.6, Opus 4.7, Haiku. Supports 5h rolling pool, credits, and tokens.</p>
+            </button>
 
-              <div className="space-y-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedPlanForCheckout({
-                      id: p.id,
-                      name: p.name,
-                      priceInr: p.priceInr,
-                      tokenDisplay: p.tokenDisplay,
-                      windowHours: p.windowHours || 5,
-                      validityDays: p.validityDays || 30,
-                    })
-                  }
-                  className={`w-full py-3 rounded-full font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs ${
-                    p.featured
-                      ? 'ui-button-primary'
-                      : 'bg-[#1e1b2e] hover:bg-black text-white'
-                  }`}
-                >
-                  <Zap className="w-3.5 h-3.5 fill-current" />
-                  <span>Activate {p.name} — ₹{p.priceInr.toLocaleString()}</span>
-                </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFamily('openai');
+                if (selectedBillingMode === 'window') setSelectedBillingMode('credit');
+              }}
+              className={`p-4 rounded-2xl text-left border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                selectedFamily === 'openai'
+                  ? 'bg-white border-emerald-600 shadow-sm ring-2 ring-emerald-500/20'
+                  : 'bg-white/70 border-[#ede8e1] hover:bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-[#1e1b2e] flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-emerald-600" />
+                  OpenAI Frontier
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                  Credits & Tokens
+                </span>
+              </div>
+              <p className="text-[11px] text-[#64607d]">o1, o3-mini, GPT-4o. Drop-in OpenAI API compatibility.</p>
+            </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    addToCart({
-                      id: p.id,
-                      planId: p.id,
-                      name: p.name,
-                      priceInr: p.priceInr,
-                      originalPriceInr: p.originalPriceInr,
-                      tokenDisplay: p.tokenDisplay,
-                      windowHours: p.windowHours || 5,
-                      validityDays: p.validityDays || 30,
-                      tagline: p.tagline,
-                      badge: p.badge,
-                    })
-                  }
-                  className="w-full py-2 rounded-full font-semibold text-xs border border-[#ede8e1] text-[#64607d] hover:text-[#1e1b2e] hover:bg-[#faf8f5] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>Add to Cart</span>
-                </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFamily('local');
+                if (selectedBillingMode === 'window') setSelectedBillingMode('credit');
+              }}
+              className={`p-4 rounded-2xl text-left border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                selectedFamily === 'local'
+                  ? 'bg-white border-amber-600 shadow-sm ring-2 ring-amber-500/20'
+                  : 'bg-white/70 border-[#ede8e1] hover:bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-[#1e1b2e] flex items-center gap-1.5">
+                  <Cpu className="w-4 h-4 text-amber-600" />
+                  Local & Open Weights
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                  7x Multiplier
+                </span>
+              </div>
+              <p className="text-[11px] text-[#64607d]">DeepSeek v3.2, Grok, Qwen 2.5, GLM-4. High-throughput wholesale economy.</p>
+            </button>
+          </div>
+        </div>
+
+        {/* STEP 2: Billing Architecture */}
+        <div className="space-y-2">
+          <div className="text-[11px] font-mono uppercase tracking-wider text-[#64607d] font-bold">
+            Step 2: Select Billing Architecture
+          </div>
+          <div className="inline-flex flex-wrap items-center p-1 rounded-2xl bg-white border border-[#ede8e1] shadow-2xs gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedBillingMode('window');
+                setSelectedFamily('claude');
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedBillingMode === 'window'
+                  ? 'bg-[#1e1b2e] text-white shadow-xs'
+                  : 'text-[#64607d] hover:text-[#1e1b2e]'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-violet-400" />
+              <span>5-Hour Rolling Window</span>
+              <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-violet-500/20 text-violet-300">
+                Claude Only
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedBillingMode('credit')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedBillingMode === 'credit'
+                  ? 'bg-violet-600 text-white shadow-xs'
+                  : 'text-[#64607d] hover:text-[#1e1b2e]'
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Usage Credits</span>
+              <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300">
+                7x Value
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedBillingMode('token')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedBillingMode === 'token'
+                  ? 'bg-[#1e1b2e] text-white shadow-xs'
+                  : 'text-[#64607d] hover:text-[#1e1b2e]'
+              }`}
+            >
+              <Coins className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Prepaid Token Packs</span>
+              <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-white/20">
+                No 5h Reset
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Informative Guidance Banner */}
+        {selectedBillingMode === 'window' && (
+          <div className="p-4 rounded-2xl bg-white border border-[#ede8e1] text-xs flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-violet-600 shrink-0" />
+              <div>
+                <strong className="text-[#1e1b2e]">5-Hour Continuous Rolling Window (Claude Exclusive):</strong> Tokens continuously refill as requests age past 5 hours. Fixed 30-day validity. Ideal for active developers on Cursor and Claude Code CLI.
               </div>
             </div>
-          ))}
+          </div>
+        )}
+
+        {selectedBillingMode === 'credit' && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-900 via-indigo-900 to-purple-900 text-white text-xs flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
+              <div>
+                <strong className="text-amber-300">Usage Credits (7x Multiplier):</strong> Deposit ₹1 in INR and get $7.00 to $8.75 in usage compute. Atomically deducted per token across Claude, OpenAI, and Local models. 365-day validity.
+              </div>
+            </div>
+            <span className="font-mono text-amber-300 text-[11px] shrink-0 font-bold bg-white/10 px-2.5 py-1 rounded-lg">
+              ₹1 = $7.00+
+            </span>
+          </div>
+        )}
+
+        {selectedBillingMode === 'token' && (
+          <div className="p-4 rounded-2xl bg-white border border-[#ede8e1] text-xs flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Coins className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div>
+                <strong className="text-[#1e1b2e]">Prepaid Consumable Tokens:</strong> Fixed allocation of 5M to 50M tokens that does NOT reset every 5 hours. Spend at your own speed over 365 days.
+              </div>
+            </div>
+            <span className="font-mono text-emerald-700 text-[11px] shrink-0 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+              365d Fixed Term
+            </span>
+          </div>
+        )}
+
+        {/* Non-Claude Rolling Guard */}
+        {selectedFamily !== 'claude' && selectedBillingMode === 'window' && (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>Rolling 5-hour plans are exclusive to Claude models. For {selectedFamily === 'openai' ? 'OpenAI' : 'Local'} models, please choose Usage Credits or Token Packs.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedBillingMode('credit')}
+              className="px-3 py-1.5 rounded-lg bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer"
+            >
+              Switch to Credits
+            </button>
+          </div>
+        )}
+
+        {/* Plans Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {availablePlans
+            .filter((p: any) => {
+              const pType = p.planType || (p.windowHours === 5 ? 'window' : 'window');
+              const name = (p.name || '').toLowerCase();
+              if (name.includes('trial')) return false;
+              if (selectedBillingMode === 'window') return pType === 'window' && p.priceInr >= 1000;
+              if (selectedBillingMode === 'credit') return pType === 'credit';
+              if (selectedBillingMode === 'token') return pType === 'token';
+              return false;
+            })
+            .sort((a: any, b: any) => a.priceInr - b.priceInr)
+            .map((p: any) => {
+              const allowanceNum = Number(p.tokenAllowance || 0);
+              const allowanceMillions = (allowanceNum / 1_000_000).toFixed(0);
+
+              return (
+                <div
+                  key={p.id}
+                  className={`p-6 rounded-3xl bg-white flex flex-col justify-between space-y-5 relative transition-all shadow-2xs border ${
+                    p.featured
+                      ? 'border-violet-500 shadow-playful ring-2 ring-violet-500/20'
+                      : 'border-[#ede8e1] hover:border-violet-300'
+                  }`}
+                >
+                  {p.badge && (
+                    <div className="absolute -top-3 left-6 bg-violet-600 text-white text-[9px] font-bold uppercase px-2.5 py-0.5 rounded-full shadow-xs tracking-wider">
+                      {p.badge}
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-violet-800 bg-violet-100 px-2.5 py-0.5 rounded-full border border-violet-200">
+                        {p.name}
+                      </span>
+                      <span className="text-[11px] text-[#64607d]">{p.validityDays || 30} Days</span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-extrabold text-[#1e1b2e]">{p.displayName || p.name}</h3>
+                      <p className="text-xs text-[#64607d] line-clamp-2 mt-0.5">{p.tagline}</p>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] font-mono text-center">
+                      {selectedBillingMode === 'window' && (
+                        <>
+                          <div className="text-base font-bold text-[#1e1b2e]">{allowanceMillions}M TOKENS</div>
+                          <div className="text-[9px] text-violet-700 uppercase font-bold tracking-wider">PER 5-HOUR WINDOW</div>
+                        </>
+                      )}
+                      {selectedBillingMode === 'credit' && (
+                        <>
+                          <div className="text-base font-bold text-[#1e1b2e]">$${p.creditAmountUsd || 700} CREDITS</div>
+                          <div className="text-[9px] text-amber-600 uppercase font-bold tracking-wider">{p.creditMultiplier || 7.0}x MULTIPLIER</div>
+                        </>
+                      )}
+                      {selectedBillingMode === 'token' && (
+                        <>
+                          <div className="text-base font-bold text-[#1e1b2e]">{allowanceMillions}M TOKENS</div>
+                          <div className="text-[9px] text-emerald-700 uppercase font-bold tracking-wider">CONSUMABLE QUOTA</div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-[#ede8e1] flex items-baseline gap-1.5">
+                      <span className="text-2xl font-extrabold text-[#1e1b2e]">
+                        ₹{p.priceInr.toLocaleString()}
+                      </span>
+                      {p.originalPriceInr && (
+                        <span className="text-xs text-[#64607d] line-through">
+                          ₹{p.originalPriceInr.toLocaleString()}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-[#64607d]">
+                        {selectedBillingMode === 'window' ? '/ 30d' : ' deposit'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-[#ede8e1]">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedPlanForCheckout({
+                          id: p.id,
+                          name: p.name,
+                          priceInr: p.priceInr,
+                          tokenDisplay: p.tokenDisplay,
+                          windowHours: p.windowHours || 5,
+                          validityDays: p.validityDays || 30,
+                        })
+                      }
+                      className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                        p.featured
+                          ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                          : 'bg-[#1e1b2e] hover:bg-black text-white'
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-current" />
+                      <span>Select {selectedBillingMode === 'credit' ? 'Credits' : 'Plan'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        addToCart({
+                          id: p.id,
+                          planId: p.id,
+                          name: p.name,
+                          priceInr: p.priceInr,
+                          originalPriceInr: p.originalPriceInr,
+                          tokenDisplay: p.tokenDisplay,
+                          windowHours: p.windowHours || 5,
+                          validityDays: p.validityDays || 30,
+                          tagline: p.tagline,
+                          badge: p.badge,
+                        })
+                      }
+                      className="w-full py-2 rounded-xl font-semibold text-xs border border-[#ede8e1] text-[#64607d] hover:text-[#1e1b2e] hover:bg-[#faf8f5] flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Add to Cart</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
         </div>
       </div>
 

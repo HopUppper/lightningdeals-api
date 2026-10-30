@@ -1916,6 +1916,10 @@ router.get('/models', async (req: AuthRequest, res: Response) => {
         inputMargin,
         outputMargin,
         marginPercent,
+        isOnDemand: m.isOnDemand ?? false,
+        planCategory: m.planCategory || null,
+        supplierCostInput: m.supplierCostInput != null ? Number(m.supplierCostInput) : null,
+        supplierCostOutput: m.supplierCostOutput != null ? Number(m.supplierCostOutput) : null,
         supportsStreaming: m.supportsStreaming ?? true,
         supportsTools: m.supportsTools ?? true,
         supportsVision: m.supportsVision ?? false,
@@ -1955,6 +1959,8 @@ router.post('/models', async (req: AuthRequest, res: Response) => {
       supportedPlans,
       enabled,
       isCustomerAvailable,
+      isOnDemand,
+      planCategory,
     } = req.body;
 
     if (!modelId || !displayName) {
@@ -1986,6 +1992,10 @@ router.post('/models', async (req: AuthRequest, res: Response) => {
         providerCostOutput: providerCostOutput !== undefined ? Number(providerCostOutput) : 8.00,
         supportsStreaming: supportsStreaming ?? true,
         supportsTools: supportsTools ?? true,
+        isOnDemand: Boolean(isOnDemand),
+        planCategory: planCategory || null,
+        supplierCostInput: providerCostInput !== undefined ? Number(providerCostInput) : null,
+        supplierCostOutput: providerCostOutput !== undefined ? Number(providerCostOutput) : null,
         supportsVision: supportsVision ?? false,
         supportedPlans: supportedPlans ? JSON.stringify(supportedPlans) : JSON.stringify(['window', 'credit', 'token']),
         enabled: enabled ?? true,
@@ -2032,6 +2042,14 @@ router.put('/models/:id', async (req: AuthRequest, res: Response) => {
       supportedPlans,
       enabled,
       isCustomerAvailable,
+      isOnDemand,
+      planCategory,
+      planType,
+      creditMultiplier,
+      creditAmountUsd,
+      bonusCreditsUsd,
+      bonusTokens,
+      providerScope,
     } = req.body;
 
     const existing = await prisma.model.findUnique({ where: { id } });
@@ -2070,6 +2088,10 @@ router.put('/models/:id', async (req: AuthRequest, res: Response) => {
         ...(supportedPlans !== undefined && { supportedPlans: Array.isArray(supportedPlans) ? JSON.stringify(supportedPlans) : supportedPlans }),
         ...(enabled !== undefined && { enabled }),
         ...(isCustomerAvailable !== undefined && { isCustomerAvailable }),
+        ...(isOnDemand !== undefined && { isOnDemand: Boolean(isOnDemand) }),
+        ...(planCategory !== undefined && { planCategory }),
+        ...(providerCostInput !== undefined && { supplierCostInput: Number(providerCostInput) }),
+        ...(providerCostOutput !== undefined && { supplierCostOutput: Number(providerCostOutput) }),
         lastSyncAt: new Date(),
       },
     });
@@ -5068,11 +5090,23 @@ router.get('/plans-catalog', async (req: AuthRequest, res: Response) => {
           } catch (e) {}
         }
 
+        const grossMarginPct = p.supplierCostInr != null && p.priceInr > 0
+          ? Number((((p.priceInr - p.supplierCostInr) / p.priceInr) * 100).toFixed(2))
+          : null;
+
+        let allowedModelFamilies: string[] = [];
+        if (p.allowedModelFamilies) {
+          try {
+            allowedModelFamilies = JSON.parse(p.allowedModelFamilies);
+          } catch (e) {}
+        }
+
         return {
           id: p.id,
           slug: p.slug,
           name: p.name,
           displayName: p.displayName,
+          planCategory: p.planCategory || 'claude_max_rolling',
           tokenAllowance: p.tokenAllowance.toString(),
           tokenDisplay: p.tokenDisplay,
           windowHours: p.windowHours,
@@ -5093,7 +5127,15 @@ router.get('/plans-catalog', async (req: AuthRequest, res: Response) => {
           status: p.status,
           planType: p.planType || 'window',
           creditMultiplier: p.creditMultiplier ? Number(p.creditMultiplier) : 7.0,
+          creditAmountInr: p.creditAmountInr ? Number(p.creditAmountInr) : null,
+          creditBalanceDenomination: p.creditBalanceDenomination || 'INR',
           creditAmountUsd: p.creditAmountUsd ? Number(p.creditAmountUsd) : null,
+          supplierCostInr: p.supplierCostInr != null ? Number(p.supplierCostInr) : null,
+          supplierCostUsd: p.supplierCostUsd != null ? Number(p.supplierCostUsd) : null,
+          supplierAllocation: p.supplierAllocation || null,
+          minGrossMarginPct: p.minGrossMarginPct != null ? Number(p.minGrossMarginPct) : null,
+          grossMarginPct,
+          allowedModelFamilies,
           bonusCreditsUsd: p.bonusCreditsUsd ? Number(p.bonusCreditsUsd) : null,
           bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : null,
           providerScope: p.providerScope || 'all',
@@ -5132,6 +5174,17 @@ router.post('/plans-catalog', async (req: AuthRequest, res: Response) => {
     featured,
     enabled,
     sortOrder,
+    planCategory,
+    planType,
+    creditMultiplier,
+    creditAmountInr,
+    creditBalanceDenomination,
+    supplierCostInr,
+    supplierCostUsd,
+    supplierAllocation,
+    minGrossMarginPct,
+    allowedModelFamilies,
+    providerScope,
   } = req.body;
 
   if (!name || typeof name !== 'string') {
@@ -5163,6 +5216,17 @@ router.post('/plans-catalog', async (req: AuthRequest, res: Response) => {
         enabled: enabled !== undefined ? Boolean(enabled) : true,
         sortOrder: Number(sortOrder) || 0,
         status: 'active',
+        planCategory: planCategory || 'claude_max_rolling',
+        planType: planType || 'window',
+        creditMultiplier: creditMultiplier !== undefined ? Number(creditMultiplier) : 7.0,
+        creditAmountInr: creditAmountInr !== undefined ? Number(creditAmountInr) : 0,
+        creditBalanceDenomination: creditBalanceDenomination || 'INR',
+        supplierCostInr: supplierCostInr !== undefined ? Number(supplierCostInr) : 0,
+        supplierCostUsd: supplierCostUsd !== undefined ? Number(supplierCostUsd) : null,
+        supplierAllocation: supplierAllocation || null,
+        minGrossMarginPct: minGrossMarginPct !== undefined ? Number(minGrossMarginPct) : null,
+        allowedModelFamilies: allowedModelFamilies ? JSON.stringify(allowedModelFamilies) : null,
+        providerScope: providerScope || 'all',
       },
     });
 
@@ -5210,6 +5274,17 @@ router.put('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
     featured,
     enabled,
     sortOrder,
+    planCategory,
+    planType,
+    creditMultiplier,
+    creditAmountInr,
+    creditBalanceDenomination,
+    supplierCostInr,
+    supplierCostUsd,
+    supplierAllocation,
+    minGrossMarginPct,
+    allowedModelFamilies,
+    providerScope,
   } = req.body;
 
   try {
@@ -5239,6 +5314,17 @@ router.put('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
         featured: featured !== undefined ? Boolean(featured) : existing.featured,
         enabled: enabled !== undefined ? Boolean(enabled) : existing.enabled,
         sortOrder: sortOrder !== undefined ? Number(sortOrder) : existing.sortOrder,
+        ...(planCategory !== undefined && { planCategory }),
+        ...(planType !== undefined && { planType }),
+        ...(creditMultiplier !== undefined && { creditMultiplier: Number(creditMultiplier) }),
+        ...(creditAmountInr !== undefined && { creditAmountInr: Number(creditAmountInr) }),
+        ...(creditBalanceDenomination !== undefined && { creditBalanceDenomination }),
+        ...(supplierCostInr !== undefined && { supplierCostInr: Number(supplierCostInr) }),
+        ...(supplierCostUsd !== undefined && { supplierCostUsd: Number(supplierCostUsd) }),
+        ...(supplierAllocation !== undefined && { supplierAllocation }),
+        ...(minGrossMarginPct !== undefined && { minGrossMarginPct: Number(minGrossMarginPct) }),
+        ...(allowedModelFamilies !== undefined && { allowedModelFamilies: JSON.stringify(allowedModelFamilies) }),
+        ...(providerScope !== undefined && { providerScope }),
       },
     });
 
@@ -5316,6 +5402,63 @@ router.delete('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
     });
 
     res.json({ success: true, message: 'Plan deleted successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// ============================================================================
+// Supplier Cost Reference Rates (/admin/supplier-rates)
+// ============================================================================
+router.get('/supplier-rates', async (req: AuthRequest, res: Response) => {
+  try {
+    const rates = await prisma.supplierCostReference.findMany({
+      orderBy: [{ category: 'asc' }, { createdAt: 'asc' }],
+    });
+    res.json({
+      success: true,
+      rates: rates.map(r => ({
+        ...r,
+        numericTokens: r.numericTokens ? r.numericTokens.toString() : null,
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.put('/supplier-rates/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { supplierCostInr, notes } = req.body;
+    const existing = await prisma.supplierCostReference.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: { message: 'Supplier rate record not found.' } });
+
+    const updated = await prisma.supplierCostReference.update({
+      where: { id },
+      data: {
+        ...(supplierCostInr !== undefined && { supplierCostInr: Number(supplierCostInr) }),
+        ...(notes !== undefined && { notes: String(notes) }),
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user!.id,
+        action: 'UPDATE_SUPPLIER_RATE',
+        targetType: 'SupplierCostReference',
+        targetId: updated.id,
+        metadata: `Updated ${updated.category} - ${updated.allocationAmount} cost to ₹${updated.supplierCostInr}`,
+      },
+    });
+
+    res.json({
+      success: true,
+      rate: {
+        ...updated,
+        numericTokens: updated.numericTokens ? updated.numericTokens.toString() : null,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

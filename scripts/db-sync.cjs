@@ -29,13 +29,17 @@ try {
   execSync('npx tsx scripts/migrate-token-accounting.ts', { stdio: 'inherit' });
   execSync('npx tsx scripts/migrate-studio-projects.ts', { stdio: 'inherit' });
   console.log('✓ [DB-SYNC] Token accounting and discovery migration succeeded.');
+  console.log('⚡ [DB-SYNC] Running five-plan architecture seed...');
+  execSync('npx tsx scripts/seed-five-plan-architecture.ts', { stdio: 'inherit' });
+  console.log('✓ [DB-SYNC] Five-plan architecture seed succeeded.');
 } catch (err) {
   console.warn('⚠️ [DB-SYNC] Prisma db push encountered pooler contention or schema conflict. Running fallback schema migration...');
   try {
     execSync('npx tsx scripts/migrate-purchases.ts', { stdio: 'inherit' });
     execSync('npx tsx scripts/migrate-annual-pricing-entitlements.ts', { stdio: 'inherit' });
     execSync('npx tsx scripts/migrate-token-accounting.ts', { stdio: 'inherit' });
-  execSync('npx tsx scripts/migrate-studio-projects.ts', { stdio: 'inherit' });
+    execSync('npx tsx scripts/migrate-studio-projects.ts', { stdio: 'inherit' });
+    execSync('npx tsx scripts/seed-five-plan-architecture.ts', { stdio: 'inherit' });
     console.log('✓ [DB-SYNC] Fallback schema migration succeeded.');
   } catch (mErr) {
     console.error('❌ [DB-SYNC] Fallback migration failed:', mErr.message);

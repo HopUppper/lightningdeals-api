@@ -322,6 +322,9 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           status: 'active',
           billingType: keyBillingType,
           creditBalanceUsd: totalCreditBalance,
+          creditBalanceInr: totalCreditBalance,
+          creditBalanceDenomination: 'INR',
+          planCategory: (plan as any).planCategory || (order as any).planCategory || (isCreditPlan ? 'claude_openai_credits' : isTokenPack ? 'claude_tokens' : 'claude_max_rolling'),
           purchasedTokens: finalPurchasedTokens,
           tokensUsed: 0n,
           tokensRemaining: finalPurchasedTokens,
@@ -341,7 +344,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           type: 'PURCHASE',
           reference: order.internalOrderId,
           notes: isCreditPlan
-            ? `Automated credit fulfillment for ${plan.displayName} (${totalCreditBalance} usage credits)`
+            ? `Automated credit fulfillment for ${plan.displayName} (₹${totalCreditBalance.toLocaleString()} API credits)`
             : `Automated fulfillment for ${plan.displayName}`,
         },
       });

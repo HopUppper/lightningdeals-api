@@ -45,25 +45,40 @@ export const CapacityPlans: React.FC = () => {
   const [codeTab, setCodeTab] = useState<'curl' | 'python' | 'claude_cli' | 'cursor'>('claude_cli');
   const [copiedSnippet, setCopiedSnippet] = useState(false);
 
-  // Filter plans based on the active billing mode
+  // Map selected model family and billing mode directly to the 5 distinct plan categories
+  const targetCategory = useMemo(() => {
+    if (selectedFamily === 'claude') {
+      if (selectedBillingMode === 'window') return 'claude_max_rolling';
+      if (selectedBillingMode === 'credit') return 'claude_openai_credits';
+      if (selectedBillingMode === 'token') return 'claude_tokens';
+    } else if (selectedFamily === 'openai') {
+      if (selectedBillingMode === 'credit') return 'claude_openai_credits';
+      if (selectedBillingMode === 'token') return 'openai_tokens';
+    } else if (selectedFamily === 'local') {
+      if (selectedBillingMode === 'token') return 'local_models_tokens';
+      if (selectedBillingMode === 'credit') return 'claude_openai_credits';
+    }
+    return 'claude_max_rolling';
+  }, [selectedFamily, selectedBillingMode]);
+
   const activePlans = useMemo(() => {
     return plans.filter((p) => {
-      const pType = p.planType || (p.windowHours === 5 ? 'window' : 'window');
+      if (!p.enabled) return false;
       const name = (p.name || '').toLowerCase();
       const slug = (p.slug || '').toLowerCase();
-      const isTrial = name.includes('trial') || slug.includes('trial');
-      if (isTrial) return false;
+      if (name.includes('trial') || slug.includes('trial')) return false;
 
-      if (selectedBillingMode === 'window') {
-        return pType === 'window' && p.priceInr >= 1000;
-      } else if (selectedBillingMode === 'credit') {
-        return pType === 'credit';
-      } else if (selectedBillingMode === 'token') {
-        return pType === 'token';
+      if (p.planCategory) {
+        return p.planCategory === targetCategory;
       }
+      if (targetCategory === 'claude_max_rolling') return (p.planType === 'window' || !p.planType) && p.priceInr >= 1000;
+      if (targetCategory === 'claude_openai_credits') return p.planType === 'credit';
+      if (targetCategory === 'openai_tokens') return p.planType === 'token' && (name.includes('openai') || slug.includes('openai'));
+      if (targetCategory === 'claude_tokens') return p.planType === 'token' && (name.includes('claude') || slug.includes('claude'));
+      if (targetCategory === 'local_models_tokens') return p.planType === 'token' && (name.includes('local') || slug.includes('local'));
       return false;
     }).sort((a, b) => a.priceInr - b.priceInr);
-  }, [plans, selectedBillingMode]);
+  }, [plans, targetCategory]);
 
   const handleSelectPlan = (pkg: PlanItem) => {
     const isYearly = billingPeriod === 'yearly' && selectedBillingMode === 'window';
@@ -389,7 +404,7 @@ export const CapacityPlans: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-violet-200 leading-relaxed max-w-3xl">
-                  Deposit funds in INR and unlock up to <strong>8.75x</strong> in USD usage value (e.g. ₹100 paid = $700 in credits).
+                  Deposit funds in INR and unlock up to <strong>7x–8.75x</strong> in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits).
                   Tokens are atomically deducted per request at published model rates. Valid for <strong>365 full days</strong>.
                   Universal access across Claude, OpenAI, and Local models.
                 </p>
@@ -397,7 +412,7 @@ export const CapacityPlans: React.FC = () => {
             </div>
 
             <div className="text-xs font-mono text-amber-300 shrink-0 bg-white/10 px-3 py-1.5 rounded-xl border border-white/15">
-              ₹1 Paid = $7.00 – $8.75 Credits
+              Pay ₹100 → Get ₹700 Credits
             </div>
           </div>
         )}
@@ -525,7 +540,7 @@ export const CapacityPlans: React.FC = () => {
                     {selectedBillingMode === 'credit' && (
                       <>
                         <div className="text-lg font-bold text-[#191719] font-display">
-                          ${plan.creditAmountUsd || 700} CREDITS
+                          ₹{(plan.creditAmountInr || (plan.priceInr * (plan.creditMultiplier || 7))).toLocaleString()} CREDITS
                         </div>
                         <div className="text-[10px] text-amber-600 uppercase font-bold tracking-wider">
                           {plan.creditMultiplier || 7.0}x PURCHASING MULTIPLIER

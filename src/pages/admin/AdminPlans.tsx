@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Zap,
   Tag,
@@ -21,14 +21,21 @@ import {
   DollarSign,
   Users,
   ShieldCheck,
+  Layers,
+  Coins,
+  Cpu,
+  ArrowRight,
 } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 
 export const AdminPlans: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'plans' | 'coupons' | 'subscriptions' | 'trials'>('plans');
+  const [activeTab, setActiveTab] = useState<'plans' | 'coupons' | 'subscriptions' | 'trials' | 'supplier-rates'>('plans');
   const [loading, setLoading] = useState(true);
   const [trialsDisabled, setTrialsDisabled] = useState(false);
   const [togglingTrials, setTogglingTrials] = useState(false);
+
+  // Category filter for plans tab
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
   // Plans State
   const [plans, setPlans] = useState<any[]>([]);
@@ -37,6 +44,8 @@ export const AdminPlans: React.FC = () => {
   const [planForm, setPlanForm] = useState<any>({
     name: '',
     displayName: '',
+    planCategory: 'claude_max_rolling',
+    planType: 'window',
     tokenAllowance: 5000000,
     tokenDisplay: '',
     windowHours: 5,
@@ -53,8 +62,26 @@ export const AdminPlans: React.FC = () => {
     featured: false,
     enabled: true,
     sortOrder: 1,
+    creditMultiplier: 7.0,
+    creditAmountInr: 0,
+    creditBalanceDenomination: 'INR',
+    supplierCostInr: 0,
+    supplierCostUsd: '',
+    supplierAllocation: '',
+    minGrossMarginPct: 20,
+    providerScope: 'all',
   });
   const [savingPlan, setSavingPlan] = useState(false);
+
+  // Supplier Rates State
+  const [supplierRates, setSupplierRates] = useState<any[]>([]);
+  const [selectedRateForEdit, setSelectedRateForEdit] = useState<any | null>(null);
+  const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [rateForm, setRateForm] = useState<any>({
+    supplierCostInr: 0,
+    notes: '',
+  });
+  const [savingRate, setSavingRate] = useState(false);
 
   // Coupons State
   const [coupons, setCoupons] = useState<any[]>([]);
@@ -97,13 +124,14 @@ export const AdminPlans: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [plansRes, couponsRes, ovRes, subRes, trialRes, emergencyRes] = await Promise.all([
+      const [plansRes, couponsRes, ovRes, subRes, trialRes, emergencyRes, ratesRes] = await Promise.all([
         adminFetch('/api/admin/plans-catalog').catch(() => null),
         adminFetch('/api/admin/coupons').catch(() => null),
         adminFetch('/api/admin/claude-plans/overview').catch(() => null),
         adminFetch(`/api/admin/subscriptions?search=${encodeURIComponent(searchQuery)}&planFilter=${planFilter}&statusFilter=${statusFilter}`).catch(() => null),
         adminFetch('/api/admin/trials').catch(() => null),
         adminFetch('/api/admin/emergency/status').catch(() => null),
+        adminFetch('/api/admin/supplier-rates').catch(() => null),
       ]);
 
       if (plansRes && plansRes.ok) {
@@ -127,6 +155,10 @@ export const AdminPlans: React.FC = () => {
         const eData = await emergencyRes.json();
         setTrialsDisabled(!!eData.trialsDisabled);
       }
+      if (ratesRes && ratesRes.ok) {
+        const rData = await ratesRes.json();
+        setSupplierRates(rData.rates || []);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -138,30 +170,14 @@ export const AdminPlans: React.FC = () => {
     loadData();
   }, [planFilter, statusFilter]);
 
-  // Plan Management Handlers
-  const handleToggleTrials = async () => {
-    setTogglingTrials(true);
-    try {
-      const res = await adminFetch('/api/admin/emergency/toggle-trials', {
-        method: 'POST',
-        body: JSON.stringify({ disabled: !trialsDisabled }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTrialsDisabled(!!data.trialsDisabled);
-      }
-    } catch (err) {
-      console.error('Error toggling trials:', err);
-    } finally {
-      setTogglingTrials(false);
-    }
-  };
-
+  // Plan Handlers
   const handleOpenNewPlanModal = () => {
     setSelectedPlanForEdit(null);
     setPlanForm({
       name: '',
       displayName: '',
+      planCategory: 'claude_max_rolling',
+      planType: 'window',
       tokenAllowance: 5000000,
       tokenDisplay: '',
       windowHours: 5,
@@ -178,6 +194,14 @@ export const AdminPlans: React.FC = () => {
       featured: false,
       enabled: true,
       sortOrder: plans.length + 1,
+      creditMultiplier: 7.0,
+      creditAmountInr: 0,
+      creditBalanceDenomination: 'INR',
+      supplierCostInr: 0,
+      supplierCostUsd: '',
+      supplierAllocation: '',
+      minGrossMarginPct: 20,
+      providerScope: 'all',
     });
     setIsPlanModalOpen(true);
   };
@@ -187,6 +211,8 @@ export const AdminPlans: React.FC = () => {
     setPlanForm({
       name: plan.name,
       displayName: plan.displayName,
+      planCategory: plan.planCategory || 'claude_max_rolling',
+      planType: plan.planType || 'window',
       tokenAllowance: Number(plan.tokenAllowance),
       tokenDisplay: plan.tokenDisplay || '',
       windowHours: plan.windowHours,
@@ -203,8 +229,50 @@ export const AdminPlans: React.FC = () => {
       featured: plan.featured,
       enabled: plan.enabled,
       sortOrder: plan.sortOrder || 0,
+      creditMultiplier: plan.creditMultiplier ? Number(plan.creditMultiplier) : 7.0,
+      creditAmountInr: plan.creditAmountInr ? Number(plan.creditAmountInr) : 0,
+      creditBalanceDenomination: plan.creditBalanceDenomination || 'INR',
+      supplierCostInr: plan.supplierCostInr != null ? Number(plan.supplierCostInr) : 0,
+      supplierCostUsd: plan.supplierCostUsd || '',
+      supplierAllocation: plan.supplierAllocation || '',
+      minGrossMarginPct: plan.minGrossMarginPct ? Number(plan.minGrossMarginPct) : 20,
+      providerScope: plan.providerScope || 'all',
     });
     setIsPlanModalOpen(true);
+  };
+
+  const handleCategoryChange = (newCat: string) => {
+    let pType = 'window';
+    let defaultMultiplier = 7.0;
+    let defaultCreditAmount = 0;
+    let defaultSupplierCost = 0;
+
+    if (newCat === 'claude_max_rolling') {
+      pType = 'window';
+    } else if (newCat === 'claude_openai_credits') {
+      pType = 'credit';
+      defaultMultiplier = 7.0;
+      defaultCreditAmount = planForm.priceInr * 7;
+      defaultSupplierCost = 250;
+    } else if (newCat === 'openai_tokens') {
+      pType = 'token';
+      defaultSupplierCost = 230;
+    } else if (newCat === 'claude_tokens') {
+      pType = 'token';
+      defaultSupplierCost = 250;
+    } else if (newCat === 'local_models_tokens') {
+      pType = 'token';
+      defaultSupplierCost = 220;
+    }
+
+    setPlanForm({
+      ...planForm,
+      planCategory: newCat,
+      planType: pType,
+      creditMultiplier: defaultMultiplier,
+      creditAmountInr: defaultCreditAmount || planForm.creditAmountInr,
+      supplierCostInr: defaultSupplierCost || planForm.supplierCostInr,
+    });
   };
 
   const handleSavePlan = async (e: React.FormEvent) => {
@@ -216,13 +284,17 @@ export const AdminPlans: React.FC = () => {
         : '/api/admin/plans-catalog';
       const method = selectedPlanForEdit ? 'PUT' : 'POST';
 
+      const payload = {
+        ...planForm,
+        tokenDisplay: planForm.tokenDisplay || (planForm.planType === 'token'
+          ? `${(Number(planForm.tokenAllowance) / 1000000).toFixed(0)}M TOKENS (Consumable)`
+          : `${(Number(planForm.tokenAllowance) / 1000000).toFixed(0)}M TOKENS / ${planForm.windowHours} HOURS`),
+        features: Array.isArray(planForm.features) ? planForm.features : planForm.features.split('\n').filter(Boolean),
+      };
+
       const res = await adminFetch(url, {
         method,
-        body: JSON.stringify({
-          ...planForm,
-          tokenDisplay: planForm.tokenDisplay || `${Number(planForm.tokenAllowance) / 1000000}M TOKENS / ${planForm.windowHours} HOURS`,
-          features: Array.isArray(planForm.features) ? planForm.features : planForm.features.split('\n').filter(Boolean),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -271,6 +343,39 @@ export const AdminPlans: React.FC = () => {
       }
     } catch (err: any) {
       alert(err.message || 'Error deleting plan');
+    }
+  };
+
+  // Supplier Rates Handlers
+  const handleOpenEditRateModal = (rate: any) => {
+    setSelectedRateForEdit(rate);
+    setRateForm({
+      supplierCostInr: rate.supplierCostInr,
+      notes: rate.notes || '',
+    });
+    setIsRateModalOpen(true);
+  };
+
+  const handleSaveSupplierRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRateForEdit) return;
+    setSavingRate(true);
+    try {
+      const res = await adminFetch(`/api/admin/supplier-rates/${selectedRateForEdit.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(rateForm),
+      });
+      if (res.ok) {
+        setIsRateModalOpen(false);
+        await loadData();
+      } else {
+        const err = await res.json();
+        alert(err.error?.message || 'Failed to update supplier rate');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error saving rate');
+    } finally {
+      setSavingRate(false);
     }
   };
 
@@ -360,28 +465,25 @@ export const AdminPlans: React.FC = () => {
     }
   };
 
-  const handleCopyCoupon = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCouponCode(code);
-    setTimeout(() => setCopiedCouponCode(null), 2000);
-  };
-
-  // Subscription Handlers
-  const handleExtendSubscription = async (e: React.FormEvent) => {
+  // Subscriptions Handlers
+  const handleExtendSub = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSubForExtend) return;
     setExtending(true);
     try {
       const res = await adminFetch(`/api/admin/subscriptions/${selectedSubForExtend.id}/extend`, {
         method: 'POST',
-        body: JSON.stringify({ additionalDays: extendDays, reason: extendReason }),
+        body: JSON.stringify({ days: extendDays, reason: extendReason }),
       });
       if (res.ok) {
         setSelectedSubForExtend(null);
         await loadData();
+      } else {
+        const err = await res.json();
+        alert(err.error?.message || 'Failed to extend subscription');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Network error');
     } finally {
       setExtending(false);
     }
@@ -398,27 +500,62 @@ export const AdminPlans: React.FC = () => {
       });
       if (res.ok) {
         setSelectedSubForStatus(null);
-        setStatusReason('');
         await loadData();
+      } else {
+        const err = await res.json();
+        alert(err.error?.message || 'Failed to update subscription status');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Network error');
     } finally {
       setUpdatingStatus(false);
     }
   };
 
+  // Category Helper Functions
+  const getCategoryBadge = (cat?: string) => {
+    switch (cat) {
+      case 'claude_max_rolling':
+        return { label: 'Claude Max (5h Rolling)', bg: 'bg-purple-100 text-purple-800 border-purple-200' };
+      case 'claude_openai_credits':
+        return { label: 'Claude + OpenAI Credits', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+      case 'openai_tokens':
+        return { label: 'OpenAI Tokens', bg: 'bg-blue-100 text-blue-800 border-blue-200' };
+      case 'claude_tokens':
+        return { label: 'Claude Tokens', bg: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
+      case 'local_models_tokens':
+        return { label: 'Local Models Tokens', bg: 'bg-amber-100 text-amber-800 border-amber-200' };
+      default:
+        return { label: 'Claude Max (Rolling)', bg: 'bg-gray-100 text-gray-800 border-gray-200' };
+    }
+  };
+
+  const filteredPlans = useMemo(() => {
+    if (categoryFilter === 'ALL') return plans;
+    return plans.filter((p) => p.planCategory === categoryFilter);
+  }, [plans, categoryFilter]);
+
+  // Margin calculation in modal
+  const computedMargin = useMemo(() => {
+    const price = Number(planForm.priceInr) || 0;
+    const cost = Number(planForm.supplierCostInr) || 0;
+    const margin = price - cost;
+    const marginPct = price > 0 ? Number(((margin / price) * 100).toFixed(1)) : 0;
+    const isHealthy = marginPct >= (Number(planForm.minGrossMarginPct) || 20);
+    return { margin, marginPct, isHealthy };
+  }, [planForm.priceInr, planForm.supplierCostInr, planForm.minGrossMarginPct]);
+
   return (
-    <div className="space-y-6 font-sans">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-fg flex items-center gap-2">
             <Zap className="w-5 h-5 text-violet-600" />
-            Plans, Offers & Coupons Center
+            Plans, Offers & Pricing Engine
           </h1>
           <p className="text-xs text-muted font-mono mt-0.5">
-            Manage dynamic pricing, discount offers, promo codes, and live customer quotas
+            Admin single source of truth: 5 distinct plan categories, wholesale economics, margins, and active quotas
           </p>
         </div>
 
@@ -458,17 +595,17 @@ export const AdminPlans: React.FC = () => {
         <div className="technical-panel p-4 space-y-1">
           <span className="text-[11px] font-mono text-muted uppercase">Active Plans</span>
           <div className="text-xl font-bold font-mono text-fg tabular-nums">
-            {plans.filter((p) => p.enabled).length} / {plans.length}
+            {plans.filter((p) => p.enabled).length} <span className="text-xs text-muted font-normal">/ {plans.length}</span>
           </div>
-          <p className="text-[10px] text-muted font-mono">Configured in database</p>
+          <p className="text-[10px] text-muted font-mono">5 Distinct Categories</p>
         </div>
 
         <div className="technical-panel p-4 space-y-1">
-          <span className="text-[11px] font-mono text-muted uppercase">Active Promo Codes</span>
-          <div className="text-xl font-bold font-mono text-emerald-600 tabular-nums">
-            {coupons.filter((c) => c.status === 'ACTIVE').length}
+          <span className="text-[11px] font-mono text-muted uppercase">Wholesale Rates</span>
+          <div className="text-xl font-bold font-mono text-fg tabular-nums">
+            {supplierRates.length}
           </div>
-          <p className="text-[10px] text-muted font-mono">Ready for checkout</p>
+          <p className="text-[10px] text-muted font-mono">17 Reference Baselines</p>
         </div>
 
         <div className="technical-panel p-4 space-y-1">
@@ -476,7 +613,7 @@ export const AdminPlans: React.FC = () => {
           <div className="text-xl font-bold font-mono text-accent tabular-nums">
             {overview?.activeSubscriptions || 0}
           </div>
-          <p className="text-[10px] text-muted font-mono">Paying customer keys</p>
+          <p className="text-[10px] text-muted font-mono">Active customer keys</p>
         </div>
 
         <div className="technical-panel p-4 space-y-1">
@@ -489,22 +626,34 @@ export const AdminPlans: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-border space-x-6 text-xs font-mono font-bold">
+      <div className="flex border-b border-border space-x-6 text-xs font-mono font-bold overflow-x-auto">
         <button
           onClick={() => setActiveTab('plans')}
-          className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'plans'
               ? 'border-accent text-accent'
               : 'border-transparent text-muted hover:text-fg'
           }`}
         >
           <Zap className="w-4 h-4" />
-          PLANS & OFFER PRICING ({plans.length})
+          FIVE-PLAN CATALOG ({plans.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('supplier-rates')}
+          className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
+            activeTab === 'supplier-rates'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-muted hover:text-fg'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          SUPPLIER WHOLESALE RATES ({supplierRates.length})
         </button>
 
         <button
           onClick={() => setActiveTab('coupons')}
-          className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'coupons'
               ? 'border-emerald-600 text-emerald-600'
               : 'border-transparent text-muted hover:text-fg'
@@ -516,7 +665,7 @@ export const AdminPlans: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('subscriptions')}
-          className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'subscriptions'
               ? 'border-accent text-accent'
               : 'border-transparent text-muted hover:text-fg'
@@ -528,7 +677,7 @@ export const AdminPlans: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('trials')}
-          className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'trials'
               ? 'border-accent text-accent'
               : 'border-transparent text-muted hover:text-fg'
@@ -539,120 +688,281 @@ export const AdminPlans: React.FC = () => {
         </button>
       </div>
 
-      {/* TAB 1: PLANS CATALOG */}
+      {/* ============================================================ */}
+      {/* TAB 1: FIVE-PLAN CATALOG                                     */}
+      {/* ============================================================ */}
       {activeTab === 'plans' && (
-        <div className="space-y-4">
+        <div className="space-y-5">
+          {/* Category Filter Bar */}
+          <div className="flex flex-wrap items-center gap-2 p-1.5 bg-subtle/50 rounded-control border border-border">
+            <button
+              onClick={() => setCategoryFilter('ALL')}
+              className={`px-3 py-1.5 rounded-control text-xs font-mono font-bold transition-all ${
+                categoryFilter === 'ALL'
+                  ? 'bg-white text-fg shadow-xs border border-border'
+                  : 'text-muted hover:text-fg'
+              }`}
+            >
+              All Plans ({plans.length})
+            </button>
+            <button
+              onClick={() => setCategoryFilter('claude_max_rolling')}
+              className={`px-3 py-1.5 rounded-control text-xs font-mono font-bold transition-all ${
+                categoryFilter === 'claude_max_rolling'
+                  ? 'bg-purple-100 text-purple-900 shadow-xs border border-purple-300'
+                  : 'text-muted hover:text-fg'
+              }`}
+            >
+              Plan 1: Claude Max (5h Rolling) ({plans.filter((p) => p.planCategory === 'claude_max_rolling').length})
+            </button>
+            <button
+              onClick={() => setCategoryFilter('claude_openai_credits')}
+              className={`px-3 py-1.5 rounded-control text-xs font-mono font-bold transition-all ${
+                categoryFilter === 'claude_openai_credits'
+                  ? 'bg-emerald-100 text-emerald-900 shadow-xs border border-emerald-300'
+                  : 'text-muted hover:text-fg'
+              }`}
+            >
+              Plan 2: Claude + OpenAI (Credits) ({plans.filter((p) => p.planCategory === 'claude_openai_credits').length})
+            </button>
+            <button
+              onClick={() => setCategoryFilter('openai_tokens')}
+              className={`px-3 py-1.5 rounded-control text-xs font-mono font-bold transition-all ${
+                categoryFilter === 'openai_tokens'
+                  ? 'bg-blue-100 text-blue-900 shadow-xs border border-blue-300'
+                  : 'text-muted hover:text-fg'
+              }`}
+            >
+              Plan 3: OpenAI (Tokens) ({plans.filter((p) => p.planCategory === 'openai_tokens').length})
+            </button>
+            <button
+              onClick={() => setCategoryFilter('claude_tokens')}
+              className={`px-3 py-1.5 rounded-control text-xs font-mono font-bold transition-all ${
+                categoryFilter === 'claude_tokens'
+                  ? 'bg-indigo-100 text-indigo-900 shadow-xs border border-indigo-300'
+                  : 'text-muted hover:text-fg'
+              }`}
+            >
+              Plan 4: Claude (Tokens) ({plans.filter((p) => p.planCategory === 'claude_tokens').length})
+            </button>
+            <button
+              onClick={() => setCategoryFilter('local_models_tokens')}
+              className={`px-3 py-1.5 rounded-control text-xs font-mono font-bold transition-all ${
+                categoryFilter === 'local_models_tokens'
+                  ? 'bg-amber-100 text-amber-900 shadow-xs border border-amber-300'
+                  : 'text-muted hover:text-fg'
+              }`}
+            >
+              Plan 5: Local Models (Tokens) ({plans.filter((p) => p.planCategory === 'local_models_tokens').length})
+            </button>
+          </div>
+
+          {/* Plans Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {plans.map((p) => (
-              <div
-                key={p.id}
-                className={`p-5 rounded-panel bg-card border flex flex-col justify-between space-y-4 shadow-xs transition-all relative ${
-                  p.featured
-                    ? 'border-2 border-violet-500 shadow-md shadow-violet-500/10'
-                    : 'border-border hover:border-violet-300'
-                } ${!p.enabled ? 'opacity-60 bg-subtle/40' : ''}`}
-              >
-                {/* Badges */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {p.badge && (
-                      <span className="text-[10px] font-mono font-bold uppercase text-white bg-violet-600 px-2 py-0.5 rounded shadow-xs">
-                        {p.badge}
+            {filteredPlans.map((p) => {
+              const catBadge = getCategoryBadge(p.planCategory);
+              const margin = p.supplierCostInr != null ? p.priceInr - p.supplierCostInr : null;
+              const marginPct = p.grossMarginPct != null ? p.grossMarginPct : null;
+
+              return (
+                <div
+                  key={p.id}
+                  className={`p-5 rounded-panel bg-card border flex flex-col justify-between space-y-4 shadow-xs transition-all relative ${
+                    p.featured
+                      ? 'border-2 border-violet-500 shadow-md shadow-violet-500/10'
+                      : 'border-border hover:border-violet-300'
+                  } ${!p.enabled ? 'opacity-60 bg-subtle/40' : ''}`}
+                >
+                  {/* Badges */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${catBadge.bg}`}>
+                      {catBadge.label}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      {p.badge && (
+                        <span className="text-[10px] font-mono font-bold uppercase text-white bg-violet-600 px-2 py-0.5 rounded shadow-xs">
+                          {p.badge}
+                        </span>
+                      )}
+                      <span
+                        className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
+                          p.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                        }`}
+                      >
+                        {p.enabled ? 'ACTIVE' : 'DISABLED'}
                       </span>
-                    )}
-                    {p.featured && (
-                      <span className="text-[10px] font-mono font-bold uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                        FEATURED
+                    </div>
+                  </div>
+
+                  {/* Plan Info */}
+                  <div className="space-y-2">
+                    <div>
+                      <h3 className="text-xl font-extrabold text-fg">{p.name}</h3>
+                      <p className="text-xs text-muted font-mono">{p.displayName}</p>
+                    </div>
+
+                    <p className="text-xs text-muted min-h-[32px] line-clamp-2">
+                      {p.tagline || 'Custom AI compute quota architecture'}
+                    </p>
+
+                    {/* Customer Pricing */}
+                    <div className="pt-2 border-t border-border flex items-baseline gap-2 font-mono">
+                      <span className="text-2xl font-extrabold text-fg">₹{p.priceInr.toLocaleString()}</span>
+                      {p.originalPriceInr && (
+                        <span className="text-xs text-muted line-through">₹{p.originalPriceInr.toLocaleString()}</span>
+                      )}
+                      <span className="text-xs text-muted">
+                        {p.planType === 'token' ? '(One-time)' : `/ ${p.validityDays}d`}
                       </span>
+                    </div>
+
+                    {/* Category-Specific Highlight */}
+                    {p.planCategory === 'claude_openai_credits' && (
+                      <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-900 space-y-0.5">
+                        <div className="font-bold flex items-center justify-between">
+                          <span>Pay ₹{p.priceInr.toLocaleString()} → Get ₹{(p.creditAmountInr || (p.priceInr * 7)).toLocaleString()} API Credits</span>
+                          <span className="bg-emerald-200 text-emerald-800 text-[10px] px-1.5 py-0.2 rounded font-mono">
+                            {p.creditMultiplier || 7.0}x
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-emerald-700">Strictly INR-denominated balances</p>
+                      </div>
                     )}
-                  </div>
-                  <span
-                    className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
-                      p.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                    }`}
-                  >
-                    {p.enabled ? 'ACTIVE' : 'DISABLED'}
-                  </span>
-                </div>
 
-                {/* Plan Info */}
-                <div className="space-y-2">
-                  <div>
-                    <h3 className="text-xl font-extrabold text-fg">{p.name}</h3>
-                    <p className="text-xs text-muted font-mono">{p.displayName}</p>
-                  </div>
-
-                  <p className="text-xs text-muted min-h-[32px] line-clamp-2">
-                    {p.tagline || 'Custom high-performance Claude quota plan'}
-                  </p>
-
-                  <div className="pt-2 border-t border-border flex items-baseline gap-2 font-mono">
-                    <span className="text-2xl font-extrabold text-fg">₹{p.priceInr.toLocaleString()}</span>
-                    {p.originalPriceInr && (
-                      <span className="text-xs text-muted line-through">₹{p.originalPriceInr.toLocaleString()}</span>
+                    {p.planType === 'token' && (
+                      <div className="p-2 rounded bg-blue-50 border border-blue-200 text-xs font-mono text-blue-900 space-y-0.5">
+                        <div className="font-bold">
+                          {p.tokenDisplay || `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Consumable Tokens`}
+                        </div>
+                        <p className="text-[10px] text-blue-700">Non-expiring high-capacity token pack</p>
+                      </div>
                     )}
-                    <span className="text-xs text-muted">/ {p.validityDays}d</span>
-                  </div>
-                  <div className="text-[11px] font-mono">
-                    {p.annualPriceInr ? (
-                      <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        Annual: ₹{p.annualPriceInr.toLocaleString()} / {p.annualValidityDays || 365}d
-                      </span>
-                    ) : (
-                      <span className="text-[#a8a29e] bg-[#f5f5f4] px-2 py-0.5 rounded">
-                        Annual: Not configured
-                      </span>
+
+                    {p.planType === 'window' && (
+                      <div className="p-2.5 rounded bg-subtle/70 text-xs font-mono space-y-1 text-muted">
+                        <div>Quota: <strong>{p.tokenDisplay || `${Number(p.tokenAllowance) / 1000000}M / ${p.windowHours}h`}</strong></div>
+                        <div>Rate Limit: <strong>{p.rateLimitRpm} RPM</strong></div>
+                      </div>
                     )}
+
+                    {/* Wholesale Cost & Margin Row */}
+                    <div className="p-2.5 rounded bg-amber-50/80 border border-amber-200 text-xs font-mono space-y-1 text-amber-950">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-amber-800 uppercase font-bold">Wholesale Cost:</span>
+                        <span className="font-bold">₹{(p.supplierCostInr || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-amber-800 uppercase font-bold">Gross Margin:</span>
+                        <span className={`font-bold ${margin != null && margin >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          ₹{(margin || 0).toLocaleString()} ({marginPct != null ? `${marginPct}%` : 'N/A'})
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-2.5 rounded bg-subtle/70 text-xs font-mono space-y-1 text-muted">
-                    <div>Tokens: <strong>{p.tokenDisplay || `${Number(p.tokenAllowance) / 1000000}M / ${p.windowHours}h`}</strong></div>
-                    <div>Rate Limit: <strong>{p.rateLimitRpm} RPM</strong></div>
-                    <div>Active Subscribers: <strong className="text-violet-700">{p.activeSubCount || 0}</strong></div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => handleTogglePlan(p.id)}
-                    className={`p-2 rounded-control border text-xs font-mono font-bold flex items-center gap-1.5 transition-colors ${
-                      p.enabled
-                        ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                        : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                    }`}
-                    title={p.enabled ? 'Disable Plan' : 'Enable Plan'}
-                  >
-                    <Power className="w-3.5 h-3.5" />
-                    <span>{p.enabled ? 'DISABLE' : 'ENABLE'}</span>
-                  </button>
-
-                  <div className="flex items-center gap-1.5">
+                  {/* Actions */}
+                  <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
                     <button
-                      onClick={() => handleOpenEditPlanModal(p)}
-                      className="p-2 rounded-control border border-border text-fg hover:bg-subtle text-xs font-mono font-bold flex items-center gap-1"
-                      title="Edit Plan"
+                      onClick={() => handleTogglePlan(p.id)}
+                      className={`p-2 rounded-control border text-xs font-mono font-bold flex items-center gap-1.5 transition-colors ${
+                        p.enabled
+                          ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                          : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                      }`}
+                      title={p.enabled ? 'Disable Plan' : 'Enable Plan'}
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>EDIT</span>
+                      <Power className="w-3.5 h-3.5" />
+                      <span>{p.enabled ? 'DISABLE' : 'ENABLE'}</span>
                     </button>
 
-                    <button
-                      onClick={() => handleDeletePlan(p.id, p.name)}
-                      className="p-2 rounded-control border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs"
-                      title="Delete / Archive Plan"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenEditPlanModal(p)}
+                        className="p-2 rounded-control border border-border text-fg hover:bg-subtle text-xs font-mono font-bold flex items-center gap-1"
+                        title="Edit Plan"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>EDIT</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeletePlan(p.id, p.name)}
+                        className="p-2 rounded-control border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs"
+                        title="Delete / Archive Plan"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* TAB 2: COUPONS & PROMO CODES */}
+      {/* ============================================================ */}
+      {/* TAB 2: SUPPLIER COST REFERENCE RATES                         */}
+      {/* ============================================================ */}
+      {activeTab === 'supplier-rates' && (
+        <div className="space-y-4">
+          <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-panel text-xs font-mono text-indigo-950 space-y-1">
+            <h3 className="font-bold text-sm flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-indigo-700" />
+              ScaleMax Wholesale Acquisition Reference Rates (17 Authoritative Baselines)
+            </h3>
+            <p className="text-indigo-800">
+              Internal benchmark costs directly quoted by vendor. Customer prices, multipliers, and retail margins are calculated relative to these baseline costs.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto rounded-panel border border-border shadow-xs bg-card">
+            <table className="w-full text-left border-collapse text-xs font-mono">
+              <thead>
+                <tr className="bg-subtle border-b border-border font-bold uppercase tracking-wider text-muted">
+                  <th className="p-3.5">Category</th>
+                  <th className="p-3.5">Type</th>
+                  <th className="p-3.5">Allocation Tier</th>
+                  <th className="p-3.5">Wholesale Cost (₹ INR)</th>
+                  <th className="p-3.5">Notes</th>
+                  <th className="p-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {supplierRates.map((r) => (
+                  <tr key={r.id} className="hover:bg-bg/40">
+                    <td className="p-3.5 font-bold uppercase text-fg">
+                      <span className="px-2 py-0.5 rounded bg-subtle text-fg">
+                        {r.category}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-muted uppercase">{r.allocationType}</td>
+                    <td className="p-3.5 font-bold text-fg">{r.allocationAmount}</td>
+                    <td className="p-3.5 text-accent font-bold text-sm">
+                      ₹{Number(r.supplierCostInr).toLocaleString()}
+                    </td>
+                    <td className="p-3.5 text-muted max-w-xs truncate">{r.notes || 'Vendor baseline quotation'}</td>
+                    <td className="p-3.5 text-right">
+                      <button
+                        onClick={() => handleOpenEditRateModal(r)}
+                        className="px-2.5 py-1 rounded text-xs font-bold border border-border bg-bg hover:bg-card text-fg inline-flex items-center gap-1"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        <span>Edit Rate</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 3: COUPONS & PROMO CODES                                 */}
+      {/* ============================================================ */}
       {activeTab === 'coupons' && (
         <div className="space-y-4">
           <div className="overflow-x-auto rounded-panel border border-border shadow-xs bg-card">
@@ -679,71 +989,42 @@ export const AdminPlans: React.FC = () => {
                 ) : (
                   coupons.map((c) => (
                     <tr key={c.id} className="hover:bg-subtle/50 transition-colors">
-                      <td className="p-3.5 font-bold text-fg">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-violet-50 text-violet-800 border border-violet-200/80 px-2 py-0.5 rounded font-extrabold">
-                            {c.code}
-                          </span>
-                          <button
-                            onClick={() => handleCopyCoupon(c.code)}
-                            className="text-muted hover:text-fg"
-                            title="Copy code"
-                          >
-                            {copiedCouponCode === c.code ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                        {c.description && (
-                          <p className="text-[10px] text-muted font-sans mt-0.5">{c.description}</p>
-                        )}
-                      </td>
-
-                      <td className="p-3.5 font-bold text-emerald-700">
-                        {c.discountType === 'PERCENTAGE' ? (
-                          <span className="flex items-center gap-1">
-                            <Percent className="w-3.5 h-3.5" /> {c.discountValue}% OFF
-                          </span>
-                        ) : (
-                          <span>₹{c.discountValue} FLAT OFF</span>
-                        )}
-                      </td>
-
-                      <td className="p-3.5 text-muted">
-                        <div>Min: ₹{c.minOrderAmountInr.toLocaleString()}</div>
-                        {c.maxDiscountInr && <div>Cap: ₹{c.maxDiscountInr.toLocaleString()}</div>}
-                      </td>
-
-                      <td className="p-3.5">
-                        <div className="font-bold text-fg">
-                          {c.usedCount} {c.maxUses ? `/ ${c.maxUses}` : 'uses'}
-                        </div>
-                        {c.maxUses && (
-                          <div className="w-20 h-1.5 bg-subtle rounded-full overflow-hidden mt-1">
-                            <div
-                              className="h-full bg-emerald-500 rounded-full"
-                              style={{ width: `${Math.min(100, (c.usedCount / c.maxUses) * 100)}%` }}
-                            />
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="p-3.5 text-muted">{c.maxUsesPerUser}x max</td>
-
-                      <td className="p-3.5 text-muted">
-                        {c.expiresAt ? (
-                          new Date(c.expiresAt) < new Date() ? (
-                            <span className="text-rose-600 font-bold">Expired</span>
+                      <td className="p-3.5 font-bold text-fg flex items-center gap-1.5">
+                        <span className="font-mono text-sm tracking-wider uppercase bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                          {c.code}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(c.code);
+                            setCopiedCouponCode(c.code);
+                            setTimeout(() => setCopiedCouponCode(null), 2000);
+                          }}
+                          className="text-muted hover:text-fg p-1 rounded"
+                          title="Copy Code"
+                        >
+                          {copiedCouponCode === c.code ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
                           ) : (
-                            new Date(c.expiresAt).toLocaleDateString()
-                          )
-                        ) : (
-                          'Never'
-                        )}
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                       </td>
-
+                      <td className="p-3.5">
+                        <span className="font-bold text-fg">
+                          {c.discountType === 'PERCENTAGE' ? `${c.discountValue}% OFF` : `₹${c.discountValue} FLAT`}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-muted">
+                        Min: ₹{c.minOrderAmountInr}
+                        {c.maxDiscountInr && ` / Cap: ₹${c.maxDiscountInr}`}
+                      </td>
+                      <td className="p-3.5 font-mono">
+                        {c.usedCount} / {c.maxUses || '∞'}
+                      </td>
+                      <td className="p-3.5 text-muted">{c.maxUsesPerUser || 1}</td>
+                      <td className="p-3.5 text-muted">
+                        {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : 'Never'}
+                      </td>
                       <td className="p-3.5">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -755,30 +1036,27 @@ export const AdminPlans: React.FC = () => {
                           {c.status}
                         </span>
                       </td>
-
-                      <td className="p-3.5 text-right space-x-1.5">
+                      <td className="p-3.5 text-right space-x-2">
                         <button
                           onClick={() => handleToggleCoupon(c.id)}
-                          className="p-1.5 rounded-control border border-border text-muted hover:text-fg hover:bg-subtle"
-                          title={c.status === 'ACTIVE' ? 'Disable coupon' : 'Enable coupon'}
+                          className="text-muted hover:text-fg font-bold"
+                          title={c.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
                         >
-                          <Power className="w-3.5 h-3.5" />
+                          <Power className="w-3.5 h-3.5 inline" />
                         </button>
-
                         <button
                           onClick={() => handleOpenEditCouponModal(c)}
-                          className="p-1.5 rounded-control border border-border text-muted hover:text-fg hover:bg-subtle"
-                          title="Edit coupon"
+                          className="text-muted hover:text-fg font-bold"
+                          title="Edit"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3.5 h-3.5 inline" />
                         </button>
-
                         <button
                           onClick={() => handleDeleteCoupon(c.id, c.code)}
-                          className="p-1.5 rounded-control border border-rose-200 text-rose-600 hover:bg-rose-50"
-                          title="Delete coupon"
+                          className="text-rose-600 hover:text-rose-800"
+                          title="Delete"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5 inline" />
                         </button>
                       </td>
                     </tr>
@@ -790,7 +1068,9 @@ export const AdminPlans: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: CUSTOMER SUBSCRIPTIONS */}
+      {/* ============================================================ */}
+      {/* TAB 4: CUSTOMER SUBSCRIPTIONS                                */}
+      {/* ============================================================ */}
       {activeTab === 'subscriptions' && (
         <div className="space-y-4">
           <div className="overflow-x-auto rounded-panel border border-border shadow-xs bg-card">
@@ -807,131 +1087,128 @@ export const AdminPlans: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-xs font-mono">
-                {subscriptions.map((s) => (
-                  <tr key={s.id} className="hover:bg-subtle/50 transition-colors">
-                    <td className="p-3.5">
-                      <div className="font-bold text-fg">{s.user?.name || 'Customer'}</div>
-                      <div className="text-muted text-[11px]">{s.user?.email}</div>
-                    </td>
-                    <td className="p-3.5 font-bold text-violet-700">{s.planName}</td>
-                    <td className="p-3.5 font-mono text-muted">{s.apiKey?.displayKey || 'N/A'}</td>
-                    <td className="p-3.5">
-                      <div>{(Number(s.currentUsage) / 1000000).toFixed(2)}M / {(Number(s.quotaLimit) / 1000000).toFixed(0)}M</div>
-                      <div className="text-[10px] text-muted">Resets in {s.quotaWindowHours}h</div>
-                    </td>
-                    <td className="p-3.5 text-muted">{new Date(s.expiryTime).toLocaleDateString()}</td>
-                    <td className="p-3.5">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        s.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                      }`}>
-                        {s.status}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right space-x-1">
-                      <button
-                        onClick={() => setSelectedSubForExtend(s)}
-                        className="px-2 py-1 rounded-control border border-border text-muted hover:text-fg hover:bg-subtle text-[11px]"
-                      >
-                        Extend
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedSubForStatus(s);
-                          setNewStatus(s.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE');
-                        }}
-                        className="px-2 py-1 rounded-control border border-border text-muted hover:text-fg hover:bg-subtle text-[11px]"
-                      >
-                        Status
-                      </button>
+                {subscriptions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-muted">
+                      No active customer subscriptions matching the current filter.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  subscriptions.map((s) => (
+                    <tr key={s.id} className="hover:bg-subtle/50 transition-colors">
+                      <td className="p-3.5">
+                        <p className="font-bold text-fg">{s.user?.email || 'Unknown User'}</p>
+                        <p className="text-[10px] text-muted">ID: {s.userId}</p>
+                      </td>
+                      <td className="p-3.5 font-bold text-fg">{s.plan?.name || s.planId}</td>
+                      <td className="p-3.5 text-muted font-mono">{s.apiKey?.maskedKey || 'No Key Bound'}</td>
+                      <td className="p-3.5">
+                        <p className="font-bold text-fg">
+                          {(Number(s.apiKey?.tokensUsed || 0) / 1000000).toFixed(2)}M
+                        </p>
+                        <p className="text-[10px] text-muted">
+                          Quota: {(Number(s.apiKey?.tokensRemaining || 0) / 1000000).toFixed(2)}M
+                        </p>
+                      </td>
+                      <td className="p-3.5 text-muted">
+                        {s.expiryTime ? new Date(s.expiryTime).toLocaleDateString() : 'No Expiry'}
+                      </td>
+                      <td className="p-3.5">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            s.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-rose-50 text-rose-700'
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right space-x-2">
+                        <button
+                          onClick={() => {
+                            setSelectedSubForExtend(s);
+                            setExtendDays(30);
+                          }}
+                          className="px-2 py-1 rounded text-xs font-bold border border-border bg-bg hover:bg-card text-fg inline-flex items-center gap-1"
+                          title="Extend Days"
+                        >
+                          <Calendar className="w-3 h-3" />
+                          <span>Extend</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedSubForStatus(s);
+                            setNewStatus(s.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE');
+                          }}
+                          className="px-2 py-1 rounded text-xs font-bold border border-border bg-bg hover:bg-card text-fg inline-flex items-center gap-1"
+                          title="Change Status"
+                        >
+                          <Clock className="w-3 h-3" />
+                          <span>Status</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* TAB 4: FREE TRIAL CLAIMS */}
+      {/* ============================================================ */}
+      {/* TAB 5: FREE TRIAL CLAIMS                                     */}
+      {/* ============================================================ */}
       {activeTab === 'trials' && (
         <div className="space-y-4">
-          {/* Free Trial Platform Control Card */}
-          <div className={`p-4 rounded-panel border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
-            trialsDisabled
-              ? 'bg-amber-50/80 border-amber-300 text-amber-950'
-              : 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-control ${
-                trialsDisabled ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'
-              }`}>
-                <Power className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm tracking-tight">Free Trial Platform Status:</span>
-                  <span className={`text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full ${
-                    trialsDisabled ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'
-                  }`}>
-                    {trialsDisabled ? 'PAUSED FOR ALL CUSTOMERS' : 'LIVE & ACCEPTING CLAIMS'}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {trialsDisabled
-                    ? 'All customers visiting /trial or the customer dashboard are currently shown the paused notice.'
-                    : 'Eligible customer accounts can claim 200,000 complimentary evaluation tokens.'}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleToggleTrials}
-              disabled={togglingTrials}
-              className={`px-4 py-2 rounded-control font-mono font-bold text-xs uppercase flex items-center gap-2 cursor-pointer transition-all shadow-xs ${
-                trialsDisabled
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-amber-600 hover:bg-amber-700 text-white'
-              }`}
-            >
-              {togglingTrials ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
-              <span>{trialsDisabled ? 'Resume Free Trials' : 'Pause Free Trials'}</span>
-            </button>
-          </div>
           <div className="overflow-x-auto rounded-panel border border-border shadow-xs bg-card">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-subtle border-b border-border text-xs font-mono font-bold uppercase tracking-wider text-muted">
-                  <th className="p-3.5">Email</th>
-                  <th className="p-3.5">IP Address</th>
-                  <th className="p-3.5">Risk Score</th>
-                  <th className="p-3.5">Decision</th>
+                  <th className="p-3.5">Customer</th>
                   <th className="p-3.5">Claimed At</th>
+                  <th className="p-3.5">API Key</th>
+                  <th className="p-3.5">Tokens Used</th>
+                  <th className="p-3.5">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-xs font-mono">
-                {trials.map((t) => (
-                  <tr key={t.id} className="hover:bg-subtle/50 transition-colors">
-                    <td className="p-3.5 font-bold text-fg">{t.email}</td>
-                    <td className="p-3.5 text-muted">{t.ipAddress}</td>
-                    <td className="p-3.5">{t.riskScore}</td>
-                    <td className="p-3.5">
-                      <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold">
-                        {t.decision}
-                      </span>
+                {trials.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-muted">
+                      No trial claims recorded.
                     </td>
-                    <td className="p-3.5 text-muted">{new Date(t.createdAt).toLocaleString()}</td>
                   </tr>
-                ))}
+                ) : (
+                  trials.map((t) => (
+                    <tr key={t.id} className="hover:bg-subtle/50 transition-colors">
+                      <td className="p-3.5 font-bold text-fg">{t.user?.email || t.userId}</td>
+                      <td className="p-3.5 text-muted">{new Date(t.createdAt).toLocaleDateString()}</td>
+                      <td className="p-3.5 text-muted font-mono">{t.apiKey?.maskedKey || 'Trial Key'}</td>
+                      <td className="p-3.5 font-bold text-fg">
+                        {(Number(t.apiKey?.tokensUsed || 0) / 1000).toFixed(0)}k
+                      </td>
+                      <td className="p-3.5">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700">
+                          {t.status || 'CLAIMED'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* MODAL: PLAN CREATE / EDIT */}
+      {/* ============================================================ */}
+      {/* MODAL: PLAN CREATE / EDIT                                    */}
+      {/* ============================================================ */}
       {isPlanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white border border-border rounded-panel max-w-xl w-full p-4 sm:p-6 shadow-xl my-auto flex flex-col max-h-[92vh] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel max-w-2xl w-full p-4 sm:p-6 shadow-2xl my-auto flex flex-col max-h-[94vh] overflow-hidden">
             <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
               <h2 className="text-base font-bold text-fg flex items-center gap-2">
                 <Zap className="w-4 h-4 text-violet-600" />
@@ -942,14 +1219,33 @@ export const AdminPlans: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSavePlan} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
+            <form onSubmit={handleSavePlan} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1 pt-2">
+              {/* Plan Category Selector */}
+              <div className="p-3 bg-violet-50/70 rounded-xl border border-violet-200 space-y-2">
+                <span className="text-[11px] font-bold text-violet-900 uppercase tracking-wider block">
+                  ⚡ 1. Primary Plan Category (Exact Architecture)
+                </span>
+                <select
+                  value={planForm.planCategory}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="w-full ui-input text-xs py-2 px-3 bg-white font-bold text-fg"
+                >
+                  <option value="claude_max_rolling">Plan 1: Claude Max (5-Hour Rolling Window - OpusMax)</option>
+                  <option value="claude_openai_credits">Plan 2: Claude + OpenAI (API Credit Plans - ScaleMax INR Credits)</option>
+                  <option value="openai_tokens">Plan 3: OpenAI (Token Plans - ScaleMax Consumable Tokens)</option>
+                  <option value="claude_tokens">Plan 4: Claude (Token Plans - ScaleMax Consumable Tokens)</option>
+                  <option value="local_models_tokens">Plan 5: Local Models (Token Plans - ScaleMax Dedicated Local Tokens)</option>
+                </select>
+              </div>
+
+              {/* Plan Identifier and Display Name */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-muted mb-1">Plan Identifier (Name)</label>
+                  <label className="block text-muted mb-1 font-bold">Plan Identifier (Name)</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. ULTRA"
+                    placeholder="e.g. CREDIT_STARTER"
                     value={planForm.name}
                     onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
                     className="w-full ui-input text-xs py-2 px-3 uppercase"
@@ -957,10 +1253,11 @@ export const AdminPlans: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-muted mb-1">Display Title</label>
+                  <label className="block text-muted mb-1 font-bold">Display Title</label>
                   <input
                     type="text"
-                    placeholder="e.g. ULTRA (40M / 5h Window)"
+                    required
+                    placeholder="e.g. API Credits Starter (₹700 Credits)"
                     value={planForm.displayName}
                     onChange={(e) => setPlanForm({ ...planForm, displayName: e.target.value })}
                     className="w-full ui-input text-xs py-2 px-3"
@@ -968,20 +1265,29 @@ export const AdminPlans: React.FC = () => {
                 </div>
               </div>
 
+              {/* Customer Pricing and Strikethrough */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-muted mb-1">Offer Price (₹ INR)</label>
+                  <label className="block text-muted mb-1 font-bold">Offer Retail Price (₹ INR)</label>
                   <input
                     type="number"
                     required
                     value={planForm.priceInr}
-                    onChange={(e) => setPlanForm({ ...planForm, priceInr: Number(e.target.value) })}
-                    className="w-full ui-input text-xs py-2 px-3"
+                    onChange={(e) => {
+                      const newPrice = Number(e.target.value);
+                      const mult = planForm.creditMultiplier || 7.0;
+                      setPlanForm({
+                        ...planForm,
+                        priceInr: newPrice,
+                        creditAmountInr: planForm.planCategory === 'claude_openai_credits' ? Math.round(newPrice * mult) : planForm.creditAmountInr,
+                      });
+                    }}
+                    className="w-full ui-input text-xs py-2 px-3 font-bold text-fg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-muted mb-1">Original Price (₹ INR Strikethrough)</label>
+                  <label className="block text-muted mb-1">Original Price (₹ Strikethrough)</label>
                   <input
                     type="number"
                     placeholder="e.g. 7499"
@@ -992,64 +1298,60 @@ export const AdminPlans: React.FC = () => {
                 </div>
               </div>
 
-              {/* Annual Billing Configuration */}
-              <div className="p-3.5 bg-violet-50/70 rounded-xl border border-violet-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-violet-800 uppercase tracking-wider block">
-                    ⚡ Annual Billing Configuration
+              {/* Category-Specific Settings */}
+              {planForm.planCategory === 'claude_openai_credits' && (
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-3">
+                  <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider block">
+                    💳 API Credit Multiplier Configuration (Strictly INR)
                   </span>
-                  <span className="text-[10px] font-mono text-violet-600 bg-white px-2 py-0.5 rounded border border-violet-200">
-                    Independent 365d Entitlement
-                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-emerald-800 mb-1">Credit Multiplier</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={planForm.creditMultiplier}
+                        onChange={(e) => {
+                          const mult = Number(e.target.value);
+                          setPlanForm({
+                            ...planForm,
+                            creditMultiplier: mult,
+                            creditAmountInr: Math.round(planForm.priceInr * mult),
+                          });
+                        }}
+                        className="w-full ui-input text-xs py-2 px-3 bg-white font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-emerald-800 mb-1">Customer Credit Allocation (₹ INR)</label>
+                      <input
+                        type="number"
+                        value={planForm.creditAmountInr}
+                        onChange={(e) => setPlanForm({ ...planForm, creditAmountInr: Number(e.target.value) })}
+                        className="w-full ui-input text-xs py-2 px-3 bg-white font-bold"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 font-bold">
+                    → Customer pays ₹{planForm.priceInr.toLocaleString()} and receives ₹{(planForm.creditAmountInr || 0).toLocaleString()} in API Credits ({planForm.creditMultiplier}x multiplier).
+                  </p>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-muted mb-1 text-[11px]">Annual Price (₹ INR)</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 24990"
-                      value={planForm.annualPriceInr}
-                      onChange={(e) => setPlanForm({ ...planForm, annualPriceInr: e.target.value })}
-                      className="w-full ui-input text-xs py-2 px-3 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-muted mb-1 text-[11px]">Annual Strikethrough (₹)</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 29988"
-                      value={planForm.annualOriginalPriceInr}
-                      onChange={(e) => setPlanForm({ ...planForm, annualOriginalPriceInr: e.target.value })}
-                      className="w-full ui-input text-xs py-2 px-3 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-muted mb-1 text-[11px]">Validity (Days)</label>
-                    <input
-                      type="number"
-                      value={planForm.annualValidityDays || 365}
-                      onChange={(e) => setPlanForm({ ...planForm, annualValidityDays: Number(e.target.value) })}
-                      className="w-full ui-input text-xs py-2 px-3 bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
+              )}
 
+              {/* Token Quota / Rolling Settings */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-muted mb-1">Tokens Quota</label>
+                  <label className="block text-muted mb-1 font-bold">Tokens Quota</label>
                   <input
                     type="number"
                     required
-                    placeholder="20000000"
                     value={planForm.tokenAllowance}
                     onChange={(e) => setPlanForm({ ...planForm, tokenAllowance: Number(e.target.value) })}
                     className="w-full ui-input text-xs py-2 px-3"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-muted mb-1">Window Hours</label>
+                  <label className="block text-muted mb-1 font-bold">Window (Hours)</label>
                   <input
                     type="number"
                     required
@@ -1058,9 +1360,8 @@ export const AdminPlans: React.FC = () => {
                     className="w-full ui-input text-xs py-2 px-3"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-muted mb-1">Validity (Days)</label>
+                  <label className="block text-muted mb-1 font-bold">Validity (Days)</label>
                   <input
                     type="number"
                     required
@@ -1071,27 +1372,70 @@ export const AdminPlans: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-muted mb-1">Badge (e.g. 50% OFF)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. MOST POPULAR"
-                    value={planForm.badge}
-                    onChange={(e) => setPlanForm({ ...planForm, badge: e.target.value })}
-                    className="w-full ui-input text-xs py-2 px-3"
-                  />
+              {/* Wholesale Supplier Economics & Margin */}
+              <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 space-y-3">
+                <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block">
+                  📊 Wholesale Economics & Margin Analysis
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-amber-900 mb-1">Supplier Acquisition Cost (₹ INR)</label>
+                    <input
+                      type="number"
+                      required
+                      value={planForm.supplierCostInr}
+                      onChange={(e) => setPlanForm({ ...planForm, supplierCostInr: Number(e.target.value) })}
+                      className="w-full ui-input text-xs py-2 px-3 bg-white font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-amber-900 mb-1">Supplier Allocation Tier Ref</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. $25 credit allocation or 10M tokens"
+                      value={planForm.supplierAllocation}
+                      onChange={(e) => setPlanForm({ ...planForm, supplierAllocation: e.target.value })}
+                      className="w-full ui-input text-xs py-2 px-3 bg-white"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-muted mb-1">Tagline</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Best for high-velocity teams"
-                    value={planForm.tagline}
-                    onChange={(e) => setPlanForm({ ...planForm, tagline: e.target.value })}
-                    className="w-full ui-input text-xs py-2 px-3"
-                  />
+                {/* Margin Calculator Badge */}
+                <div className={`p-2.5 rounded border text-xs flex items-center justify-between ${
+                  computedMargin.isHealthy ? 'bg-emerald-100 border-emerald-300 text-emerald-950' : 'bg-rose-100 border-rose-300 text-rose-950'
+                }`}>
+                  <div className="font-bold">
+                    Gross Margin: ₹{computedMargin.margin.toLocaleString()} ({computedMargin.marginPct}%)
+                  </div>
+                  <div className="text-[10px] uppercase font-bold">
+                    {computedMargin.isHealthy ? '✓ HEALTHY MARGIN' : '⚠ LOW / NEGATIVE MARGIN'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Preview Card */}
+              <div className="p-3 bg-subtle rounded-xl border border-border space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted font-bold block">
+                  👁 Live Card Preview
+                </span>
+                <div className="p-4 rounded-panel bg-white border border-border shadow-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-sm text-fg">{planForm.displayName || planForm.name || 'Plan Preview'}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-100 text-violet-800">
+                      {planForm.badge || 'OFFER'}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2 font-mono">
+                    <span className="text-xl font-extrabold text-fg">₹{(planForm.priceInr || 0).toLocaleString()}</span>
+                    <span className="text-xs text-muted">
+                      {planForm.planType === 'token' ? '(One-time)' : `/ ${planForm.validityDays}d`}
+                    </span>
+                  </div>
+                  {planForm.planCategory === 'claude_openai_credits' && (
+                    <div className="text-xs text-emerald-700 font-bold">
+                      Pay ₹{planForm.priceInr} → Receive ₹{planForm.creditAmountInr || (planForm.priceInr * 7)} API Credits
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1138,7 +1482,73 @@ export const AdminPlans: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: COUPON CREATE / EDIT */}
+      {/* ============================================================ */}
+      {/* MODAL: SUPPLIER RATE EDIT                                    */}
+      {/* ============================================================ */}
+      {isRateModalOpen && selectedRateForEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white border border-border rounded-panel max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 my-auto text-xs font-mono">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-fg">Edit Supplier Wholesale Rate</h3>
+              <button onClick={() => setIsRateModalOpen(false)} className="text-muted hover:text-fg">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveSupplierRate} className="space-y-4">
+              <div>
+                <label className="block text-muted mb-1">Tier / Allocation</label>
+                <input
+                  type="text"
+                  disabled
+                  value={selectedRateForEdit.allocationAmount}
+                  className="w-full ui-input text-xs py-2 px-3 bg-subtle text-muted"
+                />
+              </div>
+
+              <div>
+                <label className="block text-muted mb-1 font-bold">Wholesale Cost (₹ INR)</label>
+                <input
+                  type="number"
+                  required
+                  value={rateForm.supplierCostInr}
+                  onChange={(e) => setRateForm({ ...rateForm, supplierCostInr: Number(e.target.value) })}
+                  className="w-full ui-input text-xs py-2 px-3 font-bold text-fg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-muted mb-1">Notes</label>
+                <textarea
+                  rows={2}
+                  value={rateForm.notes}
+                  onChange={(e) => setRateForm({ ...rateForm, notes: e.target.value })}
+                  className="w-full ui-input text-xs py-2 px-3"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setIsRateModalOpen(false)}
+                  className="ui-button-secondary text-xs py-2 px-4"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingRate}
+                  className="ui-button-primary text-xs py-2 px-5 font-bold"
+                >
+                  {savingRate ? 'Saving...' : 'Update Rate'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL: COUPON CREATE / EDIT                                  */}
+      {/* ============================================================ */}
       {isCouponModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white border border-border rounded-panel max-w-lg w-full p-4 sm:p-6 shadow-xl my-auto flex flex-col max-h-[92vh] overflow-hidden">
@@ -1147,25 +1557,23 @@ export const AdminPlans: React.FC = () => {
                 <Tag className="w-4 h-4 text-emerald-600" />
                 {selectedCouponForEdit ? `Edit Promo Code: ${selectedCouponForEdit.code}` : 'Create Promo Code'}
               </h2>
-              <button onClick={() => setIsCouponModalOpen(false)} className="text-muted hover:text-fg">
-                ✕
-              </button>
+              <button onClick={() => setIsCouponModalOpen(false)} className="text-muted hover:text-fg">✕</button>
             </div>
 
             <form onSubmit={handleSaveCoupon} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-muted mb-1">Coupon Code</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. LAUNCH50"
-                    value={couponForm.code}
-                    onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
-                    className="w-full ui-input text-xs py-2 px-3 uppercase"
-                  />
-                </div>
+              <div>
+                <label className="block text-muted mb-1 font-bold">Promo Code</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. FLASH50"
+                  value={couponForm.code}
+                  onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
+                  className="w-full ui-input text-xs py-2 px-3 font-mono uppercase font-bold"
+                />
+              </div>
 
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-muted mb-1">Discount Type</label>
                   <select
@@ -1173,95 +1581,28 @@ export const AdminPlans: React.FC = () => {
                     onChange={(e) => setCouponForm({ ...couponForm, discountType: e.target.value })}
                     className="w-full ui-input text-xs py-2 px-3"
                   >
-                    <option value="PERCENTAGE">Percentage (%) Off</option>
-                    <option value="FLAT_INR">Flat Rupee (₹) Off</option>
+                    <option value="PERCENTAGE">Percentage (%)</option>
+                    <option value="FIXED_INR">Flat INR (₹)</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-muted mb-1">
-                    Discount Value ({couponForm.discountType === 'PERCENTAGE' ? '%' : '₹'})
-                  </label>
+                  <label className="block text-muted mb-1">Discount Value</label>
                   <input
                     type="number"
                     required
                     value={couponForm.discountValue}
                     onChange={(e) => setCouponForm({ ...couponForm, discountValue: Number(e.target.value) })}
-                    className="w-full ui-input text-xs py-2 px-3"
+                    className="w-full ui-input text-xs py-2 px-3 font-bold"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-muted mb-1">Min Order Amount (₹)</label>
-                  <input
-                    type="number"
-                    value={couponForm.minOrderAmountInr}
-                    onChange={(e) => setCouponForm({ ...couponForm, minOrderAmountInr: Number(e.target.value) })}
-                    className="w-full ui-input text-xs py-2 px-3"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-muted mb-1">Max Total Redemptions</label>
-                  <input
-                    type="number"
-                    placeholder="Unlimited"
-                    value={couponForm.maxUses}
-                    onChange={(e) => setCouponForm({ ...couponForm, maxUses: e.target.value })}
-                    className="w-full ui-input text-xs py-2 px-3"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-muted mb-1">Per-User Limit</label>
-                  <input
-                    type="number"
-                    value={couponForm.maxUsesPerUser}
-                    onChange={(e) => setCouponForm({ ...couponForm, maxUsesPerUser: Number(e.target.value) })}
-                    className="w-full ui-input text-xs py-2 px-3"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-muted mb-1">Expiration Date (Optional)</label>
-                <input
-                  type="date"
-                  value={couponForm.expiresAt}
-                  onChange={(e) => setCouponForm({ ...couponForm, expiresAt: e.target.value })}
-                  className="w-full ui-input text-xs py-2 px-3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-muted mb-1">Internal Description / Note</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 20% discount for Twitter launch campaign"
-                  value={couponForm.description}
-                  onChange={(e) => setCouponForm({ ...couponForm, description: e.target.value })}
-                  className="w-full ui-input text-xs py-2 px-3"
-                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-border shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsCouponModalOpen(false)}
-                  className="ui-button-secondary text-xs py-2 px-4"
-                >
+                <button type="button" onClick={() => setIsCouponModalOpen(false)} className="ui-button-secondary text-xs py-2 px-4">
                   CANCEL
                 </button>
-                <button
-                  type="submit"
-                  disabled={savingCoupon}
-                  className="ui-button-primary text-xs py-2 px-5 font-bold bg-emerald-600 hover:bg-emerald-700"
-                >
-                  {savingCoupon ? 'SAVING...' : 'SAVE COUPON'}
+                <button type="submit" disabled={savingCoupon} className="ui-button-primary text-xs py-2 px-5 font-bold">
+                  {savingCoupon ? 'SAVING...' : 'SAVE PROMO CODE'}
                 </button>
               </div>
             </form>
@@ -1269,66 +1610,30 @@ export const AdminPlans: React.FC = () => {
         </div>
       )}
 
-      {/* EXTEND SUBSCRIPTION MODAL */}
+      {/* ============================================================ */}
+      {/* MODAL: SUBSCRIPTION EXTEND                                   */}
+      {/* ============================================================ */}
       {selectedSubForExtend && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white border border-border rounded-panel max-w-sm w-full p-4 sm:p-5 space-y-4 shadow-xl my-auto max-h-[92vh] overflow-y-auto">
-            <h3 className="text-sm font-bold text-fg">Extend Customer Subscription</h3>
-            <p className="text-xs text-muted">Customer: {selectedSubForExtend.user?.email}</p>
-            <form onSubmit={handleExtendSubscription} className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs">
+          <div className="bg-white border border-border rounded-panel max-w-sm w-full p-4 sm:p-5 shadow-xl space-y-4 text-xs font-mono">
+            <h3 className="font-bold text-fg">Extend Customer Subscription</h3>
+            <form onSubmit={handleExtendSub} className="space-y-3">
               <div>
-                <label className="block text-xs font-mono text-muted mb-1">Additional Validity Days</label>
-                <div className="flex gap-1.5 mb-2">
-                  {[30, 90, 180, 365].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setExtendDays(preset)}
-                      className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors ${
-                        extendDays === preset
-                          ? 'bg-violet-600 text-white'
-                          : 'bg-subtle text-muted hover:text-fg'
-                      }`}
-                    >
-                      +{preset}d{preset === 365 ? ' (1y)' : ''}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-muted mb-1">Add Days</label>
                 <input
                   type="number"
-                  min="1"
-                  max="730"
+                  required
                   value={extendDays}
                   onChange={(e) => setExtendDays(Number(e.target.value))}
-                  className="w-full ui-input text-xs py-2 px-3 font-mono"
+                  className="w-full ui-input text-xs py-2 px-3 font-bold"
                 />
               </div>
-
-              <div>
-                <label className="block text-xs font-mono text-muted mb-1">Audit Extension Reason</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Annual contract customer extension"
-                  value={extendReason}
-                  onChange={(e) => setExtendReason(e.target.value)}
-                  className="w-full ui-input text-xs py-2 px-3"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSubForExtend(null)}
-                  className="ui-button-secondary text-xs py-1.5 px-3"
-                >
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <button type="button" onClick={() => setSelectedSubForExtend(null)} className="ui-button-secondary text-xs py-1.5 px-3">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={extending}
-                  className="ui-button-primary text-xs py-1.5 px-4 font-bold"
-                >
-                  {extending ? 'Extending...' : 'Confirm'}
+                <button type="submit" disabled={extending} className="ui-button-primary text-xs py-1.5 px-4 font-bold">
+                  {extending ? 'Extending...' : 'Extend'}
                 </button>
               </div>
             </form>
@@ -1336,47 +1641,31 @@ export const AdminPlans: React.FC = () => {
         </div>
       )}
 
-      {/* STATUS UPDATE MODAL */}
+      {/* ============================================================ */}
+      {/* MODAL: SUBSCRIPTION STATUS                                   */}
+      {/* ============================================================ */}
       {selectedSubForStatus && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white border border-border rounded-panel max-w-sm w-full p-4 sm:p-5 space-y-4 shadow-xl my-auto max-h-[92vh] overflow-y-auto">
-            <h3 className="text-sm font-bold text-fg">Update Subscription Status</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-xs">
+          <div className="bg-white border border-border rounded-panel max-w-sm w-full p-4 sm:p-5 shadow-xl space-y-4 text-xs font-mono">
+            <h3 className="font-bold text-fg">Update Subscription Status</h3>
             <form onSubmit={handleUpdateStatus} className="space-y-3">
               <div>
-                <label className="block text-xs font-mono text-muted mb-1">New Status</label>
+                <label className="block text-muted mb-1">Status</label>
                 <select
                   value={newStatus}
                   onChange={(e: any) => setNewStatus(e.target.value)}
-                  className="w-full ui-input text-xs py-2 px-3"
+                  className="w-full ui-input text-xs py-2 px-3 font-bold"
                 >
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="SUSPENDED">SUSPENDED</option>
                   <option value="CANCELLED">CANCELLED</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-mono text-muted mb-1">Reason / Note</label>
-                <input
-                  type="text"
-                  placeholder="Reason for change"
-                  value={statusReason}
-                  onChange={(e) => setStatusReason(e.target.value)}
-                  className="w-full ui-input text-xs py-2 px-3"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSubForStatus(null)}
-                  className="ui-button-secondary text-xs py-1.5 px-3"
-                >
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <button type="button" onClick={() => setSelectedSubForStatus(null)} className="ui-button-secondary text-xs py-1.5 px-3">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={updatingStatus}
-                  className="ui-button-primary text-xs py-1.5 px-4 font-bold"
-                >
+                <button type="submit" disabled={updatingStatus} className="ui-button-primary text-xs py-1.5 px-4 font-bold">
                   {updatingStatus ? 'Updating...' : 'Update'}
                 </button>
               </div>

@@ -378,6 +378,9 @@ model Order {
   activeForConversations   WhatsAppConversation[]      @relation("ConversationActiveOrder")
   configVersion            Int?                        @default(1)
   pricingSnapshotJson      String?
+  planCategory             String?
+  creditBalanceInr         Float?                      @default(0)
+  creditBalanceDenomination String?                    @default("INR")
   usageCreditLedgers       CustomerUsageCreditLedger[]
   financialLedgers         FinancialAccountingLedger[]
 
@@ -485,8 +488,14 @@ model Plan {
   annualValidityDays       Int?            @default(365)
   currency                 String          @default("INR")
   planType                 String          @default("window") // "window" | "credit" | "token"
-  creditMultiplier         Float?          @default(7.0) // ₹1 paid = $7 credits
+  planCategory             String?         @default("claude_max_rolling") // "claude_max_rolling" | "claude_openai_credits" | "openai_tokens" | "claude_tokens" | "local_models_tokens"
+  creditMultiplier         Float?          @default(7.0) // e.g. Pay ₹100 -> Receive ₹700 API Credits
   customerCurrency         String          @default("INR")
+  creditBalanceDenomination String?        @default("INR") // "INR" | "USD"
+  creditAmountInr          Float?          @default(0) // Customer credit balance in INR
+  supplierCostInr          Float?          @default(0) // Internal supplier acquisition cost
+  supplierCostUsd          Float?          @default(0)
+  supplierAllocation       String?         // Reference supplier tier, e.g. "10M tokens"
   retailMultiplier         Float?          @default(7.0)
   minGrossMarginPct        Float?          @default(15.0)
   minContributionMarginPct Float?          @default(10.0)
@@ -565,6 +574,10 @@ model Model {
   description             String
   contextWindow           Int       @default(1000000)
   enabled                 Boolean   @default(true)
+  isOnDemand              Boolean   @default(false)
+  planCategory            String?   @default("all")
+  supplierCostInput       Float?    @default(0)
+  supplierCostOutput      Float?    @default(0)
   inputPrice              Float     @default(3.0)
   outputPrice             Float     @default(15.0)
   cachedInputPrice        Float?    @default(0.75)
@@ -1407,4 +1420,23 @@ model FinancialAccountingLedger {
   @@index([type, createdAt])
   @@index([orderId])
   @@index([requestId])
+}
+
+
+model SupplierCostReference {
+  id               String   @id @default(uuid())
+  category         String   // "claude_tokens" | "claude_credits" | "openai_tokens" | "openai_credits" | "local_models_tokens"
+  providerSlug     String   @default("scalemax")
+  allocationType   String   // "tokens" | "credits"
+  allocationAmount String   // "10 million tokens", "$25 API credit", etc.
+  numericTokens    BigInt?
+  numericUsdCredit Float?
+  supplierCostInr  Float    // Acquisition cost in INR (e.g. 250, 2300, 20000)
+  notes            String?
+  effectiveDate    DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([category])
+  @@index([providerSlug])
 }

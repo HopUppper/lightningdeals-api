@@ -553,11 +553,11 @@ export const UserPlan: React.FC = () => {
             <div className="flex items-center gap-3">
               <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
               <div>
-                <strong className="text-amber-300">Usage Credits (7x Multiplier):</strong> Deposit ₹1 in INR and get $7.00 to $8.75 in usage compute. Atomically deducted per token across Claude, OpenAI, and Local models. 365-day validity.
+                <strong className="text-amber-300">API Credits (7x Multiplier):</strong> Deposit funds in INR and unlock up to 7x–8.75x in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits). Atomically deducted per token across Claude, OpenAI, and Local models. 365-day validity.
               </div>
             </div>
             <span className="font-mono text-amber-300 text-[11px] shrink-0 font-bold bg-white/10 px-2.5 py-1 rounded-lg">
-              ₹1 = $7.00+
+              Pay ₹100 → Get ₹700 Credits
             </span>
           </div>
         )}
@@ -597,12 +597,34 @@ export const UserPlan: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {availablePlans
             .filter((p: any) => {
-              const pType = p.planType || (p.windowHours === 5 ? 'window' : 'window');
               const name = (p.name || '').toLowerCase();
-              if (name.includes('trial')) return false;
-              if (selectedBillingMode === 'window') return pType === 'window' && p.priceInr >= 1000;
-              if (selectedBillingMode === 'credit') return pType === 'credit';
-              if (selectedBillingMode === 'token') return pType === 'token';
+              const slug = (p.slug || '').toLowerCase();
+              if (name.includes('trial') || slug.includes('trial')) return false;
+
+              const targetCategory = (() => {
+                if (selectedFamily === 'claude') {
+                  if (selectedBillingMode === 'window') return 'claude_max_rolling';
+                  if (selectedBillingMode === 'credit') return 'claude_openai_credits';
+                  if (selectedBillingMode === 'token') return 'claude_tokens';
+                } else if (selectedFamily === 'openai') {
+                  if (selectedBillingMode === 'credit') return 'claude_openai_credits';
+                  if (selectedBillingMode === 'token') return 'openai_tokens';
+                } else if (selectedFamily === 'local') {
+                  if (selectedBillingMode === 'token') return 'local_models_tokens';
+                  if (selectedBillingMode === 'credit') return 'claude_openai_credits';
+                }
+                return 'claude_max_rolling';
+              })();
+
+              if (p.planCategory) {
+                return p.planCategory === targetCategory;
+              }
+              const pType = p.planType || (p.windowHours === 5 ? 'window' : 'window');
+              if (targetCategory === 'claude_max_rolling') return pType === 'window' && p.priceInr >= 1000;
+              if (targetCategory === 'claude_openai_credits') return pType === 'credit';
+              if (targetCategory === 'openai_tokens') return pType === 'token' && (name.includes('openai') || slug.includes('openai'));
+              if (targetCategory === 'claude_tokens') return pType === 'token' && (name.includes('claude') || slug.includes('claude'));
+              if (targetCategory === 'local_models_tokens') return pType === 'token' && (name.includes('local') || slug.includes('local'));
               return false;
             })
             .sort((a: any, b: any) => a.priceInr - b.priceInr)
@@ -647,7 +669,7 @@ export const UserPlan: React.FC = () => {
                       )}
                       {selectedBillingMode === 'credit' && (
                         <>
-                          <div className="text-base font-bold text-[#1e1b2e]">$${p.creditAmountUsd || 700} CREDITS</div>
+                          <div className="text-base font-bold text-[#1e1b2e]">₹{(p.creditAmountInr || (p.priceInr * (p.creditMultiplier || 7))).toLocaleString()} CREDITS</div>
                           <div className="text-[9px] text-amber-600 uppercase font-bold tracking-wider">{p.creditMultiplier || 7.0}x MULTIPLIER</div>
                         </>
                       )}

@@ -84,10 +84,18 @@ export function withKeyMutex<T>(key: string, fn: () => Promise<T>): Promise<T> {
  */
 export function isRollingPlan(keyRecord: any): boolean {
   if (!keyRecord) return false;
-  if (keyRecord.billingType === 'window') return true;
   if (keyRecord.billingType === 'token' || keyRecord.billingType === 'credit') return false;
   if (typeof keyRecord.windowHours === 'number' && keyRecord.windowHours > 0) return true;
   const planStr = `${keyRecord.plan || ''} ${keyRecord.name || ''}`.toLowerCase();
+  if (
+    planStr.includes('prepaid') ||
+    planStr.includes('lifetime') ||
+    planStr.includes('pack') ||
+    planStr.includes('pay as you go')
+  ) {
+    return false;
+  }
+  if (keyRecord.billingType === 'window') return true;
   return (
     planStr.includes('window') ||
     planStr.includes('5h') ||

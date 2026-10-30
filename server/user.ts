@@ -1193,10 +1193,10 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
         keyEncrypted: encryptText(rawKeySecret),
         name: name.trim(),
         purchasedTokens: BigInt(1000000),
-        tokensRemaining: effectiveBillingType === 'token' ? BigInt(1000000) : BigInt(0),
-        creditBalanceUsd: effectiveBillingType === 'credit' ? 0.0 : 0.0,
+        tokensRemaining: BigInt(1000000),
+        creditBalanceUsd: effectiveBillingType === 'credit' ? 5.0 : 0.0,
         billingType: effectiveBillingType,
-        plan: plan || (effectiveBillingType === 'credit' ? 'Usage Credit' : effectiveBillingType === 'token' ? 'Prepaid Token Pack' : 'Prepaid'),
+        plan: plan || (effectiveBillingType === 'credit' ? 'Usage Credit' : effectiveBillingType === 'token' ? 'Prepaid Token Pack' : 'Claude Max 20x'),
       },
     });
 

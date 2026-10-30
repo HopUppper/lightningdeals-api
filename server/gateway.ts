@@ -2167,9 +2167,12 @@ export async function updateTokensAndLog({
     // 2. Authoritative Rolling Window Plan Determination
     const isRolling = isRollingPlan(keyRecord);
 
-    await prisma.$transaction(async (tx) => {
-      // Re-fetch current authoritative key record inside transaction to prevent concurrency lost updates
-      const currentKey = await tx.apiKey.findUnique({
+    let txRetries = 3;
+    while (txRetries > 0) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          // Re-fetch current authoritative key record inside transaction to prevent concurrency lost updates
+          const currentKey = await tx.apiKey.findUnique({
         where: { id: keyRecord.id },
         select: {
           id: true,
@@ -2282,9 +2285,8 @@ export async function updateTokensAndLog({
             },
           });
         }
-      } else if (bType === 'token') {
-        const safeRem = currentKey.tokensRemaining >= tokensUsedBig ? currentKey.tokensRemaining - tokensUsedBig : 0n;
-        keyUpdateData.tokensRemaining = safeRem;
+      } else if (bType === 'token' || isRolling || bType === 'window') {
+        keyUpdateData.tokensRemaining = { decrement: tokensUsedBig };
       }
 
       const updatedKey = await tx.apiKey.update({
@@ -2338,7 +2340,16 @@ export async function updateTokensAndLog({
           upstreamModel: model,
         },
       });
-    });
+        }, { maxWait: 15000, timeout: 30000 });
+        break;
+      } catch (txErr: any) {
+        txRetries--;
+        if (txRetries === 0 || (txErr?.code !== 'P2028' && txErr?.code !== 'P2034')) {
+          throw txErr;
+        }
+        await new Promise((r) => setTimeout(r, 60 * (4 - txRetries) + Math.floor(Math.random() * 25)));
+      }
+    }
 
     if (vendorId) {
       await settleMasterUsage({

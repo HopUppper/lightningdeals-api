@@ -38,11 +38,11 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
         const uData: any = await upstreamResp.json();
         return res.json({
           valid: true,
-          provider: 'ScaleMax',
+          provider: 'LightningAPI',
           key: rawKey.slice(0, 12) + '••••••••',
-          label: uData.key?.label || 'ScaleMax Key',
+          label: 'LightningAPI Gateway Key',
           status: uData.key?.status || 'active',
-          plan: uData.key?.mode === 'credit' ? `ScaleMax Credit (${uData.key?.label || 'Universal'})` : 'ScaleMax Token Pack',
+          plan: uData.key?.mode === 'credit' ? 'LightningAPI Credit (Universal)' : 'LightningAPI Token Pack',
           billingType: uData.key?.mode || 'credit',
           providerScope: uData.key?.provider_scope || 'both',
           rateLimitRpm: uData.key?.rpm_limit ?? 60,

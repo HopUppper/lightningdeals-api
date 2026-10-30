@@ -581,8 +581,14 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
   // Strip any accidental HTML tags
   result = result.replace(/<[^>]*>/g, ' ');
 
+  // Intercept vendor balance depletion errors or top-up leak URLs
+  if (/balance is used up|top.?up at|insufficient.*balance|credits? (?:depleted|exhausted)|dashboard\.(?:scalemax|opusmax)\.pro/i.test(result)) {
+    return 'The requested model capacity is currently undergoing scheduled replenishment. Please retry in a few moments or switch to an alternate model.';
+  }
+
   result = result
     .replace(/ScaleMax(?:\.pro)?/gi, 'LightningAPI')
+    .replace(/scalemax(?:\.pro)?/gi, 'lightningapi')
     .replace(/MiniMax(?:-abab)?/gi, 'Anthropic')
     .replace(/abab-6\.5/gi, 'Claude Sonnet 5.5')
     .replace(/Opus\s*Max/gi, 'LightningAPI')
@@ -753,7 +759,7 @@ export async function resolveProviderForApiKey(keyRecord: any, requestedModel?: 
           status: 403,
           type: 'permission_error',
           code: 'TOKEN_PLAN_NOT_CONFIGURED',
-          message: 'ScaleMax token plan access is not enabled. Only Credit Plans are supported on this provider.',
+          message: 'Token plan routing is currently unavailable for this key tier. Please contact LightningAPI support.',
         },
       };
     }

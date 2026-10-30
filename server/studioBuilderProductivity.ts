@@ -978,7 +978,7 @@ const SEED_TASKS = [
   },
   {
     id: 'task-105',
-    title: 'Mineral Sunscreen Scalemax Archetype & Vector Graphics',
+    title: 'Mineral Sunscreen Maximum Archetype & Vector Graphics',
     desc: 'Craft warm terracotta Solveil Botaniques storefront with 4 formula pillars and interactive slide-out bag drawer.',
     status: 'in_progress',
     priority: 'urgent',

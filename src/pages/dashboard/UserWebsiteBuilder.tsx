@@ -2,7 +2,7 @@
  * src/pages/dashboard/UserWebsiteBuilder.tsx
  * ============================================================================
  * Production AI Website & Application Builder for LightningAPI Studio
- * Inspired by Lovable / Emergent / ScaleMax Studio
+ * Inspired by Lovable / Emergent / LightningAPI Studio
  * 
  * Architecture:
  * 1. Clean, Spacious Studio Home Screen (when activeProject is null):
@@ -157,7 +157,7 @@ const SHOWCASE_ITEMS: ShowcaseItem[] = [
     subtitle: '100% Sheer Non-Nano Mineral Zinc Sunscreen & Barrier Care',
     category: 'E-Commerce Storefront',
     type: 'website',
-    tag: 'ScaleMax Standard',
+    tag: 'LightningAPI Standard',
     prompt: 'Build a premium mineral sunscreen brand website with lifestyle imagery, product formulas, benefits, a product gallery, and an FAQ.',
     highlights: ['4 Formula Pillars', 'Interactive Bag Drawer', 'Non-Nano Zinc Story', 'FAQ Accordion'],
     swatches: ['#fdfbf7', '#c25e3d', '#2b3a2f', '#d97706'],

@@ -182,13 +182,21 @@ app.use(securityThreatDetector);
 app.use(recordPageview);
 app.post('/api/analytics/beacon', handleAnalyticsBeacon);
 
-// 1. Anthropic-Compatible API Gateway
-app.get('/v1', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
-app.get('/v1/', (req, res) => res.json({ status: 'online', gateway: 'LightningDeals AI Gateway', version: '1.0.0', protocol: 'Anthropic /v1/messages compatible', docs: 'https://lightningapi.pro/docs' }));
-app.post('/v1/messages', handleMessagesEndpoint);
-app.post('/v1/chat/completions', handleChatCompletionsEndpoint);
-app.get('/v1/models', handleGetModels);
-app.post('/v1/messages/count_tokens', handleCountTokens);
+// 1. Anthropic-Compatible & OpenAI-Compatible API Gateway (Supports /v1, /v1/v1, and /token/v1 aliases)
+const gatewayStatusHandler = (req: any, res: any) => res.json({
+  status: 'online',
+  gateway: 'LightningAPI Gateway',
+  version: '2.0.0',
+  protocols: ['Anthropic /v1/messages', 'OpenAI /v1/chat/completions'],
+  billingModes: ['5-hour rolling pool', '7x usage credits', 'prepaid token packs'],
+  docs: 'https://lightningapi.pro/docs'
+});
+
+app.get(['/v1', '/v1/', '/token/v1', '/token/v1/'], gatewayStatusHandler);
+app.post(['/v1/messages', '/v1/v1/messages', '/token/v1/messages'], handleMessagesEndpoint);
+app.post(['/v1/chat/completions', '/v1/v1/chat/completions', '/token/v1/chat/completions'], handleChatCompletionsEndpoint);
+app.get(['/v1/models', '/v1/v1/models', '/token/v1/models'], handleGetModels);
+app.post(['/v1/messages/count_tokens', '/v1/v1/messages/count_tokens', '/token/v1/messages/count_tokens'], handleCountTokens);
 
 // 2. Built-in Tools Endpoints
 app.post('/tools/web_search', handleWebSearch);
@@ -370,7 +378,7 @@ app.use(
 
 // 7. Standard 404 & SPA Catch-all Handler with Live Database Plans Hydration
 app.get('*', async (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/v1')) {
+  if (req.path.startsWith('/api') || req.path.startsWith('/v1') || req.path.startsWith('/token') || req.path.startsWith('/tools')) {
     return next(new NotFoundError(`API endpoint ${req.path} not found.`));
   }
   if (req.path.startsWith('/assets/')) {

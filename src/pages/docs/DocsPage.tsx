@@ -23,6 +23,10 @@ import {
   Sliders,
   Layers,
   HelpCircle,
+  Coins,
+  DollarSign,
+  Sparkles,
+  Code2,
 } from 'lucide-react';
 import { ElectricNavbar } from '../../components/ElectricNavbar';
 import { ElectricFooter } from '../../components/ElectricFooter';
@@ -99,15 +103,12 @@ const CodeSnippetBlock: React.FC<{
             return (
               <div
                 key={idx}
-                className={
-                  isComment
-                    ? 'text-neutral-500 italic select-none'
-                    : isCommand
-                    ? 'text-emerald-400 font-semibold'
-                    : 'text-neutral-200'
-                }
+                className={`table-row ${isComment ? 'text-neutral-500 italic' : isCommand ? 'text-amber-300 font-bold' : 'text-neutral-200'}`}
               >
-                {line}
+                <span className="table-cell pr-4 text-right select-none text-neutral-700 text-[11px] w-8">
+                  {idx + 1}
+                </span>
+                <span className="table-cell">{line || ' '}</span>
               </div>
             );
           })}
@@ -121,7 +122,7 @@ export const DocsPage: React.FC = () => {
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeClientTab, setActiveClientTab] = useState<'claude-code' | 'cursor' | 'windsurf' | 'python' | 'node'>('claude-code');
+  const [activeClientTab, setActiveClientTab] = useState<'claude-code' | 'cursor' | 'windsurf' | 'vscode' | 'python' | 'node' | 'curl'>('claude-code');
 
   const sidebarNav = [
     {
@@ -129,22 +130,22 @@ export const DocsPage: React.FC = () => {
       items: [
         { id: 'overview', label: '1. Overview & Architecture', icon: BookOpen },
         { id: 'quick-start', label: '2. Quick Start Guide', icon: Terminal },
-        { id: 'authentication', label: '3. Authentication & Keys', icon: KeyRound },
+        { id: 'authentication', label: '3. Authentication & API Keys', icon: KeyRound },
       ],
     },
     {
       title: 'DEVELOPER SPECIFICATION',
       items: [
         { id: 'api-reference', label: '4. Full API Reference', icon: Globe },
-        { id: 'client-config', label: '5. SDK & Client Config', icon: Wrench },
+        { id: 'client-config', label: '5. IDE & Client Config', icon: Wrench },
         { id: 'streaming', label: '6. Streaming & SSE Events', icon: Layers },
       ],
     },
     {
       title: 'GATEWAY ENGINE',
       items: [
-        { id: 'models', label: '7. Model Catalog & Switching', icon: Cpu },
-        { id: 'quotas', label: '8. 5-Hour Rolling Quotas', icon: RefreshCw },
+        { id: 'models', label: '7. Model Catalog (Claude, OpenAI, Local)', icon: Cpu },
+        { id: 'quotas', label: '8. Billing Modes & Quota Engines', icon: RefreshCw },
         { id: 'errors', label: '9. Errors & Troubleshooting', icon: AlertTriangle },
         { id: 'support', label: '10. Support & Diagnostics', icon: LifeBuoy },
       ],
@@ -197,7 +198,6 @@ export const DocsPage: React.FC = () => {
 
       if (!ticking) {
         window.requestAnimationFrame(() => {
-          // Bottom of page activation for last section
           const isAtBottom =
             window.innerHeight + window.scrollY >=
             document.documentElement.scrollHeight - 70;
@@ -208,7 +208,6 @@ export const DocsPage: React.FC = () => {
             return;
           }
 
-          // Active reading threshold (just below sticky header)
           const READ_THRESHOLD = Math.max(260, window.innerHeight * 0.35);
           let currentId = sectionIds[0];
 
@@ -230,7 +229,7 @@ export const DocsPage: React.FC = () => {
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // Initial evaluation on page load
+    handleScroll();
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -254,29 +253,23 @@ export const DocsPage: React.FC = () => {
       <ElectricNavbar />
 
       <div className="flex-1 border-b border-[#e7e5e4]">
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-12">
             
             {/* ------------------------------------------------------------- */}
-            {/* SIDEBAR NAVIGATION (DESKTOP)                                  */}
+            {/* DESKTOP STICKY SIDEBAR NAVIGATION                            */}
             {/* ------------------------------------------------------------- */}
-            <aside className="hidden lg:sticky lg:block lg:h-[calc(100vh-65px)] lg:overflow-y-auto lg:py-10 top-[65px] border-r border-[#e7e5e4] pr-6">
-              <div className="mb-6 pb-4 border-b border-[#e7e5e4] space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 rounded-full bg-[#6d28d9] animate-pulse" />
-                  <span className="font-mono text-[11px] font-bold text-[#6d28d9] tracking-wider uppercase">
-                    API DOCS v2.4
-                  </span>
+            <aside className="hidden lg:block sticky top-[72px] h-[calc(100vh-72px)] overflow-y-auto py-8 pr-4">
+              <div className="mb-6 pb-4 border-b border-[#e7e5e4] space-y-1">
+                <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#6d28d9]">
+                  <BookOpen className="h-4 w-4" />
+                  <span>LIGHTNINGAPI SPECIFICATION</span>
                 </div>
-                <p className="text-xs text-[#78716c]">
-                  Anthropic Messages Gateway
-                </p>
-                <div className="pt-2 border-t border-[#f0eee9]">
-                  <span className="text-[10px] font-mono text-[#a8a29e] uppercase font-semibold block">
-                    CURRENT SECTION:
-                  </span>
-                  <span className="text-xs font-bold text-[#1c1917] truncate block pt-0.5">
-                    {activeSectionItem?.label || '1. Overview & Architecture'}
+                <div className="flex items-center justify-between text-[11px] text-[#78716c] font-mono">
+                  <span>Version 2.4.0</span>
+                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    LIVE
                   </span>
                 </div>
               </div>
@@ -298,7 +291,7 @@ export const DocsPage: React.FC = () => {
                               onClick={() => scrollToSection(item.id)}
                               className={`-ml-[2px] flex w-full items-center justify-between border-l-2 py-1.5 pl-3 pr-2 text-left text-xs transition-all cursor-pointer rounded-r-lg ${
                                 isActive
-                                  ? 'border-[#6d28d9] font-bold text-[#6d28d9] bg-[#f5f3ff]'
+                                   ? 'border-[#6d28d9] font-bold text-[#6d28d9] bg-[#f5f3ff]'
                                   : 'border-transparent text-[#57534e] hover:border-[#a8a29e] hover:text-[#1c1917]'
                               }`}
                             >
@@ -333,6 +326,13 @@ export const DocsPage: React.FC = () => {
                   <span>Verify Key Balance</span>
                   <ExternalLink className="w-3.5 h-3.5 text-[#a8a29e]" />
                 </Link>
+                <Link
+                  to="/pricing"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#e7e5e4] shadow-xs text-xs font-medium text-[#57534e] hover:text-[#1c1917] transition-colors"
+                >
+                  <span>View Capacity Plans</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-[#a8a29e]" />
+                </Link>
               </div>
             </aside>
 
@@ -345,7 +345,7 @@ export const DocsPage: React.FC = () => {
               <div className="sticky top-[64px] z-30 -mx-4 mb-8 border-b border-[#e7e5e4] bg-[#faf8f5]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:hidden">
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="flex w-full items-center justify-between border border-[#e7e5e4] bg-white px-3.5 py-2 text-left rounded-xl shadow-xs"
+                  className="flex w-full items-center justify-between border border-[#e7e5e4] bg-white px-3.5 py-2 text-left rounded-xl shadow-xs cursor-pointer"
                   type="button"
                 >
                   <span className="flex items-center gap-2">
@@ -366,7 +366,7 @@ export const DocsPage: React.FC = () => {
                             <button
                               key={i.id}
                               onClick={() => scrollToSection(i.id)}
-                              className="text-left text-xs py-1.5 px-2 hover:bg-[#faf8f5] rounded-lg text-[#1c1917]"
+                              className="text-left text-xs py-1.5 px-2 hover:bg-[#faf8f5] rounded-lg text-[#1c1917] cursor-pointer"
                             >
                               {i.label}
                             </button>
@@ -381,7 +381,7 @@ export const DocsPage: React.FC = () => {
               {/* ----------------------------------------------------------- */}
               {/* SECTION 1: OVERVIEW & ARCHITECTURE                          */}
               {/* ----------------------------------------------------------- */}
-              <section id="overview" className="mb-16 scroll-mt-24 space-y-4">
+              <section id="overview" className="mb-16 scroll-mt-24 space-y-6">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#6d28d9]" />
                   <span>SECTION 01</span>
@@ -389,44 +389,92 @@ export const DocsPage: React.FC = () => {
                   <span className="text-[#6d28d9] font-bold">OVERVIEW &amp; ARCHITECTURE</span>
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[#1c1917]">
-                  Developer Documentation &amp; Gateway Specification
-                </h1>
+                <div className="space-y-2">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[#1c1917]">
+                    Developer Documentation &amp; Gateway Specification
+                  </h1>
+                  <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed max-w-3xl">
+                    LightningAPI.pro is a unified, high-performance AI API Gateway delivering sub-50ms routing across three major model ecosystems: <strong>Claude (Anthropic)</strong>, <strong>OpenAI Frontier</strong>, and <strong>Local &amp; Open Weights</strong>. Our gateway supports continuous 5-hour rolling pool renewal, wholesale usage credits with 7x purchasing value, and consumable token packs with 100% white-label confidentiality.
+                  </p>
+                </div>
 
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed max-w-3xl">
-                  LightningAPI.pro provides a drop-in API gateway implementing the official Anthropic Messages specification. It connects agentic developer environments (Claude Code CLI, Cursor Composer, Windsurf Cascade, and custom microservices) to cutting-edge Claude models with continuous 5-hour rolling token renewal.
-                </p>
-
-                {/* Architecture Highlights Grid */}
-                <div className="grid sm:grid-cols-3 gap-3 pt-2">
+                {/* 3 Model Ecosystems Ribbon */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-[#6d28d9]" />
-                      <span className="text-xs font-bold text-[#1c1917]">Drop-in Messages API</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-[#6d28d9]" />
+                        <span className="text-xs font-bold text-[#1c1917]">Claude (Anthropic)</span>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-violet-100 text-[#6d28d9]">ALL 3 MODES</span>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Matches Anthropic <code className="font-mono text-[#1c1917]">/v1/messages</code> payloads, streaming chunks, tool uses, and thinking tokens.
+                      Sonnet 4.6, Opus 4.7, Haiku. Drop-in Anthropic Messages replacement with continuous 5-hour rolling pool refills.
                     </p>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                      <span className="text-xs font-bold text-[#1c1917]">Zero Prompt Logging SLA</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-emerald-600" />
+                        <span className="text-xs font-bold text-[#1c1917]">OpenAI Frontier</span>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">CREDITS &amp; TOKENS</span>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Prompts and code stream exclusively through transient volatile server RAM via TLS 1.3 without disk persistence or AI training.
+                      o1, o3-mini, GPT-4o, gpt-oss-120b. Full reasoning token support, function calling parity, and Chat Completions standard.
                     </p>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <RefreshCw className="h-4 w-4 text-amber-600" />
-                      <span className="text-xs font-bold text-[#1c1917]">5-Hour Rolling Window</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="h-4 w-4 text-amber-600" />
+                        <span className="text-xs font-bold text-[#1c1917]">Local &amp; Open Weights</span>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">7X MULTIPLIER</span>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Continuous replenishment engine. Consumed tokens roll off precisely 5 hours after generation, eliminating calendar-month cliffs.
+                      DeepSeek v3.2/v4, Grok-2, Qwen 2.5, GLM-4. High-throughput wholesale economy for batch evaluation and agent loops.
                     </p>
+                  </div>
+                </div>
+
+                {/* 3 Billing Modes Summary */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6d28d9] font-mono">
+                    Three Distinct Billing Architectures
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5 text-[#6d28d9]" />
+                        <span>5-Hour Rolling Pool</span>
+                      </div>
+                      <p className="text-[#57534e] text-[11px] leading-relaxed">
+                        <strong>Claude Exclusive.</strong> Quota continuously renews every 300 minutes. No month-end cutoffs. 30-day fixed duration.
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Usage Credits (7x Multiplier)</span>
+                      </div>
+                      <p className="text-[#57534e] text-[11px] leading-relaxed">
+                        <strong>Universal.</strong> Deposit funds in INR and unlock $7.00 to $8.75 in USD compute. Atomically deducted per token. 365-day validity.
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Prepaid Consumable Tokens</span>
+                      </div>
+                      <p className="text-[#57534e] text-[11px] leading-relaxed">
+                        <strong>No 5-Hour Resets.</strong> Fixed consumable pool (5M, 20M, 50M) that stays until depleted over 365 days.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -437,7 +485,8 @@ export const DocsPage: React.FC = () => {
                     </span>
                   </div>
                   <p className="leading-relaxed">
-                    In standard Anthropic SDKs (Python, TypeScript, and Claude Code), the library automatically appends <code className="font-mono bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#5b21b6] shadow-2xs">/v1/messages</code> to your base URL. Therefore, set your base URL to <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://lightningapi.pro</code> (without trailing <code className="font-mono">/v1</code>).
+                    • <strong>Rolling Window &amp; Credit Plans:</strong> Base URL is <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://api.lightningapi.pro/v1</code> (or <code className="font-mono bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#5b21b6]">https://lightningapi.pro</code> in Anthropic SDKs that auto-append <code className="font-mono">/v1/messages</code>).<br />
+                    • <strong>Prepaid Token Pack Plans:</strong> Base URL is <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://api.lightningapi.pro/token/v1</code>.
                   </p>
                 </div>
               </section>
@@ -456,31 +505,31 @@ export const DocsPage: React.FC = () => {
                 </div>
 
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  First Request in Under 60 Seconds
+                  Get Connected in 30 Seconds
                 </h2>
 
                 <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  Connect your terminal, script, or editor directly to the gateway using any of the verified methods below.
+                  Connect your development tools with automated shell setup scripts or our headless NPX configuration tool.
                 </p>
 
-                {/* Step 1: Automated Shell Setup */}
-                <div className="space-y-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-[#1c1917] flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1c1917] text-white text-[10px] font-mono">1</span>
-                    Automated Terminal Configuration (macOS, Linux &amp; Windows)
-                  </h3>
-                  <p className="text-xs text-[#57534e]">
-                    Run our official terminal setup script to automatically configure your environment for Claude Code CLI and active shells:
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-mono font-medium text-[#78716c]">macOS &amp; Linux (Bash / Zsh):</p>
+                {/* 1-Click Shell Installers */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#1c1917]">macOS &amp; Linux (Bash / Zsh)</span>
+                      <span className="text-[10px] font-mono text-[#78716c]">Automated Export</span>
+                    </div>
                     <CodeSnippetBlock
                       language="bash"
-                      code="curl -fsSL https://lightningapi.pro/setup.sh | bash"
+                      code="curl -sSL https://lightningapi.pro/setup.sh | bash"
                     />
+                  </div>
 
-                    <p className="text-[11px] font-mono font-medium text-[#78716c] pt-2">Windows (PowerShell):</p>
+                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#1c1917]">Windows (PowerShell)</span>
+                      <span className="text-[10px] font-mono text-[#78716c]">Persistent User Env</span>
+                    </div>
                     <CodeSnippetBlock
                       language="powershell"
                       code="irm https://lightningapi.pro/setup.ps1 | iex"
@@ -488,55 +537,25 @@ export const DocsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Step 2: Minimal cURL Example */}
-                <div className="space-y-2 pt-4">
-                  <h3 className="text-xs sm:text-sm font-bold text-[#1c1917] flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1c1917] text-white text-[10px] font-mono">2</span>
-                    Standard cURL Verification Request
-                  </h3>
-                  <p className="text-xs text-[#57534e]">
-                    Send a test payload directly to <code className="font-mono text-[#1c1917]">https://lightningapi.pro/v1/messages</code> using your API key:
-                  </p>
-
+                {/* Direct cURL Verification */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1c1917] font-mono">
+                      Direct Gateway Verification (cURL)
+                    </h3>
+                    <span className="text-[10px] font-mono text-[#78716c]">Sub-50ms Response</span>
+                  </div>
                   <CodeSnippetBlock
                     language="bash"
-                    code={`curl https://lightningapi.pro/v1/messages \\
-  -H "content-type: application/json" \\
+                    code={`curl https://api.lightningapi.pro/v1/messages \\
   -H "x-api-key: ld_live_your_api_key_here" \\
-  -H "anthropic-version: 2023-06-01" \
+  -H "anthropic-version: 2023-06-01" \\
+  -H "content-type: application/json" \\
   -d '{
     "model": "claude-sonnet-5.5",
-    "max_tokens": 1024,
-    "messages": [
-      {"role": "user", "content": "Hello LightningAPI! Confirm connection."}
-    ]
+    "max_tokens": 100,
+    "messages": [{"role": "user", "content": "Hello LightningAPI! Confirm connection."}]
   }'`}
-                  />
-                </div>
-
-                {/* Expected Response Payload */}
-                <div className="space-y-2 pt-2">
-                  <p className="text-[11px] font-mono font-medium text-[#78716c]">Expected Successful Response (HTTP 200 OK):</p>
-                  <CodeSnippetBlock
-                    language="json"
-                    code={`{
-  "id": "msg_01XyZ987AbCdEfGhIjKlMnOp",
-  "type": "message",
-  "role": "assistant",
-  "model": "claude-sonnet-5.5",
-  "content": [
-    {
-      "type": "text",
-      "text": "Connection confirmed! LightningAPI.pro gateway is operational and routing to Claude Sonnet 5.5."
-    }
-  ],
-  "stop_reason": "end_turn",
-  "stop_sequence": null,
-  "usage": {
-    "input_tokens": 14,
-    "output_tokens": 22
-  }
-}`}
                   />
                 </div>
               </section>
@@ -544,9 +563,9 @@ export const DocsPage: React.FC = () => {
               <hr className="my-10 border-[#e7e5e4]" />
 
               {/* ----------------------------------------------------------- */}
-              {/* SECTION 3: AUTHENTICATION & KEY MANAGEMENT                  */}
+              {/* SECTION 3: AUTHENTICATION & API KEYS                        */}
               {/* ----------------------------------------------------------- */}
-              <section id="authentication" className="mb-16 scroll-mt-24 space-y-4">
+              <section id="authentication" className="mb-16 scroll-mt-24 space-y-6">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
                   <KeyRound className="h-3.5 w-3.5 text-[#6d28d9]" />
                   <span>SECTION 03</span>
@@ -554,45 +573,48 @@ export const DocsPage: React.FC = () => {
                   <span className="text-[#6d28d9] font-bold">AUTHENTICATION &amp; KEYS</span>
                 </div>
 
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  API Key Format &amp; Bearer Authentication
-                </h2>
+                <div className="space-y-2">
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
+                    Unified API Keys &amp; Header Authorization
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
+                    LightningAPI uses unified API keys. Your active plan entitlement (Rolling Window vs. Usage Credits vs. Token Pack) is bound strictly on the server side—never requiring client-side parameter overrides.
+                  </p>
+                </div>
 
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  Every request sent to LightningAPI.pro must be authenticated using an active API key issued to your account.
-                </p>
-
+                {/* Key Types Matrix */}
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-mono text-[10px] font-bold">LIVE KEY</span>
+                      <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-mono text-[10px] font-bold">PRODUCTION KEY</span>
                       <code className="text-xs font-bold text-[#1c1917]">ld_live_...</code>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Issued upon purchasing a capacity tier (5x, 20x, 40x, 100x). Has full continuous 5-hour rolling allowance backed by your selected tier.
+                      Issued instantly upon activating any plan. Backed by your chosen billing mode (continuous rolling pool, 7x usage credits, or consumable tokens).
                     </p>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-[10px] font-bold">TRIAL KEY</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-[10px] font-bold">EVALUATION KEY</span>
                       <code className="text-xs font-bold text-[#1c1917]">ld_trial_...</code>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Issued via the free trial onboarding flow. Preloaded with 1,000,000 complimentary tokens for testing integration with Claude Code and Cursor.
+                      Issued via the free trial onboarding flow. Preloaded with 200,000 tokens for testing integration across Cursor, Windsurf, and Claude Code.
                     </p>
                   </div>
                 </div>
 
+                {/* Supported Headers */}
                 <div className="space-y-3 pt-2">
                   <h3 className="text-xs sm:text-sm font-bold text-[#1c1917]">Supported Authentication Headers</h3>
                   <p className="text-xs text-[#57534e]">
-                    The gateway accepts authentication through either standard Anthropic header or standard RFC 6750 Bearer authorization:
+                    The gateway accepts authentication through standard Anthropic headers or standard RFC 6750 Bearer authorization:
                   </p>
 
                   <div className="space-y-2">
                     <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] text-xs font-mono">
-                      <span className="text-[#a8a29e]">Standard Header: </span>
+                      <span className="text-[#a8a29e]">Anthropic Native Header: </span>
                       <strong className="text-[#1c1917]">x-api-key: ld_live_your_token_here</strong>
                     </div>
                     <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] text-xs font-mono">
@@ -602,16 +624,14 @@ export const DocsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-4 sm:p-5 rounded-2xl bg-[#fffdf5] border border-[#fef08a] text-xs text-[#92400e] space-y-2 shadow-2xs">
+                {/* White-Label & Supplier Privacy Assurance */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-xs text-emerald-950 space-y-2 shadow-2xs">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#fef3c7] text-[#b45309] border border-[#fde68a]">
-                      <AlertTriangle className="w-3 h-3 text-[#b45309]" />
-                      SECURITY BEST PRACTICE
-                    </span>
-                    <span className="font-bold text-[#78350f]">Key Custody &amp; Environment Isolation</span>
+                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                    <span className="font-bold">Strict White-Label &amp; Security Assurance</span>
                   </div>
-                  <p className="leading-relaxed text-[#92400e]">
-                    Never commit your API key to public git repositories or client-side web browser bundles. Store keys in local environment variables (<code className="font-mono bg-white px-1.5 py-0.5 rounded-md border border-[#fde68a] text-[#78350f] shadow-2xs">.env.local</code>) or your operating system keychain. If a key is compromised, revoke it immediately via the Customer Portal.
+                  <p className="leading-relaxed text-[11px] text-emerald-900">
+                    LightningAPI operates an isolated, high-security proxy architecture. Supplier master credentials, infrastructure URLs, and upstream internal metadata are completely isolated from client terminals, headers, logs, and frontend bundles. Your requests flow securely through TLS 1.3 without intermediary prompt storage.
                   </p>
                 </div>
               </section>
@@ -645,11 +665,11 @@ export const DocsPage: React.FC = () => {
                       <span className="px-2 py-0.5 rounded bg-[#6d28d9] text-white font-mono text-[11px] font-bold">POST</span>
                       <code className="text-sm font-bold text-[#1c1917]">/v1/messages</code>
                     </div>
-                    <span className="text-[11px] font-mono text-[#78716c]">Official Messages Standard</span>
+                    <span className="text-[11px] font-mono text-[#78716c]">Anthropic Messages Standard</span>
                   </div>
 
                   <p className="text-xs text-[#57534e] leading-relaxed">
-                    Main inference endpoint. Generates a response or streams server-sent events for a conversational context.
+                    Main inference endpoint for Claude models. Generates a response or streams server-sent events for a conversational context. Supports tool calling, reasoning, and thinking tokens.
                   </p>
 
                   <div className="overflow-x-auto">
@@ -667,104 +687,76 @@ export const DocsPage: React.FC = () => {
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">model</td>
                           <td className="py-2 pr-4 font-mono text-purple-700">string</td>
                           <td className="py-2 pr-4 font-bold text-rose-600">Yes</td>
-                          <td className="py-2">Supported model ID (e.g., <code className="font-mono">claude-sonnet-5.5</code>) or short alias.</td>
+                          <td className="py-2">Supported model ID (e.g. <code className="font-mono">claude-sonnet-5.5</code>) or alias.</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">messages</td>
                           <td className="py-2 pr-4 font-mono text-purple-700">array</td>
                           <td className="py-2 pr-4 font-bold text-rose-600">Yes</td>
-                          <td className="py-2">Array of input message objects with <code className="font-mono">role</code> ("user" | "assistant") and <code className="font-mono">content</code>.</td>
+                          <td className="py-2">Array of message objects with <code className="font-mono">role</code> ("user" | "assistant") and <code className="font-mono">content</code>.</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">max_tokens</td>
                           <td className="py-2 pr-4 font-mono text-purple-700">integer</td>
                           <td className="py-2 pr-4 font-bold text-rose-600">Yes</td>
-                          <td className="py-2">Maximum number of completion tokens to generate before stopping.</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">system</td>
-                          <td className="py-2 pr-4 font-mono text-purple-700">string | array</td>
-                          <td className="py-2 pr-4 text-[#78716c]">Optional</td>
-                          <td className="py-2">System-level instructions directing persona, code style, or constraints.</td>
+                          <td className="py-2">Maximum number of completion tokens to generate.</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">stream</td>
                           <td className="py-2 pr-4 font-mono text-purple-700">boolean</td>
                           <td className="py-2 pr-4 text-[#78716c]">Optional</td>
-                          <td className="py-2">If true, streams token chunks incrementally via Server-Sent Events (SSE).</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">thinking</td>
-                          <td className="py-2 pr-4 font-mono text-purple-700">object</td>
-                          <td className="py-2 pr-4 text-[#78716c]">Optional</td>
-                          <td className="py-2">Extended Thinking control for reasoning models: <code className="font-mono">{"{\"type\": \"enabled\", \"budget_tokens\": 4096}"}</code>.</td>
+                          <td className="py-2">Streams token chunks incrementally via Server-Sent Events (SSE).</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">tools</td>
                           <td className="py-2 pr-4 font-mono text-purple-700">array</td>
                           <td className="py-2 pr-4 text-[#78716c]">Optional</td>
-                          <td className="py-2">Function definitions the model may invoke during execution.</td>
+                          <td className="py-2">Function declarations the model may invoke.</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                {/* Endpoint 2: GET /v1/models */}
+                {/* Endpoint 2: POST /v1/chat/completions */}
                 <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[11px] font-bold">GET</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[11px] font-bold">POST</span>
+                      <code className="text-sm font-bold text-[#1c1917]">/v1/chat/completions</code>
+                    </div>
+                    <span className="text-[11px] font-mono text-[#78716c]">OpenAI Chat Completions Standard</span>
+                  </div>
+
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    Main inference endpoint for OpenAI Frontier (o1, o3-mini, GPT-4o) and Local Models (DeepSeek, Grok, Qwen, GLM). Drop-in replacement for OpenAI SDK clients.
+                  </p>
+
+                  <CodeSnippetBlock
+                    language="bash"
+                    code={`curl https://api.lightningapi.pro/v1/chat/completions \\
+  -H "Authorization: Bearer ld_live_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "deepseek-ai/deepseek-v3",
+    "messages": [{"role": "user", "content": "Explain key architectural differences between Raft and Paxos."}],
+    "max_tokens": 500
+  }'`}
+                  />
+                </div>
+
+                {/* Endpoint 3: GET /v1/models */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[11px] font-bold">GET</span>
                       <code className="text-sm font-bold text-[#1c1917]">/v1/models</code>
                     </div>
                     <span className="text-[11px] font-mono text-[#78716c]">Live Model Catalog</span>
                   </div>
                   <p className="text-xs text-[#57534e]">
-                    Returns the dynamic machine-readable list of models currently available on the gateway, including context window capacities.
+                    Returns the dynamic machine-readable list of models currently available on the gateway, context windows, and pricing metadata.
                   </p>
-                  <CodeSnippetBlock
-                    language="json"
-                    code={`{
-  "object": "list",
-  "data": [
-    {
-      "id": "claude-opus-5.5",
-      "object": "model",
-      "created": 1740000000,
-      "owned_by": "anthropic",
-      "context_window": 1000000
-    },
-    {
-      "id": "claude-sonnet-5.5",
-      "object": "model",
-      "created": 1740000000,
-      "owned_by": "anthropic",
-      "context_window": 1000000
-    }
-  ]
-}`}
-                  />
-                </div>
-
-                {/* Endpoint 3: POST /v1/messages/count_tokens */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-[#6d28d9] text-white font-mono text-[11px] font-bold">POST</span>
-                      <code className="text-sm font-bold text-[#1c1917]">/v1/messages/count_tokens</code>
-                    </div>
-                    <span className="text-[11px] font-mono text-[#78716c]">Token Estimation</span>
-                  </div>
-                  <p className="text-xs text-[#57534e]">
-                    Counts the exact input token cost of a messages payload without executing inference.
-                  </p>
-                  <CodeSnippetBlock
-                    language="json"
-                    code={`// Response:
-{
-  "input_tokens": 128
-}`}
-                  />
                 </div>
 
                 {/* Endpoint 4: GET /api/key-status */}
@@ -774,21 +766,21 @@ export const DocsPage: React.FC = () => {
                       <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[11px] font-bold">GET</span>
                       <code className="text-sm font-bold text-[#1c1917]">/api/key-status</code>
                     </div>
-                    <span className="text-[11px] font-mono text-[#78716c]">Live Reservoir Telemetry</span>
+                    <span className="text-[11px] font-mono text-[#78716c]">Live Key Balance &amp; Telemetry</span>
                   </div>
                   <p className="text-xs text-[#57534e]">
-                    Returns the real-time balance, current 5-hour rolling token usage, total quota, and plan status for the authenticated key.
+                    Inspect active balance, current 5-hour rolling pool usage, remaining credits, and rate limits without authenticating to dashboard.
                   </p>
                   <CodeSnippetBlock
                     language="json"
                     code={`{
   "valid": true,
   "keyPrefix": "ld_live_a1b2...",
-  "planName": "MAX",
-  "rollingLimit": 120000000,
+  "planName": "MAX 20X",
+  "billingType": "window",
+  "rollingLimit": 20000000,
   "windowUsage": 4350120,
-  "remainingInWindow": 115649880,
-  "utilizationPercent": 3.63,
+  "remainingInWindow": 15649880,
   "windowDuration": "5h"
 }`}
                   />
@@ -798,18 +790,18 @@ export const DocsPage: React.FC = () => {
               <hr className="my-10 border-[#e7e5e4]" />
 
               {/* ----------------------------------------------------------- */}
-              {/* SECTION 5: SDK & CLIENT CONFIGURATION                       */}
+              {/* SECTION 5: IDE & CLIENT CONFIGURATION                       */}
               {/* ----------------------------------------------------------- */}
               <section id="client-config" className="mb-16 scroll-mt-24 space-y-4">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
                   <Wrench className="h-3.5 w-3.5 text-[#6d28d9]" />
                   <span>SECTION 05</span>
                   <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">SDK &amp; CLIENT CONFIGURATION</span>
+                  <span className="text-[#6d28d9] font-bold">IDE &amp; CLIENT CONFIGURATION</span>
                 </div>
 
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  Connecting Your Development Tools
+                  Connecting Your Development Tools (Zero Supplier Exposure)
                 </h2>
 
                 <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
@@ -822,8 +814,10 @@ export const DocsPage: React.FC = () => {
                     { id: 'claude-code', label: 'Claude Code CLI' },
                     { id: 'cursor', label: 'Cursor Composer' },
                     { id: 'windsurf', label: 'Windsurf Cascade' },
+                    { id: 'vscode', label: 'VS Code (Cline / Roo)' },
                     { id: 'python', label: 'Python SDK' },
                     { id: 'node', label: 'TypeScript / Node' },
+                    { id: 'curl', label: 'cURL Commands' },
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -845,15 +839,15 @@ export const DocsPage: React.FC = () => {
                   <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
                     <h3 className="text-sm font-bold text-[#1c1917]">Claude Code CLI Configuration</h3>
                     <p className="text-xs text-[#57534e] leading-relaxed">
-                      Claude Code is Anthropic's official terminal agent. Point it to LightningAPI.pro by exporting the standard Anthropic environment variables in your terminal session or <code className="font-mono text-[#1c1917]">~/.zshrc</code> / <code className="font-mono text-[#1c1917]">~/.bashrc</code>:
+                      Claude Code connects directly to LightningAPI using standard Anthropic environment variables in your terminal session or <code className="font-mono text-[#1c1917]">~/.zshrc</code> / <code className="font-mono text-[#1c1917]">~/.bashrc</code>:
                     </p>
                     <CodeSnippetBlock
                       language="bash"
-                      code={`# Set Base URL to LightningAPI.pro
+                      code={`# Set Base URL directly to LightningAPI (SDK appends /v1/messages)
 export ANTHROPIC_BASE_URL="https://lightningapi.pro"
 
 # Set your active LightningAPI key
-export ANTHROPIC_API_KEY="ld_live_your_key_here"
+export ANTHROPIC_AUTH_TOKEN="ld_live_your_key_here"
 
 # (Optional) Select default model
 export ANTHROPIC_MODEL="claude-sonnet-5.5"
@@ -867,12 +861,9 @@ claude`}
                         <span>Switching Models in Claude Code</span>
                       </p>
                       <p className="text-[11px] text-[#57534e]">
-                        Run <code className="font-mono text-[#1c1917] font-semibold">npx lightningdeals model</code> to pick from all 10 models interactively, or launch with <code className="font-mono text-[#1c1917] font-semibold">claude --model &lt;model-id&gt;</code>. See <button type="button" onClick={() => scrollToSection('models')} className="text-[#6d28d9] font-bold underline underline-offset-2 cursor-pointer">Section 7.1</button> for full switcher guide.
+                        Run <code className="font-mono text-[#1c1917] font-semibold">npx lightningdeals model</code> to pick from models interactively, or launch with <code className="font-mono text-[#1c1917] font-semibold">claude --model &lt;model-id&gt;</code>.
                       </p>
                     </div>
-                    <p className="text-[11px] text-[#78716c]">
-                      *Note: The gateway automatically normalizes Claude Code model hints such as <code className="font-mono text-[#1c1917]">claude-sonnet-5.5[1m]</code> to ensure seamless context window handling.
-                    </p>
                   </div>
                 )}
 
@@ -881,15 +872,27 @@ claude`}
                   <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
                     <h3 className="text-sm font-bold text-[#1c1917]">Cursor Composer Configuration</h3>
                     <p className="text-xs text-[#57534e] leading-relaxed">
-                      Configure Cursor to route through LightningAPI using the native Anthropic provider settings:
+                      Configure Cursor to route Claude models via Anthropic settings, or OpenAI/Local models via OpenAI settings:
                     </p>
-                    <ol className="list-decimal list-inside space-y-2 text-xs text-[#57534e] pl-1">
-                      <li>Open <strong className="text-[#1c1917]">Cursor Settings</strong> (<code className="font-mono">Cmd + ,</code> or <code className="font-mono">Ctrl + ,</code>) &rarr; navigate to <strong className="text-[#1c1917]">Models</strong>.</li>
-                      <li>Locate the <strong className="text-[#1c1917]">Anthropic API Key</strong> input.</li>
-                      <li>Paste your key (<code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>).</li>
-                      <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> on and enter: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code>.</li>
-                      <li>In the model dropdown, ensure <code className="font-mono">claude-sonnet-5.5</code> is enabled.</li>
-                    </ol>
+                    <div className="space-y-3 text-xs">
+                      <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-2">
+                        <strong className="text-[#1c1917]">Method A: Claude Models (Anthropic Native)</strong>
+                        <ol className="list-decimal list-inside space-y-1 text-[#57534e] pl-1">
+                          <li>Open <strong className="text-[#1c1917]">Cursor Settings &rarr; Models</strong>.</li>
+                          <li>In <strong className="text-[#1c1917]">Anthropic API Key</strong>, paste your key: <code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>.</li>
+                          <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> on and set: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code>.</li>
+                        </ol>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-2">
+                        <strong className="text-[#1c1917]">Method B: OpenAI &amp; Local Models (OpenAI Compatible)</strong>
+                        <ol className="list-decimal list-inside space-y-1 text-[#57534e] pl-1">
+                          <li>In <strong className="text-[#1c1917]">OpenAI API Key</strong>, paste: <code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>.</li>
+                          <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> and set: <code className="font-mono font-bold text-[#1c1917]">https://api.lightningapi.pro/v1</code>.</li>
+                          <li>Add model: <code className="font-mono">deepseek-ai/deepseek-v3</code> or <code className="font-mono">gpt-4o</code>.</li>
+                        </ol>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -898,55 +901,86 @@ claude`}
                   <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
                     <h3 className="text-sm font-bold text-[#1c1917]">Windsurf Cascade Configuration</h3>
                     <p className="text-xs text-[#57534e] leading-relaxed">
-                      Configure Codeium Windsurf Cascade to leverage your 5-hour rolling token capacity:
+                      Configure Codeium Windsurf Cascade to route all model families:
                     </p>
                     <ol className="list-decimal list-inside space-y-2 text-xs text-[#57534e] pl-1">
-                      <li>Navigate to <strong className="text-[#1c1917]">Windsurf Settings &rarr; AI Providers &rarr; Anthropic</strong>.</li>
-                      <li>Enable custom endpoint routing.</li>
-                      <li>Set <strong className="text-[#1c1917]">Base URL</strong>: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code>.</li>
-                      <li>Input your API key (<code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>).</li>
+                      <li>Open <strong className="text-[#1c1917]">Windsurf Settings &rarr; AI Providers</strong>.</li>
+                      <li>Select <strong className="text-[#1c1917]">Anthropic</strong> or <strong className="text-[#1c1917]">Custom OpenAI Provider</strong>.</li>
+                      <li>Set <strong className="text-[#1c1917]">Base URL</strong>: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code> (for Anthropic) or <code className="font-mono font-bold text-[#1c1917]">https://api.lightningapi.pro/v1</code> (for OpenAI).</li>
+                      <li>Set <strong className="text-[#1c1917]">API Key</strong>: <code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>.</li>
                     </ol>
                   </div>
                 )}
 
-                {/* Tab 4: Python */}
-                {activeClientTab === 'python' && (
+                {/* Tab 4: VS Code (Cline / Roo) */}
+                {activeClientTab === 'vscode' && (
                   <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
-                    <h3 className="text-sm font-bold text-[#1c1917]">Python Official Anthropic SDK</h3>
+                    <h3 className="text-sm font-bold text-[#1c1917]">VS Code (Cline / Roo Code / Continue)</h3>
                     <p className="text-xs text-[#57534e] leading-relaxed">
-                      Use the official <code className="font-mono text-[#1c1917]">anthropic</code> Python library without modifications:
+                      Configure popular VS Code autonomous extensions:
                     </p>
-                    <CodeSnippetBlock
-                      language="python"
-                      code={`import os
-from anthropic import Anthropic
-
-client = Anthropic(
-    api_key=os.environ.get("LIGHTNING_API_KEY", "ld_live_your_key_here"),
-    # Point directly to LightningAPI gateway (SDK handles /v1/messages)
-    base_url="https://lightningapi.pro",
-)
-
-message = client.messages.create(
-    model="claude-sonnet-5.5",
-    max_tokens=1024,
-    messages=[
-        {"role": "user", "content": "Explain raft consensus algorithm succinctly."}
-    ]
-)
-
-print(message.content[0].text)`}
-                    />
+                    <div className="space-y-2 text-xs">
+                      <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] font-mono space-y-1">
+                        <div><strong>API Provider:</strong> Anthropic (or OpenAI Compatible)</div>
+                        <div><strong>Base URL:</strong> https://api.lightningapi.pro/v1</div>
+                        <div><strong>API Key:</strong> ld_live_your_key_here</div>
+                        <div><strong>Model ID:</strong> claude-sonnet-5.5 (or deepseek-ai/deepseek-v3)</div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* Tab 5: Node / TypeScript */}
+                {/* Tab 5: Python */}
+                {activeClientTab === 'python' && (
+                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
+                    <h3 className="text-sm font-bold text-[#1c1917]">Python SDK Integration (Anthropic &amp; OpenAI)</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-xs font-bold text-[#1c1917]">1. Official Anthropic Python Client</span>
+                        <CodeSnippetBlock
+                          language="python"
+                          code={`import anthropic
+
+client = anthropic.Anthropic(
+    api_key="ld_live_your_key_here",
+    base_url="https://lightningapi.pro"
+)
+
+response = client.messages.create(
+    model="claude-sonnet-5.5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Explain raft consensus algorithm succinctly."}]
+)
+print(response.content[0].text)`}
+                        />
+                      </div>
+
+                      <div>
+                        <span className="text-xs font-bold text-[#1c1917]">2. Official OpenAI Python Client (OpenAI &amp; Local Models)</span>
+                        <CodeSnippetBlock
+                          language="python"
+                          code={`import openai
+
+client = openai.OpenAI(
+    api_key="ld_live_your_key_here",
+    base_url="https://api.lightningapi.pro/v1"
+)
+
+response = client.chat.completions.create(
+    model="deepseek-ai/deepseek-v3",
+    messages=[{"role": "user", "content": "Write a high-performance LRU cache in Rust."}]
+)
+print(response.choices[0].message.content)`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 6: Node / TypeScript */}
                 {activeClientTab === 'node' && (
                   <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
                     <h3 className="text-sm font-bold text-[#1c1917]">TypeScript &amp; Node.js SDK</h3>
-                    <p className="text-xs text-[#57534e] leading-relaxed">
-                      Initialize <code className="font-mono text-[#1c1917]">@anthropic-ai/sdk</code> with the custom base URL:
-                    </p>
                     <CodeSnippetBlock
                       language="typescript"
                       code={`import Anthropic from '@anthropic-ai/sdk';
@@ -956,21 +990,43 @@ const anthropic = new Anthropic({
   baseURL: 'https://lightningapi.pro',
 });
 
-async function run() {
-  const stream = await anthropic.messages.stream({
-    model: 'claude-sonnet-5.5',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: 'Generate high-throughput Express proxy' }],
-  });
+const response = await anthropic.messages.create({
+  model: 'claude-sonnet-5.5',
+  max_tokens: 1024,
+  messages: [{ role: 'user', content: 'Generate high-throughput Express proxy' }],
+});
 
-  for await (const chunk of stream) {
-    if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-      process.stdout.write(chunk.delta.text);
-    }
-  }
-}
+console.log(response.content[0]);`}
+                    />
+                  </div>
+                )}
 
-run();`}
+                {/* Tab 7: cURL */}
+                {activeClientTab === 'curl' && (
+                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
+                    <h3 className="text-sm font-bold text-[#1c1917]">cURL Terminal Commands</h3>
+                    <CodeSnippetBlock
+                      language="bash"
+                      code={`# Anthropic Messages format
+curl https://api.lightningapi.pro/v1/messages \\
+  -H "x-api-key: ld_live_your_key_here" \\
+  -H "anthropic-version: 2023-06-01" \\
+  -H "content-type: application/json" \\
+  -d '{
+    "model": "claude-sonnet-5.5",
+    "max_tokens": 100,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# OpenAI Chat Completions format
+curl https://api.lightningapi.pro/v1/chat/completions \\
+  -H "Authorization: Bearer ld_live_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "deepseek-ai/deepseek-v3",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "max_tokens": 100
+  }'`}
                     />
                   </div>
                 )}
@@ -994,18 +1050,13 @@ run();`}
                 </h2>
 
                 <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  When <code className="font-mono text-[#1c1917]">"stream": true</code> is specified, the gateway forwards tokens chunk-by-chunk using standard SSE formatting. The connection transmits low-overhead events adhering to the Anthropic lifecycle:
+                  When <code className="font-mono text-[#1c1917]">"stream": true</code> is specified, the gateway forwards tokens chunk-by-chunk using standard SSE formatting adhering strictly to Anthropic and OpenAI protocols.
                 </p>
 
                 <div className="space-y-2 text-xs">
                   <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
                     <span className="font-mono font-bold text-[#6d28d9]">event: message_start</span>
                     <p className="text-[11px] text-[#57534e]">Emits initial metadata, message ID, role, and usage initialization.</p>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
-                    <span className="font-mono font-bold text-[#6d28d9]">event: content_block_start</span>
-                    <p className="text-[11px] text-[#57534e]">Marks the commencement of a text block or tool use block.</p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
@@ -1025,225 +1076,155 @@ run();`}
               {/* ----------------------------------------------------------- */}
               {/* SECTION 7: MODEL CATALOG & ALIASES                          */}
               {/* ----------------------------------------------------------- */}
-              <section id="models" className="mb-16 scroll-mt-24 space-y-4">
+              <section id="models" className="mb-16 scroll-mt-24 space-y-6">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
                   <Cpu className="h-3.5 w-3.5 text-[#6d28d9]" />
                   <span>SECTION 07</span>
                   <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">MODEL CATALOG &amp; ALIASES</span>
+                  <span className="text-[#6d28d9] font-bold">MODEL CATALOG (CLAUDE, OPENAI, LOCAL)</span>
                 </div>
 
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  Supported Models &amp; Normalization Routing
-                </h2>
+                <div className="space-y-2">
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
+                    Supported Models &amp; Normalization Routing
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
+                    The tables below document verified models mounted on the gateway database. Requests using convenient aliases or IDE context tags are automatically normalized.
+                  </p>
+                </div>
 
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  The table below documents verified models mounted on the gateway database. Upstream requests using convenient short aliases or Claude Code context tags are automatically normalized.
-                </p>
-
-                <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs font-sans">
-                      <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
-                        <tr>
-                          <th className="py-3 px-4">Model Name</th>
-                          <th className="py-3 px-4">Canonical Model ID</th>
-                          <th className="py-3 px-4">Short Aliases</th>
-                          <th className="py-3 px-4">Context Window</th>
-                          <th className="py-3 px-4">Best Suited For</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5.5</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5.5</td>
-                          <td className="py-3 px-4 font-mono">opus-5.5, opus</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Cognitive frontier, deep scientific analysis, architectural synthesis</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Sonnet 5.5</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-sonnet-5.5</td>
-                          <td className="py-3 px-4 font-mono">sonnet-5.5, sonnet</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Flagship multi-file coding, autonomous agent execution, refactoring</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5</td>
-                          <td className="py-3 px-4 font-mono">opus-5</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Formal verification, mathematical proofs, system invariants</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Sonnet 5</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-sonnet-5</td>
-                          <td className="py-3 px-4 font-mono">sonnet-5</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">High-speed production software engineering, automated workflows</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Fable 5</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-fable-5</td>
-                          <td className="py-3 px-4 font-mono">fable-5, fable</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Ultra-fast IDE copilot, creative prose, rapid code synthesis</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Fable 5 Flash</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-fable-5-flash</td>
-                          <td className="py-3 px-4 font-mono">fable-flash</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">500,000 tokens</td>
-                          <td className="py-3">Sub-second bot loops, instant completions, interactive CLI tools</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5 Extended Thinking</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5-thinking</td>
-                          <td className="py-3 px-4 font-mono">opus-thinking</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Exhaustive reasoning traces, compiler optimization, complex bug trees</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Sonnet 5 Extended Thinking</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-sonnet-5-thinking</td>
-                          <td className="py-3 px-4 font-mono">sonnet-thinking</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                          <td className="py-3">Hybrid verification, test generation, formal spec evaluation</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Haiku 5.5</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-haiku-5.5</td>
-                          <td className="py-3 px-4 font-mono">haiku-5.5, haiku</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">500,000 tokens</td>
-                          <td className="py-3">High-throughput streaming, low-latency triage, real-time embeddings</td>
-                        </tr>
-                        <tr>
-                          <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Haiku 5</td>
-                          <td className="py-3 px-4 font-mono text-purple-700">claude-haiku-5</td>
-                          <td className="py-3 px-4 font-mono">haiku-5</td>
-                          <td className="py-3 px-4 font-bold text-emerald-700">500,000 tokens</td>
-                          <td className="py-3">Background classification, CI/CD parsing, webhook data transform</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                {/* Claude Table */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6d28d9] font-mono">
+                    1. Claude (Anthropic) Lineup
+                  </h3>
+                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs font-sans">
+                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
+                          <tr>
+                            <th className="py-3 px-4">Model Name</th>
+                            <th className="py-3 px-4">API Model ID</th>
+                            <th className="py-3 px-4">Context Window</th>
+                            <th className="py-3 px-4">Eligible Billing</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Sonnet 5.5 / 4.6</td>
+                            <td className="py-3 px-4 font-mono text-purple-700">claude-sonnet-5.5</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5.5 / 4.7</td>
+                            <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5.5</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Haiku 5.5</td>
+                            <td className="py-3 px-4 font-mono text-purple-700">claude-haiku-5.5</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">500,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5 Extended Thinking</td>
+                            <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5-thinking</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
-                {/* 7.1 Activating & Switching Models */}
-                <div className="mt-8 space-y-6 pt-6 border-t border-[#e7e5e4]">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#f5f3ff] text-[#6d28d9] font-mono text-[11px] font-bold uppercase tracking-wider mb-1.5">
-                      <Sliders className="h-3 w-3 text-[#6d28d9]" />
-                      <span>SECTION 7.1</span>
-                      <span>·</span>
-                      <span>MODEL ACTIVATION &amp; SWITCHING</span>
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold tracking-tight text-[#1c1917]">
-                      How to Switch &amp; Activate Any Model in Claude Code &amp; Developer Tools
-                    </h3>
-                    <p className="text-xs sm:text-sm text-[#57534e] mt-1 leading-relaxed">
-                      Every key on LightningAPI.pro has unrestricted authorization across all 10 frontier models. You can switch your active model instantly using our CLI, terminal flags, or environment variables without re-authenticating.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Method 1: Interactive Menu */}
-                    <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 rounded-lg bg-[#6d28d9]/10 text-[#6d28d9] font-mono text-xs font-bold items-center justify-center">1</span>
-                        <h4 className="text-sm font-bold text-[#1c1917]">Interactive Model Selector</h4>
-                      </div>
-                      <p className="text-xs text-[#57534e]">
-                        Launches a numbered terminal UI displaying your key's live quota, active model, and all 10 available choices:
-                      </p>
-                      <CodeSnippetBlock
-                        language="bash"
-                        code="npx lightningdeals model"
-                      />
-                      <p className="text-[11px] text-[#78716c]">
-                        Press <strong className="text-[#1c1917]">1–10</strong> to pick Opus 5.5, Sonnet 5.5, Fable 5, Extended Thinking, etc. It updates <code className="font-mono text-[#1c1917]">~/.claude/settings.json</code> automatically.
-                      </p>
-                    </div>
-
-                    {/* Method 2: Direct Command Switch */}
-                    <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 rounded-lg bg-[#6d28d9]/10 text-[#6d28d9] font-mono text-xs font-bold items-center justify-center">2</span>
-                        <h4 className="text-sm font-bold text-[#1c1917]">Direct Model Selection (One-Liner)</h4>
-                      </div>
-                      <p className="text-xs text-[#57534e]">
-                        Pass the canonical model ID directly to switch instantly without opening the interactive menu:
-                      </p>
-                      <CodeSnippetBlock
-                        language="bash"
-                        code={`# Switch active model to Opus 5.5
-npx lightningdeals model claude-opus-5.5
-
-# Switch active model to Sonnet 5.5
-npx lightningdeals model claude-sonnet-5.5`}
-                      />
-                      <p className="text-[11px] text-[#78716c]">
-                        Accepts any model ID or alias (<code className="font-mono text-[#1c1917]">opus-5.5</code>, <code className="font-mono text-[#1c1917]">sonnet-5</code>, <code className="font-mono text-[#1c1917]">fable-5</code>, <code className="font-mono text-[#1c1917]">opus-thinking</code>).
-                      </p>
-                    </div>
-
-                    {/* Method 3: Claude Code Launch Flag */}
-                    <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 rounded-lg bg-[#6d28d9]/10 text-[#6d28d9] font-mono text-xs font-bold items-center justify-center">3</span>
-                        <h4 className="text-sm font-bold text-[#1c1917]">Claude Code Session Flag</h4>
-                      </div>
-                      <p className="text-xs text-[#57534e]">
-                        Run Claude Code with a specific model for a single terminal session without modifying persistent config:
-                      </p>
-                      <CodeSnippetBlock
-                        language="bash"
-                        code={`# Run with Opus 5.5
-claude --model claude-opus-5.5
-
-# Run with Extended Thinking
-claude --model claude-opus-5-thinking`}
-                      />
-                      <p className="text-[11px] text-[#78716c]">
-                        The gateway resolves the request and routes directly to the requested model.
-                      </p>
-                    </div>
-
-                    {/* Method 4: Inside Claude Code /model Command */}
-                    <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 rounded-lg bg-[#6d28d9]/10 text-[#6d28d9] font-mono text-xs font-bold items-center justify-center">4</span>
-                        <h4 className="text-sm font-bold text-[#1c1917]">Claude Code /model Command</h4>
-                      </div>
-                      <p className="text-xs text-[#57534e]">
-                        Anthropic's native <code className="font-mono text-[#1c1917]">/model</code> command in Claude Code shows built-in slots plus your custom LightningAPI model:
-                      </p>
-                      <div className="p-3 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] font-mono text-[11px] text-[#57534e] space-y-1">
-                        <div>1. Default (Sonnet 4.6)</div>
-                        <div>2. Claude Sonnet 4.6</div>
-                        <div>3. Claude Sonnet 4.6 (with 1M context)</div>
-                        <div>4. Claude Haiku 4.5</div>
-                        <div className="font-bold text-[#6d28d9]">5. Claude Opus 5.5 (Custom Model Option) ← LightningAPI</div>
-                      </div>
-                      <p className="text-[11px] text-[#78716c]">
-                        Selecting Slot 5 activates your configured custom model. To change what Slot 5 points to, run <code className="font-mono text-[#1c1917]">npx lightningdeals model &lt;id&gt;</code>.
-                      </p>
+                {/* OpenAI Frontier Table */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 font-mono">
+                    2. OpenAI Frontier Lineup
+                  </h3>
+                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs font-sans">
+                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
+                          <tr>
+                            <th className="py-3 px-4">Model Name</th>
+                            <th className="py-3 px-4">API Model ID</th>
+                            <th className="py-3 px-4">Context Window</th>
+                            <th className="py-3 px-4">Eligible Billing</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">GPT-4o</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700">gpt-4o</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">o1 Reasoning</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700">o1</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">200,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">o3-mini High Reasoning</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700">o3-mini</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">200,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
+                </div>
 
-                  {/* Pro-Tip: Inspecting Key Authorizations */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-[#f8f5ff] border border-[#ddd6fe] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                    <div className="space-y-1">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#ede9fe] text-[#6d28d9] border border-[#ddd6fe]">
-                        PRO-TIP: VERIFY KEY QUOTAS
-                      </span>
-                      <p className="text-xs text-[#5b21b6] font-medium">
-                        Want to verify remaining rolling tokens or inspect all authorized models on your key?
-                      </p>
+                {/* Local & Open-Weights Table */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700 font-mono">
+                    3. Local &amp; Open-Weights Lineup
+                  </h3>
+                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs font-sans">
+                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
+                          <tr>
+                            <th className="py-3 px-4">Model Name</th>
+                            <th className="py-3 px-4">API Model ID</th>
+                            <th className="py-3 px-4">Context Window</th>
+                            <th className="py-3 px-4">Eligible Billing</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">DeepSeek-V3</td>
+                            <td className="py-3 px-4 font-mono text-amber-700">deepseek-ai/deepseek-v3</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">DeepSeek-R1 (Reasoning)</td>
+                            <td className="py-3 px-4 font-mono text-amber-700">deepseek-ai/deepseek-r1</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">Qwen 2.5 72B / 3.7 Flash</td>
+                            <td className="py-3 px-4 font-mono text-amber-700">qwen-3.7-flash</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 font-bold text-[#1c1917]">GLM-4 / 5.3 Flash</td>
+                            <td className="py-3 px-4 font-mono text-amber-700">glm-5.3-flash</td>
+                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
+                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Token Packs</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
-                    <code className="px-3.5 py-2 rounded-xl bg-white border border-[#ddd6fe] text-xs font-mono font-bold text-[#6d28d9] shadow-xs shrink-0">
-                      npx lightningdeals models
-                    </code>
                   </div>
                 </div>
               </section>
@@ -1251,41 +1232,86 @@ claude --model claude-opus-5-thinking`}
               <hr className="my-10 border-[#e7e5e4]" />
 
               {/* ----------------------------------------------------------- */}
-              {/* SECTION 8: 5-HOUR ROLLING QUOTAS                            */}
+              {/* SECTION 8: BILLING MODES & QUOTA ENGINES                    */}
               {/* ----------------------------------------------------------- */}
-              <section id="quotas" className="mb-16 scroll-mt-24 space-y-4">
+              <section id="quotas" className="mb-16 scroll-mt-24 space-y-6">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
                   <RefreshCw className="h-3.5 w-3.5 text-[#6d28d9]" />
                   <span>SECTION 08</span>
                   <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">5-HOUR ROLLING QUOTA MATHEMATICS</span>
+                  <span className="text-[#6d28d9] font-bold">BILLING MODES &amp; QUOTA ENGINES</span>
                 </div>
 
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  How the 5-Hour Continuous Rolling Window Works
-                </h2>
-
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  Traditional API platforms lock you into monthly allotments where an intense morning of debugging can exhaust your entire month's budget. LightningAPI.pro uses an intelligent <strong className="text-[#1c1917]">5-hour continuous sliding window</strong> implemented directly in Redis &amp; PostgreSQL:
-                </p>
-
-                <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                  <div className="font-mono text-xs text-[#6d28d9] font-bold">
-                    Quota Equation: WindowUsage(t) = ∑ Tokens[t - 5 hours &rarr; t]
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Tokens are not reset at midnight or the 1st of the month. Instead, each token consumed has a precise millisecond timestamp. Exactly 300 minutes (5 hours) after generation, those tokens roll completely out of the sum and return to your available headroom.
+                <div className="space-y-2">
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
+                    How Quotas &amp; Replenishment Work Across All 3 Architectures
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
+                    Compare how token deduction, rolling renewal, and credit balances operate mathematically.
                   </p>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <h4 className="text-xs font-bold text-[#1c1917]">Concrete Lifecycle Scenario</h4>
-                  <ul className="space-y-1.5 text-xs text-[#57534e] pl-1 list-disc list-inside">
-                    <li><strong className="text-[#1c1917]">09:00 AM:</strong> You perform a large multi-file codebase indexing consuming 4,000,000 tokens on a 20M plan. Active balance: 16,000,000 remaining.</li>
-                    <li><strong className="text-[#1c1917]">11:00 AM:</strong> You run several unit test refactors consuming an additional 6,000,000 tokens. Active balance: 10,000,000 remaining.</li>
-                    <li><strong className="text-[#1c1917]">02:00 PM (14:00):</strong> Exactly 5 hours after 09:00 AM, the first 4,000,000 tokens fully expire out of the window. Your available balance immediately increases back to 14,000,000 tokens.</li>
-                    <li><strong className="text-[#1c1917]">04:00 PM (16:00):</strong> Exactly 5 hours after 11:00 AM, the second 6,000,000 tokens expire. Your reservoir returns to full 20,000,000 capacity.</li>
-                  </ul>
+                {/* 1. Rolling Window Detailed Explanation */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#6d28d9]">
+                    <RefreshCw className="w-4 h-4" />
+                    <span>1. 5-Hour Continuous Rolling Window (Claude Exclusive)</span>
+                  </div>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    Unlike traditional monthly plans with hard cutoffs, LightningAPI implements an intelligent <strong className="text-[#1c1917]">5-hour continuous sliding window</strong>:
+                  </p>
+                  <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] font-mono text-xs text-[#6d28d9] font-bold">
+                    Quota Equation: WindowUsage(t) = ∑ Tokens[t - 5 hours &rarr; t]
+                  </div>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    Each consumed token has a precise millisecond timestamp. Exactly 300 minutes (5 hours) after generation, those tokens roll completely out of the sum and return to your available headroom.
+                  </p>
+                </div>
+
+                {/* 2. Usage Credits Detailed Explanation */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-violet-900 via-indigo-900 to-purple-900 text-white shadow-md space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                      <Sparkles className="w-4 h-4" />
+                      <span>2. Usage Credits — 7x Purchasing Power Multiplier</span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-400 text-neutral-950">
+                      ₹1 = $7.00+ CREDITS
+                    </span>
+                  </div>
+                  <p className="text-xs text-violet-200 leading-relaxed">
+                    Deposit funds in INR and unlock up to <strong>8.75x</strong> in USD usage value (e.g. ₹100 paid gives $700 Credits, ₹499 gives $3,850 Credits, ₹1,999 gives $16,000 Credits, ₹3,999 gives $35,000 Credits).
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono pt-1">
+                    <div className="p-2.5 rounded-xl bg-white/10 border border-white/15">
+                      <span className="text-violet-300 block">Deduction Model:</span>
+                      <strong className="text-white">Atomic per-token</strong>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/10 border border-white/15">
+                      <span className="text-violet-300 block">Model Scope:</span>
+                      <strong className="text-white">Universal (Claude, OpenAI, Local)</strong>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/10 border border-white/15">
+                      <span className="text-violet-300 block">Expiration:</span>
+                      <strong className="text-amber-300">365 Days</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Token Packs Detailed Explanation */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
+                      <Coins className="w-4 h-4" />
+                      <span>3. Prepaid Consumable Tokens (No 5-Hour Resets)</span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      FIXED CONSUMABLE QUOTA
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    A fixed allowance of 5M, 20M, or 50M tokens that does <strong>NOT</strong> reset every 5 hours. Spend as fast or slow as needed over 365 full days. Ideal for bulk processing, migrations, and project bursts.
+                  </p>
                 </div>
               </section>
 
@@ -1305,10 +1331,6 @@ claude --model claude-opus-5-thinking`}
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
                   Status Codes, JSON Error Schemas &amp; Fixes
                 </h2>
-
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  When a request cannot be fulfilled, the gateway returns standard HTTP status codes with an actionable error object:
-                </p>
 
                 <div className="space-y-4">
                   {/* Error 401 */}
@@ -1330,9 +1352,6 @@ claude --model claude-opus-5-thinking`}
   }
 }`}
                     />
-                    <p className="text-[11px] text-[#78716c]">
-                      <strong>Fix:</strong> Confirm key format on our <Link to="/check-key" className="text-[#6d28d9] underline">Check Key Tool</Link> or ensure environment variable is loaded.
-                    </p>
                   </div>
 
                   {/* Error 429 */}
@@ -1342,35 +1361,7 @@ claude --model claude-opus-5-thinking`}
                       <span className="text-[10px] font-mono text-[#78716c]">rate_limit_error</span>
                     </div>
                     <p className="text-xs text-[#57534e]">
-                      Occurs when your token consumption has reached your plan's active 5-hour rolling capacity limit.
-                    </p>
-                    <CodeSnippetBlock
-                      language="json"
-                      code={`{
-  "type": "error",
-  "error": {
-    "type": "rate_limit_error",
-    "message": "5-hour rolling token capacity exceeded (20,000,000 / 20,000,000 tokens). Usage begins replenishing in 38 minutes.",
-    "retry_after_seconds": 2280
-  }
-}`}
-                    />
-                    <p className="text-[11px] text-[#78716c]">
-                      <strong>Fix:</strong> Wait for your oldest tokens to expire out of the 5-hour window, or upgrade to a higher tier plan (e.g. 40x or 100x).
-                    </p>
-                  </div>
-
-                  {/* Error 502 / 503 */}
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-orange-600">502 / 503 Bad Gateway</span>
-                      <span className="text-[10px] font-mono text-[#78716c]">api_error</span>
-                    </div>
-                    <p className="text-xs text-[#57534e]">
-                      Occurs when an upstream foundational provider experiences temporary downtime, rate limits, or connectivity interruptions.
-                    </p>
-                    <p className="text-[11px] text-[#78716c]">
-                      <strong>Fix:</strong> Requests that fail due to upstream errors do not deduct tokens from your quota. Check real-time provider telemetry at <Link to="/status" className="text-[#6d28d9] underline">status.lightningapi.pro</Link>.
+                      Occurs when rolling window capacity is reached or credit balance is fully consumed.
                     </p>
                   </div>
                 </div>
@@ -1390,12 +1381,8 @@ claude --model claude-opus-5-thinking`}
                 </div>
 
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  Developer Support &amp; Safe Issue Diagnostics
+                  Developer Support &amp; Key Verification
                 </h2>
-
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  If you encounter unexpected latency, quota discrepancies, or integration issues, our engineering support team is available to assist:
-                </p>
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
@@ -1408,10 +1395,13 @@ claude --model claude-opus-5-thinking`}
                         </a>
                       </li>
                       <li>
-                        <strong>Customer Portal:</strong> Authenticated ticket submission via Dashboard
+                        <strong>Key Status Checker:</strong>{' '}
+                        <Link to="/check-key" className="text-[#6d28d9] underline">
+                          /check-key
+                        </Link>
                       </li>
                       <li>
-                        <strong>Status Telemetry:</strong>{' '}
+                        <strong>Platform Status:</strong>{' '}
                         <Link to="/status" className="text-[#6d28d9] underline">
                           /status
                         </Link>
@@ -1422,10 +1412,10 @@ claude --model claude-opus-5-thinking`}
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
                     <h4 className="text-xs font-bold text-[#1c1917]">Safe Issue Reporting Rules</h4>
                     <p className="text-xs text-[#57534e] leading-relaxed">
-                      To safeguard your account security, <strong className="text-rose-600">NEVER send your full secret API key or proprietary source code</strong> in emails or support tickets.
+                      To safeguard your account security, <strong className="text-rose-600">never share your full API key or proprietary source code</strong> in emails or support tickets.
                     </p>
                     <p className="text-[11px] text-[#78716c]">
-                      Please include: (1) Your masked key prefix (e.g. <code className="font-mono">ld_live_a1b2...</code>), (2) Exact UTC timestamp, (3) Model ID invoked, and (4) HTTP status code.
+                      Please include only: (1) Masked key prefix (<code className="font-mono">ld_live_a1b2...</code>), (2) Timestamp, (3) Model ID, and (4) HTTP status code.
                     </p>
                   </div>
                 </div>
@@ -1440,3 +1430,5 @@ claude --model claude-opus-5-thinking`}
     </div>
   );
 };
+
+export default DocsPage;

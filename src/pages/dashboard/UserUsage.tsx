@@ -627,7 +627,7 @@ export const UserUsage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-right font-bold text-[#1e1b2e]">
                           {isCredit
-                            ? `$${Number(tx.amount || 0).toFixed(4)} USD`
+                            ? `₹${Number(tx.amount || 0).toFixed(2)} Credits`
                             : isToken
                             ? `${formatTokens(tx.amount)} Tokens`
                             : `₹${Number(tx.amount || 0).toLocaleString()} INR`}

@@ -459,10 +459,10 @@ export const DocsPage: React.FC = () => {
                     <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
                       <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
                         <DollarSign className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Usage Credits (7x Multiplier)</span>
+                        <span>API Credits (7x Multiplier)</span>
                       </div>
                       <p className="text-[#57534e] text-[11px] leading-relaxed">
-                        <strong>Universal.</strong> Deposit funds in INR and unlock $7.00 to $8.75 in USD compute. Atomically deducted per token. 365-day validity.
+                        <strong>Universal.</strong> Deposit funds in INR and unlock 7x–8.75x in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits). Atomically deducted per token. 365-day validity.
                       </p>
                     </div>
 
@@ -1276,11 +1276,11 @@ curl https://api.lightningapi.pro/v1/chat/completions \\
                       <span>2. Usage Credits — 7x Purchasing Power Multiplier</span>
                     </div>
                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-400 text-neutral-950">
-                      ₹1 = $7.00+ CREDITS
+                      7X VALUE MULTIPLIER
                     </span>
                   </div>
                   <p className="text-xs text-violet-200 leading-relaxed">
-                    Deposit funds in INR and unlock up to <strong>8.75x</strong> in USD usage value (e.g. ₹100 paid gives $700 Credits, ₹499 gives $3,850 Credits, ₹1,999 gives $16,000 Credits, ₹3,999 gives $35,000 Credits).
+                    Deposit funds in INR and unlock up to <strong>8.75x</strong> in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits, Pay ₹499 → Receive ₹3,850 API Credits, Pay ₹1,999 → Receive ₹16,000 API Credits, Pay ₹3,999 → Receive ₹35,000 API Credits).
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono pt-1">
                     <div className="p-2.5 rounded-xl bg-white/10 border border-white/15">

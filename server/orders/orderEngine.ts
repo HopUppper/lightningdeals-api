@@ -77,8 +77,10 @@ export function calculateOrderCreditAllocation(
   plan: {
     id?: string;
     name?: string;
+    planCategory?: string | null;
     retailMultiplier?: number | null;
     creditMultiplier?: number | null;
+    creditAmountInr?: number | null;
     creditAmountUsd?: number | null;
     bonusCreditsUsd?: number | null;
     configVersion?: number | null;
@@ -90,12 +92,15 @@ export function calculateOrderCreditAllocation(
   let customerCreditsGranted = 0;
   let formula = '';
 
-  if (plan.creditAmountUsd && Number(plan.creditAmountUsd) > 0) {
+  if (plan.creditAmountInr && Number(plan.creditAmountInr) > 0) {
+    customerCreditsGranted = Number(plan.creditAmountInr);
+    formula = `Pay ₹${paymentInr || 0} → Receive ₹${customerCreditsGranted.toLocaleString()} API Credits (${retailMultiplier}x Multiplier)`;
+  } else if (plan.creditAmountUsd && Number(plan.creditAmountUsd) > 0) {
     customerCreditsGranted = Number(plan.creditAmountUsd);
-    formula = `Explicit Credit Package: ${customerCreditsGranted.toFixed(2)} credits`;
+    formula = `Explicit Credit Package: ₹${customerCreditsGranted.toLocaleString()} credits`;
   } else {
-    customerCreditsGranted = Math.round(paymentUsd * retailMultiplier * 100) / 100;
-    formula = `${paymentUsd.toFixed(2)} payment × ${retailMultiplier}x Retail Allocation Multiplier = ${customerCreditsGranted.toFixed(2)} credits`;
+    customerCreditsGranted = Math.round((paymentInr || (paymentUsd * 86.5)) * retailMultiplier);
+    formula = `Pay ₹${paymentInr || 0} × ${retailMultiplier}x Multiplier = ₹${customerCreditsGranted.toLocaleString()} API Credits`;
   }
 
   const bonusCredits = Number(plan.bonusCreditsUsd || 0);
@@ -104,10 +109,12 @@ export function calculateOrderCreditAllocation(
   const pricingSnapshot = {
     planId: plan.id,
     planName: plan.name,
-    paymentUsd,
+    planCategory: plan.planCategory || 'claude_openai_credits',
     paymentInr,
+    paymentUsd,
     retailMultiplier,
     customerCreditsGranted,
+    creditBalanceDenomination: 'INR',
     bonusCredits,
     configVersion,
     calculationFormula: formula,
@@ -228,6 +235,9 @@ export class OrderEngine {
         paymentStatus: payableAmountInr === 0 ? 'CAPTURED' : 'CREATED',
         fulfillmentStatus: 'NOT_FULFILLED',
         paymentGateway: payableAmountInr === 0 ? 'LIGHTNING_CREDITS' : getPaymentProvider().name,
+        planCategory: (plan as any).planCategory || (orderPlanType === 'credit' ? 'claude_openai_credits' : orderPlanType === 'token' ? 'claude_tokens' : 'claude_max_rolling'),
+        creditBalanceInr: orderPlanType === 'credit' ? creditsPurchased : null,
+        creditBalanceDenomination: 'INR',
       },
     });
 

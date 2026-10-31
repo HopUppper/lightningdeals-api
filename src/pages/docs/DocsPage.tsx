@@ -1471,7 +1471,122 @@ curl https://api.lightningapi.pro/v1/chat/completions \\
                     </span>
                   </div>
                   <p className="text-xs text-[#57534e] leading-relaxed">
-                    A fixed allowance of 5M, 20M, or 50M tokens that does <strong>NOT</strong> reset every 5 hours. Spend as fast or slow as needed over 365 full days. Ideal for bulk processing, migrations, and project bursts.
+                    A fixed allowance of 10M to 1B tokens that does <strong>NOT</strong> reset every 5 hours. Spend as fast or slow as needed over 365 full days. Ideal for bulk batch processing, evaluation suites, and project bursts.
+                  </p>
+                </div>
+
+                {/* Comprehensive Architecture Comparison Matrix */}
+                <div className="overflow-x-auto rounded-2xl border border-[#e7e5e4] bg-white shadow-xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#faf8f5] border-b border-[#e7e5e4] font-mono text-[11px] uppercase tracking-wider text-[#78716c]">
+                        <th className="p-3.5 font-bold">Architecture</th>
+                        <th className="p-3.5 font-bold">Primary Ecosystem</th>
+                        <th className="p-3.5 font-bold">Billing Mechanism</th>
+                        <th className="p-3.5 font-bold">Deduction Model</th>
+                        <th className="p-3.5 font-bold">Best Suited For</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#e7e5e4] text-[#57534e]">
+                      <tr className="hover:bg-[#fbf9f5] transition-colors">
+                        <td className="p-3.5 font-bold text-[#1c1917] flex items-center gap-2">
+                          <RefreshCw className="w-3.5 h-3.5 text-[#6d28d9]" />
+                          <span>5-Hour Rolling Pool</span>
+                        </td>
+                        <td className="p-3.5 font-medium text-[#6d28d9]">Claude Exclusive</td>
+                        <td className="p-3.5 font-mono">Sliding 300-min window refill</td>
+                        <td className="p-3.5 font-mono">Rolling sum with continuous aging</td>
+                        <td className="p-3.5">Full-time interactive coding (Cursor, Claude Code, Windsurf)</td>
+                      </tr>
+                      <tr className="hover:bg-[#fbf9f5] transition-colors">
+                        <td className="p-3.5 font-bold text-[#1c1917] flex items-center gap-2">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>API Usage Credits</span>
+                        </td>
+                        <td className="p-3.5 font-medium text-emerald-700">Claude + OpenAI + Local</td>
+                        <td className="p-3.5 font-mono">Prepaid balance with 7x–8.75x value</td>
+                        <td className="p-3.5 font-mono">Atomic debit per request at published model rates</td>
+                        <td className="p-3.5">Multi-model workflows, variable load, budget stretch on lighter models</td>
+                      </tr>
+                      <tr className="hover:bg-[#fbf9f5] transition-colors">
+                        <td className="p-3.5 font-bold text-[#1c1917] flex items-center gap-2">
+                          <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Prepaid Token Packs</span>
+                        </td>
+                        <td className="p-3.5 font-medium text-[#1c1917]">Scoped by provider family</td>
+                        <td className="p-3.5 font-mono">Fixed consumable token allowance</td>
+                        <td className="p-3.5 font-mono">1:1 token balance decrement until zero</td>
+                        <td className="p-3.5">Predictable heavy model utilization (Opus, Sonnet, o1) without time limits</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Deep Dive: Credit Multiplier Economics */}
+                <div className="p-5 rounded-2xl bg-[#faf8f5] border border-[#e7e5e4] space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#1c1917]">
+                    <DollarSign className="w-4 h-4 text-[#6d28d9]" />
+                    <span>How the Credit Multiplier Delivers 85%+ Net Savings</span>
+                  </div>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    LightningAPI credit plans do not charge retail dollar-for-dollar. Instead, an operator purchasing power multiplier is applied immediately upon deposit. For example:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
+                      <div className="font-bold text-[#1c1917]">Starter Tier (₹100 Retail)</div>
+                      <p className="text-[#57534e]">You pay ₹100 and receive <strong className="text-emerald-700">₹700 in API Credits</strong> (7.0x multiplier). Equivalent to an effective 85% discount on all Claude, OpenAI, and Local models.</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
+                      <div className="font-bold text-[#1c1917]">Scale Tier (₹3,999 Retail)</div>
+                      <p className="text-[#57534e]">You pay ₹3,999 and receive <strong className="text-emerald-700">₹35,000 in API Credits</strong> (8.75x multiplier). Unlocks maximum runway for large-scale production deployments.</p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-[#78716c] leading-relaxed">
+                    Cheaper models stretch this budget exponentially: a model priced at standard wholesale rates allows tens of millions of prompt tokens from a nominal deposit.
+                  </p>
+                </div>
+
+                {/* Base URL & Protocol Matching */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#1c1917]">
+                    <Globe className="w-4 h-4 text-[#6d28d9]" />
+                    <span>Base URLs &amp; Protocol Matching</span>
+                  </div>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    Always configure your client with the correct base URL based on your plan type and client protocol:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Rolling Pool &amp; Native Claude:</span>
+                      <code className="text-[#6d28d9] font-bold block text-xs">https://api.lightningapi.pro</code>
+                      <span className="text-[10px] text-[#78716c] block font-sans">Used with Claude Code CLI, Claude Desktop, and native Messages SDKs.</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">OpenAI &amp; Universal Credits:</span>
+                      <code className="text-emerald-700 font-bold block text-xs">https://api.lightningapi.pro/v1</code>
+                      <span className="text-[10px] text-[#78716c] block font-sans">Used with Cursor, Roo Code, Python OpenAI SDK, and LangChain.</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Token Packs (Native Claude):</span>
+                      <code className="text-[#6d28d9] font-bold block text-xs">https://api.lightningapi.pro/token</code>
+                      <span className="text-[10px] text-[#78716c] block font-sans">Appends /v1/messages automatically for native Anthropic protocol.</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Token Packs (OpenAI &amp; Local):</span>
+                      <code className="text-emerald-700 font-bold block text-xs">https://api.lightningapi.pro/token/v1</code>
+                      <span className="text-[10px] text-[#78716c] block font-sans">Direct drop-in for OpenAI-compatible chat completions and reasoning.</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Renewal & Key Identity Rules */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#1c1917]">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Account Top-Ups &amp; Key Preservation</span>
+                  </div>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    When you top up or renew your account, your existing API key is preserved. New credits or token allowances are atomically credited to your existing key profile without requiring you to update configuration files or environment variables in your IDEs.
                   </p>
                 </div>
               </section>

@@ -1301,12 +1301,17 @@ export const AdminPlans: React.FC = () => {
               {/* Category-Specific Settings */}
               {planForm.planCategory === 'claude_openai_credits' && (
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-3">
-                  <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider block">
-                    💳 API Credit Multiplier Configuration (Strictly INR)
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider block">
+                      💳 API Credit Multiplier & Margin Configuration
+                    </span>
+                    <span className="text-[10px] bg-emerald-200/80 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                      Real-Time Retail & Wholesale
+                    </span>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-emerald-800 mb-1">Credit Multiplier</label>
+                      <label className="block text-emerald-800 mb-1 text-xs font-semibold">Credit Multiplier (e.g. 7.0x)</label>
                       <input
                         type="number"
                         step="0.1"
@@ -1323,15 +1328,75 @@ export const AdminPlans: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-emerald-800 mb-1">Customer Credit Allocation (₹ INR)</label>
+                      <label className="block text-emerald-800 mb-1 text-xs font-semibold">Customer Credit Allocation (₹ INR)</label>
                       <input
                         type="number"
                         value={planForm.creditAmountInr}
-                        onChange={(e) => setPlanForm({ ...planForm, creditAmountInr: Number(e.target.value) })}
+                        onChange={(e) => {
+                          const credits = Number(e.target.value);
+                          const mult = planForm.priceInr > 0 ? +(credits / planForm.priceInr).toFixed(2) : 0;
+                          setPlanForm({
+                            ...planForm,
+                            creditAmountInr: credits,
+                            creditMultiplier: mult,
+                          });
+                        }}
                         className="w-full ui-input text-xs py-2 px-3 bg-white font-bold"
                       />
                     </div>
                   </div>
+
+                  {/* Multiplier Presets */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Preset Multipliers:</span>
+                    {[5.0, 6.0, 7.0, 7.5, 8.0, 8.75, 10.0].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          setPlanForm({
+                            ...planForm,
+                            creditMultiplier: m,
+                            creditAmountInr: Math.round(planForm.priceInr * m),
+                          });
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                          Math.abs(Number(planForm.creditMultiplier) - m) < 0.05
+                            ? 'bg-emerald-700 text-white shadow-xs'
+                            : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                        }`}
+                      >
+                        {m.toFixed(1)}x
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Economics & Margin Analysis */}
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-emerald-200/60">
+                    <div>
+                      <label className="block text-emerald-800 text-[11px] font-semibold mb-1">
+                        Supplier Wholesale Cost (₹ INR)
+                      </label>
+                      <input
+                        type="number"
+                        value={planForm.supplierCostInr || 0}
+                        onChange={(e) => setPlanForm({ ...planForm, supplierCostInr: Number(e.target.value) })}
+                        className="w-full ui-input text-xs py-1.5 px-3 bg-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-emerald-800 text-[11px] font-semibold mb-1">
+                        Net Profit Margin (₹ INR / %)
+                      </label>
+                      <div className="text-xs py-1.5 px-3 bg-emerald-100/90 rounded border border-emerald-200 font-mono font-bold text-emerald-950 flex justify-between items-center">
+                        <span>₹{Math.max(0, planForm.priceInr - (planForm.supplierCostInr || 0)).toLocaleString()}</span>
+                        <span className="text-[10px] bg-emerald-200 px-1.5 py-0.5 rounded text-emerald-800 font-bold">
+                          {planForm.priceInr > 0 ? Math.round(((planForm.priceInr - (planForm.supplierCostInr || 0)) / planForm.priceInr) * 100) : 0}% Margin
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   <p className="text-[11px] text-emerald-800 font-bold">
                     → Customer pays ₹{planForm.priceInr.toLocaleString()} and receives ₹{(planForm.creditAmountInr || 0).toLocaleString()} in API Credits ({planForm.creditMultiplier}x multiplier).
                   </p>

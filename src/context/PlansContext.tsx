@@ -340,7 +340,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 9,
     planType: 'token',
     supplierCostInr: 230,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
   {
     id: 'openai_token_50m',
@@ -370,7 +370,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 10,
     planType: 'token',
     supplierCostInr: 1050,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
   {
     id: 'openai_token_100m',
@@ -399,7 +399,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 11,
     planType: 'token',
     supplierCostInr: 2100,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
   {
     id: 'claude_token_10m',
@@ -428,7 +428,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 12,
     planType: 'token',
     supplierCostInr: 250,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
   {
     id: 'claude_token_50m',
@@ -458,7 +458,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 13,
     planType: 'token',
     supplierCostInr: 1150,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
   {
     id: 'claude_token_100m',
@@ -487,7 +487,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 14,
     planType: 'token',
     supplierCostInr: 2300,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
   {
     id: 'local_token_10m',
@@ -516,7 +516,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 15,
     planType: 'token',
     supplierCostInr: 220,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
   {
     id: 'local_token_100m',
@@ -546,7 +546,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 16,
     planType: 'token',
     supplierCostInr: 1300,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
   {
     id: 'local_token_500m',
@@ -575,7 +575,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     sortOrder: 17,
     planType: 'token',
     supplierCostInr: 5800,
-    providerScope: 'scalemax',
+    providerScope: 'standard',
   },
 ];
 

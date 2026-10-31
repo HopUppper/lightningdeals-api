@@ -708,11 +708,16 @@ export class OrderEngine {
         });
       } catch {}
 
+      const isLateFailure = eventType !== 'payment.captured' && !['success', 'captured'].includes(rawPayload?.status);
+
       return {
         success: true,
         alreadyProcessed: true,
+        ignored: isLateFailure,
         order,
-        message: 'Order already captured and fulfilled.',
+        message: isLateFailure
+          ? 'Order already captured and fulfilled; older or out-of-order failure event ignored.'
+          : 'Order already captured and fulfilled.',
       };
     }
 
@@ -766,31 +771,29 @@ export class OrderEngine {
 
     if (order.paymentStatus === 'CANCELLED' || (order as any).status === 'CANCELLED') {
       if (isSuccess) {
+        // Customer paid on a cancelled order - automatically recover and fulfill so customer receives goods
         await prisma.order.update({
           where: { id: order.id },
           data: {
-            paymentStatus: 'RECONCILIATION_REQUIRED',
-            failureReason: 'Payment captured for previously cancelled order. Flagged for administrative reconciliation.',
+            paymentStatus: 'CAPTURED',
+            status: 'PAID',
+            failureReason: null,
+            fulfillmentNotes: 'Order was previously cancelled but authoritative payment capture received. Auto-recovered.',
           },
         });
         await recordAuditEvent({
-          eventType: 'PAYMENT_RECEIVED_FOR_CANCELLED_ORDER',
+          eventType: 'PAYMENT_RECEIVED_FOR_CANCELLED_ORDER_RECOVERED',
           severity: 'HIGH',
           actorType: 'PAYMENT_PROVIDER',
           actorId: provider,
           customerId: order.userId,
           resourceType: 'ORDER',
           resourceId: order.id,
-          action: 'RECONCILE_PAYMENT',
-          result: 'NEEDS_REVIEW',
+          action: 'RECOVER_CANCELLED_ORDER_PAYMENT',
+          result: 'SUCCESS',
           metadata: { internalOrderId, eventId, gatewayPaymentId },
           req,
         });
-        return {
-          success: false,
-          status: 'RECONCILIATION_REQUIRED',
-          message: 'Payment received on cancelled order. Flagged for administrative reconciliation.',
-        };
       }
     }
 
@@ -822,7 +825,7 @@ export class OrderEngine {
     if (isSuccess) {
       const verifiedAmount = paidAmount > 0 ? paidAmount : order.amountInr;
 
-      // Update Order to CAPTURED
+      // Update Order to CAPTURED and clear any previous failure reason (e.g. from previous failed attempt before retry)
       await prisma.order.update({
         where: { id: order.id },
         data: {
@@ -832,16 +835,20 @@ export class OrderEngine {
           gatewaySignature: signature || null,
           paidAt: new Date(),
           status: 'PAID',
+          failureReason: null,
         },
       });
 
       // 5b. Deduct Redeemed Credits upon Verified Payment Gateway Capture
       if (order.creditsRedeemed && order.creditsRedeemed > 0) {
         try {
-          const existingRedemption = await prisma.creditTransaction.findFirst({
-            where: { orderId: order.id, type: 'CREDIT_REDEMPTION' },
+          const redemptionTxs = await prisma.creditTransaction.findMany({
+            where: { orderId: order.id, type: { in: ['CREDIT_REDEMPTION', 'CREDIT_REVERSAL'] } },
           });
-          if (!existingRedemption) {
+          const hasActiveRedemption = redemptionTxs.some(t => t.type === 'CREDIT_REDEMPTION') &&
+            redemptionTxs.filter(r => r.type === 'CREDIT_REDEMPTION').length > redemptionTxs.filter(r => r.type === 'CREDIT_REVERSAL').length;
+
+          if (!hasActiveRedemption) {
             await redeemCredits({
               userId: order.userId,
               orderId: order.id,

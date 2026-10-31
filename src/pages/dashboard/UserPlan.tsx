@@ -268,7 +268,11 @@ export const UserPlan: React.FC = () => {
               </div>
               <h2 className="text-2xl font-extrabold text-[#1e1b2e] tracking-tight">{activeSub.planName}</h2>
               <p className="text-xs font-bold text-violet-700">
-                ⚡ {formatTokens(activeSub.quotaLimit)} TOKENS / {activeSub.quotaWindowHours} HOURS
+                {activeSub.billingType === 'credit'
+                  ? `⚡ $${Number(activeSub.creditBalanceUsd || 0).toFixed(2)} USD API CREDITS AVAILABLE`
+                  : activeSub.billingType === 'token'
+                  ? `⚡ ${formatTokens(activeSub.tokensRemaining || activeSub.quotaLimit)} CONSUMABLE TOKENS`
+                  : `⚡ ${formatTokens(activeSub.quotaLimit)} TOKENS / ${activeSub.quotaWindowHours || 5} HOURS`}
               </p>
             </div>
 
@@ -280,55 +284,100 @@ export const UserPlan: React.FC = () => {
                     Annual (365 Days)
                   </span>
                 )}
+                {activeSub.billingType === 'credit' && (
+                  <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Prepaid Credits
+                  </span>
+                )}
               </div>
               <span className="text-[#64607d]">Expiry Date: <strong className="text-[#1e1b2e]">{new Date(activeSub.expiryTime).toLocaleDateString()}</strong></span>
               <span className="text-[11px] text-violet-700 font-bold bg-violet-50 px-2 py-0.5 rounded-full border border-violet-200">{expiryCountdown} remaining</span>
             </div>
           </div>
 
-          {/* TOKEN USAGE PROGRESS SECTION */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b2e] flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-violet-600" />
-                  Rolling Cycle Usage
-                </h3>
-                <p className="text-xs text-[#64607d] mt-0.5">
-                  {formatTokens(currentUsage)} / {formatTokens(quotaLimit)} Tokens Spent ({usagePercentage}%)
-                </p>
+          {/* BALANCE & USAGE PROGRESS SECTION */}
+          {activeSub.billingType === 'credit' ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b2e] flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                    Available API Credits
+                  </h3>
+                  <p className="text-xs text-[#64607d] mt-0.5">
+                    Total Credits Used: ${Number(activeSub.totalCreditsUsedUsd || 0).toFixed(2)} USD • Multi-Model Eligible
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-base font-black text-emerald-700">
+                    ${Number(activeSub.creditBalanceUsd || 0).toFixed(2)} USD Available
+                  </span>
+                </div>
               </div>
 
-              <div className="text-right">
-                <span className="text-sm font-extrabold text-emerald-700">
-                  {formatTokens(remainingTokens)} tokens available
+              {/* Visual Credit Indicator */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-violet-50 border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-emerald-900 font-bold">
+                  <Coins className="w-4 h-4 text-emerald-600" />
+                  <span>Dual Model Access: Claude 3.5 Sonnet / Opus & OpenAI GPT-4o / o3-mini</span>
+                </div>
+                <span className="text-[11px] font-mono text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-full border border-emerald-300 font-bold">
+                  Direct Metered Deduction
                 </span>
               </div>
             </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b2e] flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-violet-600" />
+                    {activeSub.billingType === 'token' ? 'Consumable Token Allowance' : 'Rolling Cycle Usage'}
+                  </h3>
+                  <p className="text-xs text-[#64607d] mt-0.5">
+                    {formatTokens(currentUsage)} / {formatTokens(quotaLimit)} Tokens Spent ({usagePercentage}%)
+                  </p>
+                </div>
 
-            {/* Visual Progress Bar */}
-            <div className="space-y-1.5">
-              <div className="h-3 w-full bg-[#faf8f5] rounded-full overflow-hidden p-0.5 border border-[#ede8e1]">
-                <div
-                  className="h-full bg-gradient-to-r from-violet-600 to-indigo-600 rounded-full transition-all duration-500"
-                  style={{ width: `${usagePercentage}%` }}
-                />
+                <div className="text-right">
+                  <span className="text-sm font-extrabold text-emerald-700">
+                    {formatTokens(remainingTokens)} tokens available
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between text-[11px] text-[#64607d]">
-                <span>0 Tokens</span>
-                <span>{formatTokens(quotaLimit)} Quota Limit</span>
+
+              {/* Visual Progress Bar */}
+              <div className="space-y-1.5">
+                <div className="h-3 w-full bg-[#faf8f5] rounded-full overflow-hidden p-0.5 border border-[#ede8e1]">
+                  <div
+                    className="h-full bg-gradient-to-r from-violet-600 to-indigo-600 rounded-full transition-all duration-500"
+                    style={{ width: `${usagePercentage}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-[#64607d]">
+                  <span>0 Tokens</span>
+                  <span>{formatTokens(quotaLimit)} Quota Limit</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* RESET & API KEY SUMMARY */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-[#ede8e1]">
             <div className="p-4 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1">
               <p className="text-[11px] text-[#64607d] font-bold flex items-center gap-1.5 uppercase">
-                <Clock className="w-3.5 h-3.5 text-violet-600" /> Next Cycle Reset
+                <Clock className="w-3.5 h-3.5 text-violet-600" />
+                {activeSub.billingType === 'credit' ? 'Billing Architecture' : 'Next Cycle Reset'}
               </p>
-              <p className="text-lg font-extrabold text-[#1e1b2e]">{resetCountdown || 'Calculating...'}</p>
-              <p className="text-[10px] text-[#64607d]">Restores 100% tokens every {activeSub.quotaWindowHours}h</p>
+              <p className="text-lg font-extrabold text-[#1e1b2e]">
+                {activeSub.billingType === 'credit' ? 'Realtime Metered' : resetCountdown || 'Calculating...'}
+              </p>
+              <p className="text-[10px] text-[#64607d]">
+                {activeSub.billingType === 'credit'
+                  ? '7x Value Multiplier • Pay-as-you-go'
+                  : `Restores 100% tokens every ${activeSub.quotaWindowHours || 5}h`}
+              </p>
             </div>
 
             <div className="p-4 bg-[#faf8f5] border border-[#ede8e1] rounded-2xl space-y-1.5">

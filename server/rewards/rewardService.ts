@@ -302,29 +302,43 @@ export async function awardOrderCredits(params: {
 
     // Create Credit Ledger Entry
     // Find or create Universal Purchase record for this website order
+    const orderRecord = await tx.order.findUnique({ where: { id: orderId } });
     let purchase = await tx.purchase.findFirst({
       where: {
-        OR: [{ orderId }, { referenceId: orderId }],
+        OR: [
+          { orderId },
+          { referenceId: orderId },
+          ...(orderRecord?.internalOrderId ? [{ referenceId: orderRecord.internalOrderId }] : []),
+        ],
       },
     });
 
-    const orderRecord = await tx.order.findUnique({ where: { id: orderId } });
     if (!purchase && orderRecord) {
-      purchase = await tx.purchase.create({
-        data: {
-          userId,
-          orderId,
-          productName: orderRecord.planName || 'API Subscription',
-          description: `Website purchase - ${orderRecord.planName || 'API Plan'}`,
-          amountPaid: calculation.purchaseAmount,
-          channel: 'WEBSITE',
-          status: 'COMPLETED',
-          creditsEarned: calculation.rewardCredits,
-          creditsRedeemed: orderRecord.creditsRedeemed || 0,
-          referenceId: orderRecord.internalOrderId,
-          createdBy: 'SYSTEM',
-        },
-      });
+      try {
+        purchase = await tx.purchase.create({
+          data: {
+            userId,
+            orderId,
+            productName: orderRecord.planName || 'API Subscription',
+            description: `Website purchase - ${orderRecord.planName || 'API Plan'}`,
+            amountPaid: calculation.purchaseAmount,
+            channel: 'WEBSITE',
+            status: 'COMPLETED',
+            creditsEarned: calculation.rewardCredits,
+            creditsRedeemed: orderRecord.creditsRedeemed || 0,
+            referenceId: orderRecord.internalOrderId,
+            createdBy: 'SYSTEM',
+          },
+        });
+      } catch (err: any) {
+        if (err.code === 'P2002') {
+          purchase = await tx.purchase.findFirst({
+            where: { referenceId: orderRecord.internalOrderId },
+          });
+        } else {
+          throw err;
+        }
+      }
     } else if (purchase) {
       await tx.purchase.update({
         where: { id: purchase.id },

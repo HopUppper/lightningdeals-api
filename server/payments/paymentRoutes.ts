@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { prisma } from '../db';
+import { prisma, decryptText } from '../db';
 import { authenticateJwt, AuthRequest } from '../auth';
 import { getAllActivePlansAsync, getPlanByIdAsync, calculatePlanPricing } from './plans';
 import { getPaymentProvider } from './index';
@@ -200,6 +200,131 @@ checkoutRouter.post('/verify', authenticateJwt, async (req: AuthRequest, res: Re
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 4b. GET /api/checkout/order-status/:orderId — Authoritative Post-Payment Order & Key Verification
+checkoutRouter.get('/order-status/:orderId', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  const { orderId } = req.params;
+  const user = req.user!;
+
+  try {
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { internalOrderId: orderId },
+          { id: orderId },
+          { gatewayOrderId: orderId },
+        ],
+      },
+      include: {
+        subscriptions: { include: { apiKey: true } },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: { message: 'Order not found.' } });
+    }
+
+    // IDOR Protection: Must be the order's owner or an admin
+    if (order.userId !== user.id && user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: { message: 'Unauthorized access to order details.' } });
+    }
+
+    // If order is still pending, actively query payment provider
+    if (['PENDING', 'PROCESSING', 'CREATED'].includes(order.paymentStatus)) {
+      try {
+        const provider = getPaymentProvider();
+        const verification = await provider.verifyPayment({
+          internalOrderId: order.internalOrderId,
+          gatewayOrderId: order.gatewayOrderId || order.internalOrderId,
+          gatewayPaymentId: order.gatewayPaymentId || '',
+          payload: { txnid: order.internalOrderId },
+        });
+
+        if (verification.isVerified) {
+          await OrderEngine.processPaymentEvent({
+            provider: provider.name,
+            eventId: `order_poll_${order.internalOrderId}_${Date.now()}`,
+            eventType: 'payment.captured',
+            internalOrderId: order.internalOrderId,
+            gatewayOrderId: order.gatewayOrderId || order.internalOrderId,
+            gatewayPaymentId: verification.gatewayPaymentId || order.gatewayPaymentId || '',
+            paidAmount: verification.paidAmount || order.amountInr,
+            rawPayload: { verifiedVia: 'ORDER_STATUS_POLL', ...verification },
+            source: 'DIRECT_VERIFY',
+            req,
+          });
+        }
+      } catch (pollErr: any) {
+        console.warn('[ORDER STATUS POLL WARNING]', pollErr.message);
+      }
+    }
+
+    // Fetch refreshed order
+    const freshOrder = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        subscriptions: { include: { apiKey: true } },
+      },
+    });
+
+    if (!freshOrder) {
+      return res.status(404).json({ success: false, error: { message: 'Order not found.' } });
+    }
+
+    // Retrieve provisioned key details
+    let keyData: any = null;
+    const targetKeyId = freshOrder.fulfilledApiKeyId || freshOrder.subscriptions[0]?.apiKeyId;
+    if (targetKeyId) {
+      const keyRecord = await prisma.apiKey.findUnique({ where: { id: targetKeyId } });
+      if (keyRecord) {
+        let rawKeySecret: string | null = null;
+        if (keyRecord.keyEncrypted) {
+          try {
+            rawKeySecret = decryptText(keyRecord.keyEncrypted);
+          } catch {}
+        }
+        keyData = {
+          id: keyRecord.id,
+          name: keyRecord.name,
+          displayKey: keyRecord.displayKey,
+          rawKeySecret,
+          plan: keyRecord.plan,
+          billingType: keyRecord.billingType,
+          creditBalanceUsd: keyRecord.creditBalanceUsd,
+          tokensRemaining: keyRecord.tokensRemaining?.toString(),
+          expiresAt: keyRecord.expiresAt,
+          status: keyRecord.status,
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      order: {
+        id: freshOrder.id,
+        internalOrderId: freshOrder.internalOrderId,
+        planId: freshOrder.planId,
+        planName: freshOrder.planName,
+        planCategory: freshOrder.planCategory,
+        orderType: freshOrder.orderType,
+        amountInr: freshOrder.amountInr,
+        amount: freshOrder.amountInr,
+        paidAmountInr: freshOrder.paidAmountInr,
+        paymentStatus: freshOrder.paymentStatus,
+        fulfillmentStatus: freshOrder.fulfillmentStatus,
+        paymentGateway: freshOrder.paymentGateway,
+        gatewayPaymentId: freshOrder.gatewayPaymentId,
+        fulfilledApiKeyId: freshOrder.fulfilledApiKeyId,
+        createdAt: freshOrder.createdAt,
+        paidAt: freshOrder.paidAt,
+        fulfilledAt: freshOrder.fulfilledAt,
+      },
+      key: keyData,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { message: err.message } });
   }
 });
 

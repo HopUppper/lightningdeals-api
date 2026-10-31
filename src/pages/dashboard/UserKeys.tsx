@@ -417,6 +417,31 @@ export const UserKeys: React.FC = () => {
                             <>
                               <button
                                 type="button"
+                                onClick={async () => {
+                                  try {
+                                    const res = await userFetch(`/api/user/keys/${k.id}/reveal`, { method: 'POST' });
+                                    if (res.ok) {
+                                      const data = await res.json();
+                                      if (data.success && data.key?.rawKeySecret) {
+                                        setRevealedSecretModal({
+                                          secretKey: data.key.rawKeySecret,
+                                          keyName: k.name,
+                                          displayKey: k.displayKey,
+                                          billingType: k.billingType,
+                                        });
+                                      }
+                                    }
+                                  } catch (e) {
+                                    console.error('Failed to reveal key:', e);
+                                  }
+                                }}
+                                className="p-2 rounded-full text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition-colors cursor-pointer"
+                                title="Reveal Secret API Key"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => setRotatingKey(k)}
                                 className="p-2 rounded-full text-violet-600 hover:bg-violet-50 border border-violet-200 transition-colors cursor-pointer"
                                 title="Rotate Key (Generates new secret)"

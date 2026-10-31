@@ -134,6 +134,7 @@ export interface ActivateOrRenewSubscriptionParams {
   quotaWindowHours?: number;
   existingSubscriptionId?: string;
   notes?: string;
+  metadata?: string;
   tx?: any;
 }
 
@@ -201,6 +202,7 @@ export async function activateOrRenewSubscription(
         orderId: validOrderId,
         apiKeyId: apiKeyId || existingSub.apiKeyId,
         notes: notes || `Renewed via Order ${orderId}`,
+        ...(params.metadata !== undefined && { metadata: params.metadata }),
         ...(params.quotaLimit !== undefined && { quotaLimit: params.quotaLimit }),
         ...(params.quotaWindowHours !== undefined && { quotaWindowHours: params.quotaWindowHours }),
       },
@@ -273,6 +275,7 @@ export async function activateOrRenewSubscription(
         nextResetTime: new Date(now.getTime() + 5 * 3600 * 1000),
         status: 'ACTIVE',
         notes: notes || `Activated via Order ${orderId}`,
+        metadata: params.metadata || null,
       },
     });
 

@@ -1647,7 +1647,7 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
     const user = req.user!;
 
     // Find active subscription
-    const [activeSub, pastSubs, orders] = await Promise.all([
+    let [activeSub, pastSubs, orders] = await Promise.all([
       prisma.subscription.findFirst({
         where: {
           userId: user.id,
@@ -1672,6 +1672,47 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
       }),
     ]);
 
+    // Resilient Fallback: If no subscription row is active, check if user has an active key or completed order
+    if (!activeSub) {
+      const activeKey = await prisma.apiKey.findFirst({
+        where: {
+          userId: user.id,
+          status: 'active',
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (activeKey) {
+        const isCredit = activeKey.billingType === 'credit';
+        const isToken = activeKey.billingType === 'token';
+        const quotaWindowHours = isCredit || isToken ? 0 : 5;
+        const expiry = activeKey.expiresAt || new Date(Date.now() + 30 * 24 * 3600 * 1000);
+
+        // Auto-reconcile subscription record in DB so it persists
+        const restoredSub = await prisma.subscription.create({
+          data: {
+            userId: user.id,
+            planId: activeKey.plan.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+            planName: activeKey.plan,
+            apiKeyId: activeKey.id,
+            activationTime: activeKey.createdAt,
+            expiryTime: expiry,
+            durationDays: 30,
+            billingPeriod: 'monthly',
+            quotaLimit: isCredit ? 0n : activeKey.purchasedTokens,
+            quotaWindowHours,
+            currentUsage: activeKey.tokensUsed,
+            nextResetTime: new Date(Date.now() + 5 * 3600 * 1000),
+            status: 'ACTIVE',
+            notes: 'Auto-reconciled active subscription from provisioned key',
+          },
+          include: { apiKey: true, order: true },
+        });
+        activeSub = restoredSub;
+      }
+    }
+
     let currentUsageStr = '0';
     let quotaLimitStr = activeSub ? activeSub.quotaLimit.toString() : '0';
     if (activeSub?.apiKey) {
@@ -1680,6 +1721,12 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
       currentUsageStr = activeSub.currentUsage.toString();
     }
 
+    const billingType = activeSub?.apiKey?.billingType || (activeSub && activeSub.quotaLimit === 0n ? 'credit' : 'window');
+    const planCategory = activeSub?.order?.planCategory || (billingType === 'credit' ? 'claude_openai_credits' : 'claude_max_rolling');
+    const creditBalanceUsd = activeSub?.apiKey?.creditBalanceUsd ? Number(activeSub.apiKey.creditBalanceUsd) : 0;
+    const totalCreditsUsedUsd = activeSub?.apiKey?.totalCreditsUsedUsd ? Number(activeSub.apiKey.totalCreditsUsedUsd) : 0;
+    const tokensRemaining = activeSub?.apiKey?.tokensRemaining ? activeSub.apiKey.tokensRemaining.toString() : (activeSub ? (activeSub.quotaLimit - activeSub.currentUsage).toString() : '0');
+
     res.json({
       success: true,
       activeSubscription: activeSub
@@ -1687,11 +1734,16 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
             id: activeSub.id,
             planId: activeSub.planId,
             planName: activeSub.planName,
+            planCategory,
+            billingType,
+            creditBalanceUsd,
+            totalCreditsUsedUsd,
             status: activeSub.status,
             activationTime: activeSub.activationTime,
             expiryTime: activeSub.expiryTime,
             quotaLimit: quotaLimitStr,
             currentUsage: currentUsageStr,
+            tokensRemaining,
             quotaWindowHours: activeSub.quotaWindowHours,
             nextResetTime: activeSub.nextResetTime,
             apiKeyDisplay: activeSub.apiKey?.displayKey || null,
@@ -1712,6 +1764,7 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
         internalOrderId: o.internalOrderId,
         planName: o.planName,
         amountInr: o.amountInr,
+        amount: o.amountInr,
         paymentStatus: o.paymentStatus,
         fulfillmentStatus: o.fulfillmentStatus,
         createdAt: o.createdAt,
@@ -1727,44 +1780,72 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
 router.get('/orders', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user!;
-    const orders = await prisma.order.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        subscriptions: {
-          include: { apiKey: true },
+    const [orders, purchases] = await Promise.all([
+      prisma.order.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          subscriptions: {
+            include: { apiKey: true },
+          },
         },
-      },
+      }),
+      prisma.purchase.findMany({
+        where: { userId: user.id },
+        orderBy: { purchaseDate: 'desc' },
+      }),
+    ]);
+
+    // Fetch linked ApiKeys for all fulfilled orders
+    const keyIds = orders.map((o) => o.fulfilledApiKeyId).filter(Boolean) as string[];
+    const keys = keyIds.length > 0 ? await prisma.apiKey.findMany({ where: { id: { in: keyIds } } }) : [];
+    const keyMap = new Map(keys.map((k) => [k.id, k]));
+
+    const mappedOrders = orders.map((o) => {
+      const activeSub = o.subscriptions.find((s) => s.status === 'ACTIVE') || o.subscriptions[0];
+      const linkedKey = o.fulfilledApiKeyId ? keyMap.get(o.fulfilledApiKeyId) : activeSub?.apiKey;
+
+      let apiKeySecret: string | null = null;
+      if (linkedKey && linkedKey.keyEncrypted) {
+        try {
+          apiKeySecret = decryptText(linkedKey.keyEncrypted);
+        } catch {}
+      }
+
+      return {
+        id: o.id,
+        internalOrderId: o.internalOrderId,
+        planId: o.planId,
+        planName: o.planName,
+        planCategory: o.planCategory || (o.orderType === 'CREDIT_PACK' ? 'claude_openai_credits' : 'claude_max_rolling'),
+        orderType: o.orderType,
+        tokenQuantity: o.tokenQuantity.toString(),
+        tokensAllocated: o.tokenQuantity.toString(),
+        windowHours: o.windowHours,
+        amountInr: o.amountInr,
+        amount: o.amountInr,
+        originalAmountInr: o.originalAmountInr,
+        discountAmountInr: o.discountAmountInr,
+        couponCode: o.couponCode,
+        paidAmountInr: o.paidAmountInr,
+        currency: o.currency,
+        paymentStatus: o.paymentStatus,
+        fulfillmentStatus: o.fulfillmentStatus,
+        paymentGateway: o.paymentGateway,
+        gatewayPaymentId: o.gatewayPaymentId,
+        fulfilledApiKeyId: o.fulfilledApiKeyId,
+        displayKey: linkedKey?.displayKey || activeSub?.apiKey?.displayKey || null,
+        apiKeySecret,
+        createdAt: o.createdAt,
+        paidAt: o.paidAt,
+        fulfilledAt: o.fulfilledAt,
+      };
     });
 
     res.json({
       success: true,
-      orders: orders.map((o) => {
-        const activeSub = o.subscriptions.find((s) => s.status === 'ACTIVE') || o.subscriptions[0];
-        return {
-          id: o.id,
-          internalOrderId: o.internalOrderId,
-          planId: o.planId,
-          planName: o.planName,
-          tokenQuantity: o.tokenQuantity.toString(),
-          windowHours: o.windowHours,
-          amountInr: o.amountInr,
-          originalAmountInr: o.originalAmountInr,
-          discountAmountInr: o.discountAmountInr,
-          couponCode: o.couponCode,
-          paidAmountInr: o.paidAmountInr,
-          currency: o.currency,
-          paymentStatus: o.paymentStatus,
-          fulfillmentStatus: o.fulfillmentStatus,
-          paymentGateway: o.paymentGateway,
-          gatewayPaymentId: o.gatewayPaymentId,
-          fulfilledApiKeyId: o.fulfilledApiKeyId,
-          displayKey: activeSub?.apiKey?.displayKey || null,
-          createdAt: o.createdAt,
-          paidAt: o.paidAt,
-          fulfilledAt: o.fulfilledAt,
-        };
-      }),
+      orders: mappedOrders,
+      purchases,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -2245,6 +2326,48 @@ router.delete('/keys/:id', authenticateJwt, async (req: AuthRequest, res: Respon
     });
 
     res.json({ success: true, message: 'API key revoked successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/keys/:id/reveal — Decrypt and securely reveal the user's secret API key (IDOR Protected)
+router.post('/keys/:id/reveal', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const key = await prisma.apiKey.findFirst({
+      where: { id: req.params.id, userId: user.id },
+    });
+
+    if (!key) {
+      return res.status(404).json({ error: { message: 'API key not found or unauthorized.' } });
+    }
+
+    if (!key.keyEncrypted) {
+      return res.status(400).json({ error: { message: 'Raw secret key cannot be revealed for this legacy key.' } });
+    }
+
+    const rawKeySecret = decryptText(key.keyEncrypted);
+
+    await recordSecurityLog({
+      userId: user.id,
+      email: user.email,
+      req,
+      eventType: 'API_KEY_SECRET_REVEALED',
+      metadata: { apiKeyId: key.id, displayKey: key.displayKey },
+    });
+
+    res.json({
+      success: true,
+      key: {
+        id: key.id,
+        name: key.name,
+        displayKey: key.displayKey,
+        rawKeySecret,
+        plan: key.plan,
+        billingType: key.billingType,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

@@ -89,25 +89,60 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
       },
     });
 
-    if (lockUpdate.count === 0 && order.fulfillmentStatus !== 'FULFILLMENT_PROCESSING' && order.fulfillmentStatus !== 'PROCESSING') {
-      const freshOrder = await prisma.order.findUnique({ where: { id: order.id } });
-      if (freshOrder?.fulfillmentStatus === 'FULFILLED') {
-        const existingKey = freshOrder.fulfilledApiKeyId
-          ? await prisma.apiKey.findUnique({ where: { id: freshOrder.fulfilledApiKeyId } })
-          : null;
+    if (lockUpdate.count === 0) {
+      // Concurrency Lock: Another worker acquired the fulfillment lock or order is already fulfilled.
+      // Wait for concurrent worker to complete to avoid duplicate key creation or race conditions.
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 250));
+        const currentOrder = await prisma.order.findUnique({ where: { id: order.id } });
+        if (currentOrder?.fulfillmentStatus === 'FULFILLED') {
+          const existingKey = currentOrder.fulfilledApiKeyId
+            ? await prisma.apiKey.findUnique({ where: { id: currentOrder.fulfilledApiKeyId } })
+            : null;
 
+          return {
+            success: true,
+            orderId: order.id,
+            internalOrderId: order.internalOrderId,
+            planId: order.planId,
+            tokenAllowance: order.tokenQuantity.toString(),
+            apiKeyId: currentOrder.fulfilledApiKeyId || undefined,
+            displayKey: existingKey?.displayKey || '',
+            fulfillmentStatus: 'FULFILLED',
+            alreadyFulfilled: true,
+          };
+        }
+      }
+
+      // If after waiting it still hasn't completed, return status without duplicating work
+      const finalCheck = await prisma.order.findUnique({ where: { id: order.id } });
+      if (finalCheck?.fulfillmentStatus === 'FULFILLED') {
+        const existingKey = finalCheck.fulfilledApiKeyId
+          ? await prisma.apiKey.findUnique({ where: { id: finalCheck.fulfilledApiKeyId } })
+          : null;
         return {
           success: true,
           orderId: order.id,
           internalOrderId: order.internalOrderId,
           planId: order.planId,
           tokenAllowance: order.tokenQuantity.toString(),
-          apiKeyId: freshOrder.fulfilledApiKeyId || undefined,
+          apiKeyId: finalCheck.fulfilledApiKeyId || undefined,
           displayKey: existingKey?.displayKey || '',
           fulfillmentStatus: 'FULFILLED',
           alreadyFulfilled: true,
         };
       }
+
+      return {
+        success: true,
+        orderId: order.id,
+        internalOrderId: order.internalOrderId,
+        planId: order.planId,
+        tokenAllowance: order.tokenQuantity.toString(),
+        fulfillmentStatus: finalCheck?.fulfillmentStatus || 'FULFILLMENT_PROCESSING',
+        alreadyFulfilled: false,
+        message: 'Order fulfillment is concurrently in progress by another worker.',
+      };
     }
 
     // 3. Verify Payment Status (Must be CAPTURED or AUTHORIZED)
@@ -289,16 +324,18 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
     const isTokenPack = plan.planType === 'token' || (order.orderType === 'TOKEN_PACK') || (order.tokensPurchased && Number(order.tokensPurchased) > 0);
     const isWindowPlan = !isCreditPlan && !isTokenPack;
 
+    const retailMultiplier = Number(plan.retailMultiplier || plan.creditMultiplier || 7.0);
+    const baseCreditAmount = isCreditPlan
+      ? Number(plan.creditAmountUsd || order.creditsPurchased || ((Number(order.amountInr) * retailMultiplier) / 100))
+      : 0;
+    const bonusCreditAmount = Number(order.bonusCredits || plan.bonusCreditsUsd || 0);
+    const totalCreditBalance = isCreditPlan ? baseCreditAmount + bonusCreditAmount : 0;
+    const keyBillingType = isCreditPlan ? 'credit' : isTokenPack ? 'token' : 'window';
+    const finalPurchasedTokens = isTokenPack
+      ? BigInt(order.tokensPurchased || tokenAllowanceBigInt)
+      : isCreditPlan ? 0n : tokenAllowanceBigInt;
+
     if (isCreditPlan || isTokenPack || tokenAllowanceBigInt > 0n || plan.windowHours > 0) {
-      const retailMultiplier = Number(plan.retailMultiplier || plan.creditMultiplier || 7.0);
-      const baseCreditAmount = isCreditPlan
-        ? Number(plan.creditAmountUsd || order.creditsPurchased || ((Number(order.amountInr) * retailMultiplier) / 100))
-        : 0;
-      const bonusCreditAmount = Number(order.bonusCredits || plan.bonusCreditsUsd || 0);
-      const totalCreditBalance = isCreditPlan ? baseCreditAmount + bonusCreditAmount : 0;
-
-      const keyBillingType = isCreditPlan ? 'credit' : isTokenPack ? 'token' : 'window';
-
       let keyProviderId = providerId;
       if (isCreditPlan || isTokenPack) {
         const scalemax = await prisma.vendorProvider.findFirst({
@@ -306,10 +343,6 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         });
         if (scalemax) keyProviderId = scalemax.id;
       }
-
-      const finalPurchasedTokens = isTokenPack
-        ? BigInt(order.tokensPurchased || tokenAllowanceBigInt)
-        : isCreditPlan ? 0n : tokenAllowanceBigInt;
 
       createdApiKey = await prisma.apiKey.create({
         data: {
@@ -321,8 +354,8 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           keyEncrypted: encryptText(rawKeySecret),
           name: `${plan.displayName || plan.name} (${order.internalOrderId})`,
           plan: plan.displayName || plan.name,
-          allowedModels: (plan as any).allowedModels || 'all',
-          allowedModelFamilies: (plan as any).allowedModelFamilies || 'all',
+          allowedModels: typeof (plan as any).allowedModels === 'object' ? JSON.stringify((plan as any).allowedModels) : ((plan as any).allowedModels || 'all'),
+          allowedModelFamilies: typeof (plan as any).allowedModelFamilies === 'object' ? JSON.stringify((plan as any).allowedModelFamilies) : ((plan as any).allowedModelFamilies || 'all'),
           type: 'production',
           status: 'active',
           billingType: keyBillingType,
@@ -405,6 +438,14 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
 
     // 8. SUBSCRIPTION LIFECYCLE: Activate New or Extend Existing Subscription
     let subscriptionResult: any = null;
+    const resolvedPlanCategory = (plan as any).planCategory || (order.planCategory) || (isCreditPlan ? 'claude_openai_credits' : isTokenPack ? 'claude_tokens' : 'claude_max_rolling');
+    const subMetadata = JSON.stringify({
+      planCategory: resolvedPlanCategory,
+      billingType: keyBillingType,
+      creditBalanceUsd: isCreditPlan ? totalCreditBalance : 0,
+      tokenAllowance: isTokenPack ? finalPurchasedTokens.toString() : tokenAllowanceBigInt.toString(),
+    });
+
     if ((plan as any).isSubscription !== false) {
       subscriptionResult = await activateOrRenewSubscription({
         userId: order.userId,
@@ -418,6 +459,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
         quotaWindowHours: isCreditPlan ? 0 : plan.windowHours,
         existingSubscriptionId: order.subscriptionId || undefined,
         notes: `Fulfilled via ${order.internalOrderId} (${billingPeriod.toUpperCase()}, ${durationDays} days)`,
+        metadata: subMetadata,
       });
 
       // Synchronize key expiry with subscription's authoritative expiry

@@ -536,3 +536,28 @@ adminFulfillmentRouter.put('/products/:planId/fulfillment-config', async (req: A
     res.status(400).json({ error: { message: err.message } });
   }
 });
+
+/**
+ * 15. POST /api/admin/fulfillment/reconcile — Run Universal Order & Fulfillment Reconciliation
+ */
+adminFulfillmentRouter.post('/reconcile', async (req: AuthRequest, res: Response) => {
+  try {
+    const { targetUserId } = req.body;
+    const { ReconciliationService } = await import('./orders/reconciliationService');
+    const report = await ReconciliationService.reconcileAll(targetUserId);
+
+    await recordAuditEvent({
+      eventType: 'ADMIN_RECONCILIATION_RUN',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      adminId: req.user!.id,
+      action: 'RUN_RECONCILIATION',
+      result: 'SUCCESS',
+      metadata: { targetUserId, report },
+    });
+
+    res.json({ success: true, report });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});

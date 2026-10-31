@@ -9,6 +9,8 @@
  * 4. Streaming SSE event transformer (OpenAI chat.completion.chunk -> Anthropic SSE lifecycle events).
  */
 
+import { sanitizeModelResponse, StreamChunkSanitizer } from './responseSanitizer';
+
 export interface AnthropicTool {
   name: string;
   description?: string;
@@ -192,7 +194,7 @@ export function mapOpenAIFinishReasonToAnthropic(finishReason?: string | null): 
 /**
  * Converts a non-streaming OpenAI Chat Completion response to an Anthropic Message response.
  */
-export function convertOpenAIResponseToAnthropic(openAiJson: any, targetModel: string): any {
+export function convertOpenAIResponseToAnthropic(openAiJson: any, targetModel: string, friendlyModel?: string): any {
   if (!openAiJson || typeof openAiJson !== 'object') {
     return {
       id: `msg_${Math.random().toString(36).slice(2, 10)}`,
@@ -213,11 +215,11 @@ export function convertOpenAIResponseToAnthropic(openAiJson: any, targetModel: s
 
   const content: any[] = [];
 
-  // Text content
+  // Text content with full white-label response sanitization
   if (message.content && typeof message.content === 'string') {
     content.push({
       type: 'text',
-      text: message.content,
+      text: sanitizeModelResponse(message.content, friendlyModel || targetModel),
     });
   }
 
@@ -275,6 +277,7 @@ export function convertOpenAIResponseToAnthropic(openAiJson: any, targetModel: s
  */
 export class OpenAIToAnthropicStreamTransformer {
   private targetModel: string;
+  private friendlyModelName: string;
   private messageId: string;
   private isStarted = false;
   private isContentBlockStarted = false;
@@ -285,13 +288,16 @@ export class OpenAIToAnthropicStreamTransformer {
   private reportedInputTokens: number | null = null;
   private reportedOutputTokens: number | null = null;
   private finalStopReason = 'end_turn';
+  private textSanitizer: StreamChunkSanitizer;
 
-  constructor(targetModel: string, customMessageId?: string) {
+  constructor(targetModel: string, customMessageId?: string, friendlyModel?: string) {
     this.targetModel = targetModel;
+    this.friendlyModelName = friendlyModel || targetModel;
     this.messageId = customMessageId || `msg_${Math.random().toString(36).slice(2, 14)}`;
     if (!this.messageId.startsWith('msg_')) {
       this.messageId = `msg_${this.messageId}`;
     }
+    this.textSanitizer = new StreamChunkSanitizer(this.friendlyModelName);
   }
 
   /**
@@ -355,36 +361,50 @@ export class OpenAIToAnthropicStreamTransformer {
       this.finalStopReason = mapOpenAIFinishReasonToAnthropic(choice.finish_reason);
     }
 
-    // 2. Handle Text Delta
+    // 2. Handle Text Delta with White-Label Stream Sanitizer
     if (delta && typeof delta.content === 'string' && delta.content.length > 0) {
-      // Start text content block if not already started
-      if (!this.isContentBlockStarted) {
-        this.isContentBlockStarted = true;
+      const cleanDelta = this.textSanitizer.process(delta.content);
+      if (cleanDelta && cleanDelta.length > 0) {
+        // Start text content block if not already started
+        if (!this.isContentBlockStarted) {
+          this.isContentBlockStarted = true;
+          events.push(
+            `event: content_block_start\ndata: ${JSON.stringify({
+              type: 'content_block_start',
+              index: this.currentBlockIndex,
+              content_block: { type: 'text', text: '' },
+            })}\n\n`
+          );
+        }
+
+        this.totalStreamedText += cleanDelta;
         events.push(
-          `event: content_block_start\ndata: ${JSON.stringify({
-            type: 'content_block_start',
+          `event: content_block_delta\ndata: ${JSON.stringify({
+            type: 'content_block_delta',
             index: this.currentBlockIndex,
-            content_block: { type: 'text', text: '' },
+            delta: { type: 'text_delta', text: cleanDelta },
           })}\n\n`
         );
       }
-
-      this.totalStreamedText += delta.content;
-      events.push(
-        `event: content_block_delta\ndata: ${JSON.stringify({
-          type: 'content_block_delta',
-          index: this.currentBlockIndex,
-          delta: { type: 'text_delta', text: delta.content },
-        })}\n\n`
-      );
     }
 
     // 3. Handle Tool Call Deltas (if supported in stream)
     if (delta && Array.isArray(delta.tool_calls) && delta.tool_calls.length > 0) {
       for (const tc of delta.tool_calls) {
         if (tc.index !== undefined && tc.index !== this.activeToolCallIndex) {
-          // If a text block was open, close it
+          // If a text block was open, flush remaining sanitized text then close it
           if (this.isContentBlockStarted) {
+            const flushed = this.textSanitizer.flush();
+            if (flushed && flushed.length > 0) {
+              this.totalStreamedText += flushed;
+              events.push(
+                `event: content_block_delta\ndata: ${JSON.stringify({
+                  type: 'content_block_delta',
+                  index: this.currentBlockIndex,
+                  delta: { type: 'text_delta', text: flushed },
+                })}\n\n`
+              );
+            }
             events.push(
               `event: content_block_stop\ndata: ${JSON.stringify({
                 type: 'content_block_stop',
@@ -432,7 +452,7 @@ export class OpenAIToAnthropicStreamTransformer {
 
   /**
    * Completes the stream on [DONE] or EOF.
-   * Emits content_block_stop, message_delta, and message_stop.
+   * Emits any remaining flushed sanitized text, content_block_stop, message_delta, and message_stop.
    * Guaranteed to execute at most once.
    */
   finish(fallbackUsage?: { inputTokens: number; outputTokens: number }): string[] {
@@ -440,6 +460,29 @@ export class OpenAIToAnthropicStreamTransformer {
     this.isFinished = true;
 
     const events: string[] = [];
+
+    // Flush any pending text from the stream buffer
+    const flushed = this.textSanitizer.flush();
+    if (flushed && flushed.length > 0) {
+      if (!this.isContentBlockStarted) {
+        this.isContentBlockStarted = true;
+        events.push(
+          `event: content_block_start\ndata: ${JSON.stringify({
+            type: 'content_block_start',
+            index: this.currentBlockIndex,
+            content_block: { type: 'text', text: '' },
+          })}\n\n`
+        );
+      }
+      this.totalStreamedText += flushed;
+      events.push(
+        `event: content_block_delta\ndata: ${JSON.stringify({
+          type: 'content_block_delta',
+          index: this.currentBlockIndex,
+          delta: { type: 'text_delta', text: flushed },
+        })}\n\n`
+      );
+    }
 
     // Ensure initial message_start was sent even on empty stream
     if (!this.isStarted) {

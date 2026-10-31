@@ -140,8 +140,8 @@ export function resolveProviderCredential(
 
       if (!encryptedTokenKey || typeof encryptedTokenKey !== 'string' || !encryptedTokenKey.trim()) {
         const errorMsg = isLocal
-          ? 'ScaleMax local-models master API key (Key #2) is not configured in Admin > Providers.'
-          : 'ScaleMax Claude & OpenAI token-plan master API key (Key #1) is not configured in Admin > Providers.';
+          ? 'AI Gateway upstream local-models master API key (Key #2) is not configured in Admin > Providers.'
+          : 'AI Gateway upstream Claude & OpenAI token-plan master API key (Key #1) is not configured in Admin > Providers.';
         return {
           success: false,
           failure: {
@@ -171,8 +171,8 @@ export function resolveProviderCredential(
                 type: 'provider_configuration_error',
                 code: 'token_key_decryption_failed',
                 message: isLocal
-                  ? 'Failed to decrypt ScaleMax local models API key (Key #2). Please re-enter the credential in Admin.'
-                  : 'Failed to decrypt ScaleMax token-plan API key (Key #1). Please re-enter the credential in Admin.',
+                  ? 'Failed to decrypt AI Gateway upstream local models API key (Key #2). Please re-enter the credential in Admin.'
+                  : 'Failed to decrypt AI Gateway upstream token-plan API key (Key #1). Please re-enter the credential in Admin.',
               },
             },
           };
@@ -197,7 +197,7 @@ export function resolveProviderCredential(
               status: 502,
               type: 'provider_configuration_error',
               code: 'empty_token_master_key',
-              message: 'ScaleMax token-plan master API key is empty after decryption.',
+              message: 'AI Gateway upstream token-plan master API key is empty after decryption.',
             },
           },
         };
@@ -228,7 +228,7 @@ export function resolveProviderCredential(
               status: 502,
               type: 'provider_configuration_error',
               code: 'credit_key_decryption_failed',
-              message: 'Failed to decrypt ScaleMax credit-plan API key. Please re-enter the credential in Admin.',
+              message: 'Failed to decrypt AI Gateway upstream credit-plan API key. Please re-enter the credential in Admin.',
             },
           },
         };
@@ -248,7 +248,7 @@ export function resolveProviderCredential(
             status: 502,
             type: 'provider_configuration_error',
             code: 'missing_credit_master_key',
-            message: 'ScaleMax credit-plan master API key is not configured in Admin > Providers.',
+            message: 'AI Gateway upstream credit-plan master API key is not configured in Admin > Providers.',
           },
         },
       };

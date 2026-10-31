@@ -23,6 +23,8 @@ import {
 import { buildProviderRequest, normalizeProviderResponse } from './providerAdapter';
 import { resolveProviderCredential } from './providers/credentialResolver';
 import { convertOpenAIResponseToAnthropic, OpenAIToAnthropicStreamTransformer } from './providers/protocolBridge';
+import { sanitizeModelResponse, sanitizeErrorMessage, StreamChunkSanitizer } from './providers/responseSanitizer';
+export { sanitizeModelResponse, sanitizeErrorMessage, StreamChunkSanitizer };
 import { validateVendorBaseUrl } from './ssrf';
 import { checkMasterCapacity, reserveMasterTokens, releaseMasterReservation, settleMasterUsage } from './masterLedger';
 import { recordAuditEvent } from './auditLogger';
@@ -503,123 +505,6 @@ export function detectClientPlatform(req: Request): { platform: string; userAgen
   }
 
   return { platform: 'Custom HTTP Client', userAgent: ua || 'Unknown' };
-}
-
-export function sanitizeModelResponse(text: string, friendlyModelName: string, customScrubbers?: string[]): string {
-  if (!text) return text;
-  let result = text
-    // 1. Scrub upstream supplier branding leaks and MiniMax leaks to genuine Anthropic Claude
-    .replace(/Auto by ScaleMax/gi, 'Claude by Anthropic')
-    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningAPI')
-    .replace(/MiniMax(?:-abab|-6\.5)?/gi, 'Anthropic')
-    .replace(/abab-6\.5/gi, friendlyModelName || 'Claude Sonnet 5.5')
-    .replace(/Opus\s*Max/gi, friendlyModelName || 'Claude')
-    .replace(/OpusMax/gi, friendlyModelName || 'Claude')
-    .replace(/OpusLive/gi, 'LightningAPI')
-    // 2. Remove supplier URLs and hostnames
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
-    .replace(/https?:\/\/api2?\.opusmax\.pro(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
-    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
-    .replace(/api2?\.opusmax\.pro/gi, 'api.anthropic.com')
-    // 3. Remove master API keys and internal credentials
-    .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
-    .replace(/sk-ant-opm-[a-zA-Z0-9_-]+/g, '••••••••')
-    .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, '••••••••')
-    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, '••••••••')
-    // 4. Scrub upstream base model snapshots to the customer's selected friendly model
-    .replace(/claude-3-7-sonnet-20250219/gi, friendlyModelName || 'Claude Sonnet 5.5')
-    .replace(/claude-3-7-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
-    .replace(/claude-3\.7-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
-    .replace(/claude-3-opus-20240229/gi, friendlyModelName || 'Claude Opus 5.5')
-    .replace(/claude-3-5-sonnet-20241022/gi, friendlyModelName || 'Claude Sonnet 5.5')
-    .replace(/claude-3-5-sonnet-20240620/gi, friendlyModelName || 'Claude Sonnet 5.5')
-    .replace(/claude-3\.5-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
-    .replace(/claude-3-5-haiku-20241022/gi, friendlyModelName || 'Claude Haiku 5.5')
-    .replace(/claude-3\.5-haiku/gi, friendlyModelName || 'Claude Haiku 5.5')
-    .replace(/claude-3-haiku-20240307/gi, friendlyModelName || 'Claude Haiku 5.5')
-    .replace(/claude-3-sonnet-20240229/gi, friendlyModelName || 'Claude Sonnet 5.5')
-    .replace(/claude-3-opus/gi, friendlyModelName || 'Claude Opus 5.5')
-    // 5. Strip internal system prompt reflection leaks and identity deliberation commentary
-    .replace(/\b(?:There['’]?s\s+a\s+system-level\s+identity\s+instruction|Also\s+I\s+notice\s+a\s+prompt\s+injection\s+attempt|this\s+contradicts\s+my\s+actual\s+identity|I\s+should\s+follow\s+[—–-]\s+I['’]?m\s+claude-[a-z0-9_.-]+)[^.\n]*[.\n]?\s*/gi, '')
-    .replace(/The user wants [^.\n]+?\.\s*There's a system-level identity instruction[^.\n]+?\.\s*(?:However,\s*the user's actual request is [^.\n]+?\.\s*)?/gi, '')
-    .replace(/\b(?:the\s+system\s+(?:prompt|instruction|directive)\s+(?:says|states|tells\s+me)\s+(?:that\s+)?I\s+am\s+[^.\n]+?[.\n]?)/gi, '')
-    .replace(/\b(?:I\s+am\s+actually\s+claude-[a-z0-9_.-]+|underlying\s+model\s+is\s+claude-[a-z0-9_.-]+)[^.\n]*[.\n]?\s*/gi, '')
-    .replace(/\b(?:As\s+an\s+AI\s+developed\s+by\s+ScaleMax|developed\s+by\s+ScaleMax)[^.\n]*[.\n]?\s*/gi, '');
-
-  if (friendlyModelName) {
-    result = result
-      .replace(/\b(I\s+am|I['’]?m|This\s+is|As)\s+(?:a\s+version\s+of\s+)?Claude\s+(?:3(?:\.[0-9]+)?|4(?:\.[0-9]+)?|5(?:\.[0-9]+)?)\s*(?:Sonnet|Opus|Haiku)?\b/gi, `$1 ${friendlyModelName}`)
-      .replace(/\b(running\s+on\s+model|active\s+model\s+is)\s+Claude\s+[a-z0-9_.-]+/gi, `$1 ${friendlyModelName}`);
-  }
-
-
-
-  if (Array.isArray(customScrubbers)) {
-    for (const scrub of customScrubbers) {
-      if (scrub && scrub.length >= 4) {
-        result = result.split(scrub).join('••••••••');
-      }
-    }
-  }
-
-  return result;
-}
-
-export function sanitizeErrorMessage(message: string, customScrubbers?: string[]): string {
-  if (!message) return 'Upstream gateway error.';
-  let result = String(message);
-
-  // If HTML returned (e.g. Cloudflare 502/504 Bad Gateway page), extract clean error message
-  if (result.includes('<!DOCTYPE') || result.includes('<html') || result.includes('<head') || result.includes('<body')) {
-    const titleMatch = result.match(/<title>([^<]+)<\/title>/i);
-    const codeMatch = result.match(/\b(50[0-9]|40[0-9])\b/);
-    const code = codeMatch ? codeMatch[1] : '502';
-    const title = titleMatch ? titleMatch[1].trim() : 'Bad Gateway';
-    return `Upstream provider is temporarily unavailable (HTTP ${code} ${title}). Please retry shortly.`;
-  }
-
-  // Strip any accidental HTML tags
-  result = result.replace(/<[^>]*>/g, ' ');
-
-  // Intercept vendor balance depletion errors or top-up leak URLs
-  if (/balance is used up|top.?up at|insufficient.*balance|credits? (?:depleted|exhausted)|dashboard\.(?:scalemax|opusmax)\.pro/i.test(result)) {
-    return 'The requested model capacity is currently undergoing scheduled replenishment. Please retry in a few moments or switch to an alternate model.';
-  }
-
-  result = result
-    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningAPI')
-    .replace(/scalemax(?:\.pro)?/gi, 'lightningapi')
-    .replace(/MiniMax(?:-abab)?/gi, 'Anthropic')
-    .replace(/abab-6\.5/gi, 'Claude Sonnet 5.5')
-    .replace(/Opus\s*Max/gi, 'LightningAPI')
-    .replace(/OpusMax/gi, 'LightningAPI')
-    .replace(/OpusLive/gi, 'LightningAPI')
-    .replace(/opusmax(?:\.pro)?/gi, 'lightningapi')
-    .replace(/api\.opusmax\.pro/gi, 'api.lightningapi.pro')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*opusmax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://api.lightningapi.pro')
-    .replace(/api2?\.scalemax\.pro/gi, 'api.lightningapi.pro')
-    .replace(/sk-ant-opm-[a-zA-Z0-9_-]+/g, '••••••••')
-    .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
-    .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
-    .replace(/sk_live_[a-zA-Z0-9]+/g, 'sk_live_••••••••')
-    .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
-    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
-    .replace(/connecting to vendor\s*\([^)]*\):?/gi, '')
-    .replace(/vendor\s*\([^)]*\)\s*error:?/gi, 'AI Gateway error:')
-    .replace(/upstream\s+vendor\s*\([^)]*\)/gi, 'AI Gateway');
-
-
-
-  if (Array.isArray(customScrubbers)) {
-    for (const scrub of customScrubbers) {
-      if (scrub && scrub.length >= 4) {
-        result = result.split(scrub).join('••••••••');
-      }
-    }
-  }
-
-  return result.substring(0, 300).trim();
 }
 
 export function hashApiKey(key: string): string {
@@ -1514,8 +1399,12 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     await releaseReservation(requestId);
     releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
     releaseMasterReservation(requestId);
-    return res.status(credResolution.failure.error.status).json({
-      error: credResolution.failure.error,
+    const err = credResolution.failure.error;
+    return res.status(err.status).json({
+      error: {
+        ...err,
+        message: sanitizeErrorMessage(err.message),
+      },
     });
   }
   const { apiKey: decryptedMasterKey, billingType: resolvedBillingType } = credResolution.credential;
@@ -1817,7 +1706,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         const isOpenAIStream = vendor?.protocol === 'openai-compatible' || vendor?.protocol === 'openai';
         let openAiTransformer: OpenAIToAnthropicStreamTransformer | null = null;
         if (isOpenAIStream) {
-          openAiTransformer = new OpenAIToAnthropicStreamTransformer(model, ensureAnthropicMessageId(requestId));
+          openAiTransformer = new OpenAIToAnthropicStreamTransformer(model, ensureAnthropicMessageId(requestId), friendlyModel);
         }
 
         const reader = upstreamRes.body?.getReader();
@@ -1828,6 +1717,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         let streamedCharsLength = 0;
         let streamedThinking = '';
         let suppressedThinkingBlock = false;
+        const nativeTextSanitizer = new StreamChunkSanitizer(friendlyModel);
+        const nativeThinkingSanitizer = new StreamChunkSanitizer(friendlyModel);
 
         if (reader) {
           while (true) {
@@ -1841,6 +1732,13 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
             for (const line of lines) {
               const trimmed = line.trim();
+              if (trimmed.startsWith(':')) {
+                if (/scalemax|opusmax|minimax|sm_live/i.test(trimmed)) {
+                  continue;
+                }
+                res.write(`${line}\n`);
+                continue;
+              }
               if (trimmed.startsWith('data:')) {
                 const jsonStr = trimmed.slice(5).trim();
 
@@ -1895,8 +1793,10 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                         if (!isThinkingRequested) {
                           continue;
                         }
-                        streamedThinking += data.delta.thinking || '';
-                        data.delta.thinking = sanitizeModelResponse(data.delta.thinking || '', friendlyModel);
+                        const cleanThinking = nativeThinkingSanitizer.process(data.delta.thinking || '');
+                        if (!cleanThinking) continue;
+                        streamedThinking += cleanThinking;
+                        data.delta.thinking = cleanThinking;
                         res.write(`data: ${JSON.stringify(data)}\n\n`);
                         continue;
                       } else if (data.delta?.type === 'signature_delta') {
@@ -1907,10 +1807,13 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                         res.write(`data: ${JSON.stringify(data)}\n\n`);
                         continue;
                       } else if (data.delta?.type === 'text_delta') {
-                        if ((data.delta.text || '').includes('Invalid API key') || (data.delta.text || '').includes('invalid_api_key')) {
+                        const rawText = data.delta.text || '';
+                        if (rawText.includes('Invalid API key') || rawText.includes('invalid_api_key')) {
                           data.delta.text = '⚠️ Upstream vendor master key has expired. Please update under Admin > Providers.';
                         } else {
-                          data.delta.text = sanitizeModelResponse(data.delta.text || '', friendlyModel);
+                          const cleanText = nativeTextSanitizer.process(rawText);
+                          if (!cleanText) continue;
+                          data.delta.text = cleanText;
                         }
                         streamedCharsLength += data.delta.text.length;
                         res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -1922,6 +1825,15 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                       if (suppressedThinkingBlock) {
                         suppressedThinkingBlock = false;
                         continue;
+                      }
+                      const flushedText = nativeTextSanitizer.flush();
+                      if (flushedText && flushedText.length > 0) {
+                        streamedCharsLength += flushedText.length;
+                        res.write(`data: ${JSON.stringify({
+                          type: 'content_block_delta',
+                          index: data.index ?? 0,
+                          delta: { type: 'text_delta', text: flushedText },
+                        })}\n\n`);
                       }
                       res.write(`data: ${JSON.stringify(data)}\n\n`);
                       continue;
@@ -1946,7 +1858,11 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                   res.write(`${line}\n`);
                 }
               } else {
-                res.write(`${line}\n`);
+                if (trimmed.startsWith(':') && /scalemax|opusmax|minimax|sm_live/i.test(trimmed)) {
+                  continue;
+                }
+                const safeLine = sanitizeModelResponse(line, friendlyModel);
+                res.write(`${safeLine}\n`);
               }
             }
           }
@@ -2450,8 +2366,12 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
   if (!credResolution.success) {
     await releaseReservation(requestId);
     releaseMasterReservation(requestId);
-    return res.status(credResolution.failure.error.status).json({
-      error: credResolution.failure.error,
+    const err = credResolution.failure.error;
+    return res.status(err.status).json({
+      error: {
+        ...err,
+        message: sanitizeErrorMessage(err.message),
+      },
     });
   }
   const { apiKey: decryptedMasterKey, billingType: resolvedBillingType } = credResolution.credential;
@@ -2494,11 +2414,15 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       const errText = await upstreamRes.text();
       let parsedErr: any = {};
       try { parsedErr = JSON.parse(errText); } catch {}
+      if (parsedErr?.error?.message) {
+        parsedErr.error.message = sanitizeErrorMessage(parsedErr.error.message);
+      }
       return res.status(upstreamRes.status).json(parsedErr?.error ? parsedErr : {
         error: { message: sanitizeErrorMessage(errText), type: 'upstream_error' },
       });
     }
 
+    const friendlyModel = getFriendlyModelName(model);
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
@@ -2508,14 +2432,71 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       const reader = upstreamRes.body?.getReader();
       const decoder = new TextDecoder();
       let totalStreamedChars = 0;
+      let sseBuffer = '';
+      const chatSanitizer = new StreamChunkSanitizer(friendlyModel);
+      const reasoningSanitizer = new StreamChunkSanitizer(friendlyModel);
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
-          totalStreamedChars += chunk.length;
-          res.write(chunk);
+          sseBuffer += chunk;
+
+          const lines = sseBuffer.split('\n');
+          sseBuffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith(':')) {
+              if (/scalemax|opusmax|minimax|sm_live/i.test(trimmed)) {
+                continue;
+              }
+              res.write(`${line}\n`);
+              continue;
+            }
+
+            if (trimmed.startsWith('data:')) {
+              const jsonStr = trimmed.slice(5).trim();
+              if (jsonStr === '[DONE]') {
+                const flushed = chatSanitizer.flush();
+                if (flushed && flushed.length > 0) {
+                  totalStreamedChars += flushed.length;
+                  res.write(`data: ${JSON.stringify({
+                    id: requestId,
+                    object: 'chat.completion.chunk',
+                    created: Math.floor(Date.now() / 1000),
+                    model,
+                    choices: [{ index: 0, delta: { content: flushed }, finish_reason: null }],
+                  })}\n\n`);
+                }
+                res.write('data: [DONE]\n\n');
+                continue;
+              }
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                if (parsed.model) parsed.model = model;
+                if (Array.isArray(parsed.choices)) {
+                  for (const c of parsed.choices) {
+                    if (c?.delta?.content && typeof c.delta.content === 'string') {
+                      const cleanContent = chatSanitizer.process(c.delta.content);
+                      c.delta.content = cleanContent;
+                      totalStreamedChars += cleanContent.length;
+                    }
+                    if (c?.delta?.reasoning_content && typeof c.delta.reasoning_content === 'string') {
+                      c.delta.reasoning_content = reasoningSanitizer.process(c.delta.reasoning_content);
+                    }
+                  }
+                }
+                res.write(`data: ${JSON.stringify(parsed)}\n\n`);
+              } catch {
+                res.write(`${line}\n`);
+              }
+            } else {
+              res.write(`${line}\n`);
+            }
+          }
         }
       }
       res.end();
@@ -2538,6 +2519,17 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       });
     } else {
       const data: any = await upstreamRes.json();
+      if (data?.model) data.model = model;
+      if (Array.isArray(data?.choices)) {
+        for (const choice of data.choices) {
+          if (choice?.message?.content && typeof choice.message.content === 'string') {
+            choice.message.content = sanitizeModelResponse(choice.message.content, friendlyModel);
+          }
+          if (choice?.message?.reasoning_content && typeof choice.message.reasoning_content === 'string') {
+            choice.message.reasoning_content = sanitizeModelResponse(choice.message.reasoning_content, friendlyModel);
+          }
+        }
+      }
       res.setHeader('x-gateway-model', model);
       
       const inputTokens = data?.usage?.prompt_tokens ?? Math.max(20, Math.ceil(JSON.stringify(messages).length / 3.8));

@@ -23,6 +23,7 @@
     "test:security:phase3": "tsx scripts/test-phase3-infrastructure-regression.ts",
     "test:security:all": "tsx scripts/test-phase1-security-regression.ts && tsx scripts/test-phase2-security-regression.ts && tsx scripts/test-phase3-infrastructure-regression.ts",
     "test:scalemax": "tsx scripts/scalemax-tests/run-all-scalemax-suites.ts",
+    "test:vendor:scrubbing": "tsx scripts/test-vendor-scrubbing.ts",
     "verify:audit": "tsx scripts/verify-audit-chain.ts",
     "provision:admin": "tsx scripts/provision-admin.ts",
     "session:revoke": "tsx scripts/revoke-all-sessions.ts"

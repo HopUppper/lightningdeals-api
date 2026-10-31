@@ -1778,11 +1778,16 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                                 res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
         res.setHeader('x-model-verified', 'true');
         res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+        res.setHeader('X-No-Buffer', '1');
         res.setHeader('anthropic-inference-geo', inferenceGeo);
         res.setHeader('anthropic-usage-source', 'anthropic');
+        res.socket?.setNoDelay(true);
+        res.flushHeaders();
+        let firstTokenMs: number | null = null;
 
         const isOpenAIStream = vendor?.protocol === 'openai-compatible' || vendor?.protocol === 'openai';
         let openAiTransformer: OpenAIToAnthropicStreamTransformer | null = null;
@@ -1856,7 +1861,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                         const u = data.message.usage;
                         reportedInputTokens = Number(u.input_tokens || 0) + Number(u.cache_read_input_tokens || 0) + Number(u.cache_creation_input_tokens || 0);
                       }
+                      if (firstTokenMs === null) firstTokenMs = Date.now() - startTime;
                       res.write(`data: ${JSON.stringify(data)}\n\n`);
+                      if (typeof (res as any).flush === 'function') (res as any).flush();
                       continue;
                     }
 
@@ -1980,7 +1987,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           inputTokens,
           outputTokens,
           totalTokens,
-          latencyMs: Date.now() - startTime,
+          latencyMs: firstTokenMs ?? (Date.now() - startTime),
           streaming: true,
           requestId,
           vendorId: vendor?.id,
@@ -2592,10 +2599,15 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
 
     const friendlyModel = getFriendlyModelName(model);
     if (stream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.setHeader('X-No-Buffer', '1');
       res.setHeader('x-gateway-model', model);
+      res.socket?.setNoDelay(true);
+      res.flushHeaders();
+      let firstTokenMs: number | null = null;
       
       const reader = upstreamRes.body?.getReader();
       const decoder = new TextDecoder();
@@ -2657,7 +2669,9 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
                     }
                   }
                 }
+                if (firstTokenMs === null) firstTokenMs = Date.now() - startTime;
                 res.write(`data: ${JSON.stringify(parsed)}\n\n`);
+                if (typeof (res as any).flush === 'function') (res as any).flush();
               } catch {
                 res.write(`${line}\n`);
               }
@@ -2677,7 +2691,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
         inputTokens: inputEst,
         outputTokens: outputEst,
         totalTokens: inputEst + outputEst,
-        latencyMs: Date.now() - startTime,
+        latencyMs: firstTokenMs ?? (Date.now() - startTime),
         streaming: true,
         requestId,
         vendorId: vendor.id,

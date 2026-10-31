@@ -381,7 +381,7 @@ export const UserUsage: React.FC = () => {
                       <th className="py-3 px-4 text-right">Prompt / Output</th>
                       <th className="py-3 px-4 text-right">Total Tokens</th>
                       <th className="py-3 px-4 text-center">Usage Source</th>
-                      <th className="py-3 px-4 text-right">Latency</th>
+                      <th className="py-3 px-4 text-right">Latency / Speed</th>
                       <th className="py-3 px-4 text-center">Status</th>
                     </tr>
                   </thead>

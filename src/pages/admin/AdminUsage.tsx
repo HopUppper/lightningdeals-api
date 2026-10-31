@@ -300,7 +300,7 @@ export const AdminUsage: React.FC = () => {
                   <th className="py-3 px-4 font-bold text-center">Status</th>
                   <th className="py-3 px-4 font-bold">Failure / Success Reason</th>
                   <th className="py-3 px-4 font-bold text-right">Tokens Consumed</th>
-                  <th className="py-3 px-4 text-right font-bold">Latency</th>
+                  <th className="py-3 px-4 text-right font-bold">Latency / Speed</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -355,7 +355,14 @@ export const AdminUsage: React.FC = () => {
                     <td className="py-3 px-4 text-right text-fg font-bold tabular-nums">
                       {r.totalTokens.toLocaleString()} <span className="text-[10px] text-muted font-normal">({r.inputTokens}in / {r.outputTokens}out)</span>
                     </td>
-                    <td className="py-3 px-4 text-right text-emerald-600 font-bold tabular-nums">{r.latencyMs} ms</td>
+                    <td className="py-3 px-4 text-right text-emerald-600 font-bold tabular-nums">
+                      {r.latencyMs >= 1000 ? `${(r.latencyMs / 1000).toFixed(1)} s` : `${r.latencyMs} ms`}
+                      {r.outputTokens > 50 && r.latencyMs >= 1000 && (
+                        <span className="text-[10px] text-muted font-normal block">
+                          {Math.round(r.outputTokens / (r.latencyMs / 1000))} tok/s
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

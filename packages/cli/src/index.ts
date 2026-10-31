@@ -518,14 +518,17 @@ async function runSetup() {
   console.log(BANNER);
   printSystemInfo();
 
+  const args = process.argv.slice(2);
+  const keyIndex = args.findIndex(arg => arg === '--key' || arg === '-k');
+  let apiKey = keyIndex !== -1 && args[keyIndex + 1] ? args[keyIndex + 1].trim() : '';
+
   const clients = getClientTargets();
   const configuredClient = clients.find((c) => c.configured && c.existingApiKey);
-
-  let apiKey = getApiKeyFromArgsOrEnv();
+  const globalCfg = readGlobalConfig();
+  const existingKey = configuredClient?.existingApiKey || globalCfg.apiKey || (process.env.LIGHTNINGDEALS_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || '').trim();
 
   // If existing key detected and no explicit --key flag passed, show interactive menu
-  if (!apiKey && configuredClient?.existingApiKey) {
-    const existingKey = configuredClient.existingApiKey;
+  if (!apiKey && existingKey) {
     console.log(`${c.brightGreen}  Existing LightningDeals configuration detected.${c.reset}`);
     console.log(`  ${c.cyan}API Key${c.reset}: ${c.amber}${maskString(existingKey)}${c.reset}\n`);
     console.log(`${c.bold}  What would you like to do?${c.reset}`);
@@ -539,6 +542,8 @@ async function runSetup() {
     if (choice === '1' || choice === '') {
       apiKey = existingKey;
       console.log(`\n${c.cyan}Validating existing API key...${c.reset}`);
+    } else if (choice === '2') {
+      apiKey = await askQuestion(`${c.bold}Enter your new LightningDeals API Key: ${c.reset}`);
     } else if (choice === '3') {
       await runRemove();
       return;

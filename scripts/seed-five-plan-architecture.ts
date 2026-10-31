@@ -1,4 +1,5 @@
 import { prisma } from '../server/db';
+import { ALL_SUPPORTED_MODELS } from '../src/data/modelsData';
 
 export async function seedFivePlanArchitecture() {
   console.log('⚡ Starting Five-Plan Architecture and Supplier Pricing Reference Seed...');
@@ -801,95 +802,37 @@ export async function seedFivePlanArchitecture() {
   console.log(`✅ Upserted ${allPlansToUpsert.length} plans across all five distinct categories.`);
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 3. SEED THE SUPPLIER MODEL CATALOGUE (SECTION G)
+  // 3. SEED THE COMPREHENSIVE MODEL CATALOGUE (ALL 74 MODELS)
   // ─────────────────────────────────────────────────────────────────────────────
-  const supplierModels = [
-    // DeepSeek
-    { modelId: 'deepseek-v4.1-flash', displayName: 'DeepSeek V4.1 Flash', provider: 'DeepSeek', family: 'local', isOnDemand: false, description: 'High-speed reasoning and code completion model.' },
-    { modelId: 'deepseek-v4-flash', displayName: 'DeepSeek V4 Flash', provider: 'DeepSeek', family: 'local', isOnDemand: false, description: 'Ultra-low latency inference for developer pipelines.' },
-    { modelId: 'deepseek-v4-flash-new', displayName: 'DeepSeek V4 Flash New', provider: 'DeepSeek', family: 'local', isOnDemand: false, description: 'Updated low-latency flash model with optimized weights.' },
-    { modelId: 'deepseek-v4-flash-1m', displayName: 'DeepSeek V4 Flash 1M', provider: 'DeepSeek', family: 'local', isOnDemand: false, description: '1M context window flash model for heavy repository analysis.' },
-    { modelId: 'deepseek-v4-pro', displayName: 'DeepSeek V4 Pro', provider: 'DeepSeek', family: 'local', isOnDemand: false, description: 'Flagship reasoning and code engineering model.' },
-    { modelId: 'deepseek-v4-pro-new', displayName: 'DeepSeek V4 Pro New', provider: 'DeepSeek', family: 'local', isOnDemand: false, description: 'Latest flagship code and reasoning generation.' },
-    { modelId: 'deepseek-v3.2', displayName: 'DeepSeek V3.2', provider: 'DeepSeek', family: 'local', isOnDemand: false, description: 'Stable production open-weights code model.' },
-
-    // Gemini
-    { modelId: 'gemini-3.8-flash', displayName: 'Gemini 3.8 Flash', provider: 'Google', family: 'local', isOnDemand: false, description: 'Next-gen multimodal flash inference.' },
-    { modelId: 'gemini-3.7-flash', displayName: 'Gemini 3.7 Flash', provider: 'Google', family: 'local', isOnDemand: false, description: 'Balanced speed and comprehension with extended thinking.' },
-    { modelId: 'gemini-3.6-flash', displayName: 'Gemini 3.6 Flash', provider: 'Google', family: 'local', isOnDemand: false, description: 'High-throughput flash generation.' },
-    { modelId: 'gemini-3.5-flash', displayName: 'Gemini 3.5 Flash', provider: 'Google', family: 'local', isOnDemand: false, description: 'Efficient general-purpose assistant model.' },
-    { modelId: 'gemini-on-demand', displayName: 'Gemini On-Demand Models', provider: 'Google', family: 'local', isOnDemand: true, description: 'Specialized enterprise Gemini variants provisioned on demand.' },
-
-    // Grok
-    { modelId: 'grok-build', displayName: 'Grok Build', provider: 'xAI', family: 'local', isOnDemand: false, description: 'Autonomous agent and build task engine.' },
-    { modelId: 'grok-4.6', displayName: 'Grok 4.6', provider: 'xAI', family: 'local', isOnDemand: false, description: 'Advanced reasoning and mathematical reasoning model.' },
-    { modelId: 'grok-4.5', displayName: 'Grok 4.5', provider: 'xAI', family: 'local', isOnDemand: false, description: 'Fast conversational and comprehension model.' },
-
-    // GLM
-    { modelId: 'glm-5.3', displayName: 'GLM 5.3', provider: 'Zhipu', family: 'local', isOnDemand: false, description: 'High-accuracy bilingual general foundation model.' },
-    { modelId: 'glm-5.2', displayName: 'GLM 5.2', provider: 'Zhipu', family: 'local', isOnDemand: false, description: 'Strong code execution and tool-calling engine.' },
-    { modelId: 'glm-5.2-v2', displayName: 'GLM 5.2 V2', provider: 'Zhipu', family: 'local', isOnDemand: false, description: 'Optimized reasoning revision with fast inference.' },
-    { modelId: 'glm-5.3-flash', displayName: 'GLM 5.3 Flash', provider: 'Zhipu', family: 'local', isOnDemand: false, description: 'Ultra-low latency chat and completion.' },
-
-    // MiniMax
-    { modelId: 'minimax-m2.5', displayName: 'MiniMax M2.5', provider: 'MiniMax', family: 'local', isOnDemand: false, description: 'High-context character and creative intelligence.' },
-    { modelId: 'minimax-m2.7', displayName: 'MiniMax M2.7', provider: 'MiniMax', family: 'local', isOnDemand: false, description: 'Enhanced logic and structured data extraction.' },
-    { modelId: 'minimax-m3', displayName: 'MiniMax M3', provider: 'MiniMax', family: 'local', isOnDemand: false, description: 'Frontier multi-modal intelligence with deep context.' },
-
-    // Kimi
-    { modelId: 'kimi-k2.6', displayName: 'Kimi K2.6', provider: 'Moonshot', family: 'local', isOnDemand: false, description: 'Long-context document analysis engine.' },
-    { modelId: 'kimi-k2.7-code', displayName: 'Kimi K2.7 Code', provider: 'Moonshot', family: 'local', isOnDemand: false, description: 'Specialized code generation and refactoring assistant.' },
-    { modelId: 'kimi-k3-on-demand', displayName: 'Kimi K3 (On-Demand)', provider: 'Moonshot', family: 'local', isOnDemand: true, description: 'Next-generation reasoning provisioned on customer request.' },
-
-    // Other Supplier-Listed Models
-    { modelId: 'hunyuan-3', displayName: 'Hunyuan 3', provider: 'Tencent', family: 'local', isOnDemand: false, description: 'Enterprise-grade conversational intelligence.' },
-    { modelId: 'mimo-v2.5', displayName: 'Mimo V2.5', provider: 'Xiaomi', family: 'local', isOnDemand: false, description: 'Lightweight device and edge-optimized model.' },
-    { modelId: 'mistral-large-3', displayName: 'Mistral Large 3', provider: 'Mistral', family: 'local', isOnDemand: false, description: 'Top-tier open-weights multilingual and coding model.' },
-    { modelId: 'nemotron-lightning-3.5', displayName: 'Nemotron Lightning 3.5', provider: 'NVIDIA', family: 'local', isOnDemand: false, description: 'NVIDIA hardware-accelerated synthetic data and reasoning model.' },
-    { modelId: 'qwen-3.7-flash', displayName: 'Qwen 3.7 Flash', provider: 'Qwen', family: 'local', isOnDemand: false, description: 'Fast code and math comprehension model.' },
-    { modelId: 'qwen-3.8-27b', displayName: 'Qwen 3.8 27B', provider: 'Qwen', family: 'local', isOnDemand: false, description: 'Heavyweight open weights coding engine.' },
-    { modelId: 'qwen-3.8-max', displayName: 'Qwen 3.8 Max', provider: 'Qwen', family: 'local', isOnDemand: false, description: 'Maximum frontier capability across coding, agentic tasks, and math.' },
-    { modelId: 'qwen-3.7-on-demand', displayName: 'Qwen 3.7 (On-Demand)', provider: 'Qwen', family: 'local', isOnDemand: true, description: 'Custom Qwen deployments provisioned on demand.' },
-    { modelId: 'muse-spark-1.2', displayName: 'Muse-Spark-1.2', provider: 'Muse', family: 'local', isOnDemand: false, description: 'Creative agent and high-speed completion model.' },
-    { modelId: 'step-3.5-flash', displayName: 'Step-3.5 Flash', provider: 'StepFun', family: 'local', isOnDemand: false, description: 'Ultra-fast step reasoning and conversational model.' },
-
-    // OpenAI Frontier Models
-    { modelId: 'gpt-4o', displayName: 'OpenAI GPT-4o', provider: 'OpenAI', family: 'openai', isOnDemand: false, description: 'Omni-modal frontier intelligence for vision and code.' },
-    { modelId: 'o1', displayName: 'OpenAI o1', provider: 'OpenAI', family: 'openai', isOnDemand: false, description: 'Deep reasoning model trained with reinforcement learning.' },
-    { modelId: 'o3-mini', displayName: 'OpenAI o3-mini', provider: 'OpenAI', family: 'openai', isOnDemand: false, description: 'High-speed reasoning model with configurable effort.' },
-  ];
-
-  for (const m of supplierModels) {
+  for (const m of ALL_SUPPORTED_MODELS) {
     const existing = await prisma.model.findUnique({ where: { modelId: m.modelId } });
+    const modelData = {
+      modelId: m.modelId,
+      displayName: m.displayName,
+      provider: m.family,
+      description: m.description,
+      family: m.categoryKey,
+      contextWindow: m.contextWindow,
+      inputPrice: m.inputPrice,
+      outputPrice: m.outputPrice,
+      cachedInputPrice: m.cachedInputPrice || null,
+      supportsStreaming: m.supportsStreaming,
+      supportsTools: m.supportsTools,
+      supportsVision: m.supportsVision,
+      protocol: m.protocol,
+      providerSlug: 'scalemax',
+      supportedPlans: JSON.stringify(m.supportedPlans),
+      isOnDemand: m.isOnDemand || false,
+      enabled: true,
+      isCustomerAvailable: true,
+    };
     if (!existing) {
-      await prisma.model.create({
-        data: {
-          modelId: m.modelId,
-          displayName: m.displayName,
-          provider: m.provider,
-          description: m.description,
-          family: m.family,
-          isOnDemand: m.isOnDemand,
-          enabled: true,
-          providerSlug: 'scalemax',
-          protocol: 'openai-compatible',
-        },
-      });
+      await prisma.model.create({ data: modelData });
     } else {
-      await prisma.model.update({
-        where: { id: existing.id },
-        data: {
-          displayName: m.displayName,
-          provider: m.provider,
-          description: m.description,
-          family: m.family,
-          isOnDemand: m.isOnDemand,
-          enabled: true,
-        },
-      });
+      await prisma.model.update({ where: { id: existing.id }, data: modelData });
     }
   }
-  console.log(`✅ Seeded/Updated ${supplierModels.length} models from the Supplier Reference Catalog.`);
+  console.log(`✅ Seeded/Updated ${ALL_SUPPORTED_MODELS.length} models from the Comprehensive Reference Catalog.`);
 }
 
 seedFivePlanArchitecture()

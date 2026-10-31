@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
-import { Zap, LayoutDashboard, Key, Activity, LifeBuoy, Settings, LogOut, BookOpen, CreditCard, Layers, Users, Menu, X, Play, Star, Bot, Sparkles } from 'lucide-react';
+import { Zap, LayoutDashboard, Key, Activity, LifeBuoy, Settings, LogOut, BookOpen, CreditCard, Layers, Users, Menu, X, Play, Star, Bot, Sparkles, Cpu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationCenter } from '../../components/NotificationCenter';
 
@@ -19,6 +19,7 @@ export const UserDashboardLayout: React.FC = () => {
     { name: 'AI Chat Studio', path: '/dashboard/studio', icon: Bot },
     { name: 'AI Website Builder', path: '/dashboard/builder', icon: Sparkles },
     { name: 'API Keys', path: '/dashboard/keys', icon: Key },
+    { name: 'Models & Rates', path: '/dashboard/models', icon: Cpu },
     { name: 'API Console', path: '/dashboard/api-test', icon: Play },
     { name: 'Usage & Quota', path: '/dashboard/usage', icon: Activity },
     { name: 'Active Plans', path: '/dashboard/plan', icon: CreditCard },

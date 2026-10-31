@@ -89,6 +89,42 @@ const SUPPORTED_CATALOG: ModelDefinition[] = [
     recommendedFor: 'CI/CD triage, structured JSON data extraction, and high-frequency webhook pipelines',
     latencyTier: 'Ultra-fast streaming',
   },
+  {
+    id: 'gpt-6.1-sol',
+    name: 'OpenAI GPT 6.1 Sol',
+    family: 'OpenAI Frontier',
+    contextWindow: '1,000,000 tokens',
+    category: 'reasoning',
+    capabilities: ['Deep Architecture', 'Autonomous Coding', 'Vision', 'Function Calling'],
+    summary: 'Next-generation frontier reasoning powerhouse engineered for advanced software proofs and synthesis.',
+    status: 'Operational',
+    recommendedFor: 'Enterprise code verification, multi-repo architecture, and complex logic',
+    latencyTier: 'Balanced deep inference',
+  },
+  {
+    id: 'deepseek-v4-flash',
+    name: 'DeepSeek V4 Flash',
+    family: 'DeepSeek Open-Weights',
+    contextWindow: '200,000 tokens',
+    category: 'velocity',
+    capabilities: ['Sub-50ms TTFT', 'Code Autocomplete', 'Mathematical Logic', 'Streaming'],
+    summary: 'Ultra-low latency open-weights inference tailored for instant IDE completion and high-throughput pipelines.',
+    status: 'Operational',
+    recommendedFor: 'Real-time IDE code completion, linting, and high-concurrency bot loops',
+    latencyTier: 'Sub-50ms TTFT',
+  },
+  {
+    id: 'gemini-3.8-flash',
+    name: 'Google Gemini 3.8 Flash',
+    family: 'Google DeepMind',
+    contextWindow: '1,000,000 tokens',
+    category: 'coding',
+    capabilities: ['Multimodal Vision', 'Audio/Video Ingestion', '1M Context', 'Agentic Workflows'],
+    summary: 'High-speed multimodal intelligence with native 1M token context for repository-wide audits.',
+    status: 'Operational',
+    recommendedFor: 'Multimodal document comprehension and long-context full-codebase audits',
+    latencyTier: 'Fast streaming',
+  },
 ];
 
 export const ModelUniverse: React.FC = () => {
@@ -147,13 +183,19 @@ export const ModelUniverse: React.FC = () => {
             </h2>
 
             <p className="text-base sm:text-lg text-[#A39EAA] leading-relaxed">
-              Explore supported frontier models accessible via LightningAPI. Route requests seamlessly
-              using your drop-in Anthropic-compatible integration.
+              Explore 74+ supported frontier models accessible via LightningAPI across Anthropic, OpenAI, DeepSeek, GLM, Gemini, Grok, and multimodal engines.
             </p>
           </div>
 
           {/* Directory Filter Tabs */}
           <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#1C1920] border border-[#2A2631] self-start lg:self-end">
+            <Link
+              to="/models"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#7136E8]/30 border border-[#7136E8] hover:bg-[#7136E8] transition-colors mr-1"
+            >
+              <span>All 74 Models</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
             <button
               type="button"
               onClick={() => setActiveCategory('all')}

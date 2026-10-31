@@ -164,6 +164,7 @@ import { UserAuthGuard } from './components/UserAuthGuard';
 const UserDashboardLayout = safeLazy(() => import('./pages/dashboard/UserDashboardLayout').then(m => ({ default: m.UserDashboardLayout })));
 const UserOverview = safeLazy(() => import('./pages/dashboard/UserOverview').then(m => ({ default: m.UserOverview })));
 const UserKeys = safeLazy(() => import('./pages/dashboard/UserKeys').then(m => ({ default: m.UserKeys })));
+const UserModels = safeLazy(() => import('./pages/dashboard/UserModels').then(m => ({ default: m.UserModels })));
 const UserUsage = safeLazy(() => import('./pages/dashboard/UserUsage').then(m => ({ default: m.UserUsage })));
 const UserPlan = safeLazy(() => import('./pages/dashboard/UserPlan').then(m => ({ default: m.UserPlan })));
 const UserDocs = safeLazy(() => import('./pages/dashboard/UserDocs').then(m => ({ default: m.UserDocs })));
@@ -290,6 +291,7 @@ export function App() {
                   <Route index element={<UserOverview />} />
                   <Route path="keys" element={<UserKeys />} />
                   <Route path="api-keys" element={<UserKeys />} />
+                  <Route path="models" element={<UserModels />} />
                   <Route path="subscriptions" element={<UserSubscriptions />} />
                   <Route path="usage" element={<UserUsage />} />
                   <Route path="plan" element={<UserPlan />} />

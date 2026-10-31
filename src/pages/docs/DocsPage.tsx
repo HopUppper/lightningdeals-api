@@ -1076,63 +1076,110 @@ curl https://api.lightningapi.pro/v1/chat/completions \\
               {/* ----------------------------------------------------------- */}
               {/* SECTION 7: MODEL CATALOG & ALIASES                          */}
               {/* ----------------------------------------------------------- */}
-              <section id="models" className="mb-16 scroll-mt-24 space-y-6">
+              <section id="models" className="mb-16 scroll-mt-24 space-y-8">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
                   <Cpu className="h-3.5 w-3.5 text-[#6d28d9]" />
                   <span>SECTION 07</span>
                   <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">MODEL CATALOG (CLAUDE, OPENAI, LOCAL)</span>
+                  <span className="text-[#6d28d9] font-bold">MODEL CATALOG (74 FRONTIER &amp; OPEN MODELS)</span>
                 </div>
 
                 <div className="space-y-2">
                   <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                    Supported Models &amp; Normalization Routing
+                    Comprehensive Model Lineup &amp; Protocols
                   </h2>
                   <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                    The tables below document verified models mounted on the gateway database. Requests using convenient aliases or IDE context tags are automatically normalized.
+                    LightningAPI provides unified access to 74+ frontier and open-weights models across 13 families. Connect Anthropic models via standard Messages API, OpenAI and open-weights models via Chat Completions, and dedicated multimodal endpoints for embeddings, image, and video generation.
                   </p>
                 </div>
 
-                {/* Claude Table */}
+                {/* Live Discovery cURL */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1c1917] font-mono">
+                      Runtime Model Discovery (OpenAI Compatible)
+                    </h3>
+                    <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">GET /api/v1/models</span>
+                  </div>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    Query the live model repertoire dynamically from your IDE, agent loops, or scripts using standard Bearer authorization:
+                  </p>
+                  <CodeSnippetBlock
+                    language="bash"
+                    code={`curl https://lightningapi.pro/api/v1/models \\
+  -H "Authorization: Bearer ld_live_your_key_here"`}
+                  />
+                </div>
+
+                {/* Table 1: Anthropic Claude Family */}
                 <div className="space-y-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6d28d9] font-mono">
-                    1. Claude (Anthropic) Lineup
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-purple-700 font-mono">
+                      1. Anthropic Claude Lineup (12 Models)
+                    </h3>
+                    <span className="text-[10px] font-mono text-[#78716c]">Anthropic Messages Protocol</span>
+                  </div>
                   <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs font-sans">
                         <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
                           <tr>
-                            <th className="py-3 px-4">Model Name</th>
-                            <th className="py-3 px-4">API Model ID</th>
+                            <th className="py-3 px-4">Model &amp; Canonical ID</th>
                             <th className="py-3 px-4">Context Window</th>
-                            <th className="py-3 px-4">Eligible Billing</th>
+                            <th className="py-3 px-4">Base Rate (In/Out)</th>
+                            <th className="py-3 px-4">Cached Read</th>
+                            <th className="py-3 px-4">Eligible Plans</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
                           <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Sonnet 5.5 / 4.6</td>
-                            <td className="py-3 px-4 font-mono text-purple-700">claude-sonnet-5.5</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Opus 5.5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-opus-5.5</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$5.00 / $25.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$1.25 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
                           </tr>
                           <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5.5 / 4.7</td>
-                            <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5.5</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Sonnet 5.5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-sonnet-5.5</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$3.00 / $15.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.75 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
                           </tr>
                           <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Haiku 5.5</td>
-                            <td className="py-3 px-4 font-mono text-purple-700">claude-haiku-5.5</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">500,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Opus 5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-opus-5</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$4.00 / $20.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$1.00 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
                           </tr>
                           <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">Claude Opus 5 Extended Thinking</td>
-                            <td className="py-3 px-4 font-mono text-purple-700">claude-opus-5-thinking</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Sonnet 5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-sonnet-5</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$2.50 / $12.50</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.62 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Haiku 5.5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-haiku-5.5</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">500,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.20 / $1.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.05 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Fable 5 &amp; 5.1</span><code className="text-[11px] font-mono text-[#6d28d9]">fable-5, fable-5.1</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$2.00 / $10.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.50 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Opus 4.8 / 4.7 / 4.6</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-opus-4-8, claude-opus-4-7</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$4.50 / $22.50</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$1.12 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
                           </tr>
                         </tbody>
                       </table>
@@ -1140,90 +1187,204 @@ curl https://api.lightningapi.pro/v1/chat/completions \\
                   </div>
                 </div>
 
-                {/* OpenAI Frontier Table */}
+                {/* Table 2: OpenAI Frontier Family */}
                 <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 font-mono">
+                      2. OpenAI Frontier Lineup (9 Models)
+                    </h3>
+                    <span className="text-[10px] font-mono text-[#78716c]">OpenAI Chat Completions Protocol</span>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs font-sans">
+                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
+                          <tr>
+                            <th className="py-3 px-4">Model &amp; Canonical ID</th>
+                            <th className="py-3 px-4">Context Window</th>
+                            <th className="py-3 px-4">Base Rate (In/Out)</th>
+                            <th className="py-3 px-4">Cached Read</th>
+                            <th className="py-3 px-4">Eligible Plans</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT 6.1 Sol</span><code className="text-[11px] font-mono text-emerald-700">gpt-6.1-sol</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$4.50 / $20.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$1.12 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT 6.1 Terra</span><code className="text-[11px] font-mono text-emerald-700">gpt-6.1-terra</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$3.00 / $12.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.75 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT 6 Sol &amp; Luna</span><code className="text-[11px] font-mono text-emerald-700">gpt-6-sol, gpt-6-luna</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$3.50 / $15.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.87 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT 5.6 Sol / Terra / Luna</span><code className="text-[11px] font-mono text-emerald-700">gpt-5.6-sol, gpt-5.6-terra</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">500,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$2.00 / $8.00</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.50 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT OSS 120B</span><code className="text-[11px] font-mono text-emerald-700">gpt-oss-120b</code></td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">256,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.80 / $2.40</td>
+                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.20 / 1M</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table 3: DeepSeek, GLM, Grok, Gemini, Qwen, Kimi, MiniMax */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-sky-700 font-mono">
+                      3. Global &amp; Open-Weights Lineup (DeepSeek, GLM, Grok, Gemini, Qwen, Kimi, MiniMax)
+                    </h3>
+                    <span className="text-[10px] font-mono text-[#78716c]">OpenAI Compatible API</span>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs font-sans">
+                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
+                          <tr>
+                            <th className="py-3 px-4">Model &amp; Canonical ID</th>
+                            <th className="py-3 px-4">Maker / Family</th>
+                            <th className="py-3 px-4">Context Window</th>
+                            <th className="py-3 px-4">Base Rate (In/Out)</th>
+                            <th className="py-3 px-4">Eligible Plans</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">DeepSeek V4 Flash &amp; Pro</span><code className="text-[11px] font-mono text-sky-700">deepseek-v4-flash, deepseek-v4-pro</code></td>
+                            <td className="py-3 px-4 font-mono text-sky-700">DeepSeek</td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">200k / 1M tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.14 / $0.28</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GLM 5.3 Flash &amp; V2</span><code className="text-[11px] font-mono text-indigo-700">glm-5.3-flash, glm-5.3-v2</code></td>
+                            <td className="py-3 px-4 font-mono text-indigo-700">Zhipu AI</td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">200k tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.10 / $0.20</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">xAI Grok 4.6 &amp; Build</span><code className="text-[11px] font-mono text-zinc-800">grok-4.6, grok-build</code></td>
+                            <td className="py-3 px-4 font-mono text-zinc-800">xAI</td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">256k tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$1.50 / $6.00</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Google Gemini 3.8 Flash</span><code className="text-[11px] font-mono text-blue-700">gemini-3.8-flash</code></td>
+                            <td className="py-3 px-4 font-mono text-blue-700">Google</td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.25 / $1.00</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Alibaba Qwen 3.8 Max</span><code className="text-[11px] font-mono text-amber-800">qwen3.8-max</code></td>
+                            <td className="py-3 px-4 font-mono text-amber-800">Alibaba</td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">256k tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$1.20 / $4.80</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Moonshot Kimi K2.7 Code</span><code className="text-[11px] font-mono text-teal-700">kimi-k2.7-code</code></td>
+                            <td className="py-3 px-4 font-mono text-teal-700">Moonshot</td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">256k tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.45 / $1.80</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">MiniMax M3 Frontier</span><code className="text-[11px] font-mono text-rose-700">minimax-m3</code></td>
+                            <td className="py-3 px-4 font-mono text-rose-700">MiniMax</td>
+                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
+                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.80 / $3.20</td>
+                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prompt Caching & Cached Read Input Rates Table */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 font-mono">
-                    2. OpenAI Frontier Lineup
+                    4. Prompt Caching &amp; Cached Read Rates (Up to 90% Savings)
                   </h3>
-                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs font-sans">
-                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
-                          <tr>
-                            <th className="py-3 px-4">Model Name</th>
-                            <th className="py-3 px-4">API Model ID</th>
-                            <th className="py-3 px-4">Context Window</th>
-                            <th className="py-3 px-4">Eligible Billing</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
-                          <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">GPT-4o</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700">gpt-4o</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">o1 Reasoning</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700">o1</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">200,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">o3-mini High Reasoning</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700">o3-mini</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">200,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
-                          </tr>
-                        </tbody>
-                      </table>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    When sending prompts with repeated context (system prompts, repository indexes, documentation blocks), our gateway automatically recognizes cached tokens. Cached read requests are billed at substantially reduced input rates:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs font-mono">
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="font-bold text-[#1c1917]">Anthropic Prompt Cache</span>
+                      <p className="text-[11px] text-[#57534e]">Haiku: $0.05 / 1M</p>
+                      <p className="text-[11px] text-[#57534e]">Sonnet: $0.75 / 1M</p>
+                      <p className="text-[11px] text-[#57534e]">Opus: $1.25 / 1M</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="font-bold text-[#1c1917]">OpenAI Prefix Cache</span>
+                      <p className="text-[11px] text-[#57534e]">GPT-5.6: $0.50 / 1M</p>
+                      <p className="text-[11px] text-[#57534e]">GPT-6 Terra: $0.75 / 1M</p>
+                      <p className="text-[11px] text-[#57534e]">GPT-6.1 Sol: $1.12 / 1M</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="font-bold text-[#1c1917]">DeepSeek Cache</span>
+                      <p className="text-[11px] text-[#57534e]">V4 Flash: $0.028 / 1M</p>
+                      <p className="text-[11px] text-[#57534e]">V4 Pro: $0.056 / 1M</p>
+                      <p className="text-[11px] text-[#57534e]">V3.2: $0.028 / 1M</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Local & Open-Weights Table */}
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700 font-mono">
-                    3. Local &amp; Open-Weights Lineup
+                {/* Long Context Handling (> 272k tokens) */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[#6d28d9]" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1c1917] font-mono">
+                      5. Long Context Tier Processing (&gt;272,000 Tokens)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    Models supporting 1,000,000 token context windows (<code className="font-mono text-[#1c1917]">claude-opus-5.5</code>, <code className="font-mono text-[#1c1917]">claude-sonnet-5.5</code>, <code className="font-mono text-[#1c1917]">gpt-6.1-sol</code>, <code className="font-mono text-[#1c1917]">gemini-3.8-flash</code>, <code className="font-mono text-[#1c1917]">minimax-m3</code>) handle massive codebases, multi-PDF audits, and historical logs without truncation. Requests exceeding 272,000 input tokens are processed continuously through our dedicated high-memory inference gateways.
+                  </p>
+                </div>
+
+                {/* Multimodal & Vector Endpoints */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6d28d9] font-mono">
+                    6. Multimodal Endpoints (Embeddings, Image, Video)
                   </h3>
-                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs font-sans">
-                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
-                          <tr>
-                            <th className="py-3 px-4">Model Name</th>
-                            <th className="py-3 px-4">API Model ID</th>
-                            <th className="py-3 px-4">Context Window</th>
-                            <th className="py-3 px-4">Eligible Billing</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
-                          <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">DeepSeek-V3</td>
-                            <td className="py-3 px-4 font-mono text-amber-700">deepseek-ai/deepseek-v3</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">DeepSeek-R1 (Reasoning)</td>
-                            <td className="py-3 px-4 font-mono text-amber-700">deepseek-ai/deepseek-r1</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">Qwen 2.5 72B / 3.7 Flash</td>
-                            <td className="py-3 px-4 font-mono text-amber-700">qwen-3.7-flash</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4 font-bold text-[#1c1917]">GLM-4 / 5.3 Flash</td>
-                            <td className="py-3 px-4 font-mono text-amber-700">glm-5.3-flash</td>
-                            <td className="py-3 px-4 font-bold text-emerald-700">128,000 tokens</td>
-                            <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Token Packs</span></td>
-                          </tr>
-                        </tbody>
-                      </table>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="font-bold text-[#1c1917] font-mono">POST /api/v1/embeddings</span>
+                      <p className="text-[11px] text-[#57534e]">1536 &amp; 3072 dimension vectors for RAG and semantic search.</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="font-bold text-[#1c1917] font-mono">POST /api/v1/images/generations</span>
+                      <p className="text-[11px] text-[#57534e]">Lightning Image 1.5, gpt-image-2, grok-imagine-image up to 1792x1024.</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
+                      <span className="font-bold text-[#1c1917] font-mono">POST /api/v1/videos/generations</span>
+                      <p className="text-[11px] text-[#57534e]">grok-imagine-video in 720p and 1080p with temporal consistency.</p>
                     </div>
                   </div>
                 </div>

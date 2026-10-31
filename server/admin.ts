@@ -513,7 +513,7 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
         keyIndex: 1,
         role: 'Claude & OpenAI Frontier Key',
         shortRole: 'Claude + OpenAI',
-        description: 'Dedicated supplier key provisioned for Claude 3.7 / 3.5 Sonnet, Opus and OpenAI models',
+        description: 'Dedicated supplier key provisioned for Claude Sonnet, Opus and OpenAI models',
         key: activeTokenKey,
         targetModels: 'Claude + OpenAI Family',
         endpoint: 'https://api.scalemax.pro/v1',

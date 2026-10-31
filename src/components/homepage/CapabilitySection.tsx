@@ -47,7 +47,7 @@ export const CapabilitySection: React.FC = () => {
                 One key for Claude, OpenAI & DeepSeek.
               </h3>
               <p className="text-base text-[#68636B] leading-relaxed max-w-xl">
-                Access Claude 3.7 & 3.5 Sonnet, OpenAI o1, GPT-4o, and DeepSeek through a single connection.
+                Access Claude Sonnet 5.5, Claude Opus 5.5, OpenAI o1, GPT-4o, and DeepSeek through a single connection.
                 No need to manage multiple billing accounts, credit cards, or separate provider accounts.
               </p>
             </div>

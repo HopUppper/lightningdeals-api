@@ -25,7 +25,7 @@ Base URL: https://api.lightningapi.pro
 API Key:  ld_live_your_key_here
 
 // 4. Enable any supported model:
-// claude-3-7-sonnet, claude-3-5-sonnet, o1, gpt-4o, deepseek-v3.2`,
+// claude-sonnet-5.5, claude-opus-5.5, o1, gpt-4o, deepseek-v3.2`,
     },
     claude_cli: {
       title: 'Claude Code CLI',
@@ -48,7 +48,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="claude-3-7-sonnet",
+    model="claude-sonnet-5.5",
     messages=[{"role": "user", "content": "Hello world!"}]
 )
 print(response.choices[0].message.content)`,
@@ -60,7 +60,7 @@ print(response.choices[0].message.content)`,
   -H "Authorization: Bearer ld_live_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "claude-3-7-sonnet",
+    "model": "claude-sonnet-5.5",
     "messages": [{"role": "user", "content": "Explain quantum computing in 1 sentence"}]
   }'`,
     },
@@ -120,7 +120,7 @@ print(response.choices[0].message.content)`,
             </h1>
 
             <p className="text-base sm:text-lg text-[#57534e] leading-relaxed max-w-xl">
-              Access Claude 3.7 & 3.5 Sonnet, OpenAI o1, GPT-4o, and DeepSeek through a single API key.
+              Access Claude Sonnet 5.5, Claude Opus 5.5, OpenAI o1, GPT-4o, and DeepSeek through a single API key.
               100% compatible drop-in replacement for Cursor, Windsurf, Claude Code CLI, and Python. Just paste your key and start building.
             </p>
 

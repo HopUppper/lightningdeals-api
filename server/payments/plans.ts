@@ -42,7 +42,7 @@ export const FIVE_PLAN_CATEGORIES = [
     provider: 'ScaleMax',
     providerScope: 'scalemax',
     billingType: 'token',
-    description: 'Consumable non-expiring token allocations for Claude 3.7 Sonnet, Opus 5.5, and Haiku models.',
+    description: 'Consumable non-expiring token allocations for Claude Sonnet 5.5, Opus 5.5, and Haiku models.',
   },
   {
     id: 'local_models_tokens',
@@ -555,11 +555,11 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     allowedModelFamilies: ['claude'],
     supplierCostInr: 250.0,
     supplierAllocation: '10 million tokens',
-    tagline: '10 Million consumable tokens for Claude 3.7 Sonnet, Opus 5.5, and Haiku without 5-hour resets.',
+    tagline: '10 Million consumable tokens for Claude Sonnet 5.5, Opus 5.5, and Haiku without 5-hour resets.',
     badge: 'CLAUDE STARTER',
     features: [
       '10,000,000 Consumable Claude Tokens',
-      'Claude 3.7 Sonnet, Opus 5.5 & Haiku Access',
+      'Claude Sonnet 5.5, Opus 5.5 & Haiku Access',
       '365-Day Validity (Spend at your own pace)',
       'Cursor, Windsurf & Claude Code CLI Ready',
       'Instant Key Allocation',
@@ -591,7 +591,7 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     badge: 'CLAUDE PRO',
     features: [
       '50,000,000 Consumable Claude Tokens',
-      'All Frontier Claude 3.7 & 3.5 Models Supported',
+      'All Frontier Claude Sonnet & Opus Models Supported',
       '365-Day Validity (No 5-Hour Expiry)',
       'High-Throughput Streaming Support',
       'Instant Key Allocation',

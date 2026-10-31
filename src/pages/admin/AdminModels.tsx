@@ -341,7 +341,7 @@ export const AdminModels: React.FC = () => {
                   required
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Claude 3.7 Sonnet (Hybrid Reasoning)"
+                  placeholder="Claude Sonnet 5.5 (Autonomous Coding)"
                   className="w-full ui-input text-xs py-2 px-3"
                 />
               </div>

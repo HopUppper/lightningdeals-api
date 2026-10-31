@@ -193,10 +193,10 @@ const gatewayStatusHandler = (req: any, res: any) => res.json({
 });
 
 app.get(['/v1', '/v1/', '/token/v1', '/token/v1/'], gatewayStatusHandler);
-app.post(['/v1/messages', '/v1/v1/messages', '/token/v1/messages'], handleMessagesEndpoint);
-app.post(['/v1/chat/completions', '/v1/v1/chat/completions', '/token/v1/chat/completions'], handleChatCompletionsEndpoint);
-app.get(['/v1/models', '/v1/v1/models', '/token/v1/models'], handleGetModels);
-app.post(['/v1/messages/count_tokens', '/v1/v1/messages/count_tokens', '/token/v1/messages/count_tokens'], handleCountTokens);
+app.post(['/v1/messages', '/messages', '/v1/v1/messages', '/token/v1/messages'], handleMessagesEndpoint);
+app.post(['/v1/chat/completions', '/chat/completions', '/v1/v1/chat/completions', '/token/v1/chat/completions'], handleChatCompletionsEndpoint);
+app.get(['/v1/models', '/models', '/v1/v1/models', '/token/v1/models'], handleGetModels);
+app.post(['/v1/messages/count_tokens', '/messages/count_tokens', '/v1/v1/messages/count_tokens', '/token/v1/messages/count_tokens'], handleCountTokens);
 
 // 2. Built-in Tools Endpoints
 app.post('/tools/web_search', handleWebSearch);

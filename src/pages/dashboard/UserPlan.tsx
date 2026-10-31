@@ -424,7 +424,7 @@ export const UserPlan: React.FC = () => {
                   All 3 Modes
                 </span>
               </div>
-              <p className="text-[11px] text-[#64607d]">Sonnet 4.6, Opus 4.7, Haiku. Supports 5h rolling pool, credits, and tokens.</p>
+              <p className="text-[11px] text-[#64607d]">Sonnet 5.5, Opus 5.5, Haiku 5.5, and many more... Supports 5h rolling pool, credits, and tokens.</p>
             </button>
 
             <button
@@ -448,7 +448,7 @@ export const UserPlan: React.FC = () => {
                   Credits & Tokens
                 </span>
               </div>
-              <p className="text-[11px] text-[#64607d]">o1, o3-mini, GPT-4o. Drop-in OpenAI API compatibility.</p>
+              <p className="text-[11px] text-[#64607d]">o1, o3-mini, GPT-4o, and many more... Drop-in OpenAI API compatibility.</p>
             </button>
 
             <button
@@ -472,7 +472,7 @@ export const UserPlan: React.FC = () => {
                   7x Multiplier
                 </span>
               </div>
-              <p className="text-[11px] text-[#64607d]">DeepSeek v3.2, Grok, Qwen 2.5, GLM-4. High-throughput wholesale economy.</p>
+              <p className="text-[11px] text-[#64607d]">DeepSeek V3, Grok 3, Gemini 2.5, and many more... High-throughput wholesale economy.</p>
             </button>
           </div>
         </div>

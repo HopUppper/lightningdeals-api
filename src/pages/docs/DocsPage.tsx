@@ -409,7 +409,7 @@ export const DocsPage: React.FC = () => {
                       <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-violet-100 text-[#6d28d9]">ALL 3 MODES</span>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Sonnet 4.6, Opus 4.7, Haiku. Drop-in Anthropic Messages replacement with continuous 5-hour rolling pool refills.
+                      Sonnet 5.5, Opus 5.5, Haiku 5.5, and many more... Drop-in Anthropic Messages replacement with continuous 5-hour rolling pool refills.
                     </p>
                   </div>
 
@@ -422,7 +422,7 @@ export const DocsPage: React.FC = () => {
                       <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">CREDITS &amp; TOKENS</span>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      o1, o3-mini, GPT-4o, gpt-oss-120b. Full reasoning token support, function calling parity, and Chat Completions standard.
+                      o1, o3-mini, GPT-4o, and many more... Full reasoning token support, function calling parity, and Chat Completions standard.
                     </p>
                   </div>
 
@@ -435,7 +435,7 @@ export const DocsPage: React.FC = () => {
                       <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">7X MULTIPLIER</span>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      DeepSeek v3.2/v4, Grok-2, Qwen 2.5, GLM-4. High-throughput wholesale economy for batch evaluation and agent loops.
+                      DeepSeek V3, Grok 3, Gemini 2.5, and many more... High-throughput wholesale economy for batch evaluation and agent loops.
                     </p>
                   </div>
                 </div>

@@ -180,7 +180,7 @@ export const CapacityPlans: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-[#191719] font-display">Claude (Anthropic)</h3>
-                    <p className="text-[11px] text-[#68636B]">Sonnet 4.6, Opus 4.6/4.7, Haiku 4.5/5.5</p>
+                    <p className="text-[11px] text-[#68636B]">Sonnet 5.5, Opus 5.5, Haiku 5.5, and many more...</p>
                   </div>
                 </div>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#EEE6FF] text-[#7136E8]">
@@ -212,7 +212,7 @@ export const CapacityPlans: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-[#191719] font-display">OpenAI Frontier</h3>
-                    <p className="text-[11px] text-[#68636B]">o1, o3-mini, GPT-4o, gpt-oss-120b</p>
+                    <p className="text-[11px] text-[#68636B]">o1, o3-mini, GPT-4o, and many more...</p>
                   </div>
                 </div>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
@@ -244,7 +244,7 @@ export const CapacityPlans: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-[#191719] font-display">Local & Open Weights</h3>
-                    <p className="text-[11px] text-[#68636B]">DeepSeek v3.2/v4, Gemini, Grok, Qwen, GLM</p>
+                    <p className="text-[11px] text-[#68636B]">DeepSeek V3, Gemini 2.5, Grok 3, and many more...</p>
                   </div>
                 </div>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
@@ -919,10 +919,10 @@ print(response.choices[0].message.content)`}
               <div className="p-4 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-2">
                 <span className="font-bold text-[#7136E8] block">Claude Models</span>
                 <ul className="space-y-1 text-[#68636B]">
-                  <li>• Claude Sonnet 4.6 (1M context)</li>
-                  <li>• Claude Opus 4.6 & 4.7</li>
-                  <li>• Claude Haiku 4.5 & 5.5</li>
-                  <li>• Claude 5 / 5.5 Thinking</li>
+                  <li>• Claude Sonnet 5.5 (1M context)</li>
+                  <li>• Claude Opus 5.5 & Opus 5</li>
+                  <li>• Claude Haiku 5.5 & Fable 5</li>
+                  <li>• And many more...</li>
                 </ul>
               </div>
 
@@ -932,7 +932,7 @@ print(response.choices[0].message.content)`}
                   <li>• OpenAI o1 & o1-mini</li>
                   <li>• OpenAI o3-mini (Reasoning)</li>
                   <li>• GPT-4o & GPT-4o mini</li>
-                  <li>• gpt-oss-120b Frontier</li>
+                  <li>• And many more...</li>
                 </ul>
               </div>
 

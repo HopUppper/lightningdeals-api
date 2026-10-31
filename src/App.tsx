@@ -42,6 +42,7 @@ import { CapabilitySection } from './components/homepage/CapabilitySection';
 import { CompatibilitySection } from './components/homepage/CompatibilitySection';
 import { PricingTeaserCard } from './components/homepage/PricingTeaserCard';
 import { TrustAndTransparency } from './components/homepage/TrustAndTransparency';
+import { ElectricFaqSection } from './components/ElectricFaqSection';
 import { FinalCTA } from './components/homepage/FinalCTA';
 import { SiteFooter } from './components/SiteFooter';
 import { SupportWidget } from './components/SupportWidget';
@@ -224,6 +225,7 @@ export const LandingPage: React.FC = () => {
         <PricingTeaserCard />
         <CompatibilitySection />
         <TrustAndTransparency />
+        <ElectricFaqSection />
         <FinalCTA />
       </main>
       <SiteFooter />

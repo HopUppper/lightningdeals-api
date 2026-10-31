@@ -33,14 +33,14 @@ const TRANSPARENCY_PILLARS: TransparencyPillar[] = [
     ],
   },
   {
-    title: 'Atomic 5-Hour Refill Accounting',
-    category: 'Quota Engine',
+    title: 'Dual-Engine Quota & Credit Accounting',
+    category: 'Accounting Engine',
     summary:
-      'Usage is debited atomically per token against a 5-hour rolling timestamp ledger. Once usage ages past 5 hours, capacity replenishes automatically.',
+      'Supports both continuous 5-hour rolling pool refills (Claude exclusive) and universal pay-as-you-go credits with atomic millisecond balance deduction.',
     technicalDetails: [
-      'Sliding-window consumption ledger',
-      'Prevents double-spend and race conditions',
-      'Direct balance telemetry available via API',
+      'Continuous 5-hour sliding-window ledger',
+      'Universal USD credit debit engine with 7x–8.75x bonus value',
+      'Real-time balance telemetry accessible at /check-key',
     ],
   },
   {

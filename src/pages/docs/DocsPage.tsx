@@ -1637,8 +1637,35 @@ curl https://lightningapi.pro/v1/chat/completions \\
                       <span className="text-[10px] font-mono text-[#78716c]">rate_limit_error</span>
                     </div>
                     <p className="text-xs text-[#57534e]">
-                      Occurs when rolling window capacity is reached or credit balance is fully consumed.
+                      Occurs when rolling window capacity is reached or credit balance is fully consumed. Usage automatically replenishes as consumed tokens age out of the 5-hour window.
                     </p>
+                  </div>
+
+                  {/* Error 502 / 520 Upstream Vendor Recovery */}
+                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-violet-600">502 / 520 Upstream Service Notice</span>
+                      <span className="text-[10px] font-mono text-[#78716c]">upstream_vendor_error</span>
+                    </div>
+                    <p className="text-xs text-[#57534e]">
+                      Occurs if an upstream foundational AI provider experiences a transient incident. Failed requests are never deducted from your token capacity or credit balance. Our gateway maintains multi-supplier failover backbones to automatically recover traffic.
+                    </p>
+                  </div>
+
+                  {/* Latency & Extended Thinking Optimization Guide */}
+                  <div className="p-4 rounded-2xl bg-violet-50/70 border border-violet-200 shadow-xs space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-[#6d28d9]" />
+                      <span className="text-xs font-bold text-[#1c1917]">Latency Optimization &amp; Extended Thinking Advice</span>
+                    </div>
+                    <p className="text-xs text-[#57534e] leading-relaxed">
+                      Our Claude base TTFB is <strong>420ms to 620ms</strong>. If you experience response times around 10–12s in Claude Code CLI:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-xs text-[#57534e] pl-1">
+                      <li><strong>Extended Thinking (<code className="font-mono text-[11px] text-[#1c1917]">xhigh</code>):</strong> In Claude Code CLI, setting thinking mode to <code className="font-mono text-[11px] text-[#1c1917]">xhigh</code> prompts the model to compute thousands of internal reasoning tokens before generating text. For rapid terminal edits, toggle thinking to normal or off via <code className="font-mono text-[11px]">/config</code>.</li>
+                      <li><strong>Use Claude Sonnet 5.5:</strong> Switch to Sonnet 5.5 for iterative terminal coding to achieve sub-2s response velocity.</li>
+                      <li><strong>Prompt Caching:</strong> Repeat queries in the same project automatically utilize prompt caching (<code className="font-mono text-[11px]">anthropic-beta: prompt-caching-2024-07-31</code>), bypassing token re-ingestion and reducing latency to &lt;2s.</li>
+                    </ul>
                   </div>
                 </div>
               </section>

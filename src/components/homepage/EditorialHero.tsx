@@ -260,7 +260,7 @@ print(response.choices[0].message.content)`,
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>100% Drop-in OpenAI & Anthropic Protocol Parity</span>
                 </span>
-                <span className="text-slate-500">Latency: ~25ms</span>
+                <span className="text-slate-400">Gateway: &lt;15ms · Base TTFB: ~540ms</span>
               </div>
             </div>
           </div>

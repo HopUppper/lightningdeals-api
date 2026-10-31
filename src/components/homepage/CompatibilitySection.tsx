@@ -26,7 +26,7 @@ const VERIFIED_INTEGRATIONS: IntegrationItem[] = [
     protocol: 'Environment variables',
     howToConnect: 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"',
     status: 'Verified',
-    notes: 'Runs natively with your ld_live_ key set as ANTHROPIC_AUTH_TOKEN.',
+    notes: 'Runs natively with your ld_live_ key set as ANTHROPIC_API_KEY.',
   },
   {
     name: 'Cursor & Windsurf IDEs',

@@ -46,7 +46,7 @@ export const PricingTeaserCard: React.FC = () => {
               <div className="space-y-2 text-xs text-[#191719]">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Deposit ₹100 → Get ₹700 in API Credits</span>
+                  <span>Deposit ₹100 → Get $7.00 USD in API Credits</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -91,7 +91,7 @@ export const PricingTeaserCard: React.FC = () => {
               <div className="space-y-2 text-xs text-[#191719]">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>5M to 20M tokens continuously available</span>
+                  <span>5M to 100M tokens continuously available</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />

@@ -255,6 +255,86 @@ export class OrderEngine {
       });
     }
 
+    // 6. Record Coupon Usage
+    if (appliedCouponId) {
+      await recordCouponUsage({
+        couponId: appliedCouponId,
+        userId: user.id,
+        orderId: order.id,
+        discountAmount: discountAmountInr,
+        finalAmount: payableAmountInr,
+      });
+    }
+
+    // 7. Instant Fulfillment if Entire Order was Covered by Credits (₹0 Payable)
+    if (payableAmountInr === 0) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paidAmountInr: 0,
+          paidAt: new Date(),
+          status: 'PAID',
+        },
+      });
+
+      const fulfillment = await fulfillOrder(order.internalOrderId);
+
+      await recordAuditEvent({
+        eventType: 'ORDER_PAID_WITH_CREDITS',
+        severity: 'INFO',
+        actorType: 'CUSTOMER',
+        actorId: user.id,
+        actorEmail: user.email,
+        customerId: user.id,
+        resourceType: 'ORDER',
+        resourceId: order.id,
+        action: 'ORDER_FULFILLED_ZERO_PAYABLE',
+        result: 'SUCCESS',
+        metadata: {
+          internalOrderId: order.internalOrderId,
+          planId: plan.id,
+          creditsRedeemed: creditsToRedeem,
+          fulfillmentSuccess: fulfillment.success,
+        },
+        req,
+      });
+
+      return {
+        order: {
+          id: order.id,
+          internalOrderId: order.internalOrderId,
+          planId: plan.id,
+          billingPeriod,
+          validityDays,
+          amountInr: 0,
+          originalAmountInr: pricing.originalPriceInr || basePlanPriceInr,
+          discountAmountInr,
+          creditsRedeemed: creditsToRedeem,
+          paymentStatus: 'CAPTURED',
+          zeroAmountPaid: true,
+        },
+        fulfillment,
+      };
+    }
+
+    // 8. Sanitize phone
+    let rawPhone = (customerPhone || user.phone || '').toString().trim();
+    let sanitizedPhone = rawPhone.replace(/\D/g, '');
+    if (sanitizedPhone.length === 12 && sanitizedPhone.startsWith('91')) {
+      sanitizedPhone = sanitizedPhone.slice(2);
+    }
+    if (sanitizedPhone.length > 10) {
+      sanitizedPhone = sanitizedPhone.slice(-10);
+    }
+    if (sanitizedPhone && /^[6-9]\d{9}$/.test(sanitizedPhone) && !user.phone) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { phone: sanitizedPhone },
+        });
+      } catch {}
+    }
+
     // 9. Create Gateway Order via Provider (PayU)
     const provider = getPaymentProvider();
     const gatewayResult = await provider.createOrder({

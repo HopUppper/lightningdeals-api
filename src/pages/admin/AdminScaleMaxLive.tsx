@@ -100,8 +100,16 @@ export const AdminScaleMaxLive: React.FC = () => {
     try {
       const res = await adminFetch('/api/admin/providers/scalemax/validate-key', {
         method: 'POST',
-        body: JSON.stringify({ apiKey: keyInput.trim() }),
+        body: JSON.stringify({
+          apiKey: keyInput.trim(),
+          keyIndex: updateModalKey?.keyIndex,
+        }),
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error(`Server returned non-JSON response (${res.status}): ${text.slice(0, 100)}`);
+      }
       const data = await res.json();
       setValidationResult(data);
     } catch (err: any) {
@@ -122,6 +130,7 @@ export const AdminScaleMaxLive: React.FC = () => {
           apiKey: keyInput.trim(),
         }),
       });
+      const contentType = res.headers.get('content-type') || '';
       if (res.ok) {
         setSaveSuccessMsg('Master key successfully activated!');
         await fetchLiveStatus(false);
@@ -130,8 +139,14 @@ export const AdminScaleMaxLive: React.FC = () => {
           setSaveSuccessMsg(null);
         }, 1200);
       } else {
-        const err = await res.json();
-        alert(err.error?.message || 'Failed to update key');
+        let errMsg = 'Failed to update key';
+        if (contentType.includes('application/json')) {
+          const err = await res.json();
+          errMsg = err.error?.message || errMsg;
+        } else {
+          errMsg = `Server error (${res.status}): ${await res.text()}`;
+        }
+        alert(errMsg);
       }
     } catch (err: any) {
       alert(err.message || 'Network error');
@@ -144,7 +159,8 @@ export const AdminScaleMaxLive: React.FC = () => {
     if (!isSilent) setIsRefreshing(true);
     try {
       const res = await adminFetch('/api/admin/providers/scalemax/live-status');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         if (data.keys && Array.isArray(data.keys)) {
           setKeys(data.keys);
@@ -186,6 +202,11 @@ export const AdminScaleMaxLive: React.FC = () => {
           prompt: testPrompt,
         }),
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error(`Server returned non-JSON response (${res.status}): ${text.slice(0, 100)}`);
+      }
       const data = await res.json();
       setTestResult(data);
     } catch (err: any) {

@@ -170,6 +170,7 @@ model VendorProvider {
   masterApiKeyEncrypted String    @default("")
   creditApiKeyEncrypted String?   @default("")
   tokenApiKeyEncrypted  String?   @default("")
+  localTokenApiKeyEncrypted String? @default("")
   baseUrl               String    @default("https://api.anthropic.com")
   status                String    @default("connected") // "connected" | "invalid_credential" | "ssrf_blocked" | "timeout" | "rate_limited" | "provider_error" | "disabled"
   isPrimary             Boolean   @default(true)

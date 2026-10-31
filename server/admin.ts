@@ -503,10 +503,11 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
 
     const dbCreditKey = scalemaxProvider?.creditApiKeyEncrypted ? decryptText(scalemaxProvider.creditApiKeyEncrypted) : '';
     const dbTokenKey = scalemaxProvider?.tokenApiKeyEncrypted ? decryptText(scalemaxProvider.tokenApiKeyEncrypted) : '';
+    const dbLocalKey = (scalemaxProvider as any)?.localTokenApiKeyEncrypted ? decryptText((scalemaxProvider as any).localTokenApiKeyEncrypted) : '';
 
     const activeCreditKey = dbCreditKey || scalemaxCreditKey;
     const activeTokenKey = dbTokenKey || scalemaxTokenKey;
-    const activeLocalKey = scalemaxLocalKey;
+    const activeLocalKey = dbLocalKey || scalemaxLocalKey;
 
     const keysToInspect = [
       {
@@ -685,13 +686,171 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
   }
 });
 
+// POST /api/admin/providers/scalemax/validate-key - Validate an API key directly against ScaleMax upstream
+router.post('/providers/scalemax/validate-key', async (req: AuthRequest, res: Response) => {
+  const { apiKey } = req.body;
+  if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+    return res.status(400).json({ valid: false, error: 'API key is required' });
+  }
+
+  const cleanKey = apiKey.trim();
+  const start = Date.now();
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const [usageResp, modelsResp] = await Promise.all([
+      fetch('https://api.scalemax.pro/v1/usage', {
+        method: 'GET',
+        headers: {
+          Authorization: 'Bearer ' + cleanKey,
+          'User-Agent': 'LightningAPI-Admin/1.0',
+        },
+        signal: controller.signal,
+      }).catch((err) => ({ ok: false, status: 500, error: err } as any)),
+      fetch('https://api.scalemax.pro/v1/models', {
+        method: 'GET',
+        headers: {
+          Authorization: 'Bearer ' + cleanKey,
+          'User-Agent': 'LightningAPI-Admin/1.0',
+        },
+        signal: controller.signal,
+      }).catch(() => null),
+    ]);
+    clearTimeout(timeout);
+    const latencyMs = Date.now() - start;
+
+    let modelsList: string[] = [];
+    if (modelsResp && 'ok' in modelsResp && modelsResp.ok) {
+      try {
+        const mData: any = await modelsResp.json();
+        if (mData.data && Array.isArray(mData.data)) {
+          modelsList = mData.data.map((m: any) => m.id);
+        }
+      } catch {}
+    }
+
+    if (usageResp && 'ok' in usageResp && usageResp.ok) {
+      const data: any = await usageResp.json();
+      return res.json({
+        valid: true,
+        latencyMs,
+        keyLabel: data.key?.label || 'ScaleMax Key',
+        providerScope: data.key?.provider_scope || 'universal',
+        status: data.key?.status || 'active',
+        rpmLimit: data.key?.rpm_limit || 60,
+        creditsBalanceUsd: data.credits?.balance ?? data.credits?.remaining_usd ?? 0,
+        modelsCount: modelsList.length,
+        models: modelsList,
+      });
+    }
+
+    let errMessage = 'Upstream validation failed';
+    const status = usageResp?.status || 500;
+    if (usageResp && typeof usageResp.text === 'function') {
+      try {
+        const errText = await usageResp.text();
+        const parsed = JSON.parse(errText);
+        errMessage = parsed?.error?.message || errText;
+      } catch {}
+    }
+
+    return res.json({
+      valid: false,
+      statusCode: status,
+      error: status === 401 ? 'Invalid API key or unauthorized (ScaleMax returned 401)' : errMessage,
+    });
+  } catch (err: any) {
+    return res.json({
+      valid: false,
+      error: err.message || 'Connection timeout or network error connecting to ScaleMax',
+    });
+  }
+});
+
+// POST /api/admin/providers/scalemax/update-key - Persist updated ScaleMax key for specific plan group
+router.post('/providers/scalemax/update-key', async (req: AuthRequest, res: Response) => {
+  const { keyIndex, apiKey } = req.body;
+  if (!keyIndex || !apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+    return res.status(400).json({ error: { message: 'Missing keyIndex or apiKey' } });
+  }
+
+  const cleanKey = apiKey.trim();
+
+  try {
+    const scalemaxProvider = await prisma.vendorProvider.findFirst({
+      where: {
+        OR: [
+          { slug: 'scalemax' },
+          { name: { contains: 'scalemax', mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    if (!scalemaxProvider) {
+      return res.status(404).json({ error: { message: 'ScaleMax vendor provider not found in database' } });
+    }
+
+    const encrypted = encryptText(cleanKey);
+    const updateData: any = {};
+
+    if (keyIndex === 1) {
+      // Key #1: Claude & OpenAI Frontier Key (Token Key)
+      updateData.tokenApiKeyEncrypted = encrypted;
+      process.env.SCALEMAX_TOKEN_API_KEY = cleanKey;
+      process.env.SCALEMAX_TOKEN_MASTER_API_KEY = cleanKey;
+    } else if (keyIndex === 2) {
+      // Key #2: Local & Open-Weights Models Key (Local Token Key)
+      updateData.localTokenApiKeyEncrypted = encrypted;
+      process.env.SCALEMAX_LOCAL_TOKEN_API_KEY = cleanKey;
+    } else if (keyIndex === 3) {
+      // Key #3: Universal / Credit Master Key
+      updateData.creditApiKeyEncrypted = encrypted;
+      updateData.masterApiKeyEncrypted = encrypted;
+      process.env.SCALEMAX_CREDIT_API_KEY = cleanKey;
+      process.env.SCALEMAX_MASTER_API_KEY = cleanKey;
+    } else {
+      return res.status(400).json({ error: { message: 'Invalid keyIndex: must be 1, 2, or 3' } });
+    }
+
+    await prisma.vendorProvider.update({
+      where: { id: scalemaxProvider.id },
+      data: updateData,
+    });
+
+    return res.json({
+      success: true,
+      message: `Key #${keyIndex} successfully updated and activated`,
+      keyIndex,
+      prefix: cleanKey.slice(0, 12) + '••••••••',
+    });
+  } catch (err: any) {
+    console.error('Failed to update ScaleMax key:', err);
+    return res.status(500).json({ error: { message: err.message || 'Database update failed' } });
+  }
+});
+
 // POST /api/admin/providers/scalemax/test-inference - Live upstream inference test
 router.post('/providers/scalemax/test-inference', async (req: AuthRequest, res: Response) => {
   const { keyIndex, model, prompt } = req.body;
   try {
-    const scalemaxTokenKey = process.env.SCALEMAX_TOKEN_API_KEY || '';
-    const scalemaxLocalKey = process.env.SCALEMAX_LOCAL_TOKEN_API_KEY || '';
-    const scalemaxCreditKey = process.env.SCALEMAX_CREDIT_API_KEY || process.env.SCALEMAX_MASTER_API_KEY || '';
+    const scalemaxProvider = await prisma.vendorProvider.findFirst({
+      where: {
+        OR: [
+          { slug: 'scalemax' },
+          { name: { contains: 'scalemax', mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    const dbTokenKey = scalemaxProvider?.tokenApiKeyEncrypted ? decryptText(scalemaxProvider.tokenApiKeyEncrypted) : '';
+    const dbLocalKey = (scalemaxProvider as any)?.localTokenApiKeyEncrypted ? decryptText((scalemaxProvider as any).localTokenApiKeyEncrypted) : '';
+    const dbCreditKey = scalemaxProvider?.creditApiKeyEncrypted ? decryptText(scalemaxProvider.creditApiKeyEncrypted) : '';
+
+    const scalemaxTokenKey = dbTokenKey || process.env.SCALEMAX_TOKEN_API_KEY || '';
+    const scalemaxLocalKey = dbLocalKey || process.env.SCALEMAX_LOCAL_TOKEN_API_KEY || '';
+    const scalemaxCreditKey = dbCreditKey || process.env.SCALEMAX_CREDIT_API_KEY || process.env.SCALEMAX_MASTER_API_KEY || '';
 
     let key = '';
     if (keyIndex === 1) key = scalemaxTokenKey;

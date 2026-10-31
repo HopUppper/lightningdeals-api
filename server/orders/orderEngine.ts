@@ -99,8 +99,8 @@ export function calculateOrderCreditAllocation(
     customerCreditsGranted = Number(plan.creditAmountUsd);
     formula = `Explicit Credit Package: ₹${customerCreditsGranted.toLocaleString()} credits`;
   } else {
-    customerCreditsGranted = Math.round((paymentInr || (paymentUsd * 86.5)) * retailMultiplier);
-    formula = `Pay ₹${paymentInr || 0} × ${retailMultiplier}x Multiplier = ₹${customerCreditsGranted.toLocaleString()} API Credits`;
+    customerCreditsGranted = Number(((paymentInr || (paymentUsd * 86.5)) * retailMultiplier / 100).toFixed(2));
+    formula = `Pay ₹${paymentInr || 0} (${retailMultiplier}x Multiplier) = ${customerCreditsGranted.toFixed(2)} USD API Credits`;
   }
 
   const bonusCredits = Number(plan.bonusCreditsUsd || 0);
@@ -114,7 +114,7 @@ export function calculateOrderCreditAllocation(
     paymentUsd,
     retailMultiplier,
     customerCreditsGranted,
-    creditBalanceDenomination: 'INR',
+    creditBalanceDenomination: 'USD',
     bonusCredits,
     configVersion,
     calculationFormula: formula,

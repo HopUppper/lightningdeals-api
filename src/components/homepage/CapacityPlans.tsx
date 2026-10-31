@@ -404,15 +404,15 @@ export const CapacityPlans: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-violet-200 leading-relaxed max-w-3xl">
-                  Deposit funds in INR and unlock up to <strong>7x–8.75x</strong> in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits).
-                  Tokens are atomically deducted per request at published model rates. Valid for <strong>365 full days</strong>.
+                  Deposit funds in INR and receive up to <strong>7x–8.75x</strong> value in USD API Credits (e.g. Pay ₹100 → Receive $7.00 USD in Credits).
+                  Tokens are atomically deducted per request at published model rates in USD. Valid for <strong>365 full days</strong>.
                   {selectedFamily === 'claude' && ' Dedicated access for all Claude models (Opus 5.5, Sonnet 5.5, Haiku 5.5, and many more...).'}{selectedFamily === 'openai' && ' Dedicated access for all OpenAI models (o1, o3-mini, GPT-4o, and many more...).'}{selectedFamily === 'local' && ' Dedicated access for all Local & Open-Weight models (DeepSeek V3, Gemini 2.5, Grok 3, and many more...).'}
                 </p>
               </div>
             </div>
 
             <div className="text-xs font-mono text-amber-300 shrink-0 bg-white/10 px-3 py-1.5 rounded-xl border border-white/15">
-              Pay ₹100 → Get ₹700 Credits
+              Pay ₹100 → Get $7.00 Credits
             </div>
           </div>
         )}
@@ -540,7 +540,7 @@ export const CapacityPlans: React.FC = () => {
                     {selectedBillingMode === 'credit' && (
                       <>
                         <div className="text-lg font-bold text-[#191719] font-display">
-                          ₹{(plan.creditAmountInr || (plan.priceInr * (plan.creditMultiplier || 7))).toLocaleString()} CREDITS
+                          ${Number(plan.creditAmountUsd || ((plan.priceInr * (plan.creditMultiplier || 7.0)) / 100)).toFixed(2)} CREDITS
                         </div>
                         <div className="text-[10px] text-amber-600 uppercase font-bold tracking-wider">
                           {plan.creditMultiplier || 7.0}x PURCHASING MULTIPLIER

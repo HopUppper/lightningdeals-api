@@ -5320,6 +5320,7 @@ router.put('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
         ...(planType !== undefined && { planType }),
         ...(creditMultiplier !== undefined && { creditMultiplier: Number(creditMultiplier) }),
         ...(creditAmountInr !== undefined && { creditAmountInr: Number(creditAmountInr) }),
+        ...(creditAmountUsd !== undefined && { creditAmountUsd: Number(creditAmountUsd) }),
         ...(creditBalanceDenomination !== undefined && { creditBalanceDenomination }),
         ...(supplierCostInr !== undefined && { supplierCostInr: Number(supplierCostInr) }),
         ...(supplierCostUsd !== undefined && { supplierCostUsd: Number(supplierCostUsd) }),

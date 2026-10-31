@@ -553,11 +553,11 @@ export const UserPlan: React.FC = () => {
             <div className="flex items-center gap-3">
               <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
               <div>
-                <strong className="text-amber-300">{selectedFamily === 'claude' ? 'Claude API Credits' : selectedFamily === 'openai' ? 'OpenAI API Credits' : 'Local Models API Credits'} (7x Multiplier):</strong> Deposit funds in INR and unlock up to 7x–8.75x in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits). Atomically deducted per token. Dedicated access to {selectedFamily === 'claude' ? 'Claude' : selectedFamily === 'openai' ? 'OpenAI' : 'Local'} models. 365-day validity.
+                <strong className="text-amber-300">{selectedFamily === 'claude' ? 'Claude API Credits' : selectedFamily === 'openai' ? 'OpenAI API Credits' : 'Local Models API Credits'} (7x Multiplier):</strong> Deposit funds in INR and unlock up to 7x–8.75x in API Credits (e.g. Pay ₹100 → Receive $7.00 USD in Credits). Atomically deducted per token at published USD rates. Dedicated access to {selectedFamily === 'claude' ? 'Claude' : selectedFamily === 'openai' ? 'OpenAI' : 'Local'} models. 365-day validity.
               </div>
             </div>
             <span className="font-mono text-amber-300 text-[11px] shrink-0 font-bold bg-white/10 px-2.5 py-1 rounded-lg">
-              Pay ₹100 → Get ₹700 Credits
+              Pay ₹100 → Get $7.00 Credits
             </span>
           </div>
         )}
@@ -669,7 +669,7 @@ export const UserPlan: React.FC = () => {
                       )}
                       {selectedBillingMode === 'credit' && (
                         <>
-                          <div className="text-base font-bold text-[#1e1b2e]">₹{(p.creditAmountInr || (p.priceInr * (p.creditMultiplier || 7))).toLocaleString()} CREDITS</div>
+                          <div className="text-base font-bold text-[#1e1b2e]">${Number(p.creditAmountUsd || ((p.priceInr * (p.creditMultiplier || 7.0)) / 100)).toFixed(2)} CREDITS</div>
                           <div className="text-[9px] text-amber-600 uppercase font-bold tracking-wider">{p.creditMultiplier || 7.0}x MULTIPLIER</div>
                         </>
                       )}

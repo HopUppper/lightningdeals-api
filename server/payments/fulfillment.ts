@@ -291,7 +291,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
 
     if (isCreditPlan || isTokenPack || tokenAllowanceBigInt > 0n || plan.windowHours > 0) {
       const retailMultiplier = Number(plan.retailMultiplier || plan.creditMultiplier || 7.0);
-      const baseCreditAmount = Number(order.creditsPurchased || plan.creditAmountUsd || (Number(order.amountInr) * retailMultiplier));
+      const baseCreditAmount = Number(order.creditsPurchased || plan.creditAmountUsd || ((Number(order.amountInr) * retailMultiplier) / 100));
       const bonusCreditAmount = Number(order.bonusCredits || plan.bonusCreditsUsd || 0);
       const totalCreditBalance = isCreditPlan ? baseCreditAmount + bonusCreditAmount : 0;
 
@@ -323,7 +323,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           billingType: keyBillingType,
           creditBalanceUsd: totalCreditBalance,
           creditBalanceInr: totalCreditBalance,
-          creditBalanceDenomination: 'INR',
+          creditBalanceDenomination: 'USD',
           planCategory: (plan as any).planCategory || (order as any).planCategory || (isCreditPlan ? 'claude_openai_credits' : isTokenPack ? 'claude_tokens' : 'claude_max_rolling'),
           purchasedTokens: finalPurchasedTokens,
           tokensUsed: 0n,

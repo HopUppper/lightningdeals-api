@@ -86,13 +86,57 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     where: { apiKeyId: keyRecord.id },
   });
 
-  const windowMetrics = await calculateKeyRollingWindow(keyRecord);
+  // Multi-Plan Architecture Discrimination (Credit Wallet, Token Pack, Rolling Window)
+  const billingType = (keyRecord as any).billingType || (Number((keyRecord as any).creditBalanceUsd) > 0 ? 'credit' : 'window');
+  const isCredit = billingType === 'credit';
+  const isToken = billingType === 'token';
+  const isWindow = billingType === 'window';
 
-  const tokensNum = Number(keyRecord.purchasedTokens || 0);
-  const numM = Math.round(tokensNum / 1000000);
-  const computedPlan = keyRecord.type === 'trial' || (keyRecord.plan && keyRecord.plan.toLowerCase().includes('trial'))
-    ? 'Trial Key'
-    : (numM > 0 ? `Claude Max ${numM}x` : (keyRecord.plan || 'Claude Max 20x'));
+  let windowMetrics: any = null;
+  let purchasedTokensStr = '0';
+  let tokensUsedStr = '0';
+  let tokensRemainingStr = '0';
+  let isExhausted = false;
+  let consumptionPercent = 0;
+  let computedPlan = keyRecord.plan || 'Prepaid Plan';
+
+  if (isCredit) {
+    const creditBalance = Number((keyRecord as any).creditBalanceUsd || 0);
+    const creditsUsed = Number((keyRecord as any).totalCreditsUsedUsd || 0);
+    const totalGranted = creditBalance + creditsUsed;
+    isExhausted = creditBalance <= 0;
+    consumptionPercent = totalGranted > 0 ? (creditsUsed / totalGranted) * 100 : 0;
+    computedPlan = keyRecord.plan || `API Usage Credits (${creditBalance.toFixed(2)} USD)`;
+    purchasedTokensStr = '0';
+    tokensUsedStr = '0';
+    tokensRemainingStr = '0';
+  } else if (isToken) {
+    const purchasedTokensBig = keyRecord.purchasedTokens || 0n;
+    const remainingTokensBig = keyRecord.tokensRemaining || 0n;
+    const usedTokensBig = keyRecord.tokensUsed || 0n;
+    isExhausted = remainingTokensBig <= 0n;
+    const pNum = Number(purchasedTokensBig);
+    const uNum = Number(usedTokensBig);
+    consumptionPercent = pNum > 0 ? (uNum / pNum) * 100 : 0;
+    computedPlan = keyRecord.plan || 'Consumable Token Pack';
+    purchasedTokensStr = purchasedTokensBig.toString();
+    tokensUsedStr = usedTokensBig.toString();
+    tokensRemainingStr = remainingTokensBig.toString();
+  } else {
+    // 5-Hour Rolling Window (Claude Max)
+    windowMetrics = await calculateKeyRollingWindow(keyRecord);
+    isExhausted = windowMetrics.remainingNum <= 0;
+    consumptionPercent = windowMetrics.consumptionPercent;
+    purchasedTokensStr = windowMetrics.purchasedNum.toString();
+    tokensUsedStr = windowMetrics.windowTokensUsed.toString();
+    tokensRemainingStr = windowMetrics.remainingNum.toString();
+
+    const tokensNum = Number(keyRecord.purchasedTokens || 0);
+    const numM = Math.round(tokensNum / 1000000);
+    computedPlan = keyRecord.type === 'trial' || (keyRecord.plan && keyRecord.plan.toLowerCase().includes('trial'))
+      ? 'Trial Key'
+      : (numM > 0 ? `Claude Max ${numM}x` : (keyRecord.plan || 'Claude Max 20x'));
+  }
 
   const recentRequests = await prisma.apiRequest.findMany({
     where: { apiKeyId: keyRecord.id },
@@ -116,8 +160,6 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     },
   });
 
-
-  const isExhausted = windowMetrics.remainingNum <= 0;
   const isExpired = keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date();
 
   let exactFailureReason: string | null = null;
@@ -126,7 +168,13 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
   } else if (isExpired) {
     exactFailureReason = `API Key Expired on ${new Date(keyRecord.expiresAt!).toLocaleDateString()}. Please renew your prepaid package.`;
   } else if (isExhausted) {
-    exactFailureReason = `5-Hour Rolling Token Allowance Exhausted (0 tokens remaining out of ${windowMetrics.purchasedNum.toLocaleString()}). Allowance auto-resets on next 5-hour cycle.`;
+    if (isCredit) {
+      exactFailureReason = 'Prepaid Usage Credit Balance Depleted ($0.00 USD remaining). Please recharge your credit balance.';
+    } else if (isToken) {
+      exactFailureReason = 'Consumable Token Quota Depleted (0 tokens remaining). Please top up with a new Token Pack.';
+    } else {
+      exactFailureReason = `5-Hour Rolling Token Allowance Exhausted (0 tokens remaining out of ${windowMetrics?.purchasedNum?.toLocaleString() || 'allocated'}). Allowance auto-resets on next 5-hour cycle.`;
+    }
   }
 
   // Authoritatively Resolve Available Models for this Key
@@ -190,9 +238,13 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     type: keyRecord.type,
     status: keyRecord.status,
     plan: computedPlan,
-    purchasedTokens: windowMetrics.purchasedNum.toString(),
-    tokensUsed: windowMetrics.windowTokensUsed.toString(),
-    tokensRemaining: windowMetrics.remainingNum.toString(),
+    billingType,
+    creditBalanceUsd: isCredit ? Number((keyRecord as any).creditBalanceUsd || 0) : undefined,
+    totalCreditsUsedUsd: isCredit ? Number((keyRecord as any).totalCreditsUsedUsd || 0) : undefined,
+    totalCreditsGrantedUsd: isCredit ? Number((keyRecord as any).creditBalanceUsd || 0) + Number((keyRecord as any).totalCreditsUsedUsd || 0) : undefined,
+    purchasedTokens: purchasedTokensStr,
+    tokensUsed: tokensUsedStr,
+    tokensRemaining: isCredit ? undefined : tokensRemainingStr,
     rateLimitRpm: keyRecord.rateLimitRpm,
     expiresAt: keyRecord.expiresAt,
     totalRequests: keyRecord.totalRequests,
@@ -210,15 +262,12 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
       ownedBy: m.provider,
     })),
     createdAt: keyRecord.createdAt,
-    firstUsedAt: windowMetrics.effectiveFirstUse,
+    firstUsedAt: windowMetrics?.effectiveFirstUse || keyRecord.firstUsedAt,
     lastUsedAt: keyRecord.lastUsedAt,
-    windowActive: windowMetrics.windowActive,
-    nextResetAt: windowMetrics.nextResetAt,
-    windowResetSeconds: windowMetrics.windowResetSeconds,
-    consumptionPercent: windowMetrics.consumptionPercent,
-    billingType: (keyRecord as any).billingType || 'window',
-    creditBalanceUsd: (keyRecord as any).creditBalanceUsd ? Number((keyRecord as any).creditBalanceUsd) : undefined,
-    tokensRemaining: (keyRecord as any).tokensRemaining ? String((keyRecord as any).tokensRemaining) : undefined,
+    windowActive: isWindow ? Boolean(windowMetrics?.windowActive) : false,
+    nextResetAt: isWindow ? windowMetrics?.nextResetAt : null,
+    windowResetSeconds: isWindow ? windowMetrics?.windowResetSeconds : null,
+    consumptionPercent,
     recentRequests: recentRequests.map((r) => ({
       ...r,
       exactFailureReason: r.statusCode >= 400 ? (r.errorMessage || r.errorCode || `HTTP ${r.statusCode} Request Failed`) : null,

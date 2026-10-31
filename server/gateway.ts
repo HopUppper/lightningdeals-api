@@ -2181,6 +2181,9 @@ export async function updateTokensAndLog({
           tokensUsed: true,
           lastPlatform: true,
           firstUsedAt: true,
+          creditBalanceUsd: true,
+          totalCreditsUsedUsd: true,
+          billingType: true,
         },
       });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, AlertCircle, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import { Key, AlertCircle, CheckCircle2, Clock, Sparkles, DollarSign, Coins } from 'lucide-react';
 import { ElectricNavbar } from '../components/ElectricNavbar';
 import { ElectricFooter } from '../components/ElectricFooter';
 
@@ -46,7 +46,7 @@ export const CheckKeyPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!result || !result.windowActive || result.windowResetSeconds == null) {
+    if (!result || result.billingType === 'credit' || result.billingType === 'token' || !result.windowActive || result.windowResetSeconds == null) {
       setSecondsLeft(null);
       return;
     }
@@ -80,6 +80,10 @@ export const CheckKeyPage: React.FC = () => {
     return num.toLocaleString();
   };
 
+  const isCredit = result?.billingType === 'credit';
+  const isToken = result?.billingType === 'token';
+  const isWindow = result ? (!isCredit && !isToken) : false;
+
   const purchasedNum = Number(result?.purchasedTokens || 0);
   const usedNum = Number(result?.tokensUsed || 0);
   const consumedPercent = result?.consumptionPercent != null
@@ -96,13 +100,27 @@ export const CheckKeyPage: React.FC = () => {
         <div className="text-center max-w-2xl mx-auto space-y-2.5">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono font-medium uppercase tracking-wider bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe]">
             <Sparkles className="w-3 h-3 text-[#6d28d9]" />
-            <span>Key Telemetry & Rolling Window Inspector</span>
+            <span>
+              {isCredit
+                ? '⚡ API Usage Credits & Telemetry Inspector'
+                : isToken
+                ? '📦 Consumable Token Quota Inspector'
+                : '🔄 Key Telemetry & Usage Inspector'}
+            </span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-[#1c1917]">
-            Check your API Key rolling balance & rate limit
+            {isCredit
+              ? 'Check your API Usage Credits & Rate Limit'
+              : isToken
+              ? 'Check your Prepaid Token Quota & Rate Limit'
+              : 'Check your API Key rolling balance & rate limit'}
           </h1>
           <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed max-w-xl mx-auto">
-            Enter your LightningAPI key to inspect your 5-hour rolling token window, live reset countdown, rate limits, and audit logs.
+            {isCredit
+              ? 'Enter your LightningAPI key to inspect your USD credit wallet balance, token deductions, rate limits, and audit logs.'
+              : isToken
+              ? 'Enter your LightningAPI key to inspect your consumable lifetime token quota, usage metrics, and audit logs.'
+              : 'Enter your LightningAPI key to inspect your 5-hour rolling token window, live reset countdown, rate limits, and audit logs.'}
           </p>
         </div>
 
@@ -114,7 +132,7 @@ export const CheckKeyPage: React.FC = () => {
               type="text"
               value={keyInput}
               onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="ld_live_... or ld_trial_..."
+              placeholder="sk_live_... or ld_live_..."
               className="w-full pl-10 pr-4 py-3 text-xs sm:text-sm font-mono bg-white border border-[#e7e5e4] rounded-xl focus:outline-none focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9] text-[#1c1917] shadow-xs"
             />
           </div>
@@ -173,7 +191,7 @@ export const CheckKeyPage: React.FC = () => {
                         {String(result.status || 'ACTIVE').toUpperCase()}
                       </span>
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe] font-mono">
-                        {result.plan || 'Claude Max 20x'}
+                        {isCredit ? '⚡ Credit Wallet' : isToken ? '📦 Token Pack' : '🔄 5h Rolling Pool'}
                       </span>
                     </div>
                     <p className="text-xs font-mono text-[#78716c] mt-1.5">
@@ -187,58 +205,154 @@ export const CheckKeyPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 5-Hour Rolling Token Allowance Card */}
-                <div className="p-5 sm:p-6 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-mono font-medium text-[#78716c] uppercase tracking-wider">
-                      5-Hour Rolling Window Allowance (Auto-resets on cycle)
-                    </span>
-                    <span className="text-xs font-mono text-[#6d28d9] font-semibold">
-                      {Number(consumedPercent).toFixed(1)}% Consumed in Window
-                    </span>
-                  </div>
+                {/* ========================================================= */}
+                {/* CASE A: USAGE CREDIT WALLET (Pay-As-You-Go Deductions)      */}
+                {/* ========================================================= */}
+                {isCredit && (
+                  <div className="p-5 sm:p-6 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-mono font-medium text-[#78716c] uppercase tracking-wider flex items-center gap-1.5">
+                        <DollarSign className="w-4 h-4 text-[#6d28d9]" />
+                        <span>Prepaid Usage Credit Balance (Atomic USD Deductions)</span>
+                      </span>
+                      <span className="text-xs font-mono text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-semibold">
+                        365-Day Validity (No 5h Resets)
+                      </span>
+                    </div>
 
-                  <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[#1c1917]">
-                    {formatTokens(result.tokensRemaining)}{' '}
-                    <span className="text-xs text-[#78716c] font-normal font-sans">
-                      remaining out of {formatTokens(result.purchasedTokens)} (5h window)
-                    </span>
-                  </div>
+                    <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[#1c1917]">
+                      ${Number(result.creditBalanceUsd || 0).toFixed(2)}{' '}
+                      <span className="text-xs text-[#78716c] font-normal font-sans">
+                        USD remaining out of ${Number((result.creditBalanceUsd || 0) + (result.totalCreditsUsedUsd || 0)).toFixed(2)} USD granted
+                      </span>
+                    </div>
 
-                  <div className="w-full bg-[#e7e5e4] rounded-full h-2.5 overflow-hidden">
-                    <div
-                      className="bg-[#6d28d9] h-full rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, Math.max(0, Number(consumedPercent)))}%` }}
-                    />
-                  </div>
+                    <div className="w-full bg-[#e7e5e4] rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="bg-[#6d28d9] h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, Number(consumedPercent)))}%` }}
+                      />
+                    </div>
 
-                  {/* 5-Hour Rolling Window Reset Countdown Timer Bar */}
-                  <div className="pt-3 border-t border-[#e7e5e4] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-                    <div className="flex items-center gap-2">
-                      <Clock className={`w-4 h-4 ${result.windowActive ? 'text-[#6d28d9] animate-pulse' : 'text-[#a8a29e]'}`} />
-                      <span className="text-[#78716c] font-medium">5h Window Reset Timer:</span>
-                      {result.windowActive && secondsLeft !== null ? (
-                        <span className="font-bold text-[#6d28d9] bg-[#f5f3ff] px-2.5 py-0.5 rounded border border-[#ddd6fe] text-xs">
-                          Resets in {formatCountdown(secondsLeft)}
+                    <div className="pt-3 border-t border-[#e7e5e4] grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+                      <div>
+                        <span className="text-[#78716c] block">Spent So Far:</span>
+                        <span className="font-bold text-[#1c1917]">${Number(result.totalCreditsUsedUsd || 0).toFixed(4)} USD</span>
+                      </div>
+                      <div>
+                        <span className="text-[#78716c] block">Purchasing Multiplier:</span>
+                        <span className="font-bold text-amber-700">7x–8.75x Power Multiplier</span>
+                      </div>
+                      <div>
+                        <span className="text-[#78716c] block">Billing Engine:</span>
+                        <span className="font-bold text-violet-700">Atomically Deducted per Request</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ========================================================= */}
+                {/* CASE B: CONSUMABLE TOKEN PACK (Fixed Lifetime Quota)      */}
+                {/* ========================================================= */}
+                {isToken && (
+                  <div className="p-5 sm:p-6 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-mono font-medium text-[#78716c] uppercase tracking-wider flex items-center gap-1.5">
+                        <Coins className="w-4 h-4 text-emerald-700" />
+                        <span>Consumable Token Quota (Fixed Non-Expiring Allowance)</span>
+                      </span>
+                      <span className="text-xs font-mono text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-semibold">
+                        365-Day Validity (No 5h Resets)
+                      </span>
+                    </div>
+
+                    <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[#1c1917]">
+                      {formatTokens(result.tokensRemaining)}{' '}
+                      <span className="text-xs text-[#78716c] font-normal font-sans">
+                        tokens remaining out of {formatTokens(result.purchasedTokens)} total allowance
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-[#e7e5e4] rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="bg-emerald-600 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, Number(consumedPercent)))}%` }}
+                      />
+                    </div>
+
+                    <div className="pt-3 border-t border-[#e7e5e4] grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+                      <div>
+                        <span className="text-[#78716c] block">Tokens Consumed:</span>
+                        <span className="font-bold text-[#1c1917]">{formatTokens(result.tokensUsed)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#78716c] block">Reset Windows:</span>
+                        <span className="font-bold text-emerald-700">None (Spend as needed)</span>
+                      </div>
+                      <div>
+                        <span className="text-[#78716c] block">Term:</span>
+                        <span className="font-bold text-slate-700">365 Days Guaranteed</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ========================================================= */}
+                {/* CASE C: 5-HOUR ROLLING WINDOW (Claude Max Exclusive)      */}
+                {/* ========================================================= */}
+                {isWindow && (
+                  <div className="p-5 sm:p-6 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-mono font-medium text-[#78716c] uppercase tracking-wider">
+                        5-Hour Rolling Window Allowance (Auto-resets on cycle)
+                      </span>
+                      <span className="text-xs font-mono text-[#6d28d9] font-semibold">
+                        {Number(consumedPercent).toFixed(1)}% Consumed in Window
+                      </span>
+                    </div>
+
+                    <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[#1c1917]">
+                      {formatTokens(result.tokensRemaining)}{' '}
+                      <span className="text-xs text-[#78716c] font-normal font-sans">
+                        remaining out of {formatTokens(result.purchasedTokens)} (5h window)
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-[#e7e5e4] rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="bg-[#6d28d9] h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, Number(consumedPercent)))}%` }}
+                      />
+                    </div>
+
+                    {/* 5-Hour Rolling Window Reset Countdown Timer Bar */}
+                    <div className="pt-3 border-t border-[#e7e5e4] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                      <div className="flex items-center gap-2">
+                        <Clock className={`w-4 h-4 ${result.windowActive ? 'text-[#6d28d9] animate-pulse' : 'text-[#a8a29e]'}`} />
+                        <span className="text-[#78716c] font-medium">5h Window Reset Timer:</span>
+                        {result.windowActive && secondsLeft !== null ? (
+                          <span className="font-bold text-[#6d28d9] bg-[#f5f3ff] px-2.5 py-0.5 rounded border border-[#ddd6fe] text-xs">
+                            Resets in {formatCountdown(secondsLeft)}
+                          </span>
+                        ) : (
+                          <span className="font-bold text-[#78716c] bg-white px-2.5 py-0.5 rounded border border-[#e7e5e4] text-[11px]">
+                            Window Inactive — Starts on 1st API request
+                          </span>
+                        )}
+                      </div>
+
+                      {result.windowActive && result.nextResetAt ? (
+                        <span className="text-[#78716c] text-[11px]">
+                          Next reset: {new Date(result.nextResetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                       ) : (
-                        <span className="font-bold text-[#78716c] bg-white px-2.5 py-0.5 rounded border border-[#e7e5e4] text-[11px]">
-                          Window Inactive — Starts on 1st API request
+                        <span className="text-[#6d28d9] text-[11px] font-semibold">
+                          ⚡ 5-hour rolling timer will activate upon initial request
                         </span>
                       )}
                     </div>
-
-                    {result.windowActive && result.nextResetAt ? (
-                      <span className="text-[#78716c] text-[11px]">
-                        Next reset: {new Date(result.nextResetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                      </span>
-                    ) : (
-                      <span className="text-[#6d28d9] text-[11px] font-semibold">
-                        ⚡ 5-hour rolling timer will activate upon initial request
-                      </span>
-                    )}
                   </div>
-                </div>
+                )}
 
                 {/* Request Stats Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

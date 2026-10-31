@@ -73,6 +73,9 @@ export const DEFAULT_PLANS: PlanItem[] = [
     tagline: 'High-performance access for active daily coding assistance with Sonnet 5',
     badge: 'STARTER CHOICE',
     featured: false,
+        planCategory: 'claude_max_rolling',
+    planType: 'window',
+    enabled: true,
     features: [
       '5,000,000 Tokens / 5h Window',
       '30-Day / 365-Day Validity',
@@ -101,6 +104,9 @@ export const DEFAULT_PLANS: PlanItem[] = [
     tagline: 'Best value for heavy IDE power users & builders with Opus 5 & Fable 5',
     badge: 'MOST POPULAR',
     featured: true,
+        planCategory: 'claude_max_rolling',
+    planType: 'window',
+    enabled: true,
     features: [
       '20,000,000 Tokens / 5h Window',
       '30-Day / 365-Day Validity',
@@ -129,6 +135,9 @@ export const DEFAULT_PLANS: PlanItem[] = [
     tagline: 'Maximum high-volume capacity for engineering teams with all Claude 5 models',
     badge: 'BEST VALUE',
     featured: false,
+        planCategory: 'claude_max_rolling',
+    planType: 'window',
+    enabled: true,
     features: [
       '40,000,000 Tokens / 5h Window',
       '30-Day / 365-Day Validity',
@@ -157,6 +166,8 @@ export const DEFAULT_PLANS: PlanItem[] = [
     tagline: 'Supreme high-volume capacity for engineering teams & autonomous agentic loops',
     badge: 'MAX SCALE',
     featured: false,
+        planCategory: 'claude_max_rolling',
+    enabled: true,
     features: [
       '100,000,000 Tokens / 5h Window',
       '30-Day / 365-Day Validity',
@@ -169,6 +180,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'credit_starter',
+    enabled: true,
     slug: 'credit_starter',
     name: 'Credit Starter',
     displayName: 'API Credits Starter (₹700 Credits)',
@@ -202,6 +214,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'credit_growth',
+    enabled: true,
     slug: 'credit_growth',
     name: 'Credit Growth',
     displayName: 'API Credits Growth (₹3,850 Credits)',
@@ -235,6 +248,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'credit_pro',
+    enabled: true,
     slug: 'credit_pro',
     name: 'Credit Pro',
     displayName: 'API Credits Pro (₹16,000 Credits)',
@@ -268,6 +282,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'credit_scale',
+    enabled: true,
     slug: 'credit_scale',
     name: 'Credit Scale',
     displayName: 'API Credits Scale (₹35,000 Credits)',
@@ -300,6 +315,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'openai_token_10m',
+    enabled: true,
     slug: 'openai_token_10m',
     name: 'OpenAI 10M Token Pack',
     displayName: 'OpenAI 10M Token Pack',
@@ -328,6 +344,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'openai_token_50m',
+    enabled: true,
     slug: 'openai_token_50m',
     name: 'OpenAI 50M Token Pack',
     displayName: 'OpenAI 50M Token Pack',
@@ -357,6 +374,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'openai_token_100m',
+    enabled: true,
     slug: 'openai_token_100m',
     name: 'OpenAI 100M Token Pack',
     displayName: 'OpenAI 100M Token Pack',
@@ -385,6 +403,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'claude_token_10m',
+    enabled: true,
     slug: 'claude_token_10m',
     name: 'Claude 10M Token Pack',
     displayName: 'Claude 10M Token Pack',
@@ -413,6 +432,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'claude_token_50m',
+    enabled: true,
     slug: 'claude_token_50m',
     name: 'Claude 50M Token Pack',
     displayName: 'Claude 50M Token Pack',
@@ -442,6 +462,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'claude_token_100m',
+    enabled: true,
     slug: 'claude_token_100m',
     name: 'Claude 100M Token Pack',
     displayName: 'Claude 100M Token Pack',
@@ -470,6 +491,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'local_token_10m',
+    enabled: true,
     slug: 'local_token_10m',
     name: 'Local Models 10M Token Pack',
     displayName: 'Local Models 10M Token Pack',
@@ -498,6 +520,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'local_token_100m',
+    enabled: true,
     slug: 'local_token_100m',
     name: 'Local Models 100M Token Pack',
     displayName: 'Local Models 100M Token Pack',
@@ -527,6 +550,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
   },
   {
     id: 'local_token_500m',
+    enabled: true,
     slug: 'local_token_500m',
     name: 'Local Models 500M Token Pack',
     displayName: 'Local Models 500M Token Pack',
@@ -627,8 +651,15 @@ export const PlansProvider: React.FC<{
                   'Instant Key Delivery via Dashboard',
                 ],
           featured: Boolean(p.featured),
+          enabled: p.enabled !== undefined ? Boolean(p.enabled) : true,
           sortOrder: p.sortOrder !== undefined ? Number(p.sortOrder) : 0,
           planType: p.planType || 'window',
+          planCategory: p.planCategory || (p.planType === 'window' ? 'claude_max_rolling' : p.planType === 'credit' ? 'claude_openai_credits' : 'claude_tokens'),
+          creditAmountInr: p.creditAmountInr !== undefined && p.creditAmountInr !== null ? Number(p.creditAmountInr) : (p.creditMultiplier ? Number(p.priceInr) * Number(p.creditMultiplier) : undefined),
+          creditBalanceDenomination: p.creditBalanceDenomination || 'INR',
+          supplierCostInr: p.supplierCostInr !== undefined && p.supplierCostInr !== null ? Number(p.supplierCostInr) : undefined,
+          supplierAllocation: p.supplierAllocation || undefined,
+          allowedModelFamilies: p.allowedModelFamilies || (p.planType === 'window' ? ['claude'] : undefined),
           creditMultiplier: p.creditMultiplier ? Number(p.creditMultiplier) : 7.0,
           creditAmountUsd: p.creditAmountUsd ? Number(p.creditAmountUsd) : undefined,
           bonusCreditsUsd: p.bonusCreditsUsd ? Number(p.bonusCreditsUsd) : undefined,

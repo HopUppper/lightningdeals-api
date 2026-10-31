@@ -63,7 +63,7 @@ export const CapacityPlans: React.FC = () => {
 
   const activePlans = useMemo(() => {
     return plans.filter((p) => {
-      if (!p.enabled) return false;
+      if (p.enabled === false) return false;
       const name = (p.name || '').toLowerCase();
       const slug = (p.slug || '').toLowerCase();
       if (name.includes('trial') || slug.includes('trial')) return false;

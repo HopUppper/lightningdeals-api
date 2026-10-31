@@ -308,7 +308,7 @@ try {
     where: {
       enabled: true,
       status: 'active',
-      priceInr: { gte: 500 },
+      priceInr: { gt: 0 },
       NOT: {
         OR: [
           { id: { in: ['free_trial', 'trial'] } },
@@ -352,7 +352,17 @@ try {
           'Instant Key Delivery via Dashboard',
         ],
         featured: p.featured || false,
+        enabled: p.enabled ?? true,
         sortOrder: p.sortOrder,
+        planType: (p.planType as any) || 'window',
+        planCategory: (p.planCategory as any) || (p.planType === 'window' ? 'claude_max_rolling' : p.planType === 'credit' ? 'claude_openai_credits' : 'claude_tokens'),
+        creditMultiplier: p.creditMultiplier !== null && p.creditMultiplier !== undefined ? Number(p.creditMultiplier) : (p.planType === 'credit' ? 7.0 : undefined),
+        creditAmountInr: p.creditAmountInr !== null && p.creditAmountInr !== undefined ? Number(p.creditAmountInr) : (p.creditMultiplier ? Number(p.priceInr) * Number(p.creditMultiplier) : undefined),
+        creditBalanceDenomination: p.creditBalanceDenomination || 'INR',
+        annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : undefined,
+        annualOriginalPriceInr: p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
+        annualValidityDays: p.annualValidityDays || 365,
+        providerScope: p.providerScope || 'all',
       };
     });
     console.log(`📦 Loaded ${activeDbPlans.length} active plans from PostgreSQL for static generation.`);

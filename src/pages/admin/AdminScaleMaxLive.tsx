@@ -18,6 +18,11 @@ import {
   ExternalLink,
   DollarSign,
   Activity,
+  Key,
+  Eye,
+  EyeOff,
+  X,
+  Check,
 } from 'lucide-react';
 import { adminFetch } from '../../utils/api';
 
@@ -63,6 +68,77 @@ export const AdminScaleMaxLive: React.FC = () => {
   const [testPrompt, setTestPrompt] = useState<string>('Say hello in 3 words');
   const [testingInference, setTestingInference] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<any | null>(null);
+
+  // Key Add / Update Modal State
+  const [updateModalKey, setUpdateModalKey] = useState<ScaleMaxKeyTelemetry | null>(null);
+  const [keyInput, setKeyInput] = useState('');
+  const [showKeySecret, setShowKeySecret] = useState(false);
+  const [validatingKey, setValidatingKey] = useState(false);
+  const [validationResult, setValidationResult] = useState<{
+    valid: boolean;
+    latencyMs?: number;
+    modelsCount?: number;
+    keyLabel?: string;
+    creditsBalanceUsd?: number;
+    error?: string;
+  } | null>(null);
+  const [savingKey, setSavingKey] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  const handleOpenUpdateModal = (k: ScaleMaxKeyTelemetry) => {
+    setUpdateModalKey(k);
+    setKeyInput('');
+    setShowKeySecret(false);
+    setValidationResult(null);
+    setSaveSuccessMsg(null);
+  };
+
+  const handleValidateKey = async () => {
+    if (!keyInput.trim()) return;
+    setValidatingKey(true);
+    setValidationResult(null);
+    try {
+      const res = await adminFetch('/api/admin/providers/scalemax/validate-key', {
+        method: 'POST',
+        body: JSON.stringify({ apiKey: keyInput.trim() }),
+      });
+      const data = await res.json();
+      setValidationResult(data);
+    } catch (err: any) {
+      setValidationResult({ valid: false, error: err.message || 'Validation request failed' });
+    } finally {
+      setValidatingKey(false);
+    }
+  };
+
+  const handleSaveKey = async () => {
+    if (!updateModalKey || !keyInput.trim()) return;
+    setSavingKey(true);
+    try {
+      const res = await adminFetch('/api/admin/providers/scalemax/update-key', {
+        method: 'POST',
+        body: JSON.stringify({
+          keyIndex: updateModalKey.keyIndex,
+          apiKey: keyInput.trim(),
+        }),
+      });
+      if (res.ok) {
+        setSaveSuccessMsg('Master key successfully activated!');
+        await fetchLiveStatus(false);
+        setTimeout(() => {
+          setUpdateModalKey(null);
+          setSaveSuccessMsg(null);
+        }, 1200);
+      } else {
+        const err = await res.json();
+        alert(err.error?.message || 'Failed to update key');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error');
+    } finally {
+      setSavingKey(false);
+    }
+  };
 
   const fetchLiveStatus = async (isSilent = false) => {
     if (!isSilent) setIsRefreshing(true);
@@ -316,6 +392,24 @@ export const AdminScaleMaxLive: React.FC = () => {
                     <p className="text-xs text-[#6b7280] leading-relaxed mt-1">
                       {k.description}
                     </p>
+
+                    {/* Associated Plan Categories Badge */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                      <span className="text-[10px] text-[#6b7280] font-bold uppercase tracking-wider">Serves:</span>
+                      {k.keyIndex === 1 && (
+                        <>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-100 text-violet-800 font-bold">Claude Tokens</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">OpenAI Tokens</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">API Credits</span>
+                        </>
+                      )}
+                      {k.keyIndex === 2 && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">Local Models Tokens (DeepSeek, Grok, Qwen, GLM)</span>
+                      )}
+                      {k.keyIndex === 3 && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-bold">Wholesale Credit Master / Backup Reserve</span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Key Prefix & Vendor Label Banner */}
@@ -430,9 +524,22 @@ export const AdminScaleMaxLive: React.FC = () => {
                   )}
                 </div>
 
-                {/* Card Action */}
-                {isHealthy && (
-                  <div className="pt-2 border-t border-[#e5e7eb]">
+                {/* Card Actions: Direct Add/Update Key + Test Ping */}
+                <div className="pt-3 border-t border-[#e5e7eb] space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenUpdateModal(k)}
+                    className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      !isHealthy && !isSuperseded
+                        ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-xs'
+                        : 'bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200'
+                    }`}
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>{k.keyPrefix === 'Not Configured' ? 'Configure Master Key' : 'Update Master Key'}</span>
+                  </button>
+
+                  {isHealthy && (
                     <button
                       type="button"
                       onClick={() => {
@@ -441,13 +548,13 @@ export const AdminScaleMaxLive: React.FC = () => {
                         const el = document.getElementById('test-inference-console');
                         if (el) el.scrollIntoView({ behavior: 'smooth' });
                       }}
-                      className="w-full py-2.5 rounded-xl bg-[#111827] hover:bg-violet-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full py-2 rounded-xl bg-[#111827] hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>Ping This Key in Live Console</span>
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}
@@ -603,6 +710,180 @@ export const AdminScaleMaxLive: React.FC = () => {
           </div>
         </div>
       </div>
+      {/* ============================================================ */}
+      {/* ADD / UPDATE MASTER KEY MODAL                                */}
+      {/* ============================================================ */}
+      {updateModalKey && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-violet-100 text-violet-700">
+                    <Key className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-base font-extrabold text-[#111827]">
+                    {updateModalKey.keyPrefix === 'Not Configured' ? 'Configure Master Key' : 'Update Master Key'}
+                  </h3>
+                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-bold border border-violet-100">
+                    KEY #{updateModalKey.keyIndex}
+                  </span>
+                </div>
+                <p className="text-xs text-[#6b7280]">
+                  {updateModalKey.role}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUpdateModalKey(null)}
+                className="text-[#9ca3af] hover:text-[#111827] p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Plans Served Notice */}
+            <div className="p-3 rounded-xl bg-violet-50/60 border border-violet-100 space-y-1">
+              <span className="text-[10px] text-violet-900 font-bold uppercase tracking-wider block">
+                Associated Customer Plans:
+              </span>
+              <p className="text-xs text-violet-800 leading-relaxed">
+                {updateModalKey.keyIndex === 1 && 'Serves Claude Token Plans, OpenAI Token Plans, and Claude + OpenAI Credit Plans.'}
+                {updateModalKey.keyIndex === 2 && 'Serves Local Models Token Plans (DeepSeek V3/V4, Grok, Qwen, GLM, etc.).'}
+                {updateModalKey.keyIndex === 3 && 'Serves Legacy Credit Master / Wholesale Backup Reserve.'}
+              </p>
+            </div>
+
+            {/* Current Status Pill */}
+            <div className="p-3 rounded-xl bg-[#f9fafb] border border-[#e5e7eb] flex items-center justify-between text-xs font-mono">
+              <span className="text-[#6b7280]">Current Key Prefix:</span>
+              <strong className="text-[#111827]">{updateModalKey.keyPrefix}</strong>
+            </div>
+
+            {/* Input Form */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[#111827] uppercase tracking-wider">
+                New ScaleMax API Key *
+              </label>
+              <div className="relative">
+                <input
+                  type={showKeySecret ? 'text' : 'password'}
+                  value={keyInput}
+                  onChange={(e) => {
+                    setKeyInput(e.target.value);
+                    setValidationResult(null);
+                  }}
+                  placeholder="sm_live_..."
+                  className="w-full pl-3 pr-24 py-2.5 text-xs bg-[#f9fafb] border border-[#d1d5db] rounded-xl text-[#111827] font-mono focus:border-violet-600 focus:bg-white focus:outline-none"
+                  autoFocus
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowKeySecret(!showKeySecret)}
+                    className="p-1.5 text-[#6b7280] hover:text-[#111827] rounded-md transition-colors"
+                    title={showKeySecret ? 'Hide Key' : 'Show Key'}
+                  >
+                    {showKeySecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const clip = await navigator.clipboard.readText();
+                        if (clip) {
+                          setKeyInput(clip.trim());
+                          setValidationResult(null);
+                        }
+                      } catch {}
+                    }}
+                    className="px-2 py-1 text-[10px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded border border-violet-200 transition-colors"
+                  >
+                    Paste
+                  </button>
+                </div>
+              </div>
+              <p className="text-[11px] text-[#6b7280]">
+                Enter the live API key provided by ScaleMax for this plan group.
+              </p>
+            </div>
+
+            {/* Validation Banner */}
+            {validationResult && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs font-mono space-y-1 ${
+                  validationResult.valid
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-rose-50 border-rose-200 text-rose-900'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold">
+                  {validationResult.valid ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Validation Passed (200 OK)</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-4 h-4 text-rose-600" />
+                      <span>Validation Failed</span>
+                    </>
+                  )}
+                </div>
+                {validationResult.valid ? (
+                  <div className="text-[11px] space-y-0.5 text-emerald-800">
+                    <p>Ping Latency: {validationResult.latencyMs}ms | Models Available: {validationResult.modelsCount}</p>
+                    <p>Key Label: {validationResult.keyLabel} | Live Balance: ${(validationResult.creditsBalanceUsd || 0).toFixed(2)}</p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-rose-700">{validationResult.error}</p>
+                )}
+              </div>
+            )}
+
+            {saveSuccessMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>{saveSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-2 border-t border-[#e5e7eb]">
+              <button
+                type="button"
+                onClick={handleValidateKey}
+                disabled={!keyInput.trim() || validatingKey || savingKey}
+                className="px-3.5 py-2 rounded-xl bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#111827] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${validatingKey ? 'animate-spin' : ''}`} />
+                <span>{validatingKey ? 'Testing Connection...' : 'Test Connection'}</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUpdateModalKey(null)}
+                  disabled={savingKey}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-[#6b7280] hover:text-[#111827] hover:bg-[#f3f4f6] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveKey}
+                  disabled={!keyInput.trim() || savingKey}
+                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{savingKey ? 'Activating...' : 'Save & Activate Key'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

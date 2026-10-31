@@ -44,7 +44,7 @@ export const SiteHeader: React.FC = () => {
 
   const navLinks = [
     { name: 'Models', href: '/models' },
-    { name: 'Capacity Plans', href: '/pricing' },
+    { name: 'Pricing', href: '/pricing' },
     { name: 'How It Works', href: '/how-it-works' },
     { name: 'Documentation', href: '/docs' },
     { name: 'FAQ', href: '/faq' },

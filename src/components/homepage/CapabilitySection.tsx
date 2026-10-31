@@ -17,17 +17,16 @@ export const CapabilitySection: React.FC = () => {
           <div className="inline-flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#7136E8]" />
             <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#7136E8] font-semibold">
-              CAPABILITIES & ARCHITECTURE
+              WHY DEVELOPERS CHOOSE LIGHTNINGAPI
             </span>
           </div>
 
           <h2 className="section-headline text-[#191719] font-display">
-            Infrastructure that stays out of your way.
+            Built for developers who want simplicity and savings.
           </h2>
 
           <p className="text-base sm:text-lg text-[#68636B] leading-relaxed">
-            Engineered specifically to solve the friction points developers face when integrating
-            frontier models into their production pipelines.
+            Everything you need to run top AI models in your tools, scripts, and apps without the typical markup.
           </p>
         </div>
 
@@ -42,15 +41,14 @@ export const CapabilitySection: React.FC = () => {
           <div className="lg:col-span-7 p-8 sm:p-10 rounded-[20px] bg-white border border-[#E6E1E8] shadow-xs flex flex-col justify-between space-y-8 hover:border-[#7136E8]/40 transition-colors">
             <div className="space-y-4">
               <span className="text-xs font-mono font-bold text-[#7136E8] uppercase tracking-wider">
-                01 / UNIFIED ARCHITECTURE
+                01 / ALL TOP MODELS IN ONE PLACE
               </span>
               <h3 className="text-2xl sm:text-3xl font-bold text-[#191719] font-display tracking-tight">
-                One integration.
+                One key for Claude, OpenAI & DeepSeek.
               </h3>
               <p className="text-base text-[#68636B] leading-relaxed max-w-xl">
-                Access supported models through the gateway's documented interface. Rather than
-                maintaining fragmented provider libraries, managing separate billing relationships,
-                or rewriting endpoints, your code routes through a single connection.
+                Access Claude 3.7 & 3.5 Sonnet, OpenAI o1, GPT-4o, and DeepSeek through a single connection.
+                No need to manage multiple billing accounts, credit cards, or separate provider accounts.
               </p>
             </div>
 
@@ -84,15 +82,13 @@ export const CapabilitySection: React.FC = () => {
           <div className="lg:col-span-5 p-8 sm:p-10 rounded-[20px] bg-white border border-[#E6E1E8] shadow-xs flex flex-col justify-between space-y-8 hover:border-[#7136E8]/40 transition-colors">
             <div className="space-y-4">
               <span className="text-xs font-mono font-bold text-[#7136E8] uppercase tracking-wider">
-                02 / TOOL ERGONOMICS
+                02 / ZERO SETUP FRICTION
               </span>
               <h3 className="text-2xl sm:text-3xl font-bold text-[#191719] font-display tracking-tight">
-                A focused developer workflow.
+                Works in your favorite tools.
               </h3>
               <p className="text-base text-[#68636B] leading-relaxed">
-                Use compatible developer tools and IDE extensions—such as Cursor, Windsurf, and Claude
-                Code CLI—without modifying your local workflow habits or installing proprietary wrapper
-                software.
+                100% compatible with Cursor, Windsurf, Claude Code CLI, VS Code, and Python. Just paste your Base URL and API key and start coding immediately.
               </p>
             </div>
 
@@ -130,20 +126,19 @@ export const CapabilitySection: React.FC = () => {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-[#E6E1E8]/70">
               <div className="space-y-2 max-w-2xl">
                 <span className="text-xs font-mono font-bold text-[#7136E8] uppercase tracking-wider">
-                  03 / CONTINUOUS ROLLING CAPACITY
+                  03 / CONTINUOUS ROLLING REFILLS
                 </span>
                 <h3 className="text-2xl sm:text-3xl font-bold text-[#191719] font-display tracking-tight">
-                  Clear usage and capacity rules.
+                  Tokens that continuously refill every 5 hours.
                 </h3>
                 <p className="text-base text-[#68636B] leading-relaxed">
-                  Understand the limits, capacity, and renewal terms associated with your chosen plan.
-                  LightningAPI uses a continuous 5-hour rolling pool rather than arbitrary hard cutoffs.
+                  Unlike traditional plans with rigid monthly caps, our 5-hour rolling pool automatically regenerates tokens as past requests age out. You never have to wait until the end of the month to code.
                 </p>
               </div>
 
               <div className="p-4 rounded-xl bg-[#EEE6FF]/50 border border-[#7136E8]/20 self-start lg:self-center font-mono text-xs text-[#4F21B5] space-y-1">
-                <div className="font-bold">5-HOUR ROLLING ENGINE</div>
-                <div>Continuous sliding-window token replenishment</div>
+                <div className="font-bold">CONTINUOUS 5-HOUR POOL</div>
+                <div>Tokens automatically regenerate every 300 minutes</div>
               </div>
             </div>
 

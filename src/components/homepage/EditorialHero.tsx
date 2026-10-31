@@ -1,423 +1,268 @@
 import React, { useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Copy, Check, Play } from 'lucide-react';
+import { ArrowRight, Copy, Check, Sparkles, Terminal, Code2, Zap, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const EditorialHero: React.FC = () => {
   const [copied, setCopied] = useState(false);
-  const prefersReducedMotion = useReducedMotion();
+  const [activeTab, setActiveTab] = useState<'cursor' | 'claude_cli' | 'python' | 'curl'>('cursor');
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyEndpoint = () => {
-    navigator.clipboard.writeText('https://lightningapi.pro');
+    navigator.clipboard.writeText('https://api.lightningapi.pro');
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleScrollToFlow = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const element = document.getElementById('rolling-pool');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      window.location.hash = 'rolling-pool';
-    }
+  const codeSnippets: Record<string, { title: string; filename: string; code: string }> = {
+    cursor: {
+      title: 'Cursor & Windsurf',
+      filename: 'Settings > Models > OpenAI / Anthropic Override',
+      code: `// 1. Open Cursor Settings -> Models -> OpenAI / Anthropic
+// 2. Set Base URL:
+Base URL: https://api.lightningapi.pro
+
+// 3. Set API Key:
+API Key:  ld_live_your_key_here
+
+// 4. Enable any supported model:
+// claude-3-7-sonnet, claude-3-5-sonnet, o1, gpt-4o, deepseek-v3.2`,
+    },
+    claude_cli: {
+      title: 'Claude Code CLI',
+      filename: '~/.bashrc or terminal',
+      code: `# Use Claude Code CLI at up to 80% lower cost
+export ANTHROPIC_BASE_URL="https://api.lightningapi.pro"
+export ANTHROPIC_API_KEY="ld_live_your_key_here"
+
+# Start coding
+claude`,
+    },
+    python: {
+      title: 'Python (OpenAI SDK)',
+      filename: 'main.py',
+      code: `from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.lightningapi.pro/v1",
+    api_key="ld_live_your_key_here"
+)
+
+response = client.chat.completions.create(
+    model="claude-3-7-sonnet",
+    messages=[{"role": "user", "content": "Hello world!"}]
+)
+print(response.choices[0].message.content)`,
+    },
+    curl: {
+      title: 'cURL / REST API',
+      filename: 'terminal',
+      code: `curl https://api.lightningapi.pro/v1/chat/completions \\
+  -H "Authorization: Bearer ld_live_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "claude-3-7-sonnet",
+    "messages": [{"role": "user", "content": "Explain quantum computing in 1 sentence"}]
+  }'`,
+    },
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(codeSnippets[activeTab].code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   return (
-    <section className="relative pt-12 pb-24 sm:pt-16 sm:pb-32 lg:pt-24 lg:pb-36 bg-[#F8F6F2] text-[#191719] font-sans overflow-hidden border-b border-[#E6E1E8]">
+    <section className="relative pt-10 pb-16 sm:pt-14 sm:pb-20 lg:pt-20 lg:pb-24 bg-[#F8F6F2] text-[#191719] font-sans overflow-hidden border-b border-[#E6E1E8]">
       {/* Background Architectural Canvas Grid */}
       <div
         className="absolute inset-0 pointer-events-none opacity-[0.035]"
         style={{
           backgroundImage: 'radial-gradient(#191719 1px, transparent 1px)',
-          backgroundSize: '32px 32px',
+          backgroundSize: '28px 28px',
         }}
         aria-hidden="true"
       />
 
-      {/* Signature Electric Violet Line Transition Across Composition */}
-      <div
-        className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#7136E8]/40 to-transparent"
-        aria-hidden="true"
-      />
-
-      {/* Ambient Violet Diffusion behind Ribbon Artwork */}
-      <div
-        className="absolute top-1/4 right-0 w-[620px] h-[620px] bg-gradient-to-br from-[#7136E8]/12 via-[#EEE6FF]/30 to-transparent rounded-full blur-[140px] pointer-events-none -z-0"
-        aria-hidden="true"
-      />
-
-      <div className="relative max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16 z-10">
+      <div className="relative max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-10 z-10">
         
-        {/* ============================================================ */}
-        {/* TOP TECHNICAL ANNOTATIONS (Restrained edge telemetry)         */}
-        {/* ============================================================ */}
-        <motion.div
-          initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: prefersReducedMotion ? 0.01 : 0.4 }}
-          className="flex flex-wrap items-center justify-between gap-4 pb-6 sm:pb-8 border-b border-[#E6E1E8]"
-        >
-          {/* Eyebrow */}
-          <div className="inline-flex items-center gap-2.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#7136E8] animate-pulse" />
-            <span className="text-[11px] font-mono font-semibold uppercase tracking-[0.22em] text-[#7136E8]">
-              THE INTELLIGENCE LAYER
-            </span>
+        {/* Top Eyebrow Badge */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-6 border-b border-[#E6E1E8]">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EEE6FF] text-[#7136E8] text-xs font-semibold">
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>Affordable AI API Access for Developers & Teams</span>
           </div>
 
-          {/* Technical Edge Annotations */}
-          <div className="hidden sm:flex items-center gap-6 text-[11px] font-mono text-[#68636B]">
+          <div className="flex items-center gap-4 text-xs font-mono text-[#68636B]">
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#087F5B]" />
-              <span>TLS 1.3 INGRESS</span>
+              <span className="w-2 h-2 rounded-full bg-[#087F5B] animate-pulse" />
+              <span>Gateway 100% Online</span>
             </span>
-            <span className="text-[#E6E1E8]">/</span>
-            <span>ANTHROPIC /V1 MESSAGES</span>
-            <span className="text-[#E6E1E8]">/</span>
-            <span className="text-[#191719] font-medium">CONTINUOUS 5-HOUR POOL</span>
+            <span className="hidden sm:inline text-[#E6E1E8]">/</span>
+            <span className="hidden sm:inline">100+ Models Available</span>
+            <span className="hidden sm:inline text-[#E6E1E8]">/</span>
+            <span className="hidden sm:inline font-bold text-[#191719]">Save up to 80%</span>
           </div>
-        </motion.div>
+        </div>
 
-        {/* ============================================================ */}
-        {/* ASYMMETRICAL EDITORIAL COMPOSITION (Typography & Ribbon Art)  */}
-        {/* ============================================================ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+        {/* Hero Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           
-          {/* Left Column: Dominant Editorial Typography (7 Cols) */}
-          <div className="lg:col-span-7 space-y-8 text-left">
+          {/* Left Column: Clear Value Proposition */}
+          <div className="lg:col-span-7 space-y-6 text-left">
             
-            {/* Signature Editorial Headline */}
-            <motion.h1
-              initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: prefersReducedMotion ? 0.01 : 0.5 }}
-              className="hero-headline text-[#191719] font-display max-w-2xl tracking-tight"
-            >
-              Intelligence,{' '}
+            <h1 className="text-3xl sm:text-5xl lg:text-[3.25rem] font-bold text-[#191719] font-display tracking-tight leading-[1.12]">
+              All Top AI Models.{' '}
               <br className="hidden sm:inline" />
-              <span className="relative inline-block text-[#191719]">
-                without the friction.
-                <span
-                  className="absolute bottom-1 sm:bottom-2 left-0 w-full h-[3px] sm:h-[4px] bg-[#7136E8]/35 rounded-full -z-10"
-                  aria-hidden="true"
-                />
+              <span className="text-[#7136E8]">
+                Up to 80% Lower Cost.
               </span>
-            </motion.h1>
+            </h1>
 
-            {/* Narrative Copy */}
-            <motion.p
-              initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: prefersReducedMotion ? 0.01 : 0.5, delay: 0.1 }}
-              className="text-base sm:text-lg lg:text-[1.16rem] text-[#68636B] leading-relaxed max-w-xl font-normal"
-            >
-              A unified API gateway connecting your development workflow directly to supported frontier
-              models through a drop-in Anthropic connection with continuous rolling quota renewal.
-            </motion.p>
+            <p className="text-base sm:text-lg text-[#57534e] leading-relaxed max-w-xl">
+              Access Claude 3.7 & 3.5 Sonnet, OpenAI o1, GPT-4o, and DeepSeek through a single API key.
+              100% compatible drop-in replacement for Cursor, Windsurf, Claude Code CLI, and Python. Just paste your key and start building.
+            </p>
+
+            {/* 4 Clear Value Highlights */}
+            <div className="grid grid-cols-2 gap-3 pt-1 max-w-lg text-xs font-medium text-[#191719]">
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs">
+                <span className="text-base">💰</span>
+                <span>Up to 80% Cost Savings</span>
+              </div>
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs">
+                <span className="text-base">🔌</span>
+                <span>Drop-in IDE Compatibility</span>
+              </div>
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs">
+                <span className="text-base">🚀</span>
+                <span>100+ Supported Models</span>
+              </div>
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs">
+                <span className="text-base">⏱️</span>
+                <span>Instant 30-Sec Key Setup</span>
+              </div>
+            </div>
 
             {/* CTAs */}
-            <motion.div
-              initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: prefersReducedMotion ? 0.01 : 0.5, delay: 0.15 }}
-              className="flex flex-wrap items-center gap-3.5 pt-1"
-            >
+            <div className="flex flex-wrap items-center gap-3.5 pt-2">
               <Link
-                to="/register"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-[12px] bg-[#7136E8] hover:bg-[#4F21B5] text-white text-sm font-semibold shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                to="/pricing"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#7136E8] hover:bg-[#581c87] text-white text-sm font-bold shadow-xs transition-colors cursor-pointer"
               >
-                <span>Get Started</span>
+                <span>View Pricing & Plans</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 
-              <a
-                href="#rolling-pool"
-                onClick={handleScrollToFlow}
-                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-[12px] bg-white hover:bg-black/[0.03] text-[#191719] border border-[#E6E1E8] text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.98] cursor-pointer shadow-2xs"
+              <Link
+                to="/trial"
+                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white hover:bg-[#F3F0E8] text-[#191719] border border-[#E6E1E8] text-sm font-semibold transition-colors shadow-2xs cursor-pointer"
               >
-                <Play className="w-3.5 h-3.5 fill-[#7136E8] text-[#7136E8]" />
-                <span>Explore the Flow</span>
-              </a>
-            </motion.div>
+                <Sparkles className="w-4 h-4 text-[#7136E8]" />
+                <span>Try 200k Free Trial</span>
+              </Link>
+            </div>
 
-            {/* Ingress Gateway Pill with 1-Click Copy */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: prefersReducedMotion ? 0.01 : 0.4, delay: 0.2 }}
-              className="pt-2 max-w-md"
-            >
-              <div className="flex items-center justify-between gap-3 p-3 rounded-[12px] bg-white border border-[#E6E1E8] shadow-2xs font-mono text-xs">
-                <div className="flex items-center gap-2.5 truncate">
-                  <span className="w-2 h-2 rounded-full bg-[#087F5B] animate-pulse shrink-0" />
-                  <span className="text-[#68636B] shrink-0 font-medium">INGRESS:</span>
-                  <span className="text-[#191719] font-semibold truncate select-all">https://lightningapi.pro</span>
+            {/* Quick Ingress Copy Pill */}
+            <div className="pt-1 max-w-md">
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs font-mono text-xs">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="w-2 h-2 rounded-full bg-[#087F5B] shrink-0" />
+                  <span className="text-[#78716c] font-semibold">BASE URL:</span>
+                  <span className="text-[#191719] font-bold truncate select-all">https://api.lightningapi.pro</span>
                 </div>
                 <button
                   type="button"
                   onClick={handleCopyEndpoint}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-[#7136E8] hover:bg-[#EEE6FF] transition-colors shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold text-[#7136E8] hover:bg-[#EEE6FF] transition-colors shrink-0 cursor-pointer"
                   title="Copy base URL"
                 >
                   {copied ? (
                     <>
-                      <Check className="w-3 h-3 text-[#087F5B]" />
+                      <Check className="w-3.5 h-3.5 text-[#087F5B]" />
                       <span className="text-[#087F5B]">Copied</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3 h-3" />
+                      <Copy className="w-3.5 h-3.5" />
                       <span>Copy</span>
                     </>
                   )}
                 </button>
               </div>
-            </motion.div>
+            </div>
 
           </div>
 
-          {/* Right Column: Signature Flowing Ribbon Artwork (5 Cols) */}
-          <div className="lg:col-span-5 relative flex items-center justify-center">
-            <motion.div
-              initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: prefersReducedMotion ? 0.01 : 0.65, delay: 0.15 }}
-              className="relative w-full max-w-[500px] aspect-square flex items-center justify-center"
-            >
-              {/* Studio Flowing Ribbon Canvas (Custom SVG Graphic) */}
-              <svg
-                viewBox="0 0 500 500"
-                className="w-full h-full select-none overflow-visible"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <defs>
-                  {/* Fluid Electric Violet Gradient */}
-                  <linearGradient id="ribbonMainGradient" x1="0%" y1="20%" x2="100%" y2="80%">
-                    <stop offset="0%" stopColor="#7136E8" stopOpacity="0.1" />
-                    <stop offset="35%" stopColor="#7136E8" stopOpacity="0.9" />
-                    <stop offset="70%" stopColor="#9D6BFF" stopOpacity="0.95" />
-                    <stop offset="100%" stopColor="#4F21B5" stopOpacity="0.2" />
-                  </linearGradient>
+          {/* Right Column: Interactive Drop-In Setup Preview */}
+          <div className="lg:col-span-5">
+            <div className="rounded-2xl bg-[#0f172a] text-white border border-slate-800 shadow-xl overflow-hidden font-mono text-xs">
+              
+              {/* Window Header */}
+              <div className="px-4 py-3 bg-[#1e293b] border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
+                  <span className="text-[11px] text-slate-400 font-sans font-medium ml-2">
+                    {codeSnippets[activeTab].filename}
+                  </span>
+                </div>
 
-                  {/* Secondary Harmonic Gradient */}
-                  <linearGradient id="ribbonHarmonicGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#9D6BFF" stopOpacity="0.05" />
-                    <stop offset="50%" stopColor="#7136E8" stopOpacity="0.6" />
-                    <stop offset="100%" stopColor="#EEE6FF" stopOpacity="0.1" />
-                  </linearGradient>
-
-                  {/* Gateway Aperture Gradient */}
-                  <radialGradient id="apertureGlow" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#7136E8" stopOpacity="0.25" />
-                    <stop offset="60%" stopColor="#7136E8" stopOpacity="0.08" />
-                    <stop offset="100%" stopColor="#7136E8" stopOpacity="0" />
-                  </radialGradient>
-
-                  {/* Subtle Filter for Floating Light Embers */}
-                  <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                  </filter>
-                </defs>
-
-                {/* Soft Ambient Radial Light Behind Gateway Aperture */}
-                <circle cx="250" cy="250" r="140" fill="url(#apertureGlow)" />
-
-                {/* Background Geometric Coordinate Circles (Subtle studio guides) */}
-                <circle
-                  cx="250"
-                  cy="250"
-                  r="180"
-                  fill="none"
-                  stroke="#E6E1E8"
-                  strokeWidth="1"
-                  strokeDasharray="4 8"
-                  opacity="0.6"
-                />
-                <circle
-                  cx="250"
-                  cy="250"
-                  r="110"
-                  fill="none"
-                  stroke="#E6E1E8"
-                  strokeWidth="1"
-                  strokeDasharray="2 6"
-                  opacity="0.4"
-                />
-
-                {/* ======================================================== */}
-                {/* FLOWING VIOLET RIBBON PATHS                              */}
-                {/* ======================================================== */}
-                
-                {/* Path 1: Harmonic Background Wave */}
-                <path
-                  d="M 40 310 C 130 350, 180 180, 250 250 C 320 320, 380 150, 470 190"
-                  fill="none"
-                  stroke="url(#ribbonHarmonicGradient)"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                />
-
-                {/* Path 2: Primary Sculptural Ribbon (Splits and Weaves) */}
-                <path
-                  d="M 30 250 C 120 180, 160 320, 250 250 C 340 180, 390 310, 470 230"
-                  fill="none"
-                  stroke="url(#ribbonMainGradient)"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  filter="url(#softGlow)"
-                />
-
-                {/* Path 3: Refracted Upper Arc (Emerging towards Frontier Models) */}
-                <path
-                  d="M 250 250 C 290 190, 350 110, 440 90"
-                  fill="none"
-                  stroke="url(#ribbonMainGradient)"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeDasharray="6 4"
-                  opacity="0.8"
-                />
-
-                {/* Path 4: Refracted Lower Arc (High-Velocity Stream) */}
-                <path
-                  d="M 250 250 C 310 290, 360 380, 450 370"
-                  fill="none"
-                  stroke="url(#ribbonHarmonicGradient)"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeDasharray="6 4"
-                  opacity="0.7"
-                />
-
-                {/* ======================================================== */}
-                {/* ANIMATED PULSE PARTICLES (Graceful Flow Along Splines)   */}
-                {/* ======================================================== */}
-                {!prefersReducedMotion && (
-                  <>
-                    {/* Primary Pulse Entering Gateway */}
-                    <circle r="4" fill="#7136E8" filter="url(#softGlow)">
-                      <animateMotion
-                        path="M 30 250 C 120 180, 160 320, 250 250 C 340 180, 390 310, 470 230"
-                        dur="5s"
-                        repeatCount="indefinite"
-                      />
-                    </circle>
-
-                    {/* Secondary Pulse Offset along Upper Arc */}
-                    <circle r="3" fill="#A77DFF" filter="url(#softGlow)">
-                      <animateMotion
-                        path="M 250 250 C 290 190, 350 110, 440 90"
-                        dur="3.8s"
-                        begin="1.2s"
-                        repeatCount="indefinite"
-                      />
-                    </circle>
-
-                    {/* Returning Response Particle (Emerald Shimmer) */}
-                    <circle r="3" fill="#087F5B" filter="url(#softGlow)">
-                      <animateMotion
-                        path="M 470 230 C 390 310, 340 180, 250 250 C 160 320, 120 180, 30 250"
-                        dur="5s"
-                        begin="2.5s"
-                        repeatCount="indefinite"
-                      />
-                    </circle>
-                  </>
-                )}
-
-                {/* ======================================================== */}
-                {/* CENTRAL SCULPTURAL GATEWAY APERTURE                      */}
-                {/* ======================================================== */}
-                {/* Outer Glass Ring */}
-                <circle
-                  cx="250"
-                  cy="250"
-                  r="52"
-                  fill="#FFFFFF"
-                  stroke="#E6E1E8"
-                  strokeWidth="2"
-                  className="shadow-sm"
-                />
-                {/* Violet Core Ring */}
-                <circle
-                  cx="250"
-                  cy="250"
-                  r="40"
-                  fill="#EEE6FF"
-                  stroke="#7136E8"
-                  strokeWidth="2"
-                  strokeDasharray="3 3"
-                />
-                {/* Sculptural Aperture Symbol */}
-                <circle cx="250" cy="250" r="14" fill="#7136E8" />
-                <circle cx="250" cy="250" r="6" fill="#FFFFFF" />
-
-                {/* Central Status Annotation */}
-                <text
-                  x="250"
-                  y="322"
-                  textAnchor="middle"
-                  fontSize="10"
-                  fontWeight="bold"
-                  fill="#191719"
-                  fontFamily="monospace"
-                  letterSpacing="0.1em"
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Copy Code"
                 >
-                  LIGHTNINGAPI
-                </text>
-                <text
-                  x="250"
-                  y="336"
-                  textAnchor="middle"
-                  fontSize="8.5"
-                  fill="#7136E8"
-                  fontFamily="monospace"
-                >
-                  Unified Gateway Core
-                </text>
-
-                {/* Model Terminal Nodes (Right side convergence points) */}
-                <g transform="translate(440, 90)">
-                  <circle cx="0" cy="0" r="4" fill="#7136E8" />
-                  <circle cx="0" cy="0" r="9" fill="none" stroke="#7136E8" strokeWidth="1" strokeDasharray="2 2" />
-                  <text x="14" y="3" fontSize="9" fontWeight="bold" fill="#191719" fontFamily="monospace">
-                    Sonnet 5.5
-                  </text>
-                </g>
-
-                <g transform="translate(470, 230)">
-                  <circle cx="0" cy="0" r="4" fill="#7136E8" />
-                  <circle cx="0" cy="0" r="9" fill="none" stroke="#7136E8" strokeWidth="1" strokeDasharray="2 2" />
-                  <text x="14" y="3" fontSize="9" fontWeight="bold" fill="#191719" fontFamily="monospace">
-                    Opus 5.5
-                  </text>
-                </g>
-
-                <g transform="translate(450, 370)">
-                  <circle cx="0" cy="0" r="4" fill="#7136E8" />
-                  <circle cx="0" cy="0" r="9" fill="none" stroke="#7136E8" strokeWidth="1" strokeDasharray="2 2" />
-                  <text x="14" y="3" fontSize="9" fontWeight="bold" fill="#191719" fontFamily="monospace">
-                    Haiku 5.5
-                  </text>
-                </g>
-
-                {/* Client Ingress Origin (Left side) */}
-                <g transform="translate(30, 250)">
-                  <circle cx="0" cy="0" r="4" fill="#191719" />
-                  <circle cx="0" cy="0" r="8" fill="none" stroke="#191719" strokeWidth="1" opacity="0.3" />
-                  <text x="-10" y="-12" textAnchor="end" fontSize="9" fontWeight="bold" fill="#68636B" fontFamily="monospace">
-                    Client Ingress
-                  </text>
-                </g>
-              </svg>
-
-              {/* Discreet Edge Indicator */}
-              <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-md bg-white/80 backdrop-blur-xs border border-[#E6E1E8] text-[10px] font-mono text-[#68636B] shadow-2xs">
-                <span>Continuous In-Stream Flow</span>
+                  {copiedCode ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
               </div>
-            </motion.div>
+
+              {/* Client Selector Tabs */}
+              <div className="flex border-b border-slate-800 bg-[#162032] overflow-x-auto text-[11px]">
+                {(['cursor', 'claude_cli', 'python', 'curl'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-3.5 py-2 font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                      activeTab === tab
+                        ? 'bg-[#0f172a] text-white border-b-2 border-violet-500 font-bold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {codeSnippets[tab].title}
+                  </button>
+                ))}
+              </div>
+
+              {/* Code Display */}
+              <div className="p-4 overflow-x-auto">
+                <pre className="text-emerald-300 text-[11.5px] leading-relaxed whitespace-pre font-mono">
+                  <code>{codeSnippets[activeTab].code}</code>
+                </pre>
+              </div>
+
+              {/* Footer Trust Bar */}
+              <div className="px-4 py-2.5 bg-[#162032] border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>100% Drop-in OpenAI & Anthropic Protocol Parity</span>
+                </span>
+                <span className="text-slate-500">Latency: ~25ms</span>
+              </div>
+            </div>
           </div>
 
         </div>

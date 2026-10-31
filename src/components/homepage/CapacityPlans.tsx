@@ -374,7 +374,7 @@ export const CapacityPlans: React.FC = () => {
                 <p className="text-xs text-[#68636B] leading-relaxed max-w-3xl">
                   Your token allowance continuously refills over a 5-hour rolling window. Used tokens automatically
                   regenerate as past requests age out. No waiting for month-end resets. Native drop-in Anthropic protocol
-                  replacement for Cursor, Windsurf, and Claude Code CLI.
+                  replacement for Cursor, Windsurf, and Claude Code CLI. All plans include full access to every Claude model (Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5) — tiers differ only in 5-hour rolling token capacity.
                 </p>
               </div>
             </div>
@@ -564,6 +564,10 @@ export const CapacityPlans: React.FC = () => {
                   <div className="space-y-2 pt-2 border-t border-[#E6E1E8]/70 text-xs text-[#191719]">
                     {selectedBillingMode === 'window' && (
                       <>
+                        <div className="flex items-center gap-2">
+                          <Check className="w-4 h-4 text-[#087F5B] shrink-0" />
+                          <span className="font-semibold text-[#7136E8]">All Latest Claude Models Included</span>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-[#087F5B] shrink-0" />
                           <span>Continuous 5-Hour Refill</span>

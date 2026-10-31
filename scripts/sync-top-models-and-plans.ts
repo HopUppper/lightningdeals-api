@@ -178,11 +178,11 @@ async function syncTopModelsAndPlans() {
     await prisma.plan.update({
       where: { id: 'pro' },
       data: {
-        tagline: 'High-performance access for active daily coding assistance with Sonnet 5.5 & Sonnet 5',
+        tagline: 'High-performance 5M token capacity with full access to all latest Claude models',
         featuresJson: JSON.stringify([
           '5,000,000 Tokens / 5h Window',
           '30-Day Fixed Validity',
-          'Claude Sonnet 5.5, Sonnet 5 & Haiku 5.5 Access',
+          'Full Access to All Claude Models (Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5)',
           'Sub-35ms Gateway Routing',
           'Instant Automated Delivery',
         ]),
@@ -195,11 +195,11 @@ async function syncTopModelsAndPlans() {
     await prisma.plan.update({
       where: { id: 'max' },
       data: {
-        tagline: 'Best value for heavy IDE power users & builders with Opus 5.5, Fable 5 & Sonnet 5.5',
+        tagline: 'Best value 20M token capacity with full access to all latest Claude models',
         featuresJson: JSON.stringify([
           '20,000,000 Tokens / 5h Window',
           '30-Day Fixed Validity',
-          'Claude Opus 5.5, Fable 5, Sonnet 5.5 & Thinking Models',
+          'Full Access to All Claude Models (Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5)',
           'Cursor, Windsurf & CLI Ready',
           'Instant Automated Delivery',
         ]),
@@ -212,7 +212,7 @@ async function syncTopModelsAndPlans() {
     await prisma.plan.update({
       where: { id: 'ultra' },
       data: {
-        tagline: 'Maximum high-volume capacity for engineering teams with all Top 10 Claude Models',
+        tagline: 'Heavy-duty 40M token capacity with full access to all latest Claude models',
         featuresJson: JSON.stringify([
           '40,000,000 Tokens / 5h Window',
           '30-Day Fixed Validity',

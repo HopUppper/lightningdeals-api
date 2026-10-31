@@ -319,7 +319,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           keyHash,
           displayKey,
           keyEncrypted: encryptText(rawKeySecret),
-          name: `${plan.name} (${order.internalOrderId.substring(0, 8)})`,
+          name: `${plan.displayName || plan.name} (${order.internalOrderId})`,
           plan: plan.displayName || plan.name,
           allowedModels: (plan as any).allowedModels || 'all',
           allowedModelFamilies: (plan as any).allowedModelFamilies || 'all',

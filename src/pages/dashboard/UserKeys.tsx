@@ -403,12 +403,12 @@ export const UserKeys: React.FC = () => {
                       </td>
                       <td className="py-4 px-5 text-amber-600 font-semibold font-mono">
                         {isCredit
-                          ? `₹${(k.creditBalanceInr != null ? (k.totalCreditsUsedUsd || 0) : (k.totalCreditsUsedUsd || 0)).toFixed(2)} Credits`
+                          ? `$${(Number(k.totalCreditsUsedUsd) || 0).toFixed(2)} Credits`
                           : formatTokens(k.tokensUsed)}
                       </td>
                       <td className="py-4 px-5 font-bold text-emerald-700 font-mono">
                         {isCredit
-                          ? `₹${(k.creditBalanceInr != null ? k.creditBalanceInr : (k.creditBalanceUsd || 0)).toLocaleString()} Credits`
+                          ? `$${(Number(k.creditBalanceUsd) || Number(k.creditBalanceInr) || 0).toFixed(2)} Credits`
                           : formatTokens(k.tokensRemaining)}
                       </td>
                       <td className="py-4 px-5 text-right">

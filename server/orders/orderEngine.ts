@@ -242,7 +242,7 @@ export class OrderEngine {
         paymentGateway: payableAmountInr === 0 ? 'LIGHTNING_CREDITS' : getPaymentProvider().name,
         planCategory: (plan as any).planCategory || (orderPlanType === 'credit' ? 'claude_openai_credits' : orderPlanType === 'token' ? 'claude_tokens' : 'claude_max_rolling'),
         creditBalanceInr: orderPlanType === 'credit' ? creditsPurchased : null,
-        creditBalanceDenomination: 'INR',
+        creditBalanceDenomination: 'USD',
       },
     });
 

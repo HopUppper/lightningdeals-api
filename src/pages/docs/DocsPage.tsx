@@ -485,8 +485,8 @@ export const DocsPage: React.FC = () => {
                     </span>
                   </div>
                   <p className="leading-relaxed">
-                    • <strong>Rolling Window &amp; Credit Plans:</strong> Base URL is <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://api.lightningapi.pro/v1</code> (or <code className="font-mono bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#5b21b6]">https://lightningapi.pro</code> in Anthropic SDKs that auto-append <code className="font-mono">/v1/messages</code>).<br />
-                    • <strong>Prepaid Token Pack Plans:</strong> Base URL is <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://api.lightningapi.pro/token/v1</code>.
+                    • <strong>Rolling Window &amp; Credit Plans:</strong> Base URL is <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://lightningapi.pro/v1</code> (or <code className="font-mono bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#5b21b6]">https://lightningapi.pro</code> in Anthropic SDKs that auto-append <code className="font-mono">/v1/messages</code>).<br />
+                    • <strong>Prepaid Token Pack Plans:</strong> Base URL is <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://lightningapi.pro/token/v1</code>.
                   </p>
                 </div>
               </section>
@@ -547,7 +547,7 @@ export const DocsPage: React.FC = () => {
                   </div>
                   <CodeSnippetBlock
                     language="bash"
-                    code={`curl https://api.lightningapi.pro/v1/messages \\
+                    code={`curl https://lightningapi.pro/v1/messages \\
   -H "x-api-key: ld_live_your_api_key_here" \\
   -H "anthropic-version: 2023-06-01" \\
   -H "content-type: application/json" \\
@@ -734,7 +734,7 @@ export const DocsPage: React.FC = () => {
 
                   <CodeSnippetBlock
                     language="bash"
-                    code={`curl https://api.lightningapi.pro/v1/chat/completions \\
+                    code={`curl https://lightningapi.pro/v1/chat/completions \\
   -H "Authorization: Bearer ld_live_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -888,7 +888,7 @@ claude`}
                         <strong className="text-[#1c1917]">Method B: OpenAI &amp; Local Models (OpenAI Compatible)</strong>
                         <ol className="list-decimal list-inside space-y-1 text-[#57534e] pl-1">
                           <li>In <strong className="text-[#1c1917]">OpenAI API Key</strong>, paste: <code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>.</li>
-                          <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> and set: <code className="font-mono font-bold text-[#1c1917]">https://api.lightningapi.pro/v1</code>.</li>
+                          <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> and set: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro/v1</code>.</li>
                           <li>Add model: <code className="font-mono">deepseek-ai/deepseek-v3</code> or <code className="font-mono">gpt-4o</code>.</li>
                         </ol>
                       </div>
@@ -906,7 +906,7 @@ claude`}
                     <ol className="list-decimal list-inside space-y-2 text-xs text-[#57534e] pl-1">
                       <li>Open <strong className="text-[#1c1917]">Windsurf Settings &rarr; AI Providers</strong>.</li>
                       <li>Select <strong className="text-[#1c1917]">Anthropic</strong> or <strong className="text-[#1c1917]">Custom OpenAI Provider</strong>.</li>
-                      <li>Set <strong className="text-[#1c1917]">Base URL</strong>: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code> (for Anthropic) or <code className="font-mono font-bold text-[#1c1917]">https://api.lightningapi.pro/v1</code> (for OpenAI).</li>
+                      <li>Set <strong className="text-[#1c1917]">Base URL</strong>: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code> (for Anthropic) or <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro/v1</code> (for OpenAI).</li>
                       <li>Set <strong className="text-[#1c1917]">API Key</strong>: <code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>.</li>
                     </ol>
                   </div>
@@ -922,7 +922,7 @@ claude`}
                     <div className="space-y-2 text-xs">
                       <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] font-mono space-y-1">
                         <div><strong>API Provider:</strong> Anthropic (or OpenAI Compatible)</div>
-                        <div><strong>Base URL:</strong> https://api.lightningapi.pro/v1</div>
+                        <div><strong>Base URL:</strong> https://lightningapi.pro/v1</div>
                         <div><strong>API Key:</strong> ld_live_your_key_here</div>
                         <div><strong>Model ID:</strong> claude-sonnet-5.5 (or deepseek-ai/deepseek-v3)</div>
                       </div>
@@ -963,7 +963,7 @@ print(response.content[0].text)`}
 
 client = openai.OpenAI(
     api_key="ld_live_your_key_here",
-    base_url="https://api.lightningapi.pro/v1"
+    base_url="https://lightningapi.pro/v1"
 )
 
 response = client.chat.completions.create(
@@ -1008,7 +1008,7 @@ console.log(response.content[0]);`}
                     <CodeSnippetBlock
                       language="bash"
                       code={`# Anthropic Messages format
-curl https://api.lightningapi.pro/v1/messages \\
+curl https://lightningapi.pro/v1/messages \\
   -H "x-api-key: ld_live_your_key_here" \\
   -H "anthropic-version: 2023-06-01" \\
   -H "content-type: application/json" \\
@@ -1019,7 +1019,7 @@ curl https://api.lightningapi.pro/v1/messages \\
   }'
 
 # OpenAI Chat Completions format
-curl https://api.lightningapi.pro/v1/chat/completions \\
+curl https://lightningapi.pro/v1/chat/completions \\
   -H "Authorization: Bearer ld_live_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1558,22 +1558,22 @@ curl https://api.lightningapi.pro/v1/chat/completions \\
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
                     <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
                       <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Rolling Pool &amp; Native Claude:</span>
-                      <code className="text-[#6d28d9] font-bold block text-xs">https://api.lightningapi.pro</code>
+                      <code className="text-[#6d28d9] font-bold block text-xs">https://lightningapi.pro</code>
                       <span className="text-[10px] text-[#78716c] block font-sans">Used with Claude Code CLI, Claude Desktop, and native Messages SDKs.</span>
                     </div>
                     <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
                       <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">OpenAI &amp; Universal Credits:</span>
-                      <code className="text-emerald-700 font-bold block text-xs">https://api.lightningapi.pro/v1</code>
+                      <code className="text-emerald-700 font-bold block text-xs">https://lightningapi.pro/v1</code>
                       <span className="text-[10px] text-[#78716c] block font-sans">Used with Cursor, Roo Code, Python OpenAI SDK, and LangChain.</span>
                     </div>
                     <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
                       <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Token Packs (Native Claude):</span>
-                      <code className="text-[#6d28d9] font-bold block text-xs">https://api.lightningapi.pro/token</code>
+                      <code className="text-[#6d28d9] font-bold block text-xs">https://lightningapi.pro/token</code>
                       <span className="text-[10px] text-[#78716c] block font-sans">Appends /v1/messages automatically for native Anthropic protocol.</span>
                     </div>
                     <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
                       <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Token Packs (OpenAI &amp; Local):</span>
-                      <code className="text-emerald-700 font-bold block text-xs">https://api.lightningapi.pro/token/v1</code>
+                      <code className="text-emerald-700 font-bold block text-xs">https://lightningapi.pro/token/v1</code>
                       <span className="text-[10px] text-[#78716c] block font-sans">Direct drop-in for OpenAI-compatible chat completions and reasoning.</span>
                     </div>
                   </div>

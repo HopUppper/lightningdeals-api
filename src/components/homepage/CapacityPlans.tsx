@@ -759,9 +759,9 @@ export const CapacityPlans: React.FC = () => {
                   </tr>
                   <tr>
                     <td className="py-3 px-4 font-bold">Base URL</td>
-                    <td className="py-3 px-4 font-mono text-[#7136E8]">https://api.lightningapi.pro</td>
-                    <td className="py-3 px-4 font-mono text-amber-600">https://api.lightningapi.pro/v1</td>
-                    <td className="py-3 px-4 font-mono text-emerald-700">https://api.lightningapi.pro/token/v1</td>
+                    <td className="py-3 px-4 font-mono text-[#7136E8]">https://lightningapi.pro</td>
+                    <td className="py-3 px-4 font-mono text-amber-600">https://lightningapi.pro/v1</td>
+                    <td className="py-3 px-4 font-mono text-emerald-700">https://lightningapi.pro/token/v1</td>
                   </tr>
                 </tbody>
               </table>
@@ -779,7 +779,7 @@ export const CapacityPlans: React.FC = () => {
                 <div className="p-4 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-2">
                   <span className="text-[10px] uppercase font-bold text-[#7136E8] block">Claude Native SDKs</span>
                   <div className="p-2 rounded bg-white border border-[#E6E1E8] font-bold text-[#191719] break-all">
-                    https://api.lightningapi.pro
+                    https://lightningapi.pro
                   </div>
                   <p className="text-[11px] text-[#68636B] font-sans">
                     Drop-in origin for Anthropic client SDK, Claude Code CLI, and 5-hour rolling pool traffic.
@@ -789,7 +789,7 @@ export const CapacityPlans: React.FC = () => {
                 <div className="p-4 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-2">
                   <span className="text-[10px] uppercase font-bold text-amber-600 block">OpenAI & Credit Route</span>
                   <div className="p-2 rounded bg-white border border-[#E6E1E8] font-bold text-[#191719] break-all">
-                    https://api.lightningapi.pro/v1
+                    https://lightningapi.pro/v1
                   </div>
                   <p className="text-[11px] text-[#68636B] font-sans">
                     Universal OpenAI-compatible chat completions (<code className="font-mono">/v1/chat/completions</code>) for Credits.
@@ -799,7 +799,7 @@ export const CapacityPlans: React.FC = () => {
                 <div className="p-4 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-2">
                   <span className="text-[10px] uppercase font-bold text-emerald-700 block">Token Packs Route</span>
                   <div className="p-2 rounded bg-white border border-[#E6E1E8] font-bold text-[#191719] break-all">
-                    https://api.lightningapi.pro/token/v1
+                    https://lightningapi.pro/token/v1
                   </div>
                   <p className="text-[11px] text-[#68636B] font-sans">
                     Dedicated endpoint for consuming prepaid token pack allowances (<code className="font-mono">/token/v1/chat/completions</code>).
@@ -849,12 +849,12 @@ export const CapacityPlans: React.FC = () => {
                   onClick={() => {
                     const text =
                       codeTab === 'claude_cli'
-                        ? 'export ANTHROPIC_BASE_URL="https://api.lightningapi.pro"\nexport ANTHROPIC_API_KEY="sk_live_your_lightning_key"\nclaude'
+                        ? 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"\nexport ANTHROPIC_API_KEY="sk_live_your_lightning_key"\nclaude'
                         : codeTab === 'cursor'
-                        ? 'Base URL: https://api.lightningapi.pro\nAPI Key: sk_live_your_lightning_key\nOverride Model: claude-sonnet-5.5'
+                        ? 'Base URL: https://lightningapi.pro\nAPI Key: sk_live_your_lightning_key\nOverride Model: claude-sonnet-5.5'
                         : codeTab === 'python'
-                        ? 'from openai import OpenAI\n\nclient = OpenAI(\n    base_url="https://api.lightningapi.pro/v1",\n    api_key="sk_live_your_lightning_key"\n)\n\nresponse = client.chat.completions.create(\n    model="claude-sonnet-5.5",\n    messages=[{"role": "user", "content": "Hello!"}]\n)'
-                        : 'curl "https://api.lightningapi.pro/v1/chat/completions" \\\n  -H "Authorization: Bearer sk_live_your_lightning_key" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model": "claude-sonnet-5.5", "messages": [{"role": "user", "content": "Hi"}]}\'';
+                        ? 'from openai import OpenAI\n\nclient = OpenAI(\n    base_url="https://lightningapi.pro/v1",\n    api_key="sk_live_your_lightning_key"\n)\n\nresponse = client.chat.completions.create(\n    model="claude-sonnet-5.5",\n    messages=[{"role": "user", "content": "Hello!"}]\n)'
+                        : 'curl "https://lightningapi.pro/v1/chat/completions" \\\n  -H "Authorization: Bearer sk_live_your_lightning_key" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model": "claude-sonnet-5.5", "messages": [{"role": "user", "content": "Hi"}]}\'';
                     copyToClipboard(text);
                   }}
                   className="absolute top-3 right-3 px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[11px] flex items-center gap-1 transition-colors"
@@ -866,7 +866,7 @@ export const CapacityPlans: React.FC = () => {
                 {codeTab === 'claude_cli' && (
                   <pre className="text-violet-300">
 {`# 1. Point Anthropic base URL to LightningAPI
-export ANTHROPIC_BASE_URL="https://api.lightningapi.pro"
+export ANTHROPIC_BASE_URL="https://lightningapi.pro"
 
 # 2. Set your LightningAPI key
 export ANTHROPIC_API_KEY="sk_live_your_lightning_key"
@@ -881,7 +881,7 @@ claude`}
 {`# Cursor & Windsurf Custom API Key Settings:
 1. Open Cursor Settings -> Models
 2. Under "Anthropic API Key":
-   - Base URL: https://api.lightningapi.pro
+   - Base URL: https://lightningapi.pro
    - API Key: sk_live_your_lightning_key
 3. Add model: claude-sonnet-5.5 or claude-opus-5.5`}
                   </pre>
@@ -892,7 +892,7 @@ claude`}
 {`from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.lightningapi.pro/v1",
+    base_url="https://lightningapi.pro/v1",
     api_key="sk_live_your_lightning_key"
 )
 
@@ -906,7 +906,7 @@ print(response.choices[0].message.content)`}
 
                 {codeTab === 'curl' && (
                   <pre className="text-neutral-200">
-{`curl "https://api.lightningapi.pro/v1/chat/completions" \\
+{`curl "https://lightningapi.pro/v1/chat/completions" \\
   -H "Authorization: Bearer sk_live_your_lightning_key" \\
   -H "Content-Type: application/json" \\
   -d '{

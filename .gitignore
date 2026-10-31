@@ -7,3 +7,4 @@ prisma/dev.db-journal
 *.tgz
 .DS_Store
 user_prompt_latest.txt
+scratch/

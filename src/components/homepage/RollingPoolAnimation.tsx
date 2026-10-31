@@ -228,7 +228,7 @@ export const RollingPoolAnimation: React.FC = () => {
   };
 
   const handleCopyKey = () => {
-    navigator.clipboard.writeText('export ANTHROPIC_BASE_URL="https://api.lightningapi.pro"\nexport ANTHROPIC_AUTH_TOKEN="lightning_live_7x9q4k2m9p"');
+    navigator.clipboard.writeText('export ANTHROPIC_BASE_URL="https://lightningapi.pro"\nexport ANTHROPIC_AUTH_TOKEN="lightning_live_7x9q4k2m9p"');
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
   };
@@ -320,7 +320,7 @@ export const RollingPoolAnimation: React.FC = () => {
           <div className="flex items-center gap-3 bg-[#0E0C13] border border-[#231F2D] rounded-lg px-3.5 py-2 font-mono text-xs text-[#E6E1E8] overflow-x-auto">
             <span className="text-[#68636B] select-none">$</span>
             <span className="text-[#9F75FF]">export</span>
-            <span>ANTHROPIC_BASE_URL="https://api.lightningapi.pro"</span>
+            <span>ANTHROPIC_BASE_URL="https://lightningapi.pro"</span>
             <span className="text-[#68636B] hidden lg:inline">·</span>
             <span className="text-[#9F75FF] hidden lg:inline">export</span>
             <span className="hidden lg:inline">ANTHROPIC_AUTH_TOKEN="lightning_live_7x9q..."</span>

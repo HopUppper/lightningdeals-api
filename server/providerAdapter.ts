@@ -594,7 +594,7 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
   override sanitizeErrorMessage(message: string): string {
     return super.sanitizeErrorMessage(message)
       .replace(/scalemax/gi, 'LightningAPI')
-      .replace(/api\.scalemax\.pro/gi, 'api.lightningapi.pro')
+      .replace(/api\.scalemax\.pro/gi, 'lightningapi.pro')
       .replace(/sm_live_[a-zA-Z0-9_-]+/g, 'ld_live_••••••••')
       .replace(/sk-[a-zA-Z0-9_-]{20,}/g, 'sk_live_••••••••');
   }

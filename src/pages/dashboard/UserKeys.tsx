@@ -108,7 +108,7 @@ export const UserKeys: React.FC = () => {
   const handleCopyEnv = (keyText: string, id: string, type: 'anthropic' | 'openai' = 'anthropic') => {
     const snippet = type === 'anthropic'
       ? `export ANTHROPIC_BASE_URL="https://lightningapi.pro"\nexport ANTHROPIC_AUTH_TOKEN="${keyText}"`
-      : `export OPENAI_BASE_URL="https://api.lightningapi.pro/v1"\nexport OPENAI_API_KEY="${keyText}"`;
+      : `export OPENAI_BASE_URL="https://lightningapi.pro/v1"\nexport OPENAI_API_KEY="${keyText}"`;
     navigator.clipboard.writeText(snippet);
     setCopiedEnvId(id + '_' + type);
     setTimeout(() => setCopiedEnvId(null), 2500);
@@ -491,7 +491,7 @@ export const UserKeys: React.FC = () => {
                 Use with OpenAI-compatible clients, LangChain, or custom SDK wrappers:
               </p>
               <div className="p-3 rounded-xl bg-white border border-[#ede8e1] font-mono text-[11px] text-[#1e1b2e] space-y-1">
-                <div>export OPENAI_BASE_URL="https://api.lightningapi.pro/v1"</div>
+                <div>export OPENAI_BASE_URL="https://lightningapi.pro/v1"</div>
                 <div>export OPENAI_API_KEY="your_key_secret"</div>
               </div>
               <button

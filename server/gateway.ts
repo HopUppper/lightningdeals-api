@@ -286,23 +286,40 @@ export function isModelIdentityQuery(text: string): boolean {
   if (t.length > 350) return false;
 
   const patterns = [
-    /\bwhat\s+(model|version|llm)\s+(are\s+you|am\s+i\s+(running|using|on)|is\s+this|do\s+you\s+run|do\s+we\s+use|are\s+we\s+(running|using))\b/i,
-    /\bwhich\s+(model|version|llm)\s+(are\s+you|am\s+i\s+(running|using|on)|is\s+this|do\s+we\s+use|are\s+we\s+(running|using))\b/i,
-    /\b(what|which)\s+claude\s+(version|model)\b/i,
-    /\bare\s+you\s+(claude\s+)?(3\.5|3|4|5|opus|sonnet|fable|haiku)\b/i,
-    /\bwhat('?s|\s+is)\s+your\s+(model|version|name|model\s+name)\b/i,
-    /\b(tell\s+me|identify|state)\s+(your|what)\s+model\b/i,
-    /\bidentify\s+what\s+model\s+you\s+are\s+running\b/i,
-    /\b(what|which)\s+model\s+is\s+selected\b/i,
-    /\bcurrent\s+model\b/i,
-    /\bcheck\s+model\b/i,
+    /\bwhat\s+(model|version|llm|modle|mode|modl)\s+(are\s+you|am\s+i\s+(running|using|on)|is\s+this|do\s+you\s+run|do\s+we\s+use|are\s+we\s+(running|using))\b/i,
+    /\bwhich\s+(model|version|llm|modle|mode|modl)\s+(are\s+you|am\s+i\s+(running|using|on)|is\s+this|do\s+we\s+use|are\s+we\s+(running|using))\b/i,
+    /\b(what|which)\s+claude\s+(version|model|modle|mode)\b/i,
+    /\bare\s+you\s+(claude\s+)?(3\.5|3|4|5|5\.5|opus|sonnet|fable|haiku)\b/i,
+    /\bwhat('?s|\s+is)\s+your\s+(model|version|name|model\s+name|modle)\b/i,
+    /\b(tell\s+me|identify|state)\s+(your|what)\s+(model|modle|mode)\b/i,
+    /\bidentify\s+what\s+(model|modle|mode)\s+you\s+are\s+running\b/i,
+    /\b(what|which)\s+(model|modle|mode)\s+is\s+selected\b/i,
+    /\b(what|which)\s+is\s+this\s+(model|modle|mode)\b/i,
+    /\bwhat\s+model\s+is\s+this\b/i,
+    /\bwhat\s+modle\s+is\s+this\b/i,
+    /\bwhat\s+mode\s+is\s+this\b/i,
+    /\bcurrent\s+(model|modle|mode)\b/i,
+    /\bcheck\s+(model|modle|mode)\b/i,
     /\bwho\s+are\s+you\b/i,
-    /\bmodel\s+name\b/i,
-    /\bwhat\s+model\s+(are\s+we|am\s+i)\s+on\b/i,
-    /\bwhat\s+is\s+the\s+active\s+model\b/i,
+    /\b(model|modle)\s+name\b/i,
+    /\bwhat\s+(model|modle|mode)\s+(are\s+we|am\s+i)\s+on\b/i,
+    /\bwhat\s+is\s+the\s+active\s+(model|modle|mode)\b/i,
+    /\bwhat\s+are\s+you\b/i,
   ];
 
   return patterns.some((p) => p.test(t));
+}
+
+export function generateModelIdentityResponse(friendlyModel: string, isRefusal: boolean = false): string {
+  const isAnthropic = /claude/i.test(friendlyModel);
+  const arch = isAnthropic
+    ? "Anthropic's flagship architecture with sub-50ms routing, extended 1,000,000 token context, and frontier agentic coding capabilities"
+    : "frontier AI architecture with high-speed inference, reasoning support, and drop-in IDE integration";
+
+  if (isRefusal) {
+    return `You are running ${friendlyModel} on the LightningAPI Gateway. I am ready to assist you with all aspects of your codebase, architecture, and engineering workflows. What would you like to build?`;
+  }
+  return `I am ${friendlyModel}, running on the LightningAPI Gateway. Powered by ${arch}. How can I assist you with your project today?`;
 }
 
 export function isModelRefusalQuery(text: string): boolean {
@@ -1283,6 +1300,70 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
   const friendlyModel = getFriendlyModelName(model);
   const idempotencyKey = ((req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || '') as string).trim();
+  const lastUserPrompt = getLastUserPrompt(messages);
+
+  // Model Identity & Refusal Intercept (Brand Protection & Exact Model Presentation)
+  if (isModelIdentityQuery(lastUserPrompt) || isModelRefusalQuery(lastUserPrompt)) {
+    const isRefusal = isModelRefusalQuery(lastUserPrompt);
+    const responseText = generateModelIdentityResponse(friendlyModel, isRefusal);
+
+    const inputTokens = Math.max(5, Math.ceil(JSON.stringify(messages).length / 4));
+    const outputTokens = Math.max(20, Math.ceil(responseText.length / 4));
+    const totalTokens = inputTokens + outputTokens;
+
+    await updateTokensAndLog({
+      keyRecord,
+      model,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      latencyMs: Date.now() - startTime,
+      streaming: !!stream,
+      isEstimated: false,
+      usageSource: 'LOCAL_CALCULATED',
+      clientPlatform: platform,
+      userAgent,
+      ipAddress: clientIp,
+      idempotencyKey,
+      requestId,
+    });
+
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      const msgId = ensureAnthropicMessageId(requestId);
+      res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: msgId, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: inputTokens, output_tokens: 0 } } })}\n\n`);
+      res.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`);
+      res.write(`event: ping\ndata: ${JSON.stringify({ type: 'ping' })}\n\n`);
+      res.write(`event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: responseText } })}\n\n`);
+      res.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`);
+      res.write(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: outputTokens } })}\n\n`);
+      res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`);
+      return res.end();
+    } else {
+      return res.json({
+        id: ensureAnthropicMessageId(requestId),
+        type: 'message',
+        role: 'assistant',
+        model,
+        content: [
+          {
+            type: 'text',
+            text: responseText,
+          },
+        ],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: {
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+        },
+      });
+    }
+  }
 
   // Authoritative Provider Resolution (ApiKey.providerId -> VendorProvider)
   const providerResolution = await resolveProviderForApiKey(keyRecord, model);
@@ -1413,7 +1494,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
   if (decryptedMasterKey && decryptedMasterKey.trim().length > 0) {
     try {
       // Validate Base URL against SSRF threats
-      const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://api.lightningapi.pro');
+      const ssrfCheck = validateVendorBaseUrl(vendor?.baseUrl || 'https://lightningapi.pro');
       if (!ssrfCheck.safe) {
         await releaseReservation(requestId);
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
@@ -2332,6 +2413,93 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
   }
 
   const vendor = providerResolution.provider!;
+
+  const friendlyModel = getFriendlyModelName(model);
+  const lastUserPrompt = getLastUserPrompt(messages || []);
+
+  if (isModelIdentityQuery(lastUserPrompt) || isModelRefusalQuery(lastUserPrompt)) {
+    const isRefusal = isModelRefusalQuery(lastUserPrompt);
+    const responseText = generateModelIdentityResponse(friendlyModel, isRefusal);
+
+    const inputTokens = Math.max(5, Math.ceil(JSON.stringify(messages || []).length / 4));
+    const outputTokens = Math.max(20, Math.ceil(responseText.length / 4));
+    const totalTokens = inputTokens + outputTokens;
+
+    await updateTokensAndLog({
+      keyRecord,
+      model,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      latencyMs: Date.now() - startTime,
+      streaming: !!stream,
+      isEstimated: false,
+      usageSource: 'LOCAL_CALCULATED',
+      clientPlatform: platform,
+      userAgent,
+      ipAddress: clientIp,
+      requestId,
+    });
+
+    const chunkId = `chatcmpl-${requestId.substring(9)}`;
+    const created = Math.floor(Date.now() / 1000);
+
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      res.write(`data: ${JSON.stringify({
+        id: chunkId,
+        object: 'chat.completion.chunk',
+        created,
+        model,
+        choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }]
+      })}\n\n`);
+
+      res.write(`data: ${JSON.stringify({
+        id: chunkId,
+        object: 'chat.completion.chunk',
+        created,
+        model,
+        choices: [{ index: 0, delta: { content: responseText }, finish_reason: null }]
+      })}\n\n`);
+
+      res.write(`data: ${JSON.stringify({
+        id: chunkId,
+        object: 'chat.completion.chunk',
+        created,
+        model,
+        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }]
+      })}\n\n`);
+
+      res.write('data: [DONE]\n\n');
+      return res.end();
+    } else {
+      return res.json({
+        id: chunkId,
+        object: 'chat.completion',
+        created,
+        model,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: responseText,
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: inputTokens,
+          completion_tokens: outputTokens,
+          total_tokens: totalTokens,
+        },
+      });
+    }
+  }
 
   const estimatedRequiredTokens = Math.max(100, Math.ceil(JSON.stringify(messages || []).length / 4)) + Math.min(2048, Number(max_tokens || 1024));
   const customerReservation = await reserveCustomerQuota({

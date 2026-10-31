@@ -59,7 +59,7 @@ claude-sonnet-5.5`;
 
   const cursorOpenAISnippet = `// In Cursor Settings -> Models -> OpenAI API Key:
 // Base URL:
-https://api.lightningapi.pro/v1
+https://lightningapi.pro/v1
 
 // API Key:
 ld_live_your_api_key_here
@@ -68,7 +68,7 @@ ld_live_your_api_key_here
 o1, o3-mini, gpt-4o, deepseek-chat, grok-2`;
 
   const windsurfSnippet = `// In Windsurf Settings -> Custom AI Provider:
-Base URL: https://api.lightningapi.pro/v1
+Base URL: https://lightningapi.pro/v1
 API Key:  ld_live_your_api_key_here
 Models:   claude-sonnet-5.5, gpt-4o, deepseek-chat`;
 
@@ -87,7 +87,7 @@ Models:   claude-sonnet-5.5, gpt-4o, deepseek-chat`;
       "provider": "openai",
       "model": "deepseek-chat",
       "apiKey": "ld_live_your_api_key_here",
-      "apiBase": "https://api.lightningapi.pro/v1"
+      "apiBase": "https://lightningapi.pro/v1"
     }
   ]
 }`;
@@ -109,7 +109,7 @@ print(response.content[0].text)`;
   const pythonOpenAISnippet = `from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.lightningapi.pro/v1",
+    base_url="https://lightningapi.pro/v1",
     api_key="ld_live_your_api_key_here"
 )
 
@@ -137,7 +137,7 @@ console.log(response.content[0].text);`;
   const nodeOpenAISnippet = `import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  baseURL: 'https://api.lightningapi.pro/v1',
+  baseURL: 'https://lightningapi.pro/v1',
   apiKey: 'ld_live_your_api_key_here',
 });
 
@@ -157,7 +157,7 @@ console.log(completion.choices[0].message.content);`;
     "messages": [{"role": "user", "content": "Hello LightningAPI!"}]
   }'`;
 
-  const curlOpenAISnippet = `curl -X POST https://api.lightningapi.pro/v1/chat/completions \\
+  const curlOpenAISnippet = `curl -X POST https://lightningapi.pro/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ld_live_your_api_key_here" \\
   -d '{

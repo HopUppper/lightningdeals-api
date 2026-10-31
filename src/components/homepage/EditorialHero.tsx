@@ -8,7 +8,7 @@ export const EditorialHero: React.FC = () => {
   const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyEndpoint = () => {
-    navigator.clipboard.writeText('https://api.lightningapi.pro');
+    navigator.clipboard.writeText('https://lightningapi.pro');
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -19,7 +19,7 @@ export const EditorialHero: React.FC = () => {
       filename: 'Settings > Models > OpenAI / Anthropic Override',
       code: `// 1. Open Cursor Settings -> Models -> OpenAI / Anthropic
 // 2. Set Base URL:
-Base URL: https://api.lightningapi.pro
+Base URL: https://lightningapi.pro
 
 // 3. Set API Key:
 API Key:  ld_live_your_key_here
@@ -31,7 +31,7 @@ API Key:  ld_live_your_key_here
       title: 'Claude Code CLI',
       filename: '~/.bashrc or terminal',
       code: `# Use Claude Code CLI at up to 80% lower cost
-export ANTHROPIC_BASE_URL="https://api.lightningapi.pro"
+export ANTHROPIC_BASE_URL="https://lightningapi.pro"
 export ANTHROPIC_API_KEY="ld_live_your_key_here"
 
 # Start coding
@@ -43,7 +43,7 @@ claude`,
       code: `from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.lightningapi.pro/v1",
+    base_url="https://lightningapi.pro/v1",
     api_key="ld_live_your_key_here"
 )
 
@@ -56,7 +56,7 @@ print(response.choices[0].message.content)`,
     curl: {
       title: 'cURL / REST API',
       filename: 'terminal',
-      code: `curl https://api.lightningapi.pro/v1/chat/completions \\
+      code: `curl https://lightningapi.pro/v1/chat/completions \\
   -H "Authorization: Bearer ld_live_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -169,7 +169,7 @@ print(response.choices[0].message.content)`,
                 <div className="flex items-center gap-2 truncate">
                   <span className="w-2 h-2 rounded-full bg-[#087F5B] shrink-0" />
                   <span className="text-[#78716c] font-semibold">BASE URL:</span>
-                  <span className="text-[#191719] font-bold truncate select-all">https://api.lightningapi.pro</span>
+                  <span className="text-[#191719] font-bold truncate select-all">https://lightningapi.pro</span>
                 </div>
                 <button
                   type="button"

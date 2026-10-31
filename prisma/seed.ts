@@ -147,7 +147,7 @@ async function main() {
       validityDays: 30,
       rateLimitRpm: 100,
       priceInr: 5999,
-      originalPriceInr: 22999,
+      originalPriceInr: 7999,
       currency: 'INR',
       tagline: 'Best value 20M token capacity with full access to all latest Claude models',
       badge: 'MOST POPULAR',

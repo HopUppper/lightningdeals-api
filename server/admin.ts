@@ -1216,7 +1216,7 @@ router.get('/providers/:id/balance', async (req: AuthRequest, res: Response) => 
     const lastDiscovered = provider.lastDiscoveredAt ? new Date(provider.lastDiscoveredAt).getTime() : 0;
     const cacheAgeMs = Date.now() - lastDiscovered;
 
-    if (isLive && cacheAgeMs > 2000 && provider.status !== 'disabled') {
+    if ((isLive || cacheAgeMs > 15000) && provider.status !== 'disabled') {
       try {
         await ProviderDiscoveryRegistry.discoverProvider(id);
         const reloaded = await prisma.vendorProvider.findUnique({ where: { id } });

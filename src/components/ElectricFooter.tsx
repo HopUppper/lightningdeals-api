@@ -10,7 +10,8 @@ export const ElectricFooter: React.FC = () => {
       .then((res) => res.json())
       .then((data) => {
         if (data && data.status) {
-          setSystemStatus(data.status === 'operational' ? 'OPERATIONAL' : 'DEGRADED');
+          const isOp = data.status.toLowerCase() === 'operational' || data.overallStatus === 'operational';
+          setSystemStatus(isOp ? 'OPERATIONAL' : 'DEGRADED');
         }
       })
       .catch(() => setSystemStatus('OPERATIONAL'));

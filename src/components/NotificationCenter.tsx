@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Info, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
-import { adminFetch } from '../utils/api';
+import { userFetch } from '../utils/api';
 
 export const NotificationCenter: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -10,7 +10,7 @@ export const NotificationCenter: React.FC = () => {
 
   const fetchNotifications = async () => {
     try {
-      const res = await adminFetch('/api/user/notifications');
+      const res = await userFetch('/api/user/notifications');
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -40,7 +40,7 @@ export const NotificationCenter: React.FC = () => {
 
   const markAsRead = async (id: string) => {
     try {
-      await adminFetch(`/api/user/notifications/${id}/read`, { method: 'POST' });
+      await userFetch(`/api/user/notifications/${id}/read`, { method: 'POST' });
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
@@ -52,7 +52,7 @@ export const NotificationCenter: React.FC = () => {
 
   const markAllRead = async () => {
     try {
-      await adminFetch('/api/user/notifications/read-all', { method: 'POST' });
+      await userFetch('/api/user/notifications/read-all', { method: 'POST' });
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch (e) {

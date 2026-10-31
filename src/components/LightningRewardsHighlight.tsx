@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check, Coins, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { adminFetch } from '../utils/api';
+import { userFetch } from '../utils/api';
 
 export const LightningRewardsHighlight: React.FC = () => {
   const { user } = useAuth();
@@ -32,7 +32,7 @@ export const LightningRewardsHighlight: React.FC = () => {
       const fetchBalance = async () => {
         try {
           setLoadingBalance(true);
-          const res = await adminFetch('/api/user/rewards/balance');
+          const res = await userFetch('/api/user/rewards/balance');
           if (res.ok) {
             const data = await res.json();
             if (isMounted && data.success) {

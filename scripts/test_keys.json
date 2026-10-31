@@ -1,0 +1,23 @@
+{
+  "windowKey": {
+    "id": "178618df-1848-465a-90c9-d01daeb513b4",
+    "billingType": "window",
+    "planName": "Claude Max 5x (5-Hour Window)",
+    "rawKey": "ld_live_2abf150311a0fb1a80ef9c955779c3bcd1dd49ad8668d852",
+    "displayKey": "ld_live_2ab...d852"
+  },
+  "creditKey": {
+    "id": "6b284bd5-d064-47f4-8a2c-04e4b83e0ca3",
+    "billingType": "credit",
+    "planName": "Credit Starter ($7.00 USD Credits)",
+    "rawKey": "ld_live_e7dd1cb7b7e830fb4130dd82afef744606268ddc56c6f19f",
+    "displayKey": "ld_live_e7d...f19f"
+  },
+  "tokenKey": {
+    "id": "666db44a-b2b5-4537-9d00-5bf36ddc48aa",
+    "billingType": "token",
+    "planName": "Claude 10M Token Pack (Consumable)",
+    "rawKey": "ld_live_ee8c9c9b898f00dbc17dbed0e5e00e5d22a1114bb3fd25a0",
+    "displayKey": "ld_live_ee8...25a0"
+  }
+}

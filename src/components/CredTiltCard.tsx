@@ -116,7 +116,7 @@ export const CredTiltCard: React.FC<CredTiltCardProps> = ({
         )}
 
         {/* Card Content Layer */}
-        <div className="relative z-20 w-full h-full">
+        <div className="relative z-20 w-full h-full max-w-full overflow-hidden">
           {children}
         </div>
       </motion.div>

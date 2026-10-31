@@ -21,6 +21,8 @@ import { VendorRenewalService } from './providers/vendorRenewalService';
 import { ProviderDiscoveryRegistry } from './providers/ProviderDiscoveryRegistry';
 import { calculateAggregateAccounting } from './accounting/aggregateAccounting';
 import { isLocalModelFamily, isClaudeOrOpenAIModelFamily } from './providers/credentialResolver';
+import { InventoryService } from './inventory/inventoryService';
+import { AutomationEngine } from './automation/jobs';
 
 const router = Router();
 
@@ -5109,6 +5111,100 @@ router.get('/claude-plans/overview', async (req: AuthRequest, res: Response) => 
     res.status(500).json({ error: { message: err.message } });
   }
 });
+
+// 30b. Admin Subscriptions Real Database Overview Metrics
+router.get('/subscriptions/metrics', async (req: AuthRequest, res: Response) => {
+  try {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+    const now = new Date();
+
+    const [
+      fulfilledToday,
+      fulfillmentPending,
+      fulfillmentFailed,
+      fulfillmentManualReview,
+      activeSubs,
+      expiringSubs,
+      expiredSubs,
+      lowStockAlerts,
+    ] = await Promise.all([
+      prisma.order.count({
+        where: {
+          fulfillmentStatus: 'FULFILLED',
+          fulfilledAt: { gte: startOfToday },
+        },
+      }),
+      prisma.order.count({
+        where: { fulfillmentStatus: { in: ['FULFILLMENT_PENDING', 'PENDING'] } },
+      }),
+      prisma.order.count({
+        where: { fulfillmentStatus: { in: ['FULFILLMENT_FAILED', 'FAILED'] } },
+      }),
+      prisma.order.count({
+        where: { fulfillmentStatus: 'MANUAL_REVIEW' },
+      }),
+      prisma.subscription.count({
+        where: { status: 'ACTIVE', expiryTime: { gt: now } },
+      }),
+      prisma.subscription.count({
+        where: {
+          status: { in: ['ACTIVE', 'EXPIRING'] },
+          expiryTime: { gt: now, lte: sevenDaysFromNow },
+        },
+      }),
+      prisma.subscription.count({
+        where: {
+          OR: [{ status: 'EXPIRED' }, { expiryTime: { lte: now } }],
+        },
+      }),
+      InventoryService.getLowStockAlerts(),
+    ]);
+
+    res.json({
+      success: true,
+      fulfillment: {
+        completedToday: fulfilledToday,
+        pending: fulfillmentPending,
+        failed: fulfillmentFailed,
+        manualReview: fulfillmentManualReview,
+      },
+      subscriptions: {
+        active: activeSubs,
+        expiringIn7Days: expiringSubs,
+        expired: expiredSubs,
+      },
+      lowStock: lowStockAlerts,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 30c. Admin Manual Trigger of Automation Lifecycle Engine
+router.post('/automation/run', async (req: AuthRequest, res: Response) => {
+  try {
+    const results = await AutomationEngine.runAllJobs();
+
+    await recordAuditEvent({
+      eventType: 'AUTOMATION_JOBS_MANUAL_RUN',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      adminId: req.user!.id,
+      resourceType: 'SYSTEM',
+      action: 'RUN_AUTOMATION_JOBS',
+      result: 'SUCCESS',
+      metadata: results,
+    });
+
+    res.json({ success: true, results });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 
 // 31. Admin Claude Subscriptions List (Search & Filter)
 router.get('/subscriptions', async (req: AuthRequest, res: Response) => {

@@ -247,6 +247,9 @@ async function processAuditEvent(params: AuditEventParams): Promise<void> {
   lastAuditTimestampMs = monotonicMs;
   const timestamp = new Date(monotonicMs);
 
+  // Normalize actor ID before computing hash to guarantee consistency with persisted row
+  actorId = actorId || customerId || adminId || null;
+
   // Compute Cryptographic SHA-256 Tamper Hash
   const hashPayload = `${previousHash}|${timestamp.toISOString()}|${eventType}|${severity}|${actorType}|${actorId || ''}|${resourceId || ''}|${result}|${ipAddress || ''}`;
   const tamperHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
@@ -259,7 +262,7 @@ async function processAuditEvent(params: AuditEventParams): Promise<void> {
       eventType,
       severity,
       actorType,
-      actorId: actorId || customerId || adminId || null,
+      actorId,
       actorEmail: actorEmail || null,
       customerId: customerId || (actorType === 'CUSTOMER' ? actorId : null),
       adminId: adminId || (actorType === 'ADMIN' ? actorId : null),
@@ -440,12 +443,17 @@ export async function verifyHashChainIntegrity(limit: number = 100): Promise<{
     const hashPayload = `${curr.previousHash}|${curr.timestamp.toISOString()}|${curr.eventType}|${curr.severity}|${curr.actorType}|${curr.actorId || ''}|${curr.resourceId || ''}|${curr.result}|${curr.ipAddress || ''}`;
     const calculatedHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
     if (curr.tamperHash !== calculatedHash) {
-      return {
-        isTamperFree: false,
-        checkedCount: i,
-        brokenAtEventId: curr.id,
-        verifiedAt: new Date(),
-      };
+      // Also check fallback with empty actorId for backward compatibility with early rows
+      const legacyPayload = `${curr.previousHash}|${curr.timestamp.toISOString()}|${curr.eventType}|${curr.severity}|${curr.actorType}||${curr.resourceId || ''}|${curr.result}|${curr.ipAddress || ''}`;
+      const legacyHash = crypto.createHash('sha256').update(legacyPayload).digest('hex');
+      if (curr.tamperHash !== legacyHash) {
+        return {
+          isTamperFree: false,
+          checkedCount: i,
+          brokenAtEventId: curr.id,
+          verifiedAt: new Date(),
+        };
+      }
     }
   }
 

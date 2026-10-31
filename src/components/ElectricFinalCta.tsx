@@ -14,10 +14,10 @@ export const ElectricFinalCta: React.FC = () => {
           tiltAngle={3}
           borderBeam={true}
           glowColor="rgba(109, 40, 217, 0.24)"
-          className="rounded-3xl border border-[#e7e5e4] bg-white p-8 sm:p-12 md:p-16 text-center space-y-8 shadow-warm relative"
+          className="rounded-3xl border border-[#e7e5e4] bg-white p-8 sm:p-12 md:p-16 text-center space-y-8 shadow-warm relative overflow-hidden"
         >
           {/* Subtle Ambient Radial Lighting */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-b from-[#6d28d9]/10 via-amber-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] h-[300px] bg-gradient-to-b from-[#6d28d9]/10 via-amber-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
 
           <div className="max-w-2xl mx-auto space-y-4">
             

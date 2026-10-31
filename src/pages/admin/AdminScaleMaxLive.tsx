@@ -521,6 +521,14 @@ export const AdminScaleMaxLive: React.FC = () => {
 
                       {isExpanded && (
                         <div className="mt-2 p-2.5 rounded-xl bg-[#f9fafb] border border-[#e5e7eb] max-h-48 overflow-y-auto space-y-1 text-[11px] font-mono">
+                          <div className="pb-1 mb-1 border-b border-[#e5e7eb] flex items-center justify-between text-[10px] text-[#6b7280]">
+                            <span>
+                              {k.keyIndex === 1 && 'ISOLATED: Claude & OpenAI Models Only'}
+                              {k.keyIndex === 2 && 'ISOLATED: Local & Open-Weights (Grok, DeepSeek, Qwen, GLM)'}
+                              {k.keyIndex === 3 && 'UNIVERSAL: Wholesale Backup Reserve'}
+                            </span>
+                            <span className="font-bold text-violet-700">{k.models.length} Authorized</span>
+                          </div>
                           {k.models.map((m) => (
                             <div
                               key={m}
@@ -619,7 +627,7 @@ export const AdminScaleMaxLive: React.FC = () => {
                 } else if (idx === 2) {
                   setTestModel('qwen-3.7-flash');
                 } else {
-                  setTestModel('claude-sonnet-4-6[1m]');
+                  setTestModel('claude-sonnet-5-5[1m]');
                 }
               }}
               className="w-full p-2.5 text-xs bg-[#f9fafb] border border-[#d1d5db] rounded-xl text-[#111827] font-mono focus:border-violet-600 focus:outline-none"
@@ -770,8 +778,8 @@ export const AdminScaleMaxLive: React.FC = () => {
                 Associated Customer Plans:
               </span>
               <p className="text-xs text-violet-800 leading-relaxed">
-                {updateModalKey.keyIndex === 1 && 'Serves Claude Token Plans, OpenAI Token Plans, and Claude + OpenAI Credit Plans.'}
-                {updateModalKey.keyIndex === 2 && 'Serves Local Models Token Plans (DeepSeek V3/V4, Grok, Qwen, GLM, etc.).'}
+                {updateModalKey.keyIndex === 1 && 'Strictly serves Claude Token Plans, OpenAI Token Plans, and Claude + OpenAI Credit Plans. Other models such as Grok, DeepSeek, and Gemini are strictly isolated and routed to Key #2.'}
+                {updateModalKey.keyIndex === 2 && 'Strictly serves Local Models Token Plans (DeepSeek V3/V4, Grok 4.5/4.6/4.7, Qwen, GLM, etc.).'}
                 {updateModalKey.keyIndex === 3 && 'Serves Legacy Credit Master / Wholesale Backup Reserve.'}
               </p>
             </div>

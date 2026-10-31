@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShieldCheck, Zap, Lock, AlertCircle, CheckCircle2, RefreshCw, CreditCard, ExternalLink, Tag, Phone, Sparkles, Flame } from 'lucide-react';
-import { adminFetch } from '../utils/api';
+import { userFetch as adminFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { ApiKeyRevealModal } from './ApiKeyRevealModal';

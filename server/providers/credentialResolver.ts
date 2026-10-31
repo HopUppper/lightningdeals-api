@@ -6,13 +6,40 @@ export function isLocalModelFamily(model?: string): boolean {
   const m = model.toLowerCase();
   return (
     m.includes('local') ||
-    m.includes('llama') ||
+    m.includes('grok') ||
     m.includes('deepseek') ||
     m.includes('qwen') ||
+    m.includes('glm') ||
+    m.includes('kimi') ||
+    m.includes('minimax') ||
+    m.includes('hunyuan') ||
+    m.includes('hy4') ||
+    m.includes('gemini') ||
+    m.includes('muse') ||
+    m.includes('llama') ||
     m.includes('mistral') ||
     m.includes('yi-') ||
     m.includes('gemma') ||
     m.includes('phi-')
+  );
+}
+
+/**
+ * Determines whether a model identifier represents the Claude or OpenAI frontier ecosystem.
+ * Explicitly excludes Grok, Gemini, DeepSeek, and all other open-weights/local models.
+ */
+export function isClaudeOrOpenAIModelFamily(model?: string): boolean {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  if (isLocalModelFamily(m)) return false;
+  return (
+    m.includes('claude') ||
+    m.includes('fable') ||
+    m.startsWith('gpt-') ||
+    m.startsWith('text-embedding') ||
+    m.startsWith('o1') ||
+    m.startsWith('o3') ||
+    m.startsWith('dall-e')
   );
 }
 
@@ -103,18 +130,26 @@ export function resolveProviderCredential(
 
     if (billingType === 'token') {
       const isLocal = isLocalModelFamily(targetModel);
-      const encryptedTokenKey = isLocal && vendor.localTokenApiKeyEncrypted
-        ? vendor.localTokenApiKeyEncrypted
-        : vendor.tokenApiKeyEncrypted;
+      // Hard ecosystem isolation:
+      // - Local/Open-weights models (Grok, DeepSeek, Qwen, GLM, etc.) strictly use Key #2 (localTokenApiKeyEncrypted)
+      // - Claude & OpenAI models strictly use Key #1 (tokenApiKeyEncrypted)
+      // Neither key ever falls back to the other.
+      const encryptedTokenKey = isLocal
+        ? (vendor.localTokenApiKeyEncrypted || '')
+        : (vendor.tokenApiKeyEncrypted || '');
+
       if (!encryptedTokenKey || typeof encryptedTokenKey !== 'string' || !encryptedTokenKey.trim()) {
+        const errorMsg = isLocal
+          ? 'ScaleMax local-models master API key (Key #2) is not configured in Admin > Providers.'
+          : 'ScaleMax Claude & OpenAI token-plan master API key (Key #1) is not configured in Admin > Providers.';
         return {
           success: false,
           failure: {
             error: {
               status: 502,
               type: 'provider_configuration_error',
-              code: 'missing_token_master_key',
-              message: 'ScaleMax token-plan master API key is not configured in Admin > Providers.',
+              code: isLocal ? 'missing_local_token_master_key' : 'missing_token_master_key',
+              message: errorMsg,
             },
           },
         };
@@ -135,7 +170,9 @@ export function resolveProviderCredential(
                 status: 502,
                 type: 'provider_configuration_error',
                 code: 'token_key_decryption_failed',
-                message: 'Failed to decrypt ScaleMax token-plan API key. Please re-enter the credential in Admin.',
+                message: isLocal
+                  ? 'Failed to decrypt ScaleMax local models API key (Key #2). Please re-enter the credential in Admin.'
+                  : 'Failed to decrypt ScaleMax token-plan API key (Key #1). Please re-enter the credential in Admin.',
               },
             },
           };
@@ -145,12 +182,10 @@ export function resolveProviderCredential(
       }
 
       if (!decryptedTokenKey || !decryptedTokenKey.trim()) {
-        if (isLocal && process.env.SCALEMAX_LOCAL_TOKEN_API_KEY) {
-          decryptedTokenKey = process.env.SCALEMAX_LOCAL_TOKEN_API_KEY.trim();
-        } else if (process.env.SCALEMAX_TOKEN_API_KEY) {
-          decryptedTokenKey = process.env.SCALEMAX_TOKEN_API_KEY.trim();
-        } else if (process.env.SCALEMAX_TOKEN_MASTER_API_KEY) {
-          decryptedTokenKey = process.env.SCALEMAX_TOKEN_MASTER_API_KEY.trim();
+        if (isLocal) {
+          decryptedTokenKey = process.env.SCALEMAX_LOCAL_TOKEN_API_KEY?.trim() || '';
+        } else {
+          decryptedTokenKey = process.env.SCALEMAX_TOKEN_API_KEY?.trim() || process.env.SCALEMAX_TOKEN_MASTER_API_KEY?.trim() || '';
         }
       }
 

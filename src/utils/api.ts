@@ -1,7 +1,7 @@
 export function getAuthHeaders(isAdmin = false): Record<string, string> {
   const token = isAdmin
     ? (sessionStorage.getItem('ld_admin_token') || localStorage.getItem('ld_admin_token') || '')
-    : (sessionStorage.getItem('apexscale_token') || localStorage.getItem('apexscale_token') || '');
+    : (sessionStorage.getItem('apexscale_token') || localStorage.getItem('apexscale_token') || sessionStorage.getItem('ld_admin_token') || localStorage.getItem('ld_admin_token') || '');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };

@@ -3,7 +3,7 @@ import { X, ShoppingBag, Trash2, Tag, ShieldCheck, Zap, ArrowRight, CheckCircle2
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { adminFetch } from '../utils/api';
+import { userFetch as adminFetch } from '../utils/api';
 
 export const CheckoutCartDrawer: React.FC = () => {
   const {

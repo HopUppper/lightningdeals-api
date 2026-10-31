@@ -20,6 +20,7 @@ import { ProviderRegistry } from './providerAdapter';
 import { VendorRenewalService } from './providers/vendorRenewalService';
 import { ProviderDiscoveryRegistry } from './providers/ProviderDiscoveryRegistry';
 import { calculateAggregateAccounting } from './accounting/aggregateAccounting';
+import { isLocalModelFamily, isClaudeOrOpenAIModelFamily } from './providers/credentialResolver';
 
 const router = Router();
 
@@ -593,7 +594,16 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
             try {
               const mData: any = await modelsResp.json();
               if (mData.data && Array.isArray(mData.data)) {
-                modelsList = mData.data.map((m: any) => m.id);
+                const rawModels: string[] = mData.data.map((m: any) => m.id);
+                if (item.keyIndex === 1) {
+                  // Key #1: Claude & OpenAI Frontier Key - Strictly isolate Claude & OpenAI models (exclude Grok, DeepSeek, Gemini, etc.)
+                  modelsList = rawModels.filter(isClaudeOrOpenAIModelFamily);
+                } else if (item.keyIndex === 2) {
+                  // Key #2: Local & Open-Weights Models Key - Strictly isolate Local/Open-weights models (DeepSeek, Grok, Qwen, GLM, etc.)
+                  modelsList = rawModels.filter(isLocalModelFamily);
+                } else {
+                  modelsList = rawModels;
+                }
               }
             } catch {}
           }
@@ -726,7 +736,15 @@ router.post('/providers/scalemax/validate-key', async (req: AuthRequest, res: Re
       try {
         const mData: any = await modelsResp.json();
         if (mData.data && Array.isArray(mData.data)) {
-          modelsList = mData.data.map((m: any) => m.id);
+          const rawModels: string[] = mData.data.map((m: any) => m.id);
+          const { keyIndex } = req.body;
+          if (keyIndex === 1) {
+            modelsList = rawModels.filter(isClaudeOrOpenAIModelFamily);
+          } else if (keyIndex === 2) {
+            modelsList = rawModels.filter(isLocalModelFamily);
+          } else {
+            modelsList = rawModels;
+          }
         }
       } catch {}
     }

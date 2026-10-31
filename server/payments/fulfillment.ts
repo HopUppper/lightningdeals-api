@@ -311,8 +311,8 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
 
       createdApiKey = await prisma.apiKey.create({
         data: {
-          userId: order.userId,
-          providerId: keyProviderId,
+          user: order.userId ? { connect: { id: order.userId } } : undefined,
+          provider: keyProviderId ? { connect: { id: keyProviderId } } : undefined,
           keyPrefix,
           keyHash,
           displayKey,
@@ -322,13 +322,9 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           status: 'active',
           billingType: keyBillingType,
           creditBalanceUsd: totalCreditBalance,
-          creditBalanceInr: totalCreditBalance,
-          creditBalanceDenomination: 'USD',
-          planCategory: (plan as any).planCategory || (order as any).planCategory || (isCreditPlan ? 'claude_openai_credits' : isTokenPack ? 'claude_tokens' : 'claude_max_rolling'),
           purchasedTokens: finalPurchasedTokens,
           tokensUsed: 0n,
           tokensRemaining: finalPurchasedTokens,
-          plan: plan.name,
           rateLimitRpm: plan.rateLimitRpm || 100,
           maxConcurrency: 5,
           expiresAt: initialCustomerExpiry,

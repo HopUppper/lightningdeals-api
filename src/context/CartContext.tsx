@@ -13,6 +13,10 @@ export interface CartItem {
   tagline?: string;
   badge?: string;
   billingPeriod?: 'monthly' | 'yearly';
+  planType?: 'window' | 'credit' | 'token';
+  planCategory?: string;
+  creditMultiplier?: number;
+  creditAmountUsd?: number;
 }
 
 export interface AppliedCoupon {

@@ -260,9 +260,26 @@ export const CheckoutCartDrawer: React.FC = () => {
                     </button>
                   </div>
 
+                  {/* Plan Details Grid */}
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-[#78716c] pt-2 border-t border-[#f5f2eb]">
-                    <div>{item.windowHours > 0 ? <>Window: <strong className="text-[#1c1917]">{item.windowHours}h Refresh</strong></> : <>Billing: <strong className="text-[#1c1917]">Pay-As-You-Go Credits</strong></>}</div>
-                    <div>Validity: <strong className="text-[#1c1917]">{item.billingPeriod === 'yearly' ? '365 Days (Annual)' : `${item.validityDays} Days`}</strong></div>
+                    <div>
+                      {item.planType === 'credit' || item.planCategory === 'claude_openai_credits' || item.id.startsWith('credit_') || item.name.toLowerCase().includes('credit') ? (
+                        <>Credits: <strong className="text-emerald-700">$${(item.creditAmountUsd || ((item.priceInr * (item.creditMultiplier || 7)) / 100)).toFixed(2)} USD</strong></>
+                      ) : item.planType === 'token' || (item.planCategory && item.planCategory.includes('token')) || item.id.includes('token') ? (
+                        <>Type: <strong className="text-blue-700">Consumable Token Pack</strong></>
+                      ) : (
+                        <>Window: <strong className="text-[#1c1917]">{item.windowHours}h Refresh</strong></>
+                      )}
+                    </div>
+                    <div>
+                      Validity: <strong className="text-[#1c1917]">
+                        {item.planType === 'credit' || item.planCategory === 'claude_openai_credits' || item.id.startsWith('credit_') || item.planType === 'token' || item.id.includes('token')
+                          ? '365 Days (Prepaid)'
+                          : item.billingPeriod === 'yearly'
+                          ? '365 Days (Annual)'
+                          : `${item.validityDays || 30} Days`}
+                      </strong>
+                    </div>
                   </div>
 
                   <div className="flex items-baseline justify-between pt-1 border-t border-[#f5f2eb]">
@@ -277,7 +294,11 @@ export const CheckoutCartDrawer: React.FC = () => {
                         ₹{item.priceInr.toLocaleString()}
                       </span>
                       <span className="block text-[10px] text-[#78716c] font-mono">
-                        {item.billingPeriod === 'yearly' ? 'billed annually' : 'billed monthly'}
+                        {item.planType === 'credit' || item.planCategory === 'claude_openai_credits' || item.id.startsWith('credit_') || item.planType === 'token' || item.id.includes('token')
+                          ? 'one-time purchase'
+                          : item.billingPeriod === 'yearly'
+                          ? 'billed annually'
+                          : 'billed monthly'}
                       </span>
                     </div>
                   </div>

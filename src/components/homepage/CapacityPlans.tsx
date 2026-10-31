@@ -90,6 +90,9 @@ export const CapacityPlans: React.FC = () => {
         ...pkg,
         priceInr: activePrice,
         validityDays: activeValidity,
+        planType: pkg.planType || selectedBillingMode,
+        creditMultiplier: pkg.creditMultiplier,
+        creditAmountUsd: pkg.creditAmountUsd,
       });
     } else {
       navigate(`/register?plan=${pkg.id}&billing=${billingPeriod}`);
@@ -115,6 +118,10 @@ export const CapacityPlans: React.FC = () => {
       tagline: pkg.tagline,
       badge: pkg.badge,
       billingPeriod: isYearly ? 'yearly' : 'monthly',
+      planType: pkg.planType || selectedBillingMode,
+      planCategory: pkg.planCategory || (pkg as any).category || selectedBillingMode,
+      creditMultiplier: pkg.creditMultiplier,
+      creditAmountUsd: pkg.creditAmountUsd,
     });
     openCart();
   };

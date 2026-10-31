@@ -246,93 +246,13 @@ export class OrderEngine {
       },
     });
 
-    // 5. Atomically Deduct Credits if Applied
-    if (creditsToRedeem > 0) {
+    // 5. Deduct Credits ONLY IF Entire Order was Covered by Credits (₹0 Payable)
+    if (payableAmountInr === 0 && creditsToRedeem > 0) {
       await redeemCredits({
         userId: user.id,
         orderId: order.id,
         amountToRedeem: creditsToRedeem,
       });
-    }
-
-    // 6. Record Coupon Usage
-    if (appliedCouponId) {
-      await recordCouponUsage({
-        couponId: appliedCouponId,
-        userId: user.id,
-        orderId: order.id,
-        discountAmount: discountAmountInr,
-        finalAmount: payableAmountInr,
-      });
-    }
-
-    // 7. Instant Fulfillment if Entire Order was Covered by Credits (₹0 Payable)
-    if (payableAmountInr === 0) {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          paidAmountInr: 0,
-          paidAt: new Date(),
-          status: 'PAID',
-        },
-      });
-
-      const fulfillment = await fulfillOrder(order.internalOrderId);
-
-      await recordAuditEvent({
-        eventType: 'ORDER_PAID_WITH_CREDITS',
-        severity: 'INFO',
-        actorType: 'CUSTOMER',
-        actorId: user.id,
-        actorEmail: user.email,
-        customerId: user.id,
-        resourceType: 'ORDER',
-        resourceId: order.id,
-        action: 'ORDER_FULFILLED_ZERO_PAYABLE',
-        result: 'SUCCESS',
-        metadata: {
-          internalOrderId: order.internalOrderId,
-          planId: plan.id,
-          creditsRedeemed: creditsToRedeem,
-          fulfillmentSuccess: fulfillment.success,
-        },
-        req,
-      });
-
-      return {
-        order: {
-          id: order.id,
-          internalOrderId: order.internalOrderId,
-          planId: plan.id,
-          billingPeriod,
-          validityDays,
-          amountInr: 0,
-          originalAmountInr: pricing.originalPriceInr || basePlanPriceInr,
-          discountAmountInr,
-          creditsRedeemed: creditsToRedeem,
-          paymentStatus: 'CAPTURED',
-          zeroAmountPaid: true,
-        },
-        fulfillment,
-      };
-    }
-
-    // 8. Sanitize phone
-    let rawPhone = (customerPhone || user.phone || '').toString().trim();
-    let sanitizedPhone = rawPhone.replace(/\D/g, '');
-    if (sanitizedPhone.length === 12 && sanitizedPhone.startsWith('91')) {
-      sanitizedPhone = sanitizedPhone.slice(2);
-    }
-    if (sanitizedPhone.length > 10) {
-      sanitizedPhone = sanitizedPhone.slice(-10);
-    }
-    if (sanitizedPhone && /^[6-9]\d{9}$/.test(sanitizedPhone) && !user.phone) {
-      try {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { phone: sanitizedPhone },
-        });
-      } catch {}
     }
 
     // 9. Create Gateway Order via Provider (PayU)
@@ -835,6 +755,24 @@ export class OrderEngine {
         },
       });
 
+      // 5b. Deduct Redeemed Credits upon Verified Payment Gateway Capture
+      if (order.creditsRedeemed && order.creditsRedeemed > 0) {
+        try {
+          const existingRedemption = await prisma.creditTransaction.findFirst({
+            where: { orderId: order.id, type: 'CREDIT_REDEMPTION' },
+          });
+          if (!existingRedemption) {
+            await redeemCredits({
+              userId: order.userId,
+              orderId: order.id,
+              amountToRedeem: order.creditsRedeemed,
+            });
+          }
+        } catch (creditErr: any) {
+          console.error('[ORDER ENGINE] Error deducting redeemed credits on capture:', creditErr.message);
+        }
+      }
+
       // 6. Decoupled Safe Fulfillment
       // Even if API key creation fails or experiences transient issue, payment stays CAPTURED
       let fulfillmentResult: any = null;
@@ -993,6 +931,8 @@ export class OrderEngine {
           failureReason,
         },
       });
+
+      await restoreRedeemedCredits(order.id, failureReason);
 
       await recordAuditEvent({
         eventType: 'PAYMENT_FAILED',
@@ -1255,5 +1195,74 @@ export class OrderEngine {
     }
 
     return fulfillment;
+  }
+}
+
+
+/**
+ * Restores redeemed Lightning Credits back to the user's wallet
+ * if an order fails, is cancelled, or payment verification fails.
+ */
+export async function restoreRedeemedCredits(orderId: string, reason: string) {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { user: true },
+    });
+    if (!order || !order.userId) return;
+
+    // Check if there was any CREDIT_REDEMPTION transaction for this order
+    const redemptionTx = await prisma.creditTransaction.findFirst({
+      where: { orderId: order.id, type: 'CREDIT_REDEMPTION', status: 'COMPLETED' },
+    });
+
+    if (redemptionTx) {
+      // Check if already reversed
+      const existingReversal = await prisma.creditTransaction.findFirst({
+        where: { orderId: order.id, type: 'CREDIT_REVERSAL' },
+      });
+      if (!existingReversal) {
+        const refundAmount = Math.abs(redemptionTx.amount);
+        const user = order.user || (await prisma.user.findUnique({ where: { id: order.userId } }));
+        if (user) {
+          const currentBalance = user.availableCredits || 0;
+          const newBalance = Math.round((currentBalance + refundAmount) * 100) / 100;
+          const newLifetimeRedeemed = Math.max(0, Math.round(((user.lifetimeCreditsRedeemed || 0) - refundAmount) * 100) / 100);
+
+          await prisma.$transaction([
+            prisma.user.update({
+              where: { id: user.id },
+              data: {
+                availableCredits: newBalance,
+                lifetimeCreditsRedeemed: newLifetimeRedeemed,
+              },
+            }),
+            prisma.creditTransaction.create({
+              data: {
+                userId: user.id,
+                orderId: order.id,
+                type: 'CREDIT_REVERSAL',
+                amount: refundAmount,
+                balanceBefore: currentBalance,
+                balanceAfter: newBalance,
+                description: `Lightning Credits restored to wallet (${reason})`,
+                status: 'COMPLETED',
+              },
+            }),
+            prisma.notification.create({
+              data: {
+                userId: user.id,
+                title: '⚡ Lightning Credits Restored',
+                message: `₹${refundAmount.toLocaleString()} Lightning Credits have been returned to your wallet.`,
+                type: 'info',
+              },
+            }),
+          ]);
+          console.log(`[CREDITS RESTORED] Successfully refunded ₹${refundAmount} to user ${user.email} for order ${order.internalOrderId}`);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('[RESTORE REDEEMED CREDITS ERROR]', err.message);
   }
 }

@@ -9,6 +9,7 @@ export interface CheckoutModalProps {
   plan: {
     id: string;
     name: string;
+    displayName?: string;
     priceInr: number;
     tokenDisplay: string;
     windowHours: number;
@@ -16,6 +17,11 @@ export interface CheckoutModalProps {
     tagline?: string;
     billingPeriod?: 'monthly' | 'yearly';
     annualPriceInr?: number | null;
+    planCategory?: string;
+    planType?: 'window' | 'credit' | 'token';
+    creditMultiplier?: number;
+    creditAmountUsd?: number;
+    allowedModelFamilies?: string[] | string;
   } | null;
   onClose: () => void;
 }
@@ -377,56 +383,117 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                 </div>
               )}
 
-              {/* Plan Summary Card */}
-              <div className="p-4 rounded-control bg-subtle/70 border border-border/80 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-extrabold text-sm text-fg block">{plan.name}</span>
-                    <span className="text-[10px] font-mono text-violet-700 font-bold uppercase tracking-wider">
-                      {plan.billingPeriod === 'yearly' ? '⚡ Annual Access · 365 Days' : '30-Day Monthly Access'}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-base font-extrabold text-violet-700 font-mono">₹{plan.priceInr.toLocaleString()}</span>
-                    <span className="block text-[10px] font-mono text-muted">
-                      {plan.billingPeriod === 'yearly' ? 'billed annually' : 'billed monthly'}
-                    </span>
-                  </div>
-                </div>
+              {/* Plan Summary Card with Real-Time Architecture Details */}
+              {(() => {
+                const isCreditPlan =
+                  plan.planType === 'credit' ||
+                  plan.planCategory === 'claude_openai_credits' ||
+                  plan.id.startsWith('credit_') ||
+                  plan.name.toLowerCase().includes('credit');
 
-                <p className="text-xs text-muted leading-relaxed">
-                  {plan.tagline || `Includes ${plan.tokenDisplay} Tokens with ${plan.windowHours}-hour refresh window.`}
-                </p>
+                const isTokenPack =
+                  !isCreditPlan &&
+                  (plan.planType === 'token' ||
+                    (plan.planCategory && plan.planCategory.includes('token')) ||
+                    plan.id.includes('token') ||
+                    plan.name.toLowerCase().includes('token pack'));
 
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60 text-[11px] font-mono text-muted">
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Allowance: <strong>{plan.tokenDisplay}</strong></span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>
-                      {plan.windowHours > 0 ? (
-                        <>Window: <strong>{plan.windowHours} Hours</strong></>
+                const creditsUsd = plan.creditAmountUsd || ((plan.priceInr * (plan.creditMultiplier || 7)) / 100);
+
+                return (
+                  <div className="p-4 rounded-control bg-subtle/70 border border-border/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-extrabold text-sm text-fg block">{plan.displayName || plan.name}</span>
+                        <span className="text-[10px] font-mono text-violet-700 font-bold uppercase tracking-wider">
+                          {isCreditPlan
+                            ? '⚡ Prepaid Usage Credits · 365 Days'
+                            : isTokenPack
+                            ? '📦 Consumable Token Quota · 365 Days'
+                            : plan.billingPeriod === 'yearly'
+                            ? '⚡ Annual Access · 365 Days'
+                            : '30-Day Monthly Access'}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base font-extrabold text-violet-700 font-mono">₹{plan.priceInr.toLocaleString()}</span>
+                        <span className="block text-[10px] font-mono text-muted">
+                          {isCreditPlan || isTokenPack ? 'one-time purchase' : plan.billingPeriod === 'yearly' ? 'billed annually' : 'billed monthly'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted leading-relaxed">
+                      {isCreditPlan
+                        ? `Pay ₹${plan.priceInr.toLocaleString()} and receive $${Number(creditsUsd).toFixed(2)} USD in API Credits (${plan.creditMultiplier || 7}x multiplier). Dedicated model access.`
+                        : isTokenPack
+                        ? `Includes ${plan.tokenDisplay} consumable tokens valid for 365 days. Zero 5-hour window expiry.`
+                        : (plan.tagline || `Includes ${plan.tokenDisplay} Tokens with continuous ${plan.windowHours}-hour replenishment window.`)}
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60 text-[11px] font-mono text-muted">
+                      {isCreditPlan ? (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Credits: <strong>$${Number(creditsUsd).toFixed(2)} USD</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Multiplier: <strong>${plan.creditMultiplier || 7}x Value</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Models: <strong>Claude + OpenAI Frontier</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Billing: <strong>Pay-As-You-Go Deductions</strong></span>
+                          </div>
+                        </>
+                      ) : isTokenPack ? (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span>Allowance: <strong>${plan.tokenDisplay}</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span>Quota: <strong>Consumable Lifetime Tokens</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span>Models: <strong>{plan.planCategory === 'local_models_tokens' || plan.id.includes('local') ? 'DeepSeek, Grok, Qwen, GLM & more' : 'Frontier Models'}</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span>Validity: <strong>365 Days (No 5h Expiry)</strong></span>
+                          </div>
+                        </>
                       ) : (
-                        <>Billing: <strong>Usage Credits / Balance</strong></>
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Allowance: <strong>${plan.tokenDisplay}</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Window: <strong>Continuous ${plan.windowHours}-Hour Refill</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Models: <strong>Claude Opus, Sonnet, Haiku & Fable</strong></span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Delivery: <strong>Instant Automated API Key</strong></span>
+                          </div>
+                        </>
                       )}
-                    </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Instant API Key Issue</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>
-                      {plan.windowHours > 0
-                        ? 'Claude Opus, Sonnet, Haiku & Fable'
-                        : 'Full Model Access Scoped to Plan'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Customer Mobile Number Field (Required by UPI & NPCI) */}
               <div className="p-3.5 rounded-control bg-bg border border-border space-y-2">

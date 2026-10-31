@@ -8,7 +8,7 @@ import { fulfillOrder } from './fulfillment';
 import { recordSecurityLog } from '../authSecurity';
 import { validateCoupon, recordCouponUsage } from '../couponService';
 import { redeemCredits } from '../rewards/rewardService';
-import { OrderEngine } from '../orders/orderEngine';
+import { OrderEngine, restoreRedeemedCredits } from '../orders/orderEngine';
 
 export const checkoutRouter = Router();
 
@@ -221,7 +221,10 @@ checkoutRouter.all('/payu/response', async (req: Request, res: Response) => {
     if (result.success && result.paymentStatus === 'CAPTURED') {
       return res.redirect(`${appUrl}/dashboard/orders?order_id=${internalOrderId}&payment=success&key_revealed=true`);
     } else {
-      const reason = encodeURIComponent(result.failureReason || body.error_Message || 'Payment cancelled');
+      const failReason = result.failureReason || body.error_Message || 'Payment cancelled';
+      const orderToRestore = await prisma.order.findUnique({ where: { internalOrderId } });
+      if (orderToRestore) await restoreRedeemedCredits(orderToRestore.id, failReason);
+      const reason = encodeURIComponent(failReason);
       return res.redirect(`${appUrl}/dashboard/orders?order_id=${internalOrderId}&payment=failed&error=${reason}`);
     }
   } catch (err: any) {

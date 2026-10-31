@@ -405,7 +405,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Window: <strong>{plan.windowHours} Hours</strong></span>
+                    <span>
+                      {plan.windowHours > 0 ? (
+                        <>Window: <strong>{plan.windowHours} Hours</strong></>
+                      ) : (
+                        <>Billing: <strong>Usage Credits / Balance</strong></>
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -413,7 +419,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ plan, onClose }) =
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Claude Opus 5, Fable 5 & Sonnet 5</span>
+                    <span>
+                      {plan.windowHours > 0
+                        ? 'Claude Opus, Sonnet, Haiku & Fable'
+                        : 'Full Model Access Scoped to Plan'}
+                    </span>
                   </div>
                 </div>
               </div>

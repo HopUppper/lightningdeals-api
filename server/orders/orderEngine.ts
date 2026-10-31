@@ -92,15 +92,20 @@ export function calculateOrderCreditAllocation(
   let customerCreditsGranted = 0;
   let formula = '';
 
-  if (plan.creditAmountInr && Number(plan.creditAmountInr) > 0) {
-    customerCreditsGranted = Number(plan.creditAmountInr);
-    formula = `Pay ₹${paymentInr || 0} → Receive ₹${customerCreditsGranted.toLocaleString()} API Credits (${retailMultiplier}x Multiplier)`;
-  } else if (plan.creditAmountUsd && Number(plan.creditAmountUsd) > 0) {
+  // Credit amount in USD takes strict first priority
+  if (plan.creditAmountUsd && Number(plan.creditAmountUsd) > 0) {
     customerCreditsGranted = Number(plan.creditAmountUsd);
-    formula = `Explicit Credit Package: ₹${customerCreditsGranted.toLocaleString()} credits`;
+    formula = `Pay ₹${paymentInr || 0} → Receive ${customerCreditsGranted.toFixed(2)} USD API Credits (${retailMultiplier}x Multiplier)`;
+  } else if (paymentInr && paymentInr > 0) {
+    customerCreditsGranted = Number(((paymentInr * retailMultiplier) / 100).toFixed(2));
+    formula = `Pay ₹${paymentInr} (${retailMultiplier}x Multiplier) = ${customerCreditsGranted.toFixed(2)} USD API Credits`;
+  } else if (plan.creditAmountInr && Number(plan.creditAmountInr) > 0) {
+    const val = Number(plan.creditAmountInr);
+    customerCreditsGranted = val > 100 ? Number((val / 100).toFixed(2)) : val;
+    formula = `Pay ₹${paymentInr || 0} → Receive ${customerCreditsGranted.toFixed(2)} USD API Credits (${retailMultiplier}x Multiplier)`;
   } else {
-    customerCreditsGranted = Number(((paymentInr || (paymentUsd * 86.5)) * retailMultiplier / 100).toFixed(2));
-    formula = `Pay ₹${paymentInr || 0} (${retailMultiplier}x Multiplier) = ${customerCreditsGranted.toFixed(2)} USD API Credits`;
+    customerCreditsGranted = Number(((paymentUsd * 86.5 * retailMultiplier) / 100).toFixed(2));
+    formula = `Pay ${paymentUsd} = ${customerCreditsGranted.toFixed(2)} USD API Credits`;
   }
 
   const bonusCredits = Number(plan.bonusCreditsUsd || 0);

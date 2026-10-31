@@ -39,12 +39,16 @@ export const AdminKeys: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [keyName, setKeyName] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
+  const [billingType, setBillingType] = useState<'credit' | 'window' | 'token'>('credit');
+  const [creditBalanceUsd, setCreditBalanceUsd] = useState('7.00');
   const [tokenAllowance, setTokenAllowance] = useState('50000000'); // 50M PRO default
   const [rateLimitRpm, setRateLimitRpm] = useState('60');
   const [expiryDays, setExpiryDays] = useState('');
-  const [plan, setPlan] = useState('PRO');
+  const [plan, setPlan] = useState('Credit Starter ($7.00 USD)');
   const [isTrial, setIsTrial] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('');
+  const [keyPrefix, setKeyPrefix] = useState('sk_live_');
+  const [modelScope, setModelScope] = useState('all');
 
   // Providers list state
   const [providers, setProviders] = useState<any[]>([]);
@@ -73,6 +77,11 @@ export const AdminKeys: React.FC = () => {
   const [editPlan, setEditPlan] = useState('PRO');
   const [editAddTokens, setEditAddTokens] = useState('');
   const [editWithdrawTokens, setEditWithdrawTokens] = useState('');
+  const [editAddCreditsUsd, setEditAddCreditsUsd] = useState('');
+  const [editWithdrawCreditsUsd, setEditWithdrawCreditsUsd] = useState('');
+  const [editOverrideCreditsUsd, setEditOverrideCreditsUsd] = useState('');
+  const [editModelScope, setEditModelScope] = useState('all');
+  const [editBillingType, setEditBillingType] = useState('window');
   const [editExpiryMode, setEditExpiryMode] = useState('unchanged');
   const [editExpiryDays, setEditExpiryDays] = useState('');
   const [editExpiresAtDate, setEditExpiresAtDate] = useState('');
@@ -86,8 +95,21 @@ export const AdminKeys: React.FC = () => {
     setEditName(key.name || '');
     setEditStatus(key.status || 'active');
     setEditPlan(key.plan || 'PRO');
+    setEditBillingType(key.billingType || 'window');
+    setEditModelScope(
+      key.allowedModelFamilies && key.allowedModelFamilies.includes('claude') && !key.allowedModelFamilies.includes('deepseek')
+        ? 'claude'
+        : key.allowedModelFamilies && key.allowedModelFamilies.includes('openai') && !key.allowedModelFamilies.includes('claude')
+        ? 'openai'
+        : key.allowedModelFamilies && key.allowedModelFamilies.includes('local')
+        ? 'local'
+        : 'all'
+    );
     setEditAddTokens('');
     setEditWithdrawTokens('');
+    setEditAddCreditsUsd('');
+    setEditWithdrawCreditsUsd('');
+    setEditOverrideCreditsUsd('');
     setEditExpiryMode('unchanged');
     setEditExpiryDays('');
     setEditExpiresAtDate(key.expiresAt ? new Date(key.expiresAt).toISOString().split('T')[0] : '');
@@ -118,6 +140,32 @@ export const AdminKeys: React.FC = () => {
 
       if (editWithdrawTokens && Number(editWithdrawTokens) > 0) {
         payload.withdrawTokens = editWithdrawTokens;
+      }
+
+      if (editAddCreditsUsd && Number(editAddCreditsUsd) > 0) {
+        payload.addCreditsUsd = editAddCreditsUsd;
+      }
+
+      if (editWithdrawCreditsUsd && Number(editWithdrawCreditsUsd) > 0) {
+        payload.withdrawCreditsUsd = editWithdrawCreditsUsd;
+      }
+
+      if (editOverrideCreditsUsd !== '') {
+        payload.overrideCreditBalanceUsd = editOverrideCreditsUsd;
+      }
+
+      if (editBillingType) {
+        payload.billingType = editBillingType;
+      }
+
+      if (editModelScope === 'claude') {
+        payload.allowedModelFamilies = JSON.stringify(['claude']);
+      } else if (editModelScope === 'openai') {
+        payload.allowedModelFamilies = JSON.stringify(['openai']);
+      } else if (editModelScope === 'local') {
+        payload.allowedModelFamilies = JSON.stringify(['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']);
+      } else {
+        payload.allowedModelFamilies = 'all';
       }
 
       if (editExpiryMode !== 'unchanged') {
@@ -214,17 +262,31 @@ export const AdminKeys: React.FC = () => {
     setModalError(null);
 
     try {
+      let finalAllowedFamilies = 'all';
+      if (modelScope === 'claude') {
+        finalAllowedFamilies = JSON.stringify(['claude']);
+      } else if (modelScope === 'openai') {
+        finalAllowedFamilies = JSON.stringify(['openai']);
+      } else if (modelScope === 'local') {
+        finalAllowedFamilies = JSON.stringify(['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']);
+      }
+
       const res = await adminFetch('/api/admin/keys', {
         method: 'POST',
         body: JSON.stringify({
           name: keyName,
           userId: selectedUser || null,
           providerId: selectedProvider || undefined,
-          tokenLimit: tokenAllowance,
+          billingType,
+          creditBalanceUsd: billingType === 'credit' ? Number(creditBalanceUsd || 0) : undefined,
+          tokenLimit: billingType !== 'credit' ? tokenAllowance : undefined,
           rateLimitRpm,
           expiryDays,
           plan,
           isTrial,
+          keyPrefix,
+          allowedModelFamilies: finalAllowedFamilies,
+          allowedModels: 'all',
         }),
       });
 
@@ -498,7 +560,7 @@ export const AdminKeys: React.FC = () => {
                   <th className="py-3 px-4 font-bold">Last Platform</th>
                   <th className="py-3 px-4 font-bold">Type</th>
                   <th className="py-3 px-4 font-bold">Status</th>
-                  <th className="py-3 px-4 font-bold">Allowance (5h Window)</th>
+                  <th className="py-3 px-4 font-bold">Allowance / Balance</th>
                   <th className="py-3 px-4 font-bold">RPM</th>
                   <th className="py-3 px-4 font-bold">Expiry</th>
                   <th className="py-3 px-4 font-bold">Requests</th>
@@ -512,7 +574,16 @@ export const AdminKeys: React.FC = () => {
                       <p className="font-bold text-fg">{k.name}</p>
                       <p className="text-[11px] text-muted">{k.displayKey}</p>
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-accent">{k.plan || 'PRO'}</td>
+                    <td className="py-3.5 px-4 font-mono font-bold">
+                      <span className={k.billingType === 'credit' ? 'text-emerald-700' : 'text-accent'}>
+                        {k.plan || (k.billingType === 'credit' ? 'API Credits' : 'PRO')}
+                      </span>
+                      {k.billingType === 'credit' && (
+                        <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-sans uppercase">
+                          Credit
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3.5 px-4 font-mono">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20">
                         {k.providerName || 'Opus Max'}
@@ -539,8 +610,19 @@ export const AdminKeys: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 font-mono">
-                      <span className="text-fg font-semibold">{formatTokens(k.tokensUsed)}</span> / {formatTokens(k.tokenLimit)}
-                      <p className="text-[10px] text-muted">Remaining: {formatTokens(k.tokensRemaining)}</p>
+                      {k.billingType === 'credit' ? (
+                        <div>
+                          <span className="text-emerald-600 font-extrabold text-xs">
+                            ${Number(k.creditBalanceUsd || 0).toFixed(2)} USD
+                          </span>
+                          <p className="text-[10px] text-muted">Used: ${Number(k.totalCreditsUsedUsd || 0).toFixed(2)} USD</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="text-fg font-semibold">{formatTokens(k.tokensUsed)}</span> / {formatTokens(k.tokenLimit || k.purchasedTokens)}
+                          <p className="text-[10px] text-muted">Remaining: {formatTokens(k.tokensRemaining)}</p>
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-muted">{k.rateLimitRpm} RPM</td>
                     <td className="py-3.5 px-4 font-mono text-muted">
@@ -764,54 +846,143 @@ export const AdminKeys: React.FC = () => {
 
                 <form onSubmit={handleCreateApiKey} className="space-y-4 overflow-y-auto flex-1 pr-1">
 
-                  <div>
-                    <label className="block text-xs font-semibold text-fg mb-1">Key Name / Description</label>
-                    <input
-                      type="text"
-                      required
-                      value={keyName}
-                      onChange={(e) => setKeyName(e.target.value)}
-                      placeholder="e.g. Customer - Rahul (Enterprise Pack)"
-                      className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-fg mb-1">Assign to Customer / User (Optional)</label>
-                    <select
-                      value={selectedUser}
-                      onChange={(e) => setSelectedUser(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
-                    >
-                      <option value="">Unassigned / Direct Key</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-fg mb-1">Upstream Provider</label>
-                    <select
-                      value={selectedProvider}
-                      onChange={(e) => setSelectedProvider(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
-                    >
-                      <option value="">Default Provider (System Default)</option>
-                      {providers.filter((p) => p.status !== 'disabled').map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.status === 'connected' ? 'Connected' : p.status})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-muted mt-1">
-                      New key will be bound to this provider and use its convention ({selectedProvider && providers.find(p => p.id === selectedProvider)?.name.toLowerCase().includes('opus') ? 'sk_live_' : 'ld_live_'}).
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* 1. Key Identity */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-fg mb-1">5-Hour Rolling Token Allowance</label>
+                      <label className="block text-xs font-semibold text-fg mb-1">Key Name / Description</label>
+                      <input
+                        type="text"
+                        required
+                        value={keyName}
+                        onChange={(e) => setKeyName(e.target.value)}
+                        placeholder="e.g. Customer - Rahul (Credits $25)"
+                        className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-fg mb-1">Assign to Customer (Optional)</label>
+                      <select
+                        value={selectedUser}
+                        onChange={(e) => setSelectedUser(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                      >
+                        <option value="">Unassigned / Direct Key</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 2. Key Type / Billing Model Selector */}
+                  <div className="p-3 bg-violet-500/5 border border-violet-500/20 rounded-control space-y-2">
+                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-violet-900">
+                      1. Key Billing Model / Plan Type
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBillingType('credit');
+                          setPlan('Claude + OpenAI Credits ($7.00 USD)');
+                          setSelectedProvider(providers.find(p => p.slug === 'scalemax')?.id || '');
+                        }}
+                        className={`p-2.5 rounded-control border text-left transition-all ${
+                          billingType === 'credit'
+                            ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                            : 'bg-bg text-fg border-border hover:bg-subtle'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">💳 Credit Balance</div>
+                        <div className="text-[10px] opacity-80 mt-0.5">$ USD Balance Deductions</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBillingType('window');
+                          setPlan('MAX 20X (20M / 5h)');
+                          setTokenAllowance('20000000');
+                        }}
+                        className={`p-2.5 rounded-control border text-left transition-all ${
+                          billingType === 'window'
+                            ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                            : 'bg-bg text-fg border-border hover:bg-subtle'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">🔄 Rolling Pool</div>
+                        <div className="text-[10px] opacity-80 mt-0.5">5-Hour Sliding Window</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBillingType('token');
+                          setPlan('Local 100M Token Pack');
+                          setTokenAllowance('100000000');
+                        }}
+                        className={`p-2.5 rounded-control border text-left transition-all ${
+                          billingType === 'token'
+                            ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                            : 'bg-bg text-fg border-border hover:bg-subtle'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">📦 Token Pack</div>
+                        <div className="text-[10px] opacity-80 mt-0.5">Consumable Lifetime Tokens</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. Dynamic Balance / Allowance Input */}
+                  {billingType === 'credit' ? (
+                    <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-control space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-emerald-800">
+                          Initial Credit Balance ($ USD)
+                        </label>
+                        <span className="text-[10px] font-mono text-emerald-700 font-bold">
+                          Current: $${Number(creditBalanceUsd || 0).toFixed(2)} USD
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 font-mono font-bold text-fg text-xs">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          value={creditBalanceUsd}
+                          onChange={(e) => {
+                            setCreditBalanceUsd(e.target.value);
+                            setPlan(`API Credits ($${Number(e.target.value || 0).toFixed(2)} USD)`);
+                          }}
+                          placeholder="e.g. 7.00, 25.00, 50.00"
+                          className="w-full pl-7 pr-3 py-2 text-xs font-mono font-bold bg-bg border border-border rounded-control focus:outline-none focus:border-emerald-500 text-fg"
+                        />
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap pt-1">
+                        {['7.00', '25.00', '38.50', '50.00', '100.00', '160.00', '350.00'].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              setCreditBalanceUsd(preset);
+                              setPlan(`API Credits ($${preset} USD)`);
+                            }}
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border transition-colors ${
+                              creditBalanceUsd === preset
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-bg text-emerald-800 border-emerald-300 hover:bg-emerald-50'
+                            }`}
+                          >
+                            +$${preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : billingType === 'window' ? (
+                    <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-control space-y-2">
+                      <label className="block text-xs font-semibold text-fg">5-Hour Rolling Token Allowance</label>
                       <input
                         type="number"
                         required
@@ -825,11 +996,83 @@ export const AdminKeys: React.FC = () => {
                         placeholder="e.g. 20000000 for 20M / 5h"
                         className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
                       />
-                      <p className="text-[10px] text-amber-500 font-bold font-mono mt-1">
+                      <p className="text-[10px] text-amber-600 font-bold font-mono">
                         Computed: {plan} ({formatTokens(Number(tokenAllowance))} / 5h)
                       </p>
                     </div>
+                  ) : (
+                    <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-control space-y-2">
+                      <label className="block text-xs font-semibold text-fg">Consumable Token Quota (Lifetime)</label>
+                      <input
+                        type="number"
+                        required
+                        value={tokenAllowance}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTokenAllowance(val);
+                          const numM = Math.round(Number(val || 0) / 1000000);
+                          if (numM > 0) setPlan(`Token Pack ${numM}M`);
+                        }}
+                        placeholder="e.g. 100000000 for 100M Consumable"
+                        className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                      />
+                      <p className="text-[10px] text-blue-600 font-bold font-mono">
+                        Computed: {plan} ({formatTokens(Number(tokenAllowance))} Lifetime)
+                      </p>
+                    </div>
+                  )}
 
+                  {/* 4. Upstream Provider & Key Format */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-fg mb-1">Upstream Provider</label>
+                      <select
+                        value={selectedProvider}
+                        onChange={(e) => setSelectedProvider(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                      >
+                        <option value="">Default Provider (System Default)</option>
+                        {providers.filter((p) => p.status !== 'disabled').map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.status === 'connected' ? 'Connected' : p.status})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-fg mb-1">Key Prefix Convention</label>
+                      <select
+                        value={keyPrefix}
+                        onChange={(e) => setKeyPrefix(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                      >
+                        <option value="sk_live_">sk_live_ (Standard Anthropic / OpenAI Compatible)</option>
+                        <option value="ld_live_">ld_live_ (Lightning Deals Standard)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 5. Model Scope Permissions */}
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Ecosystem & Model Permissions</label>
+                    <select
+                      value={modelScope}
+                      onChange={(e) => setModelScope(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-medium"
+                    >
+                      <option value="all">Universal (All Models: Claude, OpenAI, Local Models)</option>
+                      <option value="claude">Claude Frontier Only (Sonnet 3.7, Opus 4, Sonnet 4, Fable 5)</option>
+                      <option value="openai">OpenAI Frontier Only (GPT-4o, o1, o3-mini, GPT-4.5)</option>
+                      <option value="local">Local Models Only (DeepSeek V3/R1, Grok, Qwen, GLM)</option>
+                    </select>
+                    <p className="text-[10px] text-muted mt-1">
+                      Enforces gateway authorization. Requests to other model families will be rejected.
+                    </p>
+                  </div>
+
+                  {/* 6. Rate Limits & Expiry */}
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-fg mb-1">Rate Limit (RPM)</label>
                       <input
@@ -841,9 +1084,7 @@ export const AdminKeys: React.FC = () => {
                         className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-fg mb-1">Expiry (Days)</label>
                       <input
@@ -854,47 +1095,7 @@ export const AdminKeys: React.FC = () => {
                         className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
                       />
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-fg mb-1">Plan Package Tier</label>
-                      <select
-                        value={plan}
-                        onChange={(e) => {
-                          const sel = e.target.value;
-                          setPlan(sel);
-                          const found = availablePlans.find((p) => p.name === sel || p.id === sel);
-                          if (found) {
-                            setTokenAllowance(String(found.tokenAllowance));
-                            setRateLimitRpm(String(found.rateLimitRpm || 100));
-                            setExpiryDays(String(found.validityDays || 30));
-                          } else if (sel === 'Trial Key') {
-                            setTokenAllowance('200000');
-                            setRateLimitRpm('30');
-                            setExpiryDays('1');
-                          }
-                        }}
-                        className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-mono font-bold"
-                      >
-                        {availablePlans.length > 0 ? (
-                          availablePlans.map((p) => (
-                            <option key={p.id} value={p.name}>
-                              {p.name} ({p.tokenDisplay || `${Number(p.tokenAllowance) / 1000000}M`} — ₹{p.priceInr})
-                            </option>
-                          ))
-                        ) : (
-                          <>
-                            <option value="Max 5x">Max 5x (5M / 5h Window — ₹2,499)</option>
-                            <option value="MAX 20X">MAX 20X (20M / 5h Window — ₹5,999)</option>
-                            <option value="MAX 40X">MAX 40X (40M / 5h Window — ₹8,999)</option>
-                            <option value="MAX 100x">MAX 100x (100M / 5h Window — ₹16,999)</option>
-                          </>
-                        )}
-                        <option value="Trial Key">Trial Key (200k / 24h)</option>
-                        <option value="Custom Enterprise">Custom Enterprise Allocation</option>
-                      </select>
-                    </div>
                   </div>
-
 
                   <div className="flex justify-end gap-3 pt-2 shrink-0">
                     <button type="button" onClick={() => setShowCreateModal(false)} className="ui-button-secondary text-xs py-2 px-4">

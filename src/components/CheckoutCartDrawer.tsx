@@ -261,7 +261,7 @@ export const CheckoutCartDrawer: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-[#78716c] pt-2 border-t border-[#f5f2eb]">
-                    <div>Window: <strong className="text-[#1c1917]">{item.windowHours}h Refresh</strong></div>
+                    <div>{item.windowHours > 0 ? <>Window: <strong className="text-[#1c1917]">{item.windowHours}h Refresh</strong></> : <>Billing: <strong className="text-[#1c1917]">Pay-As-You-Go Credits</strong></>}</div>
                     <div>Validity: <strong className="text-[#1c1917]">{item.billingPeriod === 'yearly' ? '365 Days (Annual)' : `${item.validityDays} Days`}</strong></div>
                   </div>
 

@@ -104,9 +104,10 @@ export function determineKeyPrefix(_provider: { name: string }, isTrial: boolean
 export async function generateProviderApiKey(options: {
   providerId?: string;
   isTrial?: boolean;
+  keyPrefix?: string;
 }): Promise<GeneratedKeyMaterial> {
   const provider = await resolveProviderForNewKey(options.providerId);
-  const keyPrefix = determineKeyPrefix(provider, Boolean(options.isTrial));
+  const keyPrefix = options.keyPrefix || determineKeyPrefix(provider, Boolean(options.isTrial));
 
   let attempts = 0;
   while (attempts < 5) {

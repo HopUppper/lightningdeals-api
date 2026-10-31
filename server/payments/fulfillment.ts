@@ -291,7 +291,9 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
 
     if (isCreditPlan || isTokenPack || tokenAllowanceBigInt > 0n || plan.windowHours > 0) {
       const retailMultiplier = Number(plan.retailMultiplier || plan.creditMultiplier || 7.0);
-      const baseCreditAmount = Number(order.creditsPurchased || plan.creditAmountUsd || ((Number(order.amountInr) * retailMultiplier) / 100));
+      const baseCreditAmount = isCreditPlan
+        ? Number(plan.creditAmountUsd || order.creditsPurchased || ((Number(order.amountInr) * retailMultiplier) / 100))
+        : 0;
       const bonusCreditAmount = Number(order.bonusCredits || plan.bonusCreditsUsd || 0);
       const totalCreditBalance = isCreditPlan ? baseCreditAmount + bonusCreditAmount : 0;
 
@@ -318,6 +320,9 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           displayKey,
           keyEncrypted: encryptText(rawKeySecret),
           name: `${plan.name} (${order.internalOrderId.substring(0, 8)})`,
+          plan: plan.displayName || plan.name,
+          allowedModels: (plan as any).allowedModels || 'all',
+          allowedModelFamilies: (plan as any).allowedModelFamilies || 'all',
           type: 'production',
           status: 'active',
           billingType: keyBillingType,
@@ -340,7 +345,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           type: 'PURCHASE',
           reference: order.internalOrderId,
           notes: isCreditPlan
-            ? `Automated credit fulfillment for ${plan.displayName} (₹${totalCreditBalance.toLocaleString()} API credits)`
+            ? `Automated credit fulfillment for ${plan.displayName} ($${totalCreditBalance.toFixed(2)} USD API credits)`
             : `Automated fulfillment for ${plan.displayName}`,
         },
       });

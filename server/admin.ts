@@ -2502,6 +2502,11 @@ router.get('/keys', async (req: AuthRequest, res: Response) => {
           plan: computedPlan,
           providerId: k.providerId,
           providerName: k.provider?.name || 'Opus Max',
+          billingType: k.billingType || 'window',
+          creditBalanceUsd: k.creditBalanceUsd || 0,
+          totalCreditsUsedUsd: k.totalCreditsUsedUsd || 0,
+          allowedModels: k.allowedModels || 'all',
+          allowedModelFamilies: k.allowedModelFamilies || 'all',
           purchasedTokens: windowMetrics.purchasedNum.toString(),
           tokensUsed: windowMetrics.windowTokensUsed.toString(),
           tokensRemaining: windowMetrics.remainingNum.toString(),
@@ -2585,11 +2590,30 @@ router.get('/keys/:id/usage', async (req: AuthRequest, res: Response) => {
 
 
 router.post('/keys', async (req: AuthRequest, res: Response) => {
-  const { name, userId, tokenLimit, rateLimitRpm, expiryDays, plan, isTrial, providerId } = req.body;
+  const {
+    name,
+    userId,
+    tokenLimit,
+    rateLimitRpm,
+    expiryDays,
+    plan,
+    isTrial,
+    providerId,
+    billingType,
+    creditBalanceUsd,
+    allowedModels,
+    allowedModelFamilies,
+    keyPrefix: customKeyPrefix,
+  } = req.body;
   try {
+    const finalBillingType = billingType || (creditBalanceUsd ? 'credit' : 'window');
+    const isCredit = finalBillingType === 'credit';
+    const initialCreditBalance = isCredit ? Number(creditBalanceUsd || 0) : 0;
+
     const keyMaterial = await generateProviderApiKey({
       providerId: providerId || undefined,
       isTrial: Boolean(isTrial),
+      keyPrefix: customKeyPrefix || undefined,
     });
 
     let expiresAt: Date | null = null;
@@ -2598,15 +2622,21 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
       expiresAt.setDate(expiresAt.getDate() + Number(expiryDays));
     }
 
-    const initialTokens = BigInt(
-      tokenLimit !== undefined && tokenLimit !== null && tokenLimit !== ''
-        ? tokenLimit
-        : isTrial
-        ? 200000
-        : 1000000
-    );
+    const initialTokens = isCredit
+      ? 0n
+      : BigInt(
+          tokenLimit !== undefined && tokenLimit !== null && tokenLimit !== ''
+            ? tokenLimit
+            : isTrial
+            ? 200000
+            : 1000000
+        );
     const numM = Math.round(Number(initialTokens) / 1000000);
-    const defaultPlan = isTrial ? 'Trial Key' : `Claude Max ${numM}x`;
+    const defaultPlan = isTrial
+      ? 'Trial Key'
+      : isCredit
+      ? `API Credits ($${initialCreditBalance.toFixed(2)} USD)`
+      : `Claude Max ${numM}x`;
     const finalPlan = plan || defaultPlan;
 
     const apiKey = await prisma.apiKey.create({
@@ -2617,9 +2647,14 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
         keyHash: keyMaterial.keyHash,
         displayKey: keyMaterial.displayKey,
         keyEncrypted: encryptText(keyMaterial.rawKeySecret),
-        name: name || (isTrial ? 'Free Trial Key' : `Claude Max ${numM}x Key`),
+        name: name || (isTrial ? 'Free Trial Key' : isCredit ? `API Credits ($${initialCreditBalance.toFixed(2)} USD)` : `Claude Max ${numM}x Key`),
         type: isTrial ? 'trial' : 'production',
         status: 'active',
+        billingType: finalBillingType,
+        creditBalanceUsd: initialCreditBalance,
+        totalCreditsUsedUsd: 0,
+        allowedModels: allowedModels || 'all',
+        allowedModelFamilies: allowedModelFamilies || 'all',
         purchasedTokens: initialTokens,
         tokensUsed: BigInt(0),
         tokensRemaining: initialTokens,
@@ -2629,17 +2664,35 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
       },
     });
 
-    await prisma.tokenLedger.create({
-      data: {
-        apiKeyId: apiKey.id,
-        userId: userId || null,
-        amount: initialTokens,
-        balanceAfter: initialTokens,
-        type: isTrial ? 'TRIAL_GRANT' : 'PURCHASE',
-        reference: 'ADMIN-KEY-GEN',
-        notes: `Admin created ${isTrial ? 'trial' : 'production'} key (${keyMaterial.providerName})`,
-      },
-    });
+    if (isCredit) {
+      if (userId && initialCreditBalance > 0) {
+        await prisma.customerUsageCreditLedger.create({
+          data: {
+            userId,
+            apiKeyId: apiKey.id,
+            type: 'CREDITS_GRANTED',
+            amount: initialCreditBalance,
+            balanceBefore: 0,
+            balanceAfter: initialCreditBalance,
+            currency: 'USD',
+            reference: 'ADMIN-KEY-GEN',
+            notes: `Admin provisioned credit API key with $${initialCreditBalance.toFixed(2)} USD credits`,
+          },
+        });
+      }
+    } else {
+      await prisma.tokenLedger.create({
+        data: {
+          apiKeyId: apiKey.id,
+          userId: userId || null,
+          amount: initialTokens,
+          balanceAfter: initialTokens,
+          type: isTrial ? 'TRIAL_GRANT' : 'PURCHASE',
+          reference: 'ADMIN-KEY-GEN',
+          notes: `Admin created ${isTrial ? 'trial' : 'production'} key (${keyMaterial.providerName})`,
+        },
+      });
+    }
 
     res.json({
       id: apiKey.id,
@@ -2648,8 +2701,12 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
       name: apiKey.name,
       providerId: apiKey.providerId,
       providerName: keyMaterial.providerName,
+      billingType: apiKey.billingType,
+      creditBalanceUsd: apiKey.creditBalanceUsd,
       purchasedTokens: apiKey.purchasedTokens.toString(),
       tokensRemaining: apiKey.tokensRemaining.toString(),
+      allowedModels: apiKey.allowedModels,
+      allowedModelFamilies: apiKey.allowedModelFamilies,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
@@ -2795,6 +2852,85 @@ router.put('/keys/:id', async (req: AuthRequest, res: Response) => {
       exp.setDate(exp.getDate() + Number(expiryDays));
       updateData.expiresAt = exp;
       auditNotes.push(`Expiration set to +${expiryDays} days`);
+    }
+
+    // Model Permissions & Billing Type Modifications
+    if (allowedModels !== undefined) {
+      updateData.allowedModels = allowedModels;
+      auditNotes.push(`Allowed models set to "${allowedModels}"`);
+    }
+    if (allowedModelFamilies !== undefined) {
+      updateData.allowedModelFamilies = allowedModelFamilies;
+      auditNotes.push(`Allowed model families set to "${allowedModelFamilies}"`);
+    }
+    if (billingType !== undefined && ['window', 'credit', 'token'].includes(billingType)) {
+      updateData.billingType = billingType;
+      auditNotes.push(`Billing type set to "${billingType}"`);
+    }
+
+    // Credit Balance Adjustments (USD)
+    if (overrideCreditBalanceUsd !== undefined && overrideCreditBalanceUsd !== null && overrideCreditBalanceUsd !== '') {
+      const newCredits = Math.max(0, Number(overrideCreditBalanceUsd));
+      const prevCredits = key.creditBalanceUsd || 0;
+      updateData.creditBalanceUsd = newCredits;
+      auditNotes.push(`Credit balance overridden to ${newCredits.toFixed(2)} USD`);
+      if (key.userId) {
+        await prisma.customerUsageCreditLedger.create({
+          data: {
+            userId: key.userId,
+            apiKeyId: key.id,
+            type: 'ADMIN_ADJUSTMENT',
+            amount: Number((newCredits - prevCredits).toFixed(4)),
+            balanceBefore: prevCredits,
+            balanceAfter: newCredits,
+            currency: 'USD',
+            reference: 'ADMIN-OVERRIDE',
+            notes: `Admin manually adjusted credit balance to ${newCredits.toFixed(2)} USD`,
+          },
+        });
+      }
+    } else if (addCreditsUsd && Number(addCreditsUsd) > 0) {
+      const added = Number(addCreditsUsd);
+      const prevCredits = key.creditBalanceUsd || 0;
+      const newCredits = prevCredits + added;
+      updateData.creditBalanceUsd = newCredits;
+      auditNotes.push(`Added +${added.toFixed(2)} USD credits`);
+      if (key.userId) {
+        await prisma.customerUsageCreditLedger.create({
+          data: {
+            userId: key.userId,
+            apiKeyId: key.id,
+            type: 'ADMIN_ADJUSTMENT',
+            amount: added,
+            balanceBefore: prevCredits,
+            balanceAfter: newCredits,
+            currency: 'USD',
+            reference: 'ADMIN-TOPUP',
+            notes: `Admin added +${added.toFixed(2)} USD credits`,
+          },
+        });
+      }
+    } else if (withdrawCreditsUsd && Number(withdrawCreditsUsd) > 0) {
+      const withdrawn = Number(withdrawCreditsUsd);
+      const prevCredits = key.creditBalanceUsd || 0;
+      const newCredits = Math.max(0, prevCredits - withdrawn);
+      updateData.creditBalanceUsd = newCredits;
+      auditNotes.push(`Withdrew -${withdrawn.toFixed(2)} USD credits`);
+      if (key.userId) {
+        await prisma.customerUsageCreditLedger.create({
+          data: {
+            userId: key.userId,
+            apiKeyId: key.id,
+            type: 'ADMIN_ADJUSTMENT',
+            amount: -withdrawn,
+            balanceBefore: prevCredits,
+            balanceAfter: newCredits,
+            currency: 'USD',
+            reference: 'ADMIN-WITHDRAWAL',
+            notes: `Admin withdrew -${withdrawn.toFixed(2)} USD credits`,
+          },
+        });
+      }
     }
 
     // Token Top Up / Addition
@@ -5457,6 +5593,7 @@ router.put('/plans-catalog/:id', async (req: AuthRequest, res: Response) => {
     planType,
     creditMultiplier,
     creditAmountInr,
+    creditAmountUsd,
     creditBalanceDenomination,
     supplierCostInr,
     supplierCostUsd,

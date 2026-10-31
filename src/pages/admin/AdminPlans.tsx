@@ -64,6 +64,7 @@ export const AdminPlans: React.FC = () => {
     sortOrder: 1,
     creditMultiplier: 7.0,
     creditAmountInr: 0,
+    creditAmountUsd: 0,
     creditBalanceDenomination: 'INR',
     supplierCostInr: 0,
     supplierCostUsd: '',
@@ -231,6 +232,11 @@ export const AdminPlans: React.FC = () => {
       sortOrder: plan.sortOrder || 0,
       creditMultiplier: plan.creditMultiplier ? Number(plan.creditMultiplier) : 7.0,
       creditAmountInr: plan.creditAmountInr ? Number(plan.creditAmountInr) : 0,
+      creditAmountUsd: plan.creditAmountUsd != null
+        ? Number(plan.creditAmountUsd)
+        : plan.creditAmountInr != null && plan.creditAmountInr > 100
+        ? Number((Number(plan.creditAmountInr) / 100).toFixed(2))
+        : +((Number(plan.priceInr || 0) * (Number(plan.creditMultiplier) || 7.0)) / 100).toFixed(2),
       creditBalanceDenomination: plan.creditBalanceDenomination || 'INR',
       supplierCostInr: plan.supplierCostInr != null ? Number(plan.supplierCostInr) : 0,
       supplierCostUsd: plan.supplierCostUsd || '',
@@ -821,12 +827,12 @@ export const AdminPlans: React.FC = () => {
                     {p.planCategory === 'claude_openai_credits' && (
                       <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-900 space-y-0.5">
                         <div className="font-bold flex items-center justify-between">
-                          <span>Pay ₹{p.priceInr.toLocaleString()} → Get ₹{(p.creditAmountInr || (p.priceInr * 7)).toLocaleString()} API Credits</span>
+                          <span>Pay ₹{p.priceInr.toLocaleString()} → Get ${(p.creditAmountUsd || ((p.priceInr * (p.creditMultiplier || 7)) / 100)).toFixed(2)} USD API Credits</span>
                           <span className="bg-emerald-200 text-emerald-800 text-[10px] px-1.5 py-0.2 rounded font-mono">
                             {p.creditMultiplier || 7.0}x
                           </span>
                         </div>
-                        <p className="text-[10px] text-emerald-700">Strictly INR-denominated balances</p>
+                        <p className="text-[10px] text-emerald-700">Strictly USD-denominated credit balance</p>
                       </div>
                     )}
 
@@ -1328,16 +1334,18 @@ export const AdminPlans: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-emerald-800 mb-1 text-xs font-semibold">Customer Credit Allocation (₹ INR)</label>
+                      <label className="block text-emerald-800 mb-1 text-xs font-semibold">Credits Customer Receives ($ USD Credits)</label>
                       <input
                         type="number"
-                        value={planForm.creditAmountInr}
+                        step="0.01"
+                        value={planForm.creditAmountUsd}
                         onChange={(e) => {
-                          const credits = Number(e.target.value);
-                          const mult = planForm.priceInr > 0 ? +(credits / planForm.priceInr).toFixed(2) : 0;
+                          const creditsUsd = Number(e.target.value);
+                          const mult = planForm.priceInr > 0 ? +((creditsUsd / (planForm.priceInr / 100))).toFixed(2) : 7.0;
                           setPlanForm({
                             ...planForm,
-                            creditAmountInr: credits,
+                            creditAmountUsd: creditsUsd,
+                            creditAmountInr: Math.round(creditsUsd * 100),
                             creditMultiplier: mult,
                           });
                         }}
@@ -1398,7 +1406,7 @@ export const AdminPlans: React.FC = () => {
                   </div>
 
                   <p className="text-[11px] text-emerald-800 font-bold">
-                    → Customer pays ₹{planForm.priceInr.toLocaleString()} and receives ₹{(planForm.creditAmountInr || 0).toLocaleString()} in API Credits ({planForm.creditMultiplier}x multiplier).
+                    → Customer pays ₹{planForm.priceInr.toLocaleString()} and receives ${Number(planForm.creditAmountUsd || 0).toFixed(2)} USD in API Credits ({planForm.creditMultiplier}x multiplier).
                   </p>
                 </div>
               )}
@@ -1498,7 +1506,7 @@ export const AdminPlans: React.FC = () => {
                   </div>
                   {planForm.planCategory === 'claude_openai_credits' && (
                     <div className="text-xs text-emerald-700 font-bold">
-                      Pay ₹{planForm.priceInr} → Receive ₹{planForm.creditAmountInr || (planForm.priceInr * 7)} API Credits
+                      Pay ₹{planForm.priceInr} → Receive ${Number(planForm.creditAmountUsd || ((planForm.priceInr * 7) / 100)).toFixed(2)} USD API Credits
                     </div>
                   )}
                 </div>

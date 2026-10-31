@@ -35,6 +35,7 @@ export const AdminPricing: React.FC = () => {
   const [quickForm, setQuickForm] = useState({
     priceInr: 100,
     creditMultiplier: 7.0,
+    creditAmountUsd: 7.00,
     creditAmountInr: 700,
     supplierCostInr: 50,
     tokenAllowance: 10000000,
@@ -77,6 +78,7 @@ export const AdminPricing: React.FC = () => {
   }, []);
 
   // Simulator calculations
+  const simCustomerCreditsUsd = Math.round((simPrice / 100) * simMultiplier * 100) / 100;
   const simCustomerCredits = Math.round(simPrice * simMultiplier);
   const simNetProfit = simPrice - simSupplierCost;
   const simMarginPct = simPrice > 0 ? Math.round((simNetProfit / simPrice) * 100) : 0;
@@ -120,13 +122,18 @@ export const AdminPricing: React.FC = () => {
     setEditingPlan(plan);
     const price = Number(plan.priceInr) || 0;
     const mult = Number(plan.creditMultiplier) || 7.0;
-    const credits = plan.creditAmountInr != null ? Number(plan.creditAmountInr) : Math.round(price * mult);
+    const creditsUsd = plan.creditAmountUsd != null
+      ? Number(plan.creditAmountUsd)
+      : plan.creditAmountInr != null && plan.creditAmountInr > 100
+      ? Number((Number(plan.creditAmountInr) / 100).toFixed(2))
+      : +((price * mult) / 100).toFixed(2);
     const cost = plan.supplierCostInr != null ? Number(plan.supplierCostInr) : 0;
 
     setQuickForm({
       priceInr: price,
       creditMultiplier: mult,
-      creditAmountInr: credits,
+      creditAmountUsd: creditsUsd,
+      creditAmountInr: Math.round(creditsUsd * 100),
       supplierCostInr: cost,
       tokenAllowance: Number(plan.tokenAllowance) || 10000000,
       tokenDisplay: plan.tokenDisplay || '',
@@ -145,10 +152,13 @@ export const AdminPricing: React.FC = () => {
         ...editingPlan,
         priceInr: quickForm.priceInr,
         creditMultiplier: quickForm.creditMultiplier,
+        creditAmountUsd: quickForm.creditAmountUsd,
         creditAmountInr: quickForm.creditAmountInr,
         supplierCostInr: quickForm.supplierCostInr,
         tokenAllowance: quickForm.tokenAllowance,
-        tokenDisplay: quickForm.tokenDisplay || (editingPlan.planType === 'token'
+        tokenDisplay: quickForm.tokenDisplay || (editingPlan.planType === 'credit'
+          ? `${Number(quickForm.creditAmountUsd).toFixed(2)} API CREDITS`
+          : editingPlan.planType === 'token'
           ? `${(Number(quickForm.tokenAllowance) / 1000000).toFixed(0)}M TOKENS (Consumable)`
           : editingPlan.tokenDisplay),
       };
@@ -403,7 +413,7 @@ export const AdminPricing: React.FC = () => {
 
               <div className="flex justify-between items-center text-violet-700 bg-violet-50 p-2 rounded border border-violet-200">
                 <span className="font-bold">Customer Credits Received:</span>
-                <span className="font-extrabold text-sm">₹{simCustomerCredits.toLocaleString()} ({simMultiplier}x)</span>
+                <span className="font-extrabold text-sm font-mono">${simCustomerCreditsUsd.toFixed(2)} USD Credits ({simMultiplier}x value)</span>
               </div>
 
               <div className="flex justify-between items-center text-muted">
@@ -524,8 +534,8 @@ export const AdminPricing: React.FC = () => {
                             <span className="text-violet-700 font-bold bg-violet-50 px-2 py-0.5 rounded border border-violet-200">
                               {plan.creditMultiplier || 7.0}x Multiplier
                             </span>
-                            <p className="text-[10px] text-muted font-bold mt-1">
-                              ₹{(plan.creditAmountInr || (plan.priceInr * 7)).toLocaleString()} API Credits
+                            <p className="text-[10px] text-emerald-600 font-mono font-bold mt-1">
+                              ${(plan.creditAmountUsd || ((plan.priceInr * (plan.creditMultiplier || 7.0)) / 100)).toFixed(2)} USD Credits
                             </p>
                           </div>
                         ) : plan.planType === 'token' ? (
@@ -683,10 +693,12 @@ export const AdminPricing: React.FC = () => {
                   onChange={(e) => {
                     const newPrice = Number(e.target.value);
                     const mult = quickForm.creditMultiplier;
+                    const newUsd = +((newPrice * mult) / 100).toFixed(2);
                     setQuickForm({
                       ...quickForm,
                       priceInr: newPrice,
-                      creditAmountInr: Math.round(newPrice * mult),
+                      creditAmountUsd: newUsd,
+                      creditAmountInr: Math.round(newUsd * 100),
                     });
                   }}
                   className="w-full px-3 py-2 rounded-control border border-border bg-bg font-mono font-bold text-fg text-sm focus:outline-none focus:ring-2 focus:ring-violet-600"
@@ -713,10 +725,12 @@ export const AdminPricing: React.FC = () => {
                     value={quickForm.creditMultiplier}
                     onChange={(e) => {
                       const mult = Number(e.target.value);
+                      const newUsd = +((quickForm.priceInr * mult) / 100).toFixed(2);
                       setQuickForm({
                         ...quickForm,
                         creditMultiplier: mult,
-                        creditAmountInr: Math.round(quickForm.priceInr * mult),
+                        creditAmountUsd: newUsd,
+                        creditAmountInr: Math.round(newUsd * 100),
                       });
                     }}
                     className="w-full accent-violet-600 cursor-pointer"
@@ -728,13 +742,15 @@ export const AdminPricing: React.FC = () => {
                       <button
                         key={m}
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          const newUsd = +((quickForm.priceInr * m) / 100).toFixed(2);
                           setQuickForm({
                             ...quickForm,
                             creditMultiplier: m,
-                            creditAmountInr: Math.round(quickForm.priceInr * m),
-                          })
-                        }
+                            creditAmountUsd: newUsd,
+                            creditAmountInr: Math.round(newUsd * 100),
+                          });
+                        }}
                         className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border transition-colors cursor-pointer ${
                           quickForm.creditMultiplier === m
                             ? 'bg-violet-600 text-white border-violet-600'
@@ -746,29 +762,34 @@ export const AdminPricing: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Customer Credit Allocation */}
+                  {/* Customer Credit Allocation in Dollars */}
                   <div>
                     <label className="block text-[11px] font-mono font-bold text-violet-900 mb-1">
-                      Customer Credit Allocation (₹ INR)
+                      Credits Customer Receives ($ USD Credits)
                     </label>
-                    <input
-                      type="number"
-                      value={quickForm.creditAmountInr}
-                      onChange={(e) => {
-                        const credits = Number(e.target.value);
-                        const mult = quickForm.priceInr > 0 ? +(credits / quickForm.priceInr).toFixed(2) : 7.0;
-                        setQuickForm({
-                          ...quickForm,
-                          creditAmountInr: credits,
-                          creditMultiplier: mult,
-                        });
-                      }}
-                      className="w-full px-3 py-1.5 rounded-control border border-border bg-white font-mono font-bold text-fg text-xs"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 font-mono font-bold text-fg text-xs">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={quickForm.creditAmountUsd}
+                        onChange={(e) => {
+                          const creditsUsd = Number(e.target.value);
+                          const mult = quickForm.priceInr > 0 ? +((creditsUsd / (quickForm.priceInr / 100))).toFixed(2) : 7.0;
+                          setQuickForm({
+                            ...quickForm,
+                            creditAmountUsd: creditsUsd,
+                            creditAmountInr: Math.round(creditsUsd * 100),
+                            creditMultiplier: mult,
+                          });
+                        }}
+                        className="w-full pl-7 pr-3 py-1.5 rounded-control border border-border bg-white font-mono font-bold text-fg text-xs focus:outline-none focus:ring-2 focus:ring-violet-600"
+                      />
+                    </div>
                   </div>
 
                   <p className="text-[11px] font-mono text-violet-900 font-bold">
-                    → User pays ₹{quickForm.priceInr.toLocaleString()} and receives ₹{quickForm.creditAmountInr.toLocaleString()} in API Credits ({quickForm.creditMultiplier}x value).
+                    → User pays ₹{quickForm.priceInr.toLocaleString()} and receives ${Number(quickForm.creditAmountUsd || 0).toFixed(2)} USD in API Credits ({quickForm.creditMultiplier}x value).
                   </p>
                 </div>
               )}

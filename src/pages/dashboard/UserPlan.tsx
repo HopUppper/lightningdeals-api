@@ -553,7 +553,7 @@ export const UserPlan: React.FC = () => {
             <div className="flex items-center gap-3">
               <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
               <div>
-                <strong className="text-amber-300">API Credits (7x Multiplier):</strong> Deposit funds in INR and unlock up to 7x–8.75x in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits). Atomically deducted per token across Claude, OpenAI, and Local models. 365-day validity.
+                <strong className="text-amber-300">{selectedFamily === 'claude' ? 'Claude API Credits' : selectedFamily === 'openai' ? 'OpenAI API Credits' : 'Local Models API Credits'} (7x Multiplier):</strong> Deposit funds in INR and unlock up to 7x–8.75x in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits). Atomically deducted per token. Dedicated access to {selectedFamily === 'claude' ? 'Claude' : selectedFamily === 'openai' ? 'OpenAI' : 'Local'} models. 365-day validity.
               </div>
             </div>
             <span className="font-mono text-amber-300 text-[11px] shrink-0 font-bold bg-white/10 px-2.5 py-1 rounded-lg">
@@ -567,7 +567,7 @@ export const UserPlan: React.FC = () => {
             <div className="flex items-center gap-3">
               <Coins className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <strong className="text-[#1e1b2e]">Prepaid Consumable Tokens:</strong> Fixed allocation of 5M to 50M tokens that does NOT reset every 5 hours. Spend at your own speed over 365 days.
+                <strong className="text-[#1e1b2e]">{selectedFamily === 'claude' ? 'Claude Prepaid Tokens' : selectedFamily === 'openai' ? 'OpenAI Prepaid Tokens' : 'Local Models Prepaid Tokens'}:</strong> Fixed allocation of 5M to 50M tokens that does NOT reset every 5 hours. Spend at your own speed over 365 days. Dedicated to {selectedFamily === 'claude' ? 'Claude' : selectedFamily === 'openai' ? 'OpenAI' : 'Local'} models.
               </div>
             </div>
             <span className="font-mono text-emerald-700 text-[11px] shrink-0 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">

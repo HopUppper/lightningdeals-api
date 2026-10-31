@@ -398,7 +398,7 @@ export const CapacityPlans: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <div className="text-sm font-bold font-display flex items-center gap-2">
-                  <span>Usage Credits — 7x Purchasing Power Multiplier</span>
+                  <span>{selectedFamily === 'claude' ? 'Claude API Credits' : selectedFamily === 'openai' ? 'OpenAI API Credits' : 'Local Models API Credits'} — 7x Purchasing Power Multiplier</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-400 text-neutral-950 font-bold">
                     7X VALUE
                   </span>
@@ -406,7 +406,7 @@ export const CapacityPlans: React.FC = () => {
                 <p className="text-xs text-violet-200 leading-relaxed max-w-3xl">
                   Deposit funds in INR and unlock up to <strong>7x–8.75x</strong> in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits).
                   Tokens are atomically deducted per request at published model rates. Valid for <strong>365 full days</strong>.
-                  Universal access across Claude, OpenAI, and Local models.
+                  {selectedFamily === 'claude' && ' Dedicated access for all Claude models (Opus 5.5, Sonnet 5.5, Haiku 5.5, and many more...).'}{selectedFamily === 'openai' && ' Dedicated access for all OpenAI models (o1, o3-mini, GPT-4o, and many more...).'}{selectedFamily === 'local' && ' Dedicated access for all Local & Open-Weight models (DeepSeek V3, Gemini 2.5, Grok 3, and many more...).'}
                 </p>
               </div>
             </div>
@@ -425,14 +425,14 @@ export const CapacityPlans: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <div className="text-sm font-bold text-[#191719] font-display flex items-center gap-2">
-                  <span>Prepaid Consumable Tokens — No 5-Hour Rolling Resets</span>
+                  <span>{selectedFamily === 'claude' ? 'Claude Prepaid Tokens' : selectedFamily === 'openai' ? 'OpenAI Prepaid Tokens' : 'Local Models Prepaid Tokens'} — No 5-Hour Rolling Resets</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
                     CONSUMABLE QUOTA
                   </span>
                 </div>
                 <p className="text-xs text-[#68636B] leading-relaxed max-w-3xl">
                   A guaranteed allowance of 5M to 50M tokens that does <strong>NOT</strong> reset every 5 hours. Spend as fast
-                  or as slow as needed over 365 days. Perfect for heavy batch jobs, multi-agent evaluation pipelines, and project bursts.
+                  or as slow as needed over 365 days. Perfect for heavy batch jobs, multi-agent evaluation pipelines, and project bursts.{selectedFamily === 'claude' && ' Dedicated consumable tokens for Claude models (Opus 5.5, Sonnet 5.5, Haiku 5.5, and many more...).'}{selectedFamily === 'openai' && ' Dedicated consumable tokens for OpenAI models (o1, o3-mini, GPT-4o, and many more...).'}{selectedFamily === 'local' && ' Dedicated consumable tokens for Local models (DeepSeek V3, Gemini 2.5, Grok 3, and many more...).'}
                 </p>
               </div>
             </div>
@@ -595,7 +595,7 @@ export const CapacityPlans: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-[#087F5B] shrink-0" />
-                          <span>Universal (Claude, OpenAI, Local)</span>
+                          <span className="font-semibold text-[#7136E8]">{selectedFamily === 'claude' ? 'Dedicated Claude Models Access' : selectedFamily === 'openai' ? 'Dedicated OpenAI Models Access' : 'Dedicated Local Models Access'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-[#087F5B] shrink-0" />
@@ -620,7 +620,7 @@ export const CapacityPlans: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-[#087F5B] shrink-0" />
-                          <span>OpenAI & Claude Compatible</span>
+                          <span className="font-semibold text-emerald-700">{selectedFamily === 'claude' ? 'Claude Native Messages API' : selectedFamily === 'openai' ? 'OpenAI Chat Completions API' : 'Local Models / OpenAI API'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-[#087F5B] shrink-0" />

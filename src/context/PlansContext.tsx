@@ -195,13 +195,13 @@ export const DEFAULT_PLANS: PlanItem[] = [
     currency: 'INR',
     creditAmountInr: 700,
     creditBalanceDenomination: 'INR',
-    tagline: 'Pay ₹100 → Receive ₹700 API Credits (7x multiplier). Universal access to Claude, OpenAI, and Local models.',
+    tagline: 'Pay ₹100 → Receive ₹700 API Credits (7x multiplier). Dedicated model access.',
     badge: 'STARTER PACK',
     featured: false,
     features: [
       '₹700 API Credits Balance (INR)',
       '7x Purchasing Power Multiplier',
-      'Universal Access (Claude, OpenAI, Local)',
+      'Full Model Access Scoped to Your Plan',
       '365-Day Flexible Validity',
       'Atomic Pay-As-You-Go Deductions',
       'Sub-50ms Gateway Routing',
@@ -235,7 +235,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     features: [
       '₹3,850 API Credits Balance (INR)',
       '7.7x Value Multiplier Included',
-      'Universal Access (Claude, OpenAI, Local)',
+      'Full Model Access Scoped to Your Plan',
       '365-Day Extended Validity',
       'Atomic Pay-As-You-Go Deductions',
       'Priority Gateway Ingress',
@@ -269,7 +269,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     features: [
       '₹16,000 API Credits Balance (INR)',
       '8x Highest Value Multiplier',
-      'Universal Access (Claude, OpenAI, Local)',
+      'Full Model Access Scoped to Your Plan',
       '365-Day Extended Validity',
       'Atomic Pay-As-You-Go Deductions',
       'VIP Priority Gateway Ingress',
@@ -302,7 +302,7 @@ export const DEFAULT_PLANS: PlanItem[] = [
     features: [
       '₹35,000 API Credits Balance (INR)',
       '8.75x Maximum Scale Multiplier',
-      'Universal Access (Claude, OpenAI, Local)',
+      'Full Model Access Scoped to Your Plan',
       '365-Day Extended Validity',
       'Atomic Pay-As-You-Go Deductions',
       'Dedicated High-Concurrency Quota',

@@ -359,7 +359,7 @@ export async function seedFivePlanArchitecture() {
       allowedModelFamilies: '["claude","openai"]',
       supplierCostInr: 250.0,
       supplierAllocation: '$25 credit allocation',
-      tagline: 'Pay ₹100 → Receive ₹700 API Credits (7x multiplier). Universal access to Claude & OpenAI models.',
+      tagline: 'Pay ₹100 → Receive ₹700 API Credits (7x multiplier). Dedicated model access.',
       badge: 'STARTER PACK',
       featuresJson: JSON.stringify([
         '₹700 INR API Credit Balance',

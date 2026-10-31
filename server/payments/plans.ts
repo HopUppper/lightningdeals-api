@@ -314,12 +314,12 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     supplierAllocation: '$25 credit allocation',
     providerScope: 'scalemax',
     allowedModelFamilies: ['claude', 'openai'],
-    tagline: 'Pay ₹100 → Receive ₹700 API Credits (7x multiplier). Universal access to Claude & OpenAI models.',
+    tagline: 'Pay ₹100 → Receive ₹700 API Credits (7x multiplier). Dedicated model access.',
     badge: 'STARTER PACK',
     features: [
       '₹700 INR API Credit Balance',
       '7x Value Multiplier (Pay ₹100 → Get ₹700)',
-      'Universal Access to Claude & OpenAI Models',
+      'Full Model Access Scoped to Your Plan',
       '365-Day Flexible Validity',
       'Atomic Pay-As-You-Go Deductions',
     ],
@@ -354,7 +354,7 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     features: [
       '₹3,850 INR API Credit Balance',
       '7.7x Value Multiplier Included',
-      'Universal Access to Claude & OpenAI Models',
+      'Full Model Access Scoped to Your Plan',
       '365-Day Extended Validity',
       'Atomic Pay-As-You-Go Deductions',
     ],
@@ -389,7 +389,7 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     features: [
       '₹16,000 INR API Credit Balance',
       '8x Highest Value Multiplier',
-      'Universal Access to Claude & OpenAI Models',
+      'Full Model Access Scoped to Your Plan',
       '365-Day Extended Validity',
       'VIP Priority Gateway Ingress',
     ],
@@ -424,7 +424,7 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     features: [
       '₹35,000 INR API Credit Balance',
       '8.75x Maximum Scale Multiplier',
-      'Universal Access to Claude & OpenAI Models',
+      'Full Model Access Scoped to Your Plan',
       '365-Day Extended Validity',
       'Dedicated High-Concurrency Quota',
     ],

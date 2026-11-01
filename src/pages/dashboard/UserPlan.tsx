@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag, Sparkles, Copy, Check, Cpu, Coins, DollarSign, Info } from 'lucide-react';
+import { ShieldCheck, Zap, ArrowRight, CheckCircle2, Clock, Activity, Gift, CreditCard, RefreshCw, AlertCircle, ShoppingBag, Sparkles, Copy, Check, Cpu, Coins, DollarSign, Info, Layers } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { userFetch } from '../../utils/api';
@@ -683,6 +683,51 @@ export const UserPlan: React.FC = () => {
               className="px-3 py-1.5 rounded-lg bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer"
             >
               Switch to Credits
+            </button>
+          </div>
+        )}
+
+        {/* Token Plan Category Direct Selector */}
+        {selectedBillingMode === 'token' && (
+          <div className="flex flex-wrap items-center gap-2 p-2 bg-white rounded-2xl border border-[#ede8e1] shadow-2xs">
+            <span className="text-[11px] font-bold text-[#64607d] uppercase px-2 font-mono">
+              Choose Token Pack:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedFamily('claude')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedFamily === 'claude'
+                  ? 'bg-violet-600 text-white shadow-xs'
+                  : 'bg-[#faf8f5] text-[#64607d] hover:text-[#1e1b2e]'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Claude Token Packs (10M / 50M / 100M)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedFamily('openai')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedFamily === 'openai'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-[#faf8f5] text-[#64607d] hover:text-[#1e1b2e]'
+              }`}
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              <span>OpenAI Token Packs (10M / 50M / 100M)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedFamily('local')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedFamily === 'local'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-[#faf8f5] text-[#64607d] hover:text-[#1e1b2e]'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Local Models Packs (10M / 100M / 500M)</span>
             </button>
           </div>
         )}

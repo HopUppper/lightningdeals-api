@@ -521,33 +521,42 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
     const keysToInspect = [
       {
         keyIndex: 1,
-        role: 'Claude & OpenAI Frontier Key',
-        shortRole: 'Claude + OpenAI',
-        description: 'Dedicated supplier key provisioned for Claude Sonnet, Opus and OpenAI models',
+        role: 'ScaleMax Claude & OpenAI Frontier Wholesale Token Key',
+        shortRole: 'Claude + OpenAI (Tokens)',
+        description: 'Dedicated supplier consumable token key provisioned for Claude and OpenAI frontier models. Backs both Claude Token Plans and OpenAI Token Plans separately via gateway model isolation.',
         key: activeTokenKey,
-        targetModels: 'Claude + OpenAI Family',
+        targetModels: 'Claude & OpenAI Frontier Families',
         endpoint: 'https://api.scalemax.pro/v1',
         isPrimaryActive: true,
+        billingType: 'token',
+        retailPlansServed: ['Claude Consumable Token Packs', 'OpenAI Consumable Token Packs'],
+        segregationNote: 'Combined upstream capacity; customer retail keys are strictly segregated (Claude plan keys only access Claude; OpenAI plan keys only access OpenAI)',
       },
       {
         keyIndex: 2,
-        role: 'Local & Open-Weights Models Key',
-        shortRole: 'Local Models',
-        description: 'Dedicated supplier key provisioned for open-weights models (DeepSeek, Grok, Qwen, GLM)',
+        role: 'ScaleMax Local & Open-Weights Wholesale Token Key',
+        shortRole: 'Local Models (Tokens)',
+        description: 'Dedicated supplier consumable token key provisioned for open-weights models (DeepSeek, Grok, Qwen, GLM).',
         key: activeLocalKey,
         targetModels: 'Open-Weights & Labs (DeepSeek, Grok, Qwen, GLM)',
         endpoint: 'https://api.scalemax.pro/v1',
         isPrimaryActive: true,
+        billingType: 'token',
+        retailPlansServed: ['Local Models Consumable Token Packs'],
+        segregationNote: 'Dedicated upstream pipeline for open-weights and labs models',
       },
       {
         keyIndex: 3,
-        role: 'Initial Provisioned Master Key',
-        shortRole: 'Credit Master (Rotated)',
-        description: 'Initial wholesale master key; superseded by vendor with the 2 dedicated replacement keys above',
+        role: 'Initial Wholesale Master Key (Rotated / Superseded)',
+        shortRole: 'Wholesale Master (Rotated)',
+        description: 'Initial wholesale master key; superseded by vendor with the 2 dedicated replacement token keys above (sm_live_9438 & sm_live_8bea)',
         key: activeCreditKey,
         targetModels: 'Universal (Legacy Test Quota)',
         endpoint: 'https://api.scalemax.pro/v1',
         isPrimaryActive: false,
+        billingType: 'credit',
+        retailPlansServed: ['Superseded Archive'],
+        segregationNote: 'Superseded by vendor with replacement token keys',
       },
     ];
 
@@ -602,7 +611,9 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
             try {
               const mData: any = await modelsResp.json();
               if (mData.data && Array.isArray(mData.data)) {
-                const rawModels: string[] = mData.data.map((m: any) => m.id);
+                const rawModels: string[] = mData.data
+                  .map((m: any) => m.id)
+                  .filter((id: string) => !/claude-3(?:-5|-7)?-(?:sonnet|opus|haiku)/i.test(id));
                 if (item.keyIndex === 1) {
                   // Key #1: Claude & OpenAI Frontier Key - Strictly isolate Claude & OpenAI models (exclude Grok, DeepSeek, Gemini, etc.)
                   modelsList = rawModels.filter(isClaudeOrOpenAIModelFamily);
@@ -888,7 +899,7 @@ router.post('/providers/scalemax/test-inference', async (req: AuthRequest, res: 
       return res.status(400).json({ error: { message: 'Key not found for key index ' + keyIndex } });
     }
 
-    const testModel = model || (keyIndex === 2 ? 'qwen-3.7-flash' : 'claude-sonnet-4-6[1m]');
+    const testModel = model || (keyIndex === 2 ? 'qwen-3.7-flash' : 'claude-sonnet-5.5');
     const testPrompt = prompt || 'Say hello and state your model name';
     const start = Date.now();
 

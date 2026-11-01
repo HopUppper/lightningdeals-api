@@ -21,7 +21,7 @@ import {
   releaseInFlightTokensForRequest,
 } from './window';
 import { buildProviderRequest, normalizeProviderResponse } from './providerAdapter';
-import { resolveProviderCredential } from './providers/credentialResolver';
+import { resolveProviderCredential, isLocalModelFamily } from './providers/credentialResolver';
 import { convertOpenAIResponseToAnthropic, OpenAIToAnthropicStreamTransformer } from './providers/protocolBridge';
 import { sanitizeModelResponse, sanitizeErrorMessage, StreamChunkSanitizer } from './providers/responseSanitizer';
 export { sanitizeModelResponse, sanitizeErrorMessage, StreamChunkSanitizer };
@@ -809,6 +809,32 @@ export async function resolveProviderForApiKey(keyRecord: any, requestedModel?: 
   return { provider };
 }
 
+
+
+export function detectModelFamily(model: string): string {
+  const norm = (model || '').toLowerCase();
+  if (norm.includes('claude') || norm.includes('fable')) return 'claude';
+  if (
+    norm.includes('gpt') ||
+    norm.includes('o1') ||
+    norm.includes('o3') ||
+    norm.includes('chatgpt') ||
+    norm.includes('dall-e') ||
+    norm.includes('embedding') ||
+    norm.startsWith('text-')
+  ) {
+    return 'openai';
+  }
+  if (norm.includes('gemini')) return 'gemini';
+  if (norm.includes('deepseek')) return 'deepseek';
+  if (norm.includes('grok')) return 'grok';
+  if (norm.includes('qwen')) return 'qwen';
+  if (norm.includes('glm') || norm.includes('chatglm')) return 'glm';
+  if (norm.includes('minimax')) return 'minimax';
+  if (norm.includes('kimi') || norm.includes('moonshot')) return 'kimi';
+  if (norm.includes('llama') || norm.includes('mistral') || norm.includes('yi-') || norm.includes('gemma') || norm.includes('phi-')) return 'local';
+  return 'other';
+}
 
 export async function validateKeyRecordAndCheckAllowance(keyRecord: any, requestedModel?: string, req?: any) {
   if (keyRecord.status !== 'active') {

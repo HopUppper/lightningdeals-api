@@ -58,6 +58,7 @@ export const UserKeys: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyBillingType, setNewKeyBillingType] = useState<'window' | 'credit' | 'token'>('window');
+  const [newKeyModelScope, setNewKeyModelScope] = useState<'claude' | 'openai' | 'local' | 'all'>('claude');
   const [creatingKey, setCreatingKey] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -347,6 +348,25 @@ export const UserKeys: React.FC = () => {
                         <div className="font-extrabold text-[#1e1b2e]">{k.name}</div>
                         <div className="text-[11px] text-[#64607d] mt-0.5">
                           {k.plan} • {new Date(k.createdAt).toLocaleDateString()}
+                          <span className="block mt-1">
+                            {(k as any).allowedModelFamilies && (k as any).allowedModelFamilies.includes('claude') && !(k as any).allowedModelFamilies.includes('openai') && !(k as any).allowedModelFamilies.includes('deepseek') ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                ⚡ Claude Frontier Only
+                              </span>
+                            ) : (k as any).allowedModelFamilies && (k as any).allowedModelFamilies.includes('openai') && !(k as any).allowedModelFamilies.includes('claude') ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                🤖 OpenAI Frontier Only
+                              </span>
+                            ) : (k as any).allowedModelFamilies && ((k as any).allowedModelFamilies.includes('local') || (k as any).allowedModelFamilies.includes('deepseek')) ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                🌐 Local Models Only
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200">
+                                Universal Access
+                              </span>
+                            )}
+                          </span>
                           {k.expiresAt && (
                             <span className="block text-[10.5px] font-mono text-emerald-700 font-semibold mt-0.5">
                               Expires: {new Date(k.expiresAt).toLocaleDateString()}
@@ -585,6 +605,27 @@ export const UserKeys: React.FC = () => {
                   Key will draw consumption from the chosen account balance category.
                 </p>
               </div>
+
+              {newKeyBillingType === 'token' && (
+                <div>
+                  <label className="block text-xs font-bold text-[#1e1b2e] mb-1">
+                    Target Model Ecosystem (Enforced Scope)
+                  </label>
+                  <select
+                    value={newKeyModelScope}
+                    onChange={(e) => setNewKeyModelScope(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#ede8e1] text-xs font-medium text-[#1e1b2e] focus:outline-none focus:border-violet-600 bg-white"
+                  >
+                    <option value="claude">Claude Models Only (Sonnet 5.5, Opus 5.5, Haiku 5.5)</option>
+                    <option value="openai">OpenAI Models Only (GPT-4o, o1, o3-mini)</option>
+                    <option value="local">Local & Open-Weights Models (DeepSeek, Grok, Qwen, GLM)</option>
+                    <option value="all">Universal / All Models</option>
+                  </select>
+                  <p className="text-[11px] text-[#64607d] mt-1">
+                    Gateway strictly enforces this scope. Requests for unselected families are rejected with 403 Forbidden.
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#ede8e1]">
                 <button

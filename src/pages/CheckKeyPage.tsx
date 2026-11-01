@@ -193,6 +193,25 @@ export const CheckKeyPage: React.FC = () => {
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe] font-mono">
                         {isCredit ? '⚡ Credit Wallet' : isToken ? '📦 Token Pack' : '🔄 5h Rolling Pool'}
                       </span>
+                      {isToken && (
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono border ${
+                          result.allowedModelFamilies?.includes('claude') && !result.allowedModelFamilies?.includes('openai')
+                            ? 'bg-purple-50 text-purple-700 border-purple-200'
+                            : result.allowedModelFamilies?.includes('openai') && !result.allowedModelFamilies?.includes('claude')
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : result.allowedModelFamilies?.includes('local')
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          {result.allowedModelFamilies?.includes('claude') && !result.allowedModelFamilies?.includes('openai')
+                            ? '⚡ Claude Frontier Models Only'
+                            : result.allowedModelFamilies?.includes('openai') && !result.allowedModelFamilies?.includes('claude')
+                            ? '🤖 OpenAI Frontier Models Only'
+                            : result.allowedModelFamilies?.includes('local')
+                            ? '🌐 Local Models Only'
+                            : '⚡ Frontier Models'}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs font-mono text-[#78716c] mt-1.5">
                       Key: <span className="text-[#1c1917] font-bold">{result.displayKey}</span> ({result.type || 'live'} key)
@@ -294,6 +313,30 @@ export const CheckKeyPage: React.FC = () => {
                         <span className="font-bold text-slate-700">365 Days Guaranteed</span>
                       </div>
                     </div>
+
+                    <div className="p-3.5 rounded-xl bg-white border border-[#e7e5e4] text-xs font-mono flex items-start gap-2.5">
+                      <Sparkles className="w-4 h-4 text-[#6d28d9] shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-[#1c1917] block font-sans">
+                          {result.allowedModelFamilies?.includes('claude') && !result.allowedModelFamilies?.includes('openai')
+                            ? 'Claude Token Plan (Isolated Claude Scope)'
+                            : result.allowedModelFamilies?.includes('openai') && !result.allowedModelFamilies?.includes('claude')
+                            ? 'OpenAI Token Plan (Isolated OpenAI Scope)'
+                            : result.allowedModelFamilies?.includes('local')
+                            ? 'Local Models Plan (Open-Weights Scope)'
+                            : 'Universal Model Scope'}
+                        </span>
+                        <p className="text-[11px] text-[#78716c] leading-relaxed">
+                          {result.allowedModelFamilies?.includes('claude') && !result.allowedModelFamilies?.includes('openai')
+                            ? 'This key is strictly provisioned for Claude Frontier models (Claude Sonnet 5.5, Opus 5.5, Haiku 5.5). Gateway blocks non-Claude models to protect your token allocation.'
+                            : result.allowedModelFamilies?.includes('openai') && !result.allowedModelFamilies?.includes('claude')
+                            ? 'This key is strictly provisioned for OpenAI Frontier models (GPT-4o, o1, o3-mini, Codex). Gateway blocks non-OpenAI models to protect your token allocation.'
+                            : result.allowedModelFamilies?.includes('local')
+                            ? 'This key is provisioned for open-weights models (DeepSeek V3/R1, Grok, Qwen, GLM).'
+                            : 'Universal access across configured models.'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -381,6 +424,28 @@ export const CheckKeyPage: React.FC = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Authorized Permitted Models List */}
+                {result.availableModels && result.availableModels.length > 0 && (
+                  <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono font-bold text-[#1c1917] uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#6d28d9]" />
+                        <span>Authorized Models ({result.availableModels.length} Models Permitted)</span>
+                      </span>
+                      <span className="text-[11px] font-mono text-[#78716c]">
+                        Strict Gateway Enforced
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {result.availableModels.map((m: any) => (
+                        <span key={m.id || m.name} className="px-2.5 py-1 rounded-lg bg-white border border-[#e7e5e4] text-[11px] font-mono font-bold text-[#1c1917]">
+                          {m.id || m.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Latest 20 Request Activity Breakdown */}
                 <div className="pt-4 border-t border-[#e7e5e4] space-y-4">

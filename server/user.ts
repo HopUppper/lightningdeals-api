@@ -1173,7 +1173,7 @@ router.post('/auth/reset-password', async (req: Request, res: Response) => {
 
 // POST /api/user/keys — Generate API Key (Requires Verified Email)
 router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequest, res: Response) => {
-  const { name, plan, billingType } = req.body;
+  const { name, plan, billingType, modelScope } = req.body;
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: { message: 'API key name is required.' } });
   }
@@ -1198,6 +1198,18 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
         tokensRemaining: BigInt(1000000),
         creditBalanceUsd: effectiveBillingType === 'credit' ? 5.0 : 0.0,
         billingType: effectiveBillingType,
+        allowedModelFamilies: (() => {
+          if (modelScope === 'claude') return JSON.stringify(['claude']);
+          if (modelScope === 'openai') return JSON.stringify(['openai']);
+          if (modelScope === 'local') return JSON.stringify(['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']);
+          if (plan && typeof plan === 'string') {
+            const pLow = plan.toLowerCase();
+            if (pLow.includes('claude')) return JSON.stringify(['claude']);
+            if (pLow.includes('openai')) return JSON.stringify(['openai']);
+            if (pLow.includes('local')) return JSON.stringify(['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']);
+          }
+          return 'all';
+        })(),
         plan: plan || (effectiveBillingType === 'credit' ? 'Usage Credit' : effectiveBillingType === 'token' ? 'Prepaid Token Pack' : 'Claude Max 20x'),
       },
     });
@@ -2275,6 +2287,7 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           status: k.status,
           plan: k.plan,
           allowedModels: k.allowedModels || 'all',
+          allowedModelFamilies: k.allowedModelFamilies || 'all',
           purchasedTokens: k.purchasedTokens?.toString() ?? '0',
           tokensUsed: k.tokensUsed?.toString() ?? '0',
           tokensRemaining: effectiveRemaining.toString(),

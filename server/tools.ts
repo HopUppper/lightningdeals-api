@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from './db';
-import { hashApiKey } from './gateway';
+import { hashApiKey, detectModelFamily } from './gateway';
+import { isLocalModelFamily, isClaudeOrOpenAIModelFamily } from './providers/credentialResolver';
 import { calculateKeyRollingWindow } from './window';
 import { ALL_SUPPORTED_MODELS } from '../src/data/modelsData';
 
@@ -32,30 +33,80 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
   // Handle direct ScaleMax provider keys inspection
   if (rawKey.startsWith('sm_live_')) {
     try {
-      const upstreamResp = await fetch('https://api.scalemax.pro/v1/usage', {
-        headers: { Authorization: `Bearer ${rawKey}` },
-      });
+      const isKey1 = rawKey.startsWith('sm_live_9438');
+      const isKey2 = rawKey.startsWith('sm_live_8bea');
+
+      const [upstreamResp, modelsResp] = await Promise.all([
+        fetch('https://api.scalemax.pro/v1/usage', {
+          headers: { Authorization: `Bearer ${rawKey}` },
+        }),
+        fetch('https://api.scalemax.pro/v1/models', {
+          headers: { Authorization: `Bearer ${rawKey}` },
+        }).catch(() => null),
+      ]);
+
       if (upstreamResp.ok) {
         const uData: any = await upstreamResp.json();
+
+        let modelsList: any[] = [];
+        if (modelsResp && modelsResp.ok) {
+          try {
+            const mData = await modelsResp.json();
+            if (mData.data && Array.isArray(mData.data)) {
+              const rawModels: string[] = mData.data
+                .map((m: any) => m.id)
+                .filter((id: string) => !/claude-3(?:-5|-7)?-(?:sonnet|opus|haiku)/i.test(id));
+              if (isKey1) {
+                modelsList = rawModels.filter(isClaudeOrOpenAIModelFamily);
+              } else if (isKey2) {
+                modelsList = rawModels.filter(isLocalModelFamily);
+              } else {
+                modelsList = rawModels;
+              }
+            }
+          } catch {}
+        }
+
+        const isTokenKey = isKey1 || isKey2;
+        const planName = isKey1
+          ? 'ScaleMax Claude & OpenAI Frontier Wholesale Token Pool'
+          : isKey2
+          ? 'ScaleMax Local & Open-Weights Wholesale Token Pool'
+          : (uData.key?.mode === 'credit' ? 'ScaleMax Credit Master' : 'ScaleMax Token Pack');
+
+        const allowedFamilies = isKey1
+          ? ['claude', 'openai']
+          : isKey2
+          ? ['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']
+          : ['all'];
+
         return res.json({
           valid: true,
-          provider: 'LightningAPI',
+          provider: 'ScaleMax',
           key: rawKey.slice(0, 12) + '••••••••',
-          label: 'LightningAPI Gateway Key',
+          label: isKey1 ? 'Claude & OpenAI Frontier Key (Wholesale Token Pool)' : isKey2 ? 'Local Models Key (Wholesale Token Pool)' : 'ScaleMax Upstream Key',
           status: uData.key?.status || 'active',
-          plan: uData.key?.mode === 'credit' ? 'LightningAPI Credit (Universal)' : 'LightningAPI Token Pack',
-          billingType: uData.key?.mode || 'credit',
+          plan: planName,
+          billingType: isTokenKey ? 'token' : (uData.key?.mode || 'credit'),
+          keyArchitecture: isTokenKey ? 'token_pool' : 'credit_wallet',
+          allowedModelFamilies: allowedFamilies,
           providerScope: uData.key?.provider_scope || 'both',
           rateLimitRpm: uData.key?.rpm_limit ?? 60,
-          creditBalanceUsd: uData.credits?.balance ?? uData.credits?.remaining_usd ?? 0,
-          purchasedTokens: uData.credits?.total_purchased ? String(uData.credits.total_purchased) : '0',
+          creditBalanceUsd: isTokenKey ? undefined : (uData.credits?.balance ?? uData.credits?.remaining_usd ?? 0),
+          purchasedTokens: isTokenKey ? 'Capacity Pool Operational' : (uData.credits?.total_purchased ? String(uData.credits.total_purchased) : '0'),
           tokensUsed: String(uData.tokens?.total || 0),
-          tokensRemaining: uData.key?.mode === 'credit' ? String(uData.credits?.remaining_usd ?? 0) : String(uData.tokens?.remaining ?? 0),
+          tokensRemaining: isTokenKey ? 'Capacity Pool Operational' : (uData.key?.mode === 'credit' ? String(uData.credits?.remaining_usd ?? 0) : String(uData.tokens?.remaining ?? 0)),
           lifetimeSpendUsd: uData.credits?.lifetime_spend ?? 0,
           requestsCount: uData.requests?.total ?? 0,
-          tokenDisplay: uData.key?.mode === 'credit' ? `${(uData.credits?.balance ?? 0).toFixed(2)} USD Credits` : `${uData.tokens?.total || 0} Tokens`,
+          tokenDisplay: isKey1 ? 'Claude & OpenAI Token Pool' : isKey2 ? 'Local Models Token Pool' : `${uData.tokens?.total || 0} Tokens`,
           windowActive: false,
-          availableModels: [],
+          availableModels: modelsList.map((id) => ({
+            id,
+            name: id,
+            description: `Upstream model via ScaleMax ${isKey1 ? 'Claude/OpenAI' : 'Local'} Token Key`,
+            contextWindow: 128000,
+            ownedBy: isKey1 ? (id.includes('claude') ? 'anthropic' : 'openai') : 'open-weights',
+          })),
           recentRequests: [],
         });
       }
@@ -217,9 +268,29 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     }
   }
 
+  let allowedFamilies: string[] = ['all'];
+  if (keyRecord.allowedModelFamilies) {
+    try {
+      const parsed = JSON.parse(keyRecord.allowedModelFamilies);
+      if (Array.isArray(parsed)) allowedFamilies = parsed.map((s: any) => String(s).trim().toLowerCase());
+    } catch {
+      if (keyRecord.allowedModelFamilies !== 'all') {
+        allowedFamilies = [keyRecord.allowedModelFamilies.trim().toLowerCase()];
+      }
+    }
+  }
+
+  let familyFilteredModels = allDbModels;
+  if (!allowedFamilies.includes('all')) {
+    familyFilteredModels = allDbModels.filter((m) => {
+      const fam = detectModelFamily(m.modelId);
+      return allowedFamilies.includes(fam) || (allowedFamilies.includes('local') && isLocalModelFamily(m.modelId));
+    });
+  }
+
   const accessibleModels = keyAllowedList.length > 0
-    ? allDbModels.filter(m => keyAllowedList.some(k => k === m.modelId.toLowerCase() || m.modelId.toLowerCase().includes(k) || k.includes(m.modelId.toLowerCase())))
-    : allDbModels;
+    ? familyFilteredModels.filter(m => keyAllowedList.some(k => k === m.modelId.toLowerCase() || m.modelId.toLowerCase().includes(k) || k.includes(m.modelId.toLowerCase())))
+    : familyFilteredModels;
 
   const defaultModel = accessibleModels.find(m => m.modelId === 'claude-opus-5.5')?.modelId
     || accessibleModels.find(m => m.modelId === 'claude-opus-5')?.modelId
@@ -251,6 +322,7 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     totalOutputTokens: keyRecord.totalOutputTokens.toString(),
     avgLatencyMs: Math.round(avgLatency._avg.latencyMs || 0),
     allowedModels: keyRecord.allowedModels,
+    allowedModelFamilies: allowedFamilies,
     defaultModel,
     availableModels: accessibleModels.map((m) => ({
       id: m.modelId,

@@ -64,7 +64,7 @@ export const AdminScaleMaxLive: React.FC = () => {
 
   // Live Test Inference State
   const [testKeyIndex, setTestKeyIndex] = useState<number>(1);
-  const [testModel, setTestModel] = useState<string>('claude-sonnet-4-6[1m]');
+  const [testModel, setTestModel] = useState<string>('claude-sonnet-5.5');
   const [testPrompt, setTestPrompt] = useState<string>('Say hello in 3 words');
   const [testingInference, setTestingInference] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<any | null>(null);
@@ -325,14 +325,14 @@ export const AdminScaleMaxLive: React.FC = () => {
 
         <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 shadow-xs space-y-1">
           <div className="flex items-center justify-between text-xs text-[#6b7280]">
-            <span>ScaleMax USD Balance</span>
-            <DollarSign className="w-4 h-4 text-emerald-600" />
+            <span>Wholesale Architecture</span>
+            <Coins className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-2xl font-extrabold text-emerald-700">
-            ${totalBalanceUsd.toFixed(2)} USD
+            Token Capacity Pools
           </div>
           <p className="text-[11px] text-[#6b7280]">
-            Upstream credit compute available
+            sm_live_9438 (Claude+OpenAI) & sm_live_8bea (Local) Active
           </p>
         </div>
 
@@ -419,18 +419,30 @@ export const AdminScaleMaxLive: React.FC = () => {
                       <span className="text-[10px] text-[#6b7280] font-bold uppercase tracking-wider">Serves:</span>
                       {k.keyIndex === 1 && (
                         <>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-100 text-violet-800 font-bold">Claude Tokens</span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">OpenAI Tokens</span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">API Credits</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-100 text-violet-800 font-bold">Claude Token Packs</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">OpenAI Token Packs</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-bold">Token Pool Key</span>
                         </>
                       )}
                       {k.keyIndex === 2 && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">Local Models Tokens (DeepSeek, Grok, Qwen, GLM)</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">Local Models Token Packs (DeepSeek, Grok, Qwen, GLM)</span>
                       )}
                       {k.keyIndex === 3 && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-bold">Wholesale Credit Master / Backup Reserve</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-bold">Wholesale Credit Master (Rotated)</span>
                       )}
                     </div>
+
+                    {k.keyIndex === 1 && (
+                      <div className="mt-2.5 p-3 rounded-xl bg-violet-50 border border-violet-200 text-xs text-violet-900 space-y-1">
+                        <div className="font-bold flex items-center gap-1.5 text-violet-950 text-[11px]">
+                          <Zap className="w-3.5 h-3.5 text-violet-600" />
+                          <span>Strict Customer Model Segregation</span>
+                        </div>
+                        <p className="text-[10.5px] text-violet-800 leading-relaxed">
+                          Upstream key includes both Claude & OpenAI. Customers purchase them separately; LightningAPI automatically generates dedicated keys with strict model access (Claude plan buyers only access Claude, OpenAI plan buyers only access OpenAI).
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Key Prefix & Vendor Label Banner */}
@@ -463,9 +475,11 @@ export const AdminScaleMaxLive: React.FC = () => {
                   {isHealthy && (
                     <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
                       <div className="p-2.5 rounded-xl bg-white border border-[#e5e7eb] space-y-0.5">
-                        <span className="text-[10px] text-[#6b7280] uppercase block font-bold">Live Balance</span>
-                        <span className="text-base font-extrabold text-emerald-700 block">
-                          ${(k.creditsBalanceUsd || 0).toFixed(2)}
+                        <span className="text-[10px] text-[#6b7280] uppercase block font-bold">
+                          {k.keyIndex === 1 || k.keyIndex === 2 ? 'Pool Status' : 'Live Balance'}
+                        </span>
+                        <span className="text-sm font-extrabold text-emerald-700 block">
+                          {k.keyIndex === 1 || k.keyIndex === 2 ? 'Token Pool Active' : `${(k.creditsBalanceUsd || 0).toFixed(2)}`}
                         </span>
                       </div>
 
@@ -573,7 +587,7 @@ export const AdminScaleMaxLive: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setTestKeyIndex(k.keyIndex);
-                        setTestModel(k.models[0] || (k.keyIndex === 2 ? 'qwen-3.7-flash' : 'claude-sonnet-4-6[1m]'));
+                        setTestModel(k.models[0] || (k.keyIndex === 2 ? 'qwen-3.7-flash' : 'claude-sonnet-5.5'));
                         const el = document.getElementById('test-inference-console');
                         if (el) el.scrollIntoView({ behavior: 'smooth' });
                       }}

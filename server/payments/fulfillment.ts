@@ -355,7 +355,17 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           name: `${plan.displayName || plan.name} (${order.internalOrderId})`,
           plan: plan.displayName || plan.name,
           allowedModels: typeof (plan as any).allowedModels === 'object' ? JSON.stringify((plan as any).allowedModels) : ((plan as any).allowedModels || 'all'),
-          allowedModelFamilies: typeof (plan as any).allowedModelFamilies === 'object' ? JSON.stringify((plan as any).allowedModelFamilies) : ((plan as any).allowedModelFamilies || 'all'),
+          allowedModelFamilies: (() => {
+            let fams = (plan as any).allowedModelFamilies;
+            if (!fams || fams === 'all') {
+              const cat = plan.planCategory;
+              if (cat === 'claude_tokens' || cat === 'claude_max_rolling') fams = ['claude'];
+              else if (cat === 'openai_tokens') fams = ['openai'];
+              else if (cat === 'local_models_tokens') fams = ['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen'];
+              else if (cat === 'claude_openai_credits') fams = ['claude', 'openai'];
+            }
+            return typeof fams === 'object' ? JSON.stringify(fams) : (fams || 'all');
+          })(),
           type: 'production',
           status: 'active',
           billingType: keyBillingType,

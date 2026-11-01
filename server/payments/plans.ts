@@ -893,11 +893,13 @@ export async function getPlanByIdAsync(planId: string): Promise<ServerPlan | nul
         enabled: dbPlan.enabled,
         displayOrder: dbPlan.sortOrder,
         planType: (dbPlan.planType as any) || 'window',
+        planCategory: (dbPlan.planCategory as any) || (dbPlan.planType === 'window' ? 'claude_max_rolling' : dbPlan.planType === 'credit' ? 'claude_openai_credits' : 'claude_tokens'),
         creditMultiplier: dbPlan.creditMultiplier !== null && dbPlan.creditMultiplier !== undefined ? Number(dbPlan.creditMultiplier) : (dbPlan.planType === 'credit' ? 7.0 : undefined),
         creditAmountUsd: dbPlan.creditAmountUsd !== null && dbPlan.creditAmountUsd !== undefined ? Number(dbPlan.creditAmountUsd) : undefined,
         bonusCreditsUsd: dbPlan.bonusCreditsUsd !== null && dbPlan.bonusCreditsUsd !== undefined ? Number(dbPlan.bonusCreditsUsd) : undefined,
         bonusTokens: dbPlan.bonusTokens !== null && dbPlan.bonusTokens !== undefined ? BigInt(dbPlan.bonusTokens) : undefined,
         providerScope: dbPlan.providerScope || 'all',
+        allowedModelFamilies: dbPlan.allowedModelFamilies ? (typeof dbPlan.allowedModelFamilies === 'string' ? (dbPlan.allowedModelFamilies.startsWith('[') ? JSON.parse(dbPlan.allowedModelFamilies) : [dbPlan.allowedModelFamilies]) : dbPlan.allowedModelFamilies) : undefined,
       };
     }
   } catch (err) {

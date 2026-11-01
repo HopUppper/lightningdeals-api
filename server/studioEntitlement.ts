@@ -47,6 +47,7 @@ export const DEFAULT_TRIAL_STUDIO_MODELS = [
   'claude-fable-5.1',
   'claude-3-5-sonnet-20241022',
   'claude-3-5-haiku-20241022',
+  'gemini-4-argon',
 ];
 
 export const ALL_STUDIO_MODELS = [
@@ -60,6 +61,7 @@ export const ALL_STUDIO_MODELS = [
   'claude-3-5-sonnet-20241022',
   'claude-3-5-haiku-20241022',
   'claude-3-opus-20240229',
+  'gemini-4-argon',
 ];
 
 /**
@@ -259,7 +261,7 @@ export async function resolveStudioEntitlement(
   const hasAccess = Boolean(isPaidCustomer || isTrialCustomer || keyRecord);
 
   // Determine allowed models
-  let allowedModels: string[] = ALL_STUDIO_MODELS;
+  let allowedModels: string[] = isPaidCustomer ? ['*'] : ALL_STUDIO_MODELS;
   if (keyRecord && keyRecord.allowedModels) {
     const parsed = parseAllowedModels(keyRecord.allowedModels);
     if (parsed !== 'all') {

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { prisma } from './db';
 import { hashApiKey } from './gateway';
 import { calculateKeyRollingWindow } from './window';
+import { ALL_SUPPORTED_MODELS } from '../src/data/modelsData';
 
 // 1. Key Status Verification (/api/key-status)
 export async function handleCheckKeyStatus(req: Request, res: Response) {
@@ -344,6 +345,7 @@ export async function handleGetModels(req: Request, res: Response) {
     const priority = [
       'claude-opus-5.5',
       'claude-sonnet-5.5',
+      'gemini-4-argon',
       'claude-opus-5',
       'claude-sonnet-5',
       'claude-fable-5',
@@ -363,6 +365,28 @@ export async function handleGetModels(req: Request, res: Response) {
       },
       orderBy: { displayName: 'asc' },
     });
+
+    if (models.length === 0) {
+      models = ALL_SUPPORTED_MODELS.map((m: any) => ({
+        id: m.modelId,
+        modelId: m.modelId,
+        upstreamModelId: m.modelId,
+        displayName: m.displayName,
+        provider: m.family,
+        description: m.description,
+        contextWindow: m.contextWindow,
+        inputPrice: m.inputPrice,
+        outputPrice: m.outputPrice,
+        supportsVision: Boolean(m.supportsVision),
+        supportsImageInput: Boolean(m.supportsVision),
+        supportsTools: Boolean(m.supportsTools),
+        supportsStreaming: Boolean(m.supportsStreaming),
+        supportsReasoning: Boolean(m.supportsReasoning),
+        family: m.categoryKey || 'claude',
+        protocol: m.protocol || 'openai-compatible',
+        createdAt: new Date(),
+      })) as any;
+    }
 
     models.sort((a, b) => {
       const idxA = priority.indexOf(a.modelId);

@@ -161,9 +161,12 @@ console.log(completion.choices[0].message.content);`;
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer sk_live_your_api_key_here" \\
   -d '{
-    "model": "deepseek-chat",
+    "model": "gemini-4-argon",
     "messages": [{"role": "user", "content": "Explain quantum computing in 2 sentences"}]
   }'`;
+
+  const curlModelsSnippet = `curl -X GET https://lightningapi.pro/v1/models \\
+  -H "Authorization: Bearer sk_live_your_api_key_here"`;
 
   const keyStatusCurl = `curl -X GET https://lightningapi.pro/api/key-status \\
   -H "x-api-key: sk_live_your_api_key_here"`;

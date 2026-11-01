@@ -18,7 +18,7 @@ import { devEcosystemRouter } from './developerEcosystem';
 import { prisma } from './db';
 import { globalErrorHandler, NotFoundError } from './errors';
 import { recordPageview, handleAnalyticsBeacon } from './analyticsTracker';
-import { startModelSyncScheduler } from './models/modelSyncService';
+import { startModelSyncScheduler, executeModelSync, getModelSyncStatus } from './models/modelSyncService';
 
 // 0. In-Memory Micro-Cache for High-Traffic Public Endpoints
 interface CacheItem<T> {
@@ -212,6 +212,17 @@ import { keyCheckLimiter } from './rateLimit';
 // 3. Public System & Key Status Tools
 app.get('/api/key-status', keyCheckLimiter, handleCheckKeyStatus);
 app.get('/api/system/status', handleSystemStatus);
+app.get('/api/models/sync-status', (_req, res) => {
+  res.json(getModelSyncStatus());
+});
+app.post('/api/models/sync', async (_req, res) => {
+  try {
+    const result = await executeModelSync('MANUAL_ADMIN');
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 import { getAllActivePlansAsync } from './payments/plans';
 

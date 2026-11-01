@@ -855,6 +855,41 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     ]
   },
   {
+    "modelId": "gemini-4-argon",
+    "displayName": "Gemini 4 Argon",
+    "family": "Gemini",
+    "categoryKey": "gemini",
+    "description": "Google’s flagship 1M-token frontier reasoning model with native tool calling, deep multimodal vision, and ultra-high generation fidelity.",
+    "contextWindow": 1048576,
+    "maxOutput": 65536,
+    "inputPrice": 10.8,
+    "outputPrice": 54.0,
+    "cachedInputPrice": 2.7,
+    "supportsStreaming": true,
+    "supportsTools": true,
+    "supportsVision": true,
+    "supportsReasoning": true,
+    "protocol": "openai-compatible",
+    "supportedPlans": [
+      "claude_max_rolling",
+      "claude_openai_credits",
+      "openai_tokens",
+      "claude_tokens",
+      "local_models_tokens"
+    ],
+    "tags": [
+      "New Release",
+      "Frontier",
+      "1M Context",
+      "Vision",
+      "Tools",
+      "Reasoning",
+      "ScaleMax Live"
+    ],
+    "isNew": true,
+    "isPopular": true
+  },
+  {
     "modelId": "gemini-3.8-flash",
     "displayName": "Gemini 3.8 Flash",
     "family": "Gemini",

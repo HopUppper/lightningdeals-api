@@ -196,6 +196,24 @@ export interface StudioModelMeta {
 
 export const VERIFIED_MODELS: StudioModelMeta[] = [
   {
+    id: 'gemini-4-argon',
+    name: 'Gemini 4 Argon',
+    category: 'Google Gemini',
+    badge: 'New Frontier • 1M Context',
+    description: "Google's flagship 1M-token frontier reasoning model with native tool calling, deep multimodal vision, and ultra-high generation fidelity.",
+    tokenMultiplier: 1.5,
+    contextWindow: 1048576,
+    maxOutputTokens: 65536,
+    supportsThinking: true,
+    supportsVision: true,
+    supportsImageInput: true,
+    supportsTools: true,
+    isAvailable: true,
+    upstreamModelId: 'gemini-4-argon',
+    providerRoute: 'openai-compatible',
+    family: 'gemini',
+  },
+  {
     id: 'claude-sonnet-5.5',
     name: 'Claude Sonnet 5.5',
     category: 'Flagship Models',
@@ -360,6 +378,7 @@ export const VERIFIED_MODELS: StudioModelMeta[] = [
 export const getModelDisplayName = (modelId: string): string => {
   const found = VERIFIED_MODELS.find((m) => m.id === modelId);
   if (found) return found.name;
+  if (modelId === 'gemini-4-argon' || modelId.includes('argon')) return 'Gemini 4 Argon';
   if (modelId.includes('opus-5.5') || modelId.includes('opus-5-5')) return 'Claude Opus 5.5';
   if (modelId.includes('sonnet-5.5') || modelId.includes('sonnet-5-5')) return 'Claude Sonnet 5.5';
   if (modelId.includes('opus-5')) return 'Claude Opus 5';
@@ -814,12 +833,44 @@ export const UserChatStudio: React.FC = () => {
     async function loadData() {
       try {
         // Load Authoritative Model Catalog from Server
-        const modelsRes = await userFetch('/api/user/studio/models');
-        if (modelsRes.ok) {
-          const modelsData = await modelsRes.json();
-          if (Array.isArray(modelsData.models) && modelsData.models.length > 0) {
-            setAvailableModels(modelsData.models);
+        let modelsLoaded = false;
+        try {
+          const modelsRes = await userFetch('/api/user/studio/models');
+          if (modelsRes.ok) {
+            const modelsData = await modelsRes.json();
+            if (Array.isArray(modelsData.models) && modelsData.models.length > 0) {
+              setAvailableModels(modelsData.models);
+              modelsLoaded = true;
+            }
           }
+        } catch {}
+
+        if (!modelsLoaded) {
+          try {
+            const v1Res = await fetch('/v1/models');
+            if (v1Res.ok) {
+              const v1Data = await v1Res.json();
+              if (Array.isArray(v1Data.data) && v1Data.data.length > 0) {
+                const mapped: StudioModelMeta[] = v1Data.data.map((m: any) => ({
+                  id: m.id,
+                  name: m.display_name || m.id,
+                  category: m.id.startsWith('claude') ? 'Flagship Models' : m.id.startsWith('gemini') ? 'Google Gemini' : m.id.startsWith('gpt') ? 'OpenAI Series' : 'Frontier Models',
+                  badge: m.id.includes('argon') ? 'New Frontier' : undefined,
+                  description: m.description || `${m.display_name || m.id} frontier AI model.`,
+                  tokenMultiplier: 1.0,
+                  contextWindow: m.context_window || 128000,
+                  maxOutputTokens: 8192,
+                  supportsThinking: Boolean(m.supports_reasoning),
+                  supportsVision: Boolean(m.supports_vision),
+                  supportsTools: Boolean(m.supports_tools),
+                  isAvailable: true,
+                  upstreamModelId: m.id,
+                  providerRoute: m.protocol || 'openai-compatible',
+                }));
+                setAvailableModels(mapped);
+              }
+            }
+          } catch {}
         }
 
         // Load API Keys

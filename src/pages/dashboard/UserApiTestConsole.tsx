@@ -22,6 +22,14 @@ export const UserApiTestConsole: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
   const [selectedKey, setSelectedKey] = useState('');
   const [model, setModel] = useState('claude-sonnet-5.5');
+  const [availableModels, setAvailableModels] = useState<any[]>([
+    { id: 'claude-sonnet-5.5', name: 'Claude Sonnet 5.5 (Fastest • Flagship Coding)', group: 'Anthropic Claude' },
+    { id: 'gemini-4-argon', name: 'Gemini 4 Argon (1M Frontier • Reasoning)', group: 'Google Gemini' },
+    { id: 'claude-opus-5.5', name: 'Claude Opus 5.5 (Cognitive Frontier • Architecture)', group: 'Anthropic Claude' },
+    { id: 'claude-fable-5', name: 'Claude Fable 5 (Ultra-Fast • IDE Specialist)', group: 'Anthropic Claude' },
+    { id: 'claude-opus-5-thinking', name: 'Claude Opus 5 Extended Thinking (Deliberative Logic)', group: 'Anthropic Claude' },
+    { id: 'claude-haiku-5.5', name: 'Claude Haiku 5.5 (High-Throughput Streaming)', group: 'Anthropic Claude' },
+  ]);
   const [prompt, setPrompt] = useState('Write a concise, high-performance TypeScript function with friendly comments.');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<any>(null);
@@ -69,6 +77,45 @@ export const UserApiTestConsole: React.FC = () => {
       }
     }
     loadKeys();
+
+    async function loadModels() {
+      try {
+        const res = await fetch('/v1/models');
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            const mapped = json.data.map((m: any) => {
+              const id = m.id.toLowerCase();
+              let group = 'Frontier Models';
+              if (id.startsWith('claude') || id.includes('fable') || id.includes('haiku') || id.includes('sonnet') || id.includes('opus')) {
+                group = 'Anthropic Claude';
+              } else if (id.startsWith('gemini')) {
+                group = 'Google Gemini';
+              } else if (id.startsWith('gpt') || id.startsWith('o1') || id.startsWith('o3')) {
+                group = 'OpenAI';
+              } else if (id.startsWith('deepseek')) {
+                group = 'DeepSeek';
+              } else if (id.startsWith('grok')) {
+                group = 'xAI Grok';
+              } else if (id.startsWith('qwen')) {
+                group = 'Alibaba Qwen';
+              } else if (id.startsWith('glm')) {
+                group = 'Zhipu GLM';
+              }
+              return {
+                id: m.id,
+                name: m.display_name || m.id,
+                group,
+              };
+            });
+            setAvailableModels(mapped);
+          }
+        }
+      } catch (e) {
+        // Fallback default
+      }
+    }
+    loadModels();
   }, []);
 
   const handleTestApi = async (e: React.FormEvent) => {
@@ -225,11 +272,17 @@ export const UserApiTestConsole: React.FC = () => {
               onChange={(e) => setModel(e.target.value)}
               className="w-full px-3.5 py-2.5 text-xs font-mono bg-[#faf8f5] border border-[#ede8e1] rounded-2xl focus:outline-none focus:border-violet-500 text-[#1e1b2e]"
             >
-              <option value="claude-sonnet-5.5">⚡ Claude Sonnet 5.5 (Fastest • Flagship Coding)</option>
-              <option value="claude-opus-5.5">🧠 Claude Opus 5.5 (Cognitive Frontier • Architecture)</option>
-              <option value="claude-fable-5">✨ Claude Fable 5 (Ultra-Fast • IDE Specialist)</option>
-              <option value="claude-opus-5-thinking">💡 Claude Opus 5 Extended Thinking (Deliberative Logic)</option>
-              <option value="claude-haiku-5.5">🚀 Claude Haiku 5.5 (High-Throughput Streaming)</option>
+              {Array.from(new Set(availableModels.map((m) => m.group))).map((groupName) => (
+                <optgroup key={groupName} label={groupName}>
+                  {availableModels
+                    .filter((m) => m.group === groupName)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
             </select>
           </div>
 

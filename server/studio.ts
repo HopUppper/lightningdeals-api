@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { prisma, decryptText } from './db';
-import { authenticateJwt, AuthRequest } from './auth';
+import { authenticateJwt, optionalAuthenticateJwt, AuthRequest } from './auth';
 import { builderRouter } from './studioBuilder';
 import { buildProviderRequest } from './providerAdapter';
 import { mapToUpstreamModel, getFriendlyModelName, sanitizeModelResponse, sanitizeErrorMessage } from './gateway';
@@ -196,14 +196,43 @@ export const PREBUILT_STUDIO_SKILLS: StudioSkill[] = [
 
 export const studioRouter = Router();
 
-// Apply JWT authentication to all studio routes
-studioRouter.use(authenticateJwt);
+// Apply JWT authentication to studio routes (allow /models to proceed with optional auth for discovery)
+studioRouter.use((req, res, next) => {
+  if (req.path === '/models' || req.path === '/models/') {
+    return optionalAuthenticateJwt(req, res, next);
+  }
+  return authenticateJwt(req, res, next);
+});
 
 // Mount AI Website & App Builder routes
 studioRouter.use('/builder', builderRouter);
 
 // Verified Real Model Catalog backed by Gateway capabilities & Upstream Specs
 export const VERIFIED_STUDIO_MODELS = [
+  {
+    id: 'gemini-4-argon',
+    name: 'Gemini 4 Argon',
+    category: 'Gemini Series',
+    badge: 'Frontier 1M Context',
+    description: "Google's flagship 1M-token frontier reasoning model with native tool calling, deep multimodal vision, and ultra-high generation fidelity.",
+    tokenMultiplier: 1.5,
+    contextWindow: 1048576,
+    maxOutputTokens: 65536,
+    supportsThinking: true,
+    supportsVision: true,
+    supportsImageInput: true,
+    supportsTools: true,
+    supportsWebSearch: true,
+    supportsMCP: true,
+    isAvailable: true,
+    speed: 5,
+    intelligence: 5,
+    costTier: 'Premium',
+    provider: 'Google',
+    contextWords: '780k words',
+    upstreamModelId: 'gemini-4-argon',
+    providerRoute: 'openai-compatible',
+  },
   {
     id: 'claude-sonnet-5.5',
     name: 'Claude Sonnet 5.5',

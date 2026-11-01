@@ -20,6 +20,8 @@ import {
   Sparkles,
   Cpu,
   ChevronRight,
+  Code2,
+  Scale,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationCenter } from '../../components/NotificationCenter';
@@ -61,6 +63,8 @@ export const UserDashboardLayout: React.FC = () => {
         { name: 'API Keys', path: '/dashboard/keys', icon: Key },
         { name: 'Models & Rates', path: '/dashboard/models', icon: Cpu, badge: '74 Models' },
         { name: 'API Console', path: '/dashboard/api-test', icon: Play },
+        { name: 'Migration Guide', path: '/dashboard/migration', icon: Code2, badge: 'New' },
+        { name: 'Model Benchmarks', path: '/dashboard/benchmarks', icon: Scale },
         { name: 'Documentation', path: '/dashboard/docs', icon: BookOpen },
         { name: 'AI Website Builder', path: '/dashboard/builder', icon: Sparkles },
       ],
@@ -77,6 +81,7 @@ export const UserDashboardLayout: React.FC = () => {
     {
       title: 'ACCOUNT',
       items: [
+        { name: 'Teams & Workspace', path: '/dashboard/teams', icon: Users, badge: 'Teams' },
         { name: 'Rewards & Wallet', path: '/dashboard/rewards', icon: Zap },
         { name: 'Referral Program', path: '/dashboard/referrals', icon: Users },
         { name: 'Support Desk', path: '/dashboard/support', icon: LifeBuoy },

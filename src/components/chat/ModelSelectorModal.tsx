@@ -35,6 +35,9 @@ export interface StudioModelMeta {
   costTier?: 'Economy' | 'Standard' | 'Premium';
   provider?: string;
   contextWords?: string;
+  family?: string;
+  supportsImageInput?: boolean;
+  supportsImageGeneration?: boolean;
 }
 
 interface ModelSelectorModalProps {
@@ -55,20 +58,51 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   currentEstimatedTokens = 0,
 }) => {
   const [search, setSearch] = useState('');
+  const [selectedFamily, setSelectedFamily] = useState<string>('all');
   const [hoveredModelId, setHoveredModelId] = useState<string>(activeModelId);
+
+  const FAMILIES = [
+    { id: 'all', label: 'All Models' },
+    { id: 'claude', label: 'Claude' },
+    { id: 'openai', label: 'OpenAI' },
+    { id: 'gemini', label: 'Gemini' },
+    { id: 'deepseek', label: 'DeepSeek' },
+    { id: 'image', label: 'Image Gen' },
+  ];
 
   // Filter models
   const filteredModels = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return models;
-    return models.filter(
-      (m) =>
+    return models.filter((m) => {
+      // Family filter
+      if (selectedFamily !== 'all') {
+        const fam = (m.family || '').toLowerCase();
+        const id = m.id.toLowerCase();
+        const name = m.name.toLowerCase();
+        if (selectedFamily === 'image') {
+          if (!m.supportsImageGeneration && fam !== 'image_generation' && !id.includes('image')) return false;
+        } else if (selectedFamily === 'claude') {
+          if (fam !== 'claude' && fam !== 'anthropic' && !id.includes('claude') && !id.includes('fable')) return false;
+        } else if (selectedFamily === 'gemini') {
+          if (fam !== 'gemini' && !id.includes('gemini')) return false;
+        } else if (selectedFamily === 'openai') {
+          if (fam !== 'openai' && !id.includes('gpt')) return false;
+        } else if (selectedFamily === 'deepseek') {
+          if (fam !== 'deepseek' && !id.includes('deepseek')) return false;
+        }
+      }
+
+      // Query filter
+      if (!q) return true;
+      return (
         m.name.toLowerCase().includes(q) ||
         m.description.toLowerCase().includes(q) ||
         (m.category && m.category.toLowerCase().includes(q)) ||
-        (m.provider && m.provider.toLowerCase().includes(q))
-    );
-  }, [models, search]);
+        (m.provider && m.provider.toLowerCase().includes(q)) ||
+        (m.family && m.family.toLowerCase().includes(q))
+      );
+    });
+  }, [models, search, selectedFamily]);
 
   // Selected or hovered model for the right inspection pane
   const activeDetail = useMemo(() => {
@@ -96,22 +130,52 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     );
   };
 
-  const getModelIcon = (name: string) => {
-    if (name.toLowerCase().includes('opus')) {
+  const getModelIcon = (name: string, family?: string) => {
+    const n = name.toLowerCase();
+    const f = (family || '').toLowerCase();
+    if (n.includes('opus')) {
       return (
         <div className="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
           ✽
         </div>
       );
     }
-    if (name.toLowerCase().includes('sonnet')) {
+    if (n.includes('sonnet') || n.includes('claude')) {
       return (
         <div className="w-5 h-5 rounded-md bg-violet-500/20 text-violet-400 flex items-center justify-center font-bold text-xs shrink-0">
           ✳
         </div>
       );
     }
-    if (name.toLowerCase().includes('haiku') || name.toLowerCase().includes('fable')) {
+    if (n.includes('gemini') || f === 'gemini') {
+      return (
+        <div className="w-5 h-5 rounded-md bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0">
+          ⟐
+        </div>
+      );
+    }
+    if (n.includes('deepseek') || f === 'deepseek') {
+      return (
+        <div className="w-5 h-5 rounded-md bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-xs shrink-0">
+          ◈
+        </div>
+      );
+    }
+    if (n.includes('gpt') || f === 'openai') {
+      return (
+        <div className="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
+          ✦
+        </div>
+      );
+    }
+    if (n.includes('image') || f === 'image_generation') {
+      return (
+        <div className="w-5 h-5 rounded-md bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center font-bold text-xs shrink-0">
+          🎨
+        </div>
+      );
+    }
+    if (n.includes('haiku') || n.includes('fable')) {
       return (
         <div className="w-5 h-5 rounded-md bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
           ⚡
@@ -160,17 +224,35 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* Left Pane: Search + Model List */}
           <div className="w-full md:w-1/2 border-r border-[#28334B] flex flex-col min-h-0 bg-[#0E1425]">
-            {/* Search Input */}
-            <div className="p-3 border-b border-[#28334B]">
+            {/* Search & Family Filter */}
+            <div className="p-3 border-b border-[#28334B] space-y-2">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search models, reasoning, vision..."
+                  placeholder="Search Claude, OpenAI, Gemini, DeepSeek..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs bg-slate-900 border border-slate-700/70 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
+              </div>
+
+              {/* Family Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+                {FAMILIES.map((fam) => (
+                  <button
+                    key={fam.id}
+                    type="button"
+                    onClick={() => setSelectedFamily(fam.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer ${
+                      selectedFamily === fam.id
+                        ? 'bg-violet-600 text-white font-semibold shadow-xs'
+                        : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
+                    }`}
+                  >
+                    {fam.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -197,7 +279,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {getModelIcon(m.name)}
+                      {getModelIcon(m.name, m.family)}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-xs text-white truncate">{m.name}</span>
@@ -242,7 +324,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                      {getModelIcon(activeDetail.name)}
+                      {getModelIcon(activeDetail.name, activeDetail.family)}
                       <span>{activeDetail.name}</span>
                     </h3>
                     {activeDetail.badge && (
@@ -316,11 +398,11 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 text-slate-300">
-                      <span className={activeDetail.supportsVision ? 'text-emerald-400 font-bold' : 'text-slate-600'}>
-                        {activeDetail.supportsVision ? '✓' : '✕'}
+                      <span className={(activeDetail.supportsVision || activeDetail.supportsImageInput) ? 'text-emerald-400 font-bold' : 'text-slate-600'}>
+                        {(activeDetail.supportsVision || activeDetail.supportsImageInput) ? '✓' : '✕'}
                       </span>
-                      <span className={activeDetail.supportsVision ? '' : 'text-slate-500'}>
-                        Vision & PDFs
+                      <span className={(activeDetail.supportsVision || activeDetail.supportsImageInput) ? '' : 'text-slate-500'}>
+                        Vision & Image Input
                       </span>
                     </div>
 
@@ -330,6 +412,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </span>
                       <span className={activeDetail.supportsThinking ? 'text-amber-300/90' : 'text-slate-500'}>
                         Extended Thinking
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <span className={activeDetail.supportsImageGeneration ? 'text-fuchsia-400 font-bold' : 'text-slate-600'}>
+                        {activeDetail.supportsImageGeneration ? '✓' : '✕'}
+                      </span>
+                      <span className={activeDetail.supportsImageGeneration ? 'text-fuchsia-300/90' : 'text-slate-500'}>
+                        Image Generation
                       </span>
                     </div>
                   </div>

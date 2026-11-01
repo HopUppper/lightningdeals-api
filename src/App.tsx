@@ -178,6 +178,9 @@ const UserRewards = safeLazy(() => import('./pages/dashboard/UserRewards').then(
 const UserSubscriptions = safeLazy(() => import('./pages/dashboard/UserSubscriptions').then(m => ({ default: m.UserSubscriptions })));
 const UserReferrals = safeLazy(() => import('./pages/dashboard/UserReferrals').then(m => ({ default: m.UserReferrals })));
 const UserFeedback = safeLazy(() => import('./pages/dashboard/UserFeedback').then(m => ({ default: m.UserFeedback })));
+const UserMigration = safeLazy(() => import('./pages/dashboard/UserMigration').then(m => ({ default: m.UserMigration })));
+const UserBenchmarks = safeLazy(() => import('./pages/dashboard/UserBenchmarks').then(m => ({ default: m.UserBenchmarks })));
+const UserTeams = safeLazy(() => import('./pages/dashboard/UserTeams').then(m => ({ default: m.UserTeams })));
 
 // Admin Control Center Pages (Lazy Loaded)
 import { AdminAuthGuard } from './pages/admin/AdminAuthGuard';
@@ -306,6 +309,9 @@ export function App() {
                   <Route path="studio/builder" element={<UserWebsiteBuilder />} />
                   <Route path="websites" element={<UserWebsiteBuilder />} />
                   <Route path="api-test" element={<UserApiTestConsole />} />
+                  <Route path="migration" element={<UserMigration />} />
+                  <Route path="benchmarks" element={<UserBenchmarks />} />
+                  <Route path="teams" element={<UserTeams />} />
                   <Route path="support" element={<UserSupport />} />
                   <Route path="feedback" element={<UserFeedback />} />
                   <Route path="reviews" element={<UserFeedback />} />

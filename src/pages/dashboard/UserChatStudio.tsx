@@ -178,17 +178,20 @@ export interface StudioModelMeta {
   id: string;
   name: string;
   category: string;
-  badge: string;
+  badge?: string;
   description: string;
   tokenMultiplier: number;
   contextWindow: number;
   maxOutputTokens?: number;
   supportsThinking: boolean;
   supportsVision: boolean;
+  supportsImageInput?: boolean;
+  supportsImageGeneration?: boolean;
   supportsTools: boolean;
   isAvailable: boolean;
   upstreamModelId?: string;
   providerRoute?: string;
+  family?: string;
 }
 
 export const VERIFIED_MODELS: StudioModelMeta[] = [
@@ -3831,35 +3834,41 @@ export const UserChatStudio: React.FC = () => {
 
               {/* Dual Model Comparison Active Bar */}
               {isComparingModels && (
-                <div className="mx-4 mt-2 p-2 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
-                    <span className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
-                      <Scale className="w-3.5 h-3.5" />
-                      <span>Comparing Side-by-Side:</span>
-                    </span>
-                    <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-black/40 border border-indigo-200 dark:border-indigo-800/40 font-semibold text-slate-800 dark:text-slate-200">
-                      Model A: {activeModelMeta?.name || activeThread.model}
-                    </span>
-                    <span className="text-slate-400 font-bold">vs</span>
-                    <select
-                      value={secondaryModelId}
-                      onChange={(e) => setSecondaryModelId(e.target.value)}
-                      className="px-2 py-0.5 rounded-lg bg-white dark:bg-black/40 border border-indigo-200 dark:border-indigo-800/40 font-semibold text-xs focus:outline-none cursor-pointer text-slate-800 dark:text-slate-200"
+                <div className="mx-4 mt-2 p-2.5 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 flex flex-col gap-1.5 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                      <span className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                        <Scale className="w-3.5 h-3.5" />
+                        <span>Comparing Side-by-Side:</span>
+                      </span>
+                      <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-black/40 border border-indigo-200 dark:border-indigo-800/40 font-semibold text-slate-800 dark:text-slate-200">
+                        Model A: {activeModelMeta?.name || activeThread.model}
+                      </span>
+                      <span className="text-slate-400 font-bold">vs</span>
+                      <select
+                        value={secondaryModelId}
+                        onChange={(e) => setSecondaryModelId(e.target.value)}
+                        className="px-2 py-0.5 rounded-lg bg-white dark:bg-black/40 border border-indigo-200 dark:border-indigo-800/40 font-semibold text-xs focus:outline-none cursor-pointer text-slate-800 dark:text-slate-200"
+                      >
+                        {availableModels.map((m: any) => (
+                          <option key={m.id} value={m.id}>
+                            Model B: {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsComparingModels(false)}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer font-medium px-2 py-0.5 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                     >
-                      {availableModels.map((m: any) => (
-                        <option key={m.id} value={m.id}>
-                          Model B: {m.name}
-                        </option>
-                      ))}
-                    </select>
+                      Exit Compare ✕
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsComparingModels(false)}
-                    className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer font-medium px-2 py-0.5 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                  >
-                    Exit Compare ✕
-                  </button>
+                  <div className="text-[10px] text-indigo-600/90 dark:text-indigo-300/80 flex items-center gap-1">
+                    <Info className="w-3 h-3 shrink-0" />
+                    <span>Transparent Billing: Side-by-side comparison executes two parallel requests and deducts tokens/credits for each model independently.</span>
+                  </div>
                 </div>
               )}
 
@@ -3931,12 +3940,27 @@ export const UserChatStudio: React.FC = () => {
                     onChange={(e) => handleFilesSelected(e.target.files)}
                   />
 
-                  {/* Primary 1-Click Attach Button */}
+                  {/* Primary 1-Click Attach Button (adaptive to vision capability) */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${c.pillBg}`}
-                    title="Attach documents, code files, or images (.pdf, .docx, .ts, .py, .png, etc.)"
+                    disabled={activeModelMeta ? !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput) : false}
+                    onClick={() => {
+                      if (activeModelMeta && !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput)) {
+                        alert(`${activeModelMeta.name} does not accept multimodal image/file inputs. Please switch to Claude 3.5 Sonnet, Gemini, or GPT-4o for file attachments.`);
+                        return;
+                      }
+                      fileInputRef.current?.click();
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                      activeModelMeta && !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput)
+                        ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800/50 text-slate-400'
+                        : c.pillBg
+                    }`}
+                    title={
+                      activeModelMeta && !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput)
+                        ? 'Selected model does not support vision or file attachments'
+                        : 'Attach documents, code files, or images (.pdf, .docx, .ts, .py, .png, etc.)'
+                    }
                   >
                     <Paperclip className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                     <span className="hidden sm:inline">Attach</span>
@@ -3974,6 +3998,21 @@ export const UserChatStudio: React.FC = () => {
                     <Scale className={`w-3.5 h-3.5 ${isComparingModels ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
                     <span className="hidden sm:inline">Compare</span>
                     {isComparingModels && <Check className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
+                  </button>
+
+                  {/* Image Generation Studio Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setIsMediaGenOpen(true)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                      activeModelMeta?.supportsImageGeneration
+                        ? 'bg-fuchsia-500/15 border-fuchsia-500/40 text-fuchsia-600 dark:text-fuchsia-400 font-semibold'
+                        : c.pillBg
+                    }`}
+                    title="Generate high-resolution AI images with aspect ratio controls & instant download"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 text-fuchsia-500" />
+                    <span className="hidden sm:inline">Image Gen</span>
                   </button>
 
                   {/* Thinking Mode Toggle Pill (when model supports it) */}

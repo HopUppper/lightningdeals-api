@@ -493,24 +493,46 @@ studioRouter.get('/models', async (req: AuthRequest, res: Response) => {
       if (existingMeta) {
         mergedList.push({
           ...existingMeta,
+          family: dbm.family || existingMeta.providerRoute || 'claude',
           contextWindow: dbm.contextWindow || existingMeta.contextWindow,
           supportsVision: dbm.supportsVision ?? existingMeta.supportsVision,
+          supportsImageInput: Boolean(dbm.supportsImageInput ?? (dbm.supportsVision ?? existingMeta.supportsVision)),
+          supportsImageGeneration: Boolean(dbm.supportsImageGeneration || dbm.family === 'image_generation'),
           supportsTools: dbm.supportsTools ?? existingMeta.supportsTools,
           supportsThinking: dbm.supportsReasoning ?? existingMeta.supportsThinking,
         });
       } else {
-        // Dynamic newly synced model (e.g. Gemini 4 Argon, Grok, DeepSeek)
+        // Dynamic newly synced model (e.g. Gemini 4 Argon, Grok, DeepSeek, OpenAI)
+        const familyCategoryMap = {
+          claude: 'Flagship Models',
+          anthropic: 'Flagship Models',
+          openai: 'OpenAI Series',
+          gemini: 'Gemini Series',
+          deepseek: 'DeepSeek Series',
+          image_generation: 'Image Generation',
+          video_generation: 'Video Generation',
+          embeddings: 'Embeddings',
+          grok: 'xAI Grok',
+          kimi: 'Kimi Moonshot',
+          minimax: 'MiniMax Series',
+        };
+
+        const category = familyCategoryMap[dbm.family || ''] || 'Specialized & Open Models';
+
         mergedList.push({
           id: dbm.modelId,
           name: dbm.displayName || dbm.modelId,
-          category: dbm.family === 'claude' ? 'Flagship Models' : 'Specialized & Open Models',
-          badge: dbm.modelId.includes('argon') ? 'New' : undefined,
+          family: dbm.family || 'openai',
+          category,
+          badge: dbm.modelId.includes('argon') ? 'New' : dbm.supportsReasoning ? 'Reasoning' : undefined,
           description: dbm.description || `${dbm.displayName} high-performance model via ScaleMax network.`,
           tokenMultiplier: dbm.inputPrice > 5 ? 2.0 : 1.0,
           contextWindow: dbm.contextWindow || 128000,
           maxOutputTokens: dbm.maxOutputTokens || 8192,
           supportsThinking: Boolean(dbm.supportsReasoning),
           supportsVision: Boolean(dbm.supportsVision || dbm.supportsImageInput),
+          supportsImageInput: Boolean(dbm.supportsImageInput || dbm.supportsVision),
+          supportsImageGeneration: Boolean(dbm.supportsImageGeneration || dbm.family === 'image_generation'),
           supportsTools: Boolean(dbm.supportsTools),
           supportsWebSearch: true,
           supportsMCP: true,

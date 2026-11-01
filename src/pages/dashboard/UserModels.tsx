@@ -1,8 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ModelCatalog } from '../../components/ModelCatalog';
 import { Sparkles, Terminal, ShieldCheck, Zap } from 'lucide-react';
 
 export const UserModels: React.FC = () => {
+  const [modelCount, setModelCount] = useState<number>(74);
+
+  useEffect(() => {
+    async function loadCount() {
+      try {
+        const res = await fetch('/v1/models');
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setModelCount(json.data.length);
+          }
+        }
+      } catch (e) {
+        // Fallback default
+      }
+    }
+    loadCount();
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Top Console Header */}
@@ -10,7 +29,7 @@ export const UserModels: React.FC = () => {
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono font-medium uppercase tracking-wider bg-purple-50 text-[#6d28d9] border border-purple-200">
             <Sparkles className="w-3 h-3 text-[#6d28d9]" />
-            <span>Developer Console · 74 Supported Models</span>
+            <span>Developer Console · {modelCount} Supported Models</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#111827] tracking-tight mt-1">
             Models &amp; Published Rates
@@ -23,7 +42,7 @@ export const UserModels: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto text-xs font-mono">
           <span className="px-3 py-1.5 rounded-xl bg-white border border-[#e5e7eb] shadow-xs text-emerald-700 font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>All 74 Models Operational</span>
+            <span>All {modelCount} Models Operational</span>
           </span>
         </div>
       </div>

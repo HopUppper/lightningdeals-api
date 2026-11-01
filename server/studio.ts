@@ -464,7 +464,76 @@ studioRouter.get('/models', async (req: AuthRequest, res: Response) => {
       entitlement = await resolveStudioEntitlement(userId, apiKeyId);
     }
 
-    const annotatedModels = VERIFIED_STUDIO_MODELS.map((m) => {
+    // Dynamically retrieve active registered models from central registry
+    let dbActiveModels: any[] = [];
+    try {
+      dbActiveModels = await prisma.model.findMany({
+        where: {
+          enabled: true,
+          validationStatus: { in: ['ACTIVE', 'VALIDATED'] },
+        },
+      });
+    } catch (e) {
+      dbActiveModels = [];
+    }
+
+    const verifiedMap = new Map<string, any>();
+    VERIFIED_STUDIO_MODELS.forEach((vm) => {
+      verifiedMap.set(vm.id, vm);
+    });
+
+    const mergedList: any[] = [];
+    const seenIds = new Set<string>();
+
+    // 1. Process active DB models
+    for (const dbm of dbActiveModels) {
+      seenIds.add(dbm.modelId);
+      const existingMeta = verifiedMap.get(dbm.modelId) || verifiedMap.get(dbm.upstreamModelId || '');
+
+      if (existingMeta) {
+        mergedList.push({
+          ...existingMeta,
+          contextWindow: dbm.contextWindow || existingMeta.contextWindow,
+          supportsVision: dbm.supportsVision ?? existingMeta.supportsVision,
+          supportsTools: dbm.supportsTools ?? existingMeta.supportsTools,
+          supportsThinking: dbm.supportsReasoning ?? existingMeta.supportsThinking,
+        });
+      } else {
+        // Dynamic newly synced model (e.g. Gemini 4 Argon, Grok, DeepSeek)
+        mergedList.push({
+          id: dbm.modelId,
+          name: dbm.displayName || dbm.modelId,
+          category: dbm.family === 'claude' ? 'Flagship Models' : 'Specialized & Open Models',
+          badge: dbm.modelId.includes('argon') ? 'New' : undefined,
+          description: dbm.description || `${dbm.displayName} high-performance model via ScaleMax network.`,
+          tokenMultiplier: dbm.inputPrice > 5 ? 2.0 : 1.0,
+          contextWindow: dbm.contextWindow || 128000,
+          maxOutputTokens: dbm.maxOutputTokens || 8192,
+          supportsThinking: Boolean(dbm.supportsReasoning),
+          supportsVision: Boolean(dbm.supportsVision || dbm.supportsImageInput),
+          supportsTools: Boolean(dbm.supportsTools),
+          supportsWebSearch: true,
+          supportsMCP: true,
+          isAvailable: true,
+          speed: 4,
+          intelligence: 4,
+          costTier: dbm.inputPrice > 5 ? 'Premium' : 'Standard',
+          provider: dbm.provider || 'ScaleMax',
+          contextWords: `${Math.round((dbm.contextWindow || 128000) * 0.75 / 1000)}k words`,
+          upstreamModelId: dbm.upstreamModelId || dbm.modelId,
+          providerRoute: dbm.protocol || 'openai-compatible',
+        });
+      }
+    }
+
+    // 2. Append any baseline verified models not yet in DB
+    for (const vm of VERIFIED_STUDIO_MODELS) {
+      if (!seenIds.has(vm.id)) {
+        mergedList.push(vm);
+      }
+    }
+
+    const annotatedModels = mergedList.map((m) => {
       const isPaidOnly = PAID_ONLY_STUDIO_MODELS.includes(m.id);
       const isAuthorized = entitlement
         ? entitlement.allowedModels.includes(m.id) || entitlement.allowedModels.includes('*') || entitlement.allowedModels.includes('all')

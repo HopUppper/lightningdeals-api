@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ElectricNavbar } from '../components/ElectricNavbar';
 import { ElectricFooter } from '../components/ElectricFooter';
 import { ModelCatalog } from '../components/ModelCatalog';
@@ -7,6 +7,25 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles, Cpu, Layers, ShieldCheck } from 'lucide-react';
 
 export const ModelsPage: React.FC = () => {
+  const [modelCount, setModelCount] = useState<number>(74);
+
+  useEffect(() => {
+    async function loadCount() {
+      try {
+        const res = await fetch('/v1/models');
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setModelCount(json.data.length);
+          }
+        }
+      } catch (e) {
+        // Fallback default
+      }
+    }
+    loadCount();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#fbf9f5] text-[#1c1917] flex flex-col font-sans antialiased selection:bg-[#6d28d9]/10 selection:text-[#6d28d9]">
       <ElectricNavbar />
@@ -18,13 +37,13 @@ export const ModelsPage: React.FC = () => {
             <div className="space-y-3 max-w-2xl">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono font-medium uppercase tracking-wider bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe]">
                 <Sparkles className="w-3 h-3 text-[#6d28d9]" />
-                <span>Unified Model Repertoire · 74 Verified Models</span>
+                <span>Unified Model Repertoire · {modelCount} Verified Models</span>
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#1c1917]">
                 Frontier &amp; Open-Weights Model Catalog
               </h1>
               <p className="text-sm sm:text-base text-[#57534e] leading-relaxed max-w-xl">
-                Access 74 verified frontier and open-weights models across Anthropic Claude, OpenAI, DeepSeek, GLM, Google Gemini, xAI Grok, Alibaba Qwen, Moonshot Kimi, MiniMax, Image Generation, Video Generation, and Vector Embeddings.
+                Access {modelCount} verified frontier and open-weights models across Anthropic Claude, OpenAI, DeepSeek, GLM, Google Gemini, xAI Grok, Alibaba Qwen, Moonshot Kimi, MiniMax, Image Generation, Video Generation, and Vector Embeddings.
               </p>
 
               {/* Quick Spec Pills */}
@@ -35,7 +54,7 @@ export const ModelsPage: React.FC = () => {
                 </span>
                 <span className="px-2.5 py-1 rounded-lg bg-[#faf8f5] border border-[#e7e5e4] flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Up to 1,000,000 Context</span>
+                  <span>Up to 1,048,576 Context</span>
                 </span>
                 <span className="px-2.5 py-1 rounded-lg bg-[#faf8f5] border border-[#e7e5e4] flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
@@ -61,10 +80,14 @@ export const ModelsPage: React.FC = () => {
           </div>
         </section>
 
-        {/* Comprehensive Model Catalog Grid & Filters */}
-        <ModelCatalog />
+        {/* Dynamic Model Catalog Component */}
+        <section className="py-12 sm:py-16">
+          <div className="max-w-6xl mx-auto px-5 sm:px-8">
+            <ModelCatalog />
+          </div>
+        </section>
 
-        {/* Supported Developer Stack */}
+        {/* Developer Ecosystem Integration Section */}
         <DeveloperEcosystem />
       </main>
 

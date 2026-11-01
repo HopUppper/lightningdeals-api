@@ -359,6 +359,7 @@ export async function handleGetModels(req: Request, res: Response) {
     let models = await prisma.model.findMany({
       where: {
         enabled: true,
+        validationStatus: { in: ['ACTIVE', 'VALIDATED'] },
       },
       orderBy: { displayName: 'asc' },
     });
@@ -402,6 +403,12 @@ export async function handleGetModels(req: Request, res: Response) {
         context_window: m.contextWindow,
         input_price_per_1m: m.inputPrice,
         output_price_per_1m: m.outputPrice,
+        supports_vision: Boolean(m.supportsVision || m.supportsImageInput),
+        supports_tools: Boolean(m.supportsTools),
+        supports_streaming: Boolean(m.supportsStreaming),
+        supports_reasoning: Boolean(m.supportsReasoning),
+        family: m.family,
+        protocol: m.protocol,
       })),
     });
   } catch (err: any) {

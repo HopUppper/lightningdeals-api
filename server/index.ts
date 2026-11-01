@@ -14,6 +14,7 @@ import { studioRouter } from './studio';
 import { prisma } from './db';
 import { globalErrorHandler, NotFoundError } from './errors';
 import { recordPageview, handleAnalyticsBeacon } from './analyticsTracker';
+import { startModelSyncScheduler } from './models/modelSyncService';
 
 // 0. In-Memory Micro-Cache for High-Traffic Public Endpoints
 interface CacheItem<T> {
@@ -438,4 +439,9 @@ process.on('uncaughtException', (err: Error) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 LightningDeals Backend API Gateway running on port ${PORT}`);
+  try {
+    startModelSyncScheduler(12);
+  } catch (err: any) {
+    console.error('[ModelSync] Failed to start scheduler:', err.message);
+  }
 });

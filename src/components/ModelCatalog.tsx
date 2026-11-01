@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Check,
@@ -40,6 +40,72 @@ export const ModelCatalog: React.FC = () => {
   const [activeCodeTab, setActiveCodeTab] = useState<'curl' | 'python' | 'node'>('curl');
   const [selectedModelForDetail, setSelectedModelForDetail] = useState<ModelSpec | null>(null);
   const [detailCodeTab, setDetailCodeTab] = useState<'curl' | 'python' | 'node'>('curl');
+  const [catalogModels, setCatalogModels] = useState<ModelSpec[]>(ALL_SUPPORTED_MODELS);
+
+  useEffect(() => {
+    async function loadDynamicModels() {
+      try {
+        const res = await fetch('/v1/models');
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            const dynamicList: ModelSpec[] = [...ALL_SUPPORTED_MODELS];
+            const existingMap = new Map<string, number>();
+            dynamicList.forEach((m, idx) => existingMap.set(m.modelId.toLowerCase(), idx));
+
+            for (const item of json.data) {
+              const id = item.id.toLowerCase();
+              if (existingMap.has(id)) {
+                const idx = existingMap.get(id)!;
+                dynamicList[idx] = {
+                  ...dynamicList[idx],
+                  inputPrice: item.input_price_per_1m ?? dynamicList[idx].inputPrice,
+                  outputPrice: item.output_price_per_1m ?? dynamicList[idx].outputPrice,
+                  contextWindow: item.context_window ?? dynamicList[idx].contextWindow,
+                  supportsVision: item.supports_vision ?? dynamicList[idx].supportsVision,
+                  supportsTools: item.supports_tools ?? dynamicList[idx].supportsTools,
+                  supportsReasoning: item.supports_reasoning ?? dynamicList[idx].supportsReasoning,
+                };
+              } else {
+                let fam: any = 'More models';
+                let catKey: any = 'more_models';
+                if (id.startsWith('claude')) { fam = 'Anthropic'; catKey = 'anthropic'; }
+                else if (id.startsWith('gpt') || id.startsWith('o1') || id.startsWith('o3')) { fam = 'OpenAI'; catKey = 'openai'; }
+                else if (id.startsWith('gemini')) { fam = 'Gemini'; catKey = 'gemini'; }
+                else if (id.startsWith('deepseek')) { fam = 'DeepSeek'; catKey = 'deepseek'; }
+                else if (id.startsWith('grok')) { fam = 'Grok'; catKey = 'grok'; }
+                else if (id.startsWith('qwen')) { fam = 'Qwen'; catKey = 'qwen'; }
+                else if (id.startsWith('glm')) { fam = 'GLM'; catKey = 'glm'; }
+
+                dynamicList.push({
+                  modelId: item.id,
+                  displayName: item.display_name || item.id,
+                  family: fam,
+                  categoryKey: catKey,
+                  description: item.description || `${item.display_name || item.id} high-performance AI model.`,
+                  contextWindow: item.context_window || 128000,
+                  inputPrice: item.input_price_per_1m || 2.50,
+                  outputPrice: item.output_price_per_1m || 10.00,
+                  supportsStreaming: item.supports_streaming ?? true,
+                  supportsTools: item.supports_tools ?? true,
+                  supportsVision: item.supports_vision ?? false,
+                  supportsReasoning: item.supports_reasoning ?? false,
+                  protocol: item.protocol || 'openai-compatible',
+                  supportedPlans: ['claude_max_rolling', 'claude_openai_credits', 'openai_tokens', 'claude_tokens', 'local_models_tokens'],
+                  tags: ['ScaleMax', ...(item.supports_vision ? ['Vision'] : []), ...(item.supports_reasoning ? ['Reasoning'] : [])],
+                  isNew: item.id.includes('argon') || item.id.includes('4-6'),
+                });
+              }
+            }
+            setCatalogModels(dynamicList);
+          }
+        }
+      } catch (e) {
+        // Fallback to static catalog
+      }
+    }
+    loadDynamicModels();
+  }, []);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -62,7 +128,7 @@ export const ModelCatalog: React.FC = () => {
 
   // Filtered & Sorted Models Logic
   const filteredModels = useMemo(() => {
-    const list = ALL_SUPPORTED_MODELS.filter((model) => {
+    const list = catalogModels.filter((model) => {
       // 1. Family filter
       if (selectedFamily !== 'all') {
         if (selectedFamily === 'more_models') {

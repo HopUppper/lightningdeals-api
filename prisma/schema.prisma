@@ -568,36 +568,99 @@ model CouponUsage {
 }
 
 model Model {
-  id                      String    @id @default(uuid())
-  modelId                 String    @unique
-  displayName             String
-  provider                String // "Anthropic" | "OpenAI" | "Google" | "xAI" | "DeepSeek"
-  description             String
-  contextWindow           Int       @default(1000000)
-  enabled                 Boolean   @default(true)
-  isOnDemand              Boolean   @default(false)
-  planCategory            String?   @default("all")
-  supplierCostInput       Float?    @default(0)
-  supplierCostOutput      Float?    @default(0)
-  inputPrice              Float     @default(3.0)
-  outputPrice             Float     @default(15.0)
-  cachedInputPrice        Float?    @default(0.75)
-  providerCostCachedInput Float?    @default(0.50)
-  supportsStreaming       Boolean   @default(true)
-  supportsTools           Boolean   @default(true)
-  supportsVision          Boolean   @default(true)
-  providerId              String?
-  providerSlug            String?   @default("opus_max") // "opus_max" | "scalemax"
-  upstreamModelId         String?
-  family                  String?   @default("claude") // "claude" | "openai" | "gemini" | "deepseek" | "grok" | "qwen"
-  protocol                String?   @default("anthropic") // "anthropic" | "openai-compatible"
-  providerCostInput       Float?    @default(0)
-  providerCostOutput      Float?    @default(0)
-  supportedPlans          String?   @default("[\"window\",\"credit\",\"token\"]")
-  isCustomerAvailable     Boolean   @default(true)
-  lastSyncAt              DateTime?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  id                            String    @id @default(uuid())
+  modelId                       String    @unique
+  displayName                   String
+  provider                      String // "Anthropic" | "OpenAI" | "Google" | "xAI" | "DeepSeek" | "Meta" | "Mistral" | "Alibaba"
+  description                   String
+  contextWindow                 Int       @default(1000000)
+  maxOutputTokens               Int?      @default(4096)
+  maxInputTokens                Int?      @default(1000000)
+  currency                      String    @default("USD")
+  enabled                       Boolean   @default(true)
+  isOnDemand                    Boolean   @default(false)
+  planCategory                  String?   @default("all")
+  validationStatus              String    @default("ACTIVE") // "DISCOVERED" | "PENDING_VALIDATION" | "VALIDATED" | "ACTIVE" | "TEMPORARILY_UNAVAILABLE" | "DISABLED" | "REMOVED_UPSTREAM"
+  availabilityStatus            String    @default("available") // "available" | "unavailable" | "deprecated"
+  
+  // Upstream Supplier Cost Rates (per 1M tokens) - Never directly charged to customer
+  supplierCostInput             Float?    @default(0)
+  supplierCostOutput            Float?    @default(0)
+  supplierCostCachedInput       Float?    @default(0)
+  providerCostInput             Float?    @default(0)
+  providerCostOutput            Float?    @default(0)
+  providerCostCachedInput       Float?    @default(0)
+
+  // LightningAPI Customer Selling Prices (per 1M tokens) - Configurable by Admin
+  inputPrice                    Float     @default(3.0)
+  outputPrice                   Float     @default(15.0)
+  cachedInputPrice              Float?    @default(0.75)
+
+  // Rate change alert flags
+  hasUpstreamPriceChange        Boolean   @default(false)
+  upstreamPriceChangeDetails    String?
+
+  // Modalities & Detailed Capabilities
+  supportedInputModalities      String?   @default("text") // "text,image,audio,video"
+  supportedOutputModalities     String?   @default("text") // "text,image,audio"
+  supportsStreaming             Boolean   @default(true)
+  supportsTools                 Boolean   @default(true)
+  supportsVision                Boolean   @default(true) // Image input
+  supportsImageInput            Boolean   @default(false)
+  supportsImageGeneration       Boolean   @default(false)
+  supportsVideo                 Boolean   @default(false)
+  supportsAudio                 Boolean   @default(false)
+  supportsStructuredOutput      Boolean   @default(false)
+  supportsReasoning             Boolean   @default(false)
+
+  // Routing & Provider Association
+  providerId                    String?
+  providerSlug                  String?   @default("opus_max") // "opus_max" | "scalemax"
+  upstreamModelId               String?
+  family                        String?   @default("claude") // "claude" | "openai" | "gemini" | "deepseek" | "grok" | "qwen" | "local"
+  protocol                      String?   @default("anthropic") // "anthropic" | "openai-compatible"
+  supportedPlans                String?   @default("[\"window\",\"credit\",\"token\"]")
+  supportedBillingArchitectures String?   @default("claude_max_rolling,claude_openai_credits,openai_tokens,claude_tokens,local_models_tokens")
+  isCustomerAvailable           Boolean   @default(true)
+  metadataSource                String?   @default("scalemax_authenticated_api")
+  validationErrorsJson          String?
+
+  // Timestamps
+  firstDiscoveredAt             DateTime  @default(now())
+  lastVerifiedAt                DateTime? @default(now())
+  lastMetadataUpdateAt          DateTime? @default(now())
+  lastSyncAt                    DateTime?
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
+}
+
+model ModelSyncHistory {
+  id                 String    @id @default(uuid())
+  syncTrigger        String    @default("SCHEDULED") // "SCHEDULED" | "MANUAL_ADMIN"
+  status             String    @default("SUCCESS") // "SUCCESS" | "PARTIAL" | "FAILED"
+  modelsDiscovered   Int       @default(0)
+  modelsAdded        Int       @default(0)
+  modelsUpdated      Int       @default(0)
+  modelsUnavailable  Int       @default(0)
+  durationMs         Int       @default(0)
+  error              String?
+  startedAt          DateTime  @default(now())
+  completedAt        DateTime?
+  detailsJson        String?
+}
+
+model ModelChangeLog {
+  id         String   @id @default(uuid())
+  modelId    String
+  changeType String // "ADDED" | "METADATA_CHANGED" | "PRICE_CHANGED" | "STATUS_CHANGED" | "REMOVED_UPSTREAM"
+  fieldName  String?
+  oldValue   String?
+  newValue   String?
+  source     String   @default("scalemax_sync")
+  createdAt  DateTime @default(now())
+
+  @@index([modelId])
+  @@index([changeType])
 }
 
 model AdminLog {

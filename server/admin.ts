@@ -24,6 +24,7 @@ import { isLocalModelFamily, isClaudeOrOpenAIModelFamily } from './providers/cre
 import { InventoryService } from './inventory/inventoryService';
 import { AutomationEngine } from './automation/jobs';
 import { activateOrRenewSubscription } from './subscriptions/subscriptionEngine';
+import { executeModelSync } from './models/modelSyncService';
 
 const router = Router();
 
@@ -2105,6 +2106,14 @@ router.get('/models', async (req: AuthRequest, res: Response) => {
         supportsStreaming: m.supportsStreaming ?? true,
         supportsTools: m.supportsTools ?? true,
         supportsVision: m.supportsVision ?? false,
+        supportsImageInput: m.supportsImageInput ?? m.supportsVision ?? false,
+        supportsReasoning: m.supportsReasoning ?? false,
+        validationStatus: m.validationStatus || (m.enabled ? "ACTIVE" : "DISABLED"),
+        availabilityStatus: m.availabilityStatus || "available",
+        hasUpstreamPriceChange: Boolean(m.hasUpstreamPriceChange),
+        upstreamPriceChangeDetails: m.upstreamPriceChangeDetails,
+        metadataSource: m.metadataSource || "manual",
+        firstDiscoveredAt: m.firstDiscoveredAt,
         supportedPlans: supportedPlansArray,
         enabled: m.enabled,
         isCustomerAvailable: m.isCustomerAvailable ?? true,
@@ -2285,6 +2294,140 @@ router.put('/models/:id', async (req: AuthRequest, res: Response) => {
         targetType: 'Model',
         targetId: updated.id,
         metadata: `Updated model ${updated.displayName}: provider=${updated.providerSlug}, enabled=${updated.enabled}`,
+      },
+    });
+
+    res.json({ success: true, model: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 2c. Model Sync & Management Endpoints
+router.post('/models/sync', async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await executeModelSync('MANUAL_ADMIN');
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'TRIGGER_MODEL_SYNC',
+        targetType: 'ModelCatalogue',
+        metadata: JSON.stringify({
+          durationMs: result.durationMs,
+          discovered: result.modelsDiscovered,
+          added: result.modelsAdded,
+          updated: result.modelsUpdated,
+          unavailable: result.modelsUnavailable,
+        }),
+      },
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.get('/models/sync-history', async (req: AuthRequest, res: Response) => {
+  try {
+    const history = await prisma.modelSyncHistory.findMany({
+      take: 20,
+      orderBy: { startedAt: 'desc' },
+    });
+    res.json(history);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.get('/models/changes', async (req: AuthRequest, res: Response) => {
+  try {
+    const changes = await prisma.modelChangeLog.findMany({
+      take: 50,
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(changes);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.post('/models/:id/approve', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { inputPrice, outputPrice } = req.body || {};
+
+    const existing = await prisma.model.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: { message: 'Model not found' } });
+    }
+
+    const updated = await prisma.model.update({
+      where: { id },
+      data: {
+        validationStatus: 'ACTIVE',
+        enabled: true,
+        isCustomerAvailable: true,
+        ...(inputPrice !== undefined && { inputPrice: Number(inputPrice) }),
+        ...(outputPrice !== undefined && { outputPrice: Number(outputPrice) }),
+        lastVerifiedAt: new Date(),
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'APPROVE_MODEL',
+        targetType: 'Model',
+        targetId: existing.id,
+        metadata: `Approved model ${existing.displayName} (${existing.modelId}) to ACTIVE status with prices In: ${updated.inputPrice}, Out: ${updated.outputPrice}`,
+      },
+    });
+
+    await prisma.modelChangeLog.create({
+      data: {
+        modelId: existing.modelId,
+        changeType: 'STATUS_CHANGED',
+        fieldName: 'validationStatus',
+        oldValue: existing.validationStatus,
+        newValue: 'ACTIVE',
+        source: 'admin_approval',
+      },
+    });
+
+    res.json({ success: true, model: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.post('/models/:id/acknowledge-price', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { inputPrice, outputPrice } = req.body || {};
+
+    const existing = await prisma.model.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: { message: 'Model not found' } });
+    }
+
+    const updated = await prisma.model.update({
+      where: { id },
+      data: {
+        hasUpstreamPriceChange: false,
+        upstreamPriceChangeDetails: null,
+        ...(inputPrice !== undefined && { inputPrice: Number(inputPrice) }),
+        ...(outputPrice !== undefined && { outputPrice: Number(outputPrice) }),
+        lastMetadataUpdateAt: new Date(),
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'ACKNOWLEDGE_PRICE_CHANGE',
+        targetType: 'Model',
+        targetId: existing.id,
+        metadata: `Acknowledged upstream price change for ${existing.displayName}. Selling price set to In: ${updated.inputPrice}, Out: ${updated.outputPrice}`,
       },
     });
 

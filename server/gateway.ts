@@ -246,6 +246,97 @@ export function mapToUpstreamModel(inputModel: string, providerType = 'anthropic
   return inputModel;
 }
 
+export async function validateModelAvailability(requestedModel: string): Promise<{
+  isValid: boolean;
+  status?: string;
+  error?: { status: number; type: string; message: string };
+  modelRecord?: any;
+}> {
+  if (!requestedModel || typeof requestedModel !== 'string') {
+    return {
+      isValid: false,
+      status: 'INVALID',
+      error: {
+        status: 400,
+        type: 'invalid_request_error',
+        message: 'Missing or invalid required field: model.',
+      },
+    };
+  }
+
+  const norm = requestedModel.toLowerCase().trim();
+  try {
+    const modelRecord = await prisma.model.findFirst({
+      where: {
+        OR: [
+          { modelId: norm },
+          { upstreamModelId: norm },
+          { modelId: requestedModel },
+          { upstreamModelId: requestedModel },
+          { displayName: { equals: requestedModel, mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    if (modelRecord) {
+      if (modelRecord.validationStatus === 'PENDING_VALIDATION' || modelRecord.validationStatus === 'DISCOVERED') {
+        return {
+          isValid: false,
+          status: 'PENDING_VALIDATION',
+          error: {
+            status: 400,
+            type: 'invalid_request_error',
+            message: `Model '${requestedModel}' is pending administrative capability validation and is not yet active for production traffic.`,
+          },
+          modelRecord,
+        };
+      }
+      if (modelRecord.validationStatus === 'REMOVED_UPSTREAM' || modelRecord.validationStatus === 'TEMPORARILY_UNAVAILABLE' || modelRecord.availabilityStatus === 'unavailable') {
+        return {
+          isValid: false,
+          status: 'REMOVED_UPSTREAM',
+          error: {
+            status: 400,
+            type: 'invalid_request_error',
+            message: `Model '${requestedModel}' has been removed upstream or is temporarily unavailable.`,
+          },
+          modelRecord,
+        };
+      }
+      if (modelRecord.validationStatus === 'DISABLED' || modelRecord.enabled === false) {
+        return {
+          isValid: false,
+          status: 'DISABLED',
+          error: {
+            status: 400,
+            type: 'invalid_request_error',
+            message: `Model '${requestedModel}' is currently disabled by administrator.`,
+          },
+          modelRecord,
+        };
+      }
+      return { isValid: true, status: 'ACTIVE', modelRecord };
+    }
+  } catch (e) {
+    // Database fallback
+  }
+
+  const staticMatch = findCatalogModel(requestedModel);
+  if (staticMatch) {
+    return { isValid: true, status: 'ACTIVE' };
+  }
+
+  return {
+    isValid: false,
+    status: 'NOT_FOUND',
+    error: {
+      status: 404,
+      type: 'not_found_error',
+      message: `Model '${requestedModel}' not found. See GET /v1/models for full active catalogue.`,
+    },
+  };
+}
+
 export function isSupportedModel(inputModel: string): boolean {
   if (!inputModel || typeof inputModel !== 'string') return false;
   return !!findCatalogModel(inputModel);
@@ -1154,11 +1245,12 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Missing or invalid required field: model.' } });
   }
 
-  if (!isSupportedModel(model)) {
-    return res.status(404).json({
+    const modelCheck = await validateModelAvailability(model);
+  if (!modelCheck.isValid && modelCheck.error) {
+    return res.status(modelCheck.error.status).json({
       error: {
-        type: 'not_found_error',
-        message: `Model '${model}' not found. Please provide a supported Claude model or model alias (e.g. claude-opus-5.5, claude-sonnet-5.5, claude-fable-5, claude-opus-5, claude-sonnet-5). See GET /v1/models for full catalog.`,
+        type: modelCheck.error.type,
+        message: modelCheck.error.message,
       },
     });
   }
@@ -2405,6 +2497,16 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
   if (!model || typeof model !== 'string') {
     return res.status(400).json({
       error: { message: 'Missing model parameter in request body.', type: 'invalid_request_error' },
+    });
+  }
+
+  const modelCheck = await validateModelAvailability(model);
+  if (!modelCheck.isValid && modelCheck.error) {
+    return res.status(modelCheck.error.status).json({
+      error: {
+        type: modelCheck.error.type,
+        message: modelCheck.error.message,
+      },
     });
   }
 

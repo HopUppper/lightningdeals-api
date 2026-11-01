@@ -29,6 +29,18 @@ import { validateVendorBaseUrl } from './ssrf';
 import { checkMasterCapacity, reserveMasterTokens, releaseMasterReservation, settleMasterUsage } from './masterLedger';
 import { recordAuditEvent } from './auditLogger';
 import { ProviderDiscoveryRegistry } from './providers/ProviderDiscoveryRegistry';
+import { resolveIntelligentRoute, determineAdaptiveTimeoutMs } from './infrastructure/smartRouter';
+import { pooledFetch } from './infrastructure/connectionPool';
+import {
+  isCircuitOpen,
+  recordCircuitSuccess,
+  recordCircuitFailure,
+  calculateExponentialBackoffJitter,
+  parseRetryAfterHeader,
+  buildBreakerKey,
+} from './infrastructure/circuitBreaker';
+import { recordProviderCallMetric } from './infrastructure/providerHealth';
+import { evaluateRequestAnomalies, recordAuthFailure } from './infrastructure/anomalyDetector';
 
 const rateLimitMap = new Map<string, number[]>();
 export const inFlightReservations = inFlightTokenReservations;
@@ -291,6 +303,18 @@ export async function validateModelAvailability(requestedModel: string): Promise
           modelRecord,
         };
       }
+      if (modelRecord.validationStatus === 'DISABLED') {
+        return {
+          isValid: false,
+          status: 'DISABLED',
+          error: {
+            status: 400,
+            type: 'invalid_request_error',
+            message: `Model '${requestedModel}' is currently disabled by administrator.`,
+          },
+          modelRecord,
+        };
+      }
       if (modelRecord.validationStatus === 'REMOVED_UPSTREAM' || modelRecord.validationStatus === 'TEMPORARILY_UNAVAILABLE' || modelRecord.availabilityStatus === 'unavailable') {
         return {
           isValid: false,
@@ -303,7 +327,7 @@ export async function validateModelAvailability(requestedModel: string): Promise
           modelRecord,
         };
       }
-      if (modelRecord.validationStatus === 'DISABLED' || modelRecord.enabled === false) {
+      if (modelRecord.enabled === false) {
         return {
           isValid: false,
           status: 'DISABLED',
@@ -1003,6 +1027,8 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
   });
 
   if (!keyRecord) {
+    const clientIp = (req?.ip || req?.headers?.['x-forwarded-for']?.toString() || '').split(',')[0].trim() || 'unknown';
+    recordAuthFailure(clientIp, rawKey.substring(0, 8)).catch(() => {});
     recordAuditEvent({
       eventType: 'INVALID_API_KEY',
       severity: 'LOW',
@@ -1245,12 +1271,32 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Missing or invalid required field: model.' } });
   }
 
-    const modelCheck = await validateModelAvailability(model);
+  const modelCheck = await validateModelAvailability(model);
   if (!modelCheck.isValid && modelCheck.error) {
     return res.status(modelCheck.error.status).json({
       error: {
         type: modelCheck.error.type,
         message: modelCheck.error.message,
+      },
+    });
+  }
+
+  // Multi-dimensional Anomaly Detection & Velocity Protection
+  const estimatedTokenLoad = Math.max(100, Math.ceil(JSON.stringify({ messages, system }).length / 4)) + Math.min(2048, Number(max_tokens || 1024));
+  const anomalyCheck = await evaluateRequestAnomalies({
+    apiKeyId: keyRecord.id,
+    userId: keyRecord.userId,
+    ipAddress: clientIp || undefined,
+    modelId: model,
+    requestedTokens: estimatedTokenLoad,
+  });
+
+  if (anomalyCheck.hasAnomaly && anomalyCheck.actionTaken === 'THROTTLED') {
+    return res.status(429).json({
+      type: 'error',
+      error: {
+        type: 'rate_limit_error',
+        message: anomalyCheck.message || 'Request throttled by anomaly protection filter.',
       },
     });
   }
@@ -1457,18 +1503,38 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
     }
   }
 
-  // Authoritative Provider Resolution (ApiKey.providerId -> VendorProvider)
-  const providerResolution = await resolveProviderForApiKey(keyRecord, model);
-  if (providerResolution.error) {
+  // Intelligent Provider-Aware Route Resolution
+  const routeResolution = await resolveIntelligentRoute({
+    keyRecord,
+    requestedModel: model,
+    isStreaming: !!stream,
+    hasThinking: isThinkingRequested,
+    modelRecord: modelCheck.modelRecord,
+  });
+
+  if (!routeResolution.success) {
+    const err = routeResolution.error || {
+      status: 503,
+      type: 'service_unavailable',
+      message: 'Failed to route request to upstream provider.',
+      code: 'ROUTING_FAILED',
+    };
+    if (routeResolution.circuitState === 'OPEN') {
+      const breakerCheck = isCircuitOpen(routeResolution.breakerKey || '');
+      if (breakerCheck.retryAfterSeconds) {
+        res.setHeader('Retry-After', breakerCheck.retryAfterSeconds.toString());
+      }
+      res.setHeader('x-lightning-circuit-state', 'OPEN');
+    }
     await prisma.apiRequest.create({
       data: {
         apiKeyId: keyRecord.id,
         userId: keyRecord.userId,
         model,
         endpoint: '/v1/messages',
-        statusCode: providerResolution.error.status,
-        errorCode: providerResolution.error.code || providerResolution.error.type,
-        errorMessage: providerResolution.error.message,
+        statusCode: err.status,
+        errorCode: err.code || err.type,
+        errorMessage: err.message,
         inputTokens: 0,
         outputTokens: 0,
         totalTokens: 0,
@@ -1479,16 +1545,25 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         usageSource: 'LOCAL_CALCULATED',
       },
     });
-    return res.status(providerResolution.error.status).json({
+    return res.status(err.status).json({
       error: {
-        type: providerResolution.error.type,
-        message: providerResolution.error.message,
-        code: providerResolution.error.code,
+        type: err.type,
+        message: err.message,
+        code: err.code,
       },
     });
   }
 
-  const vendor = providerResolution.provider!;
+  const vendor = routeResolution.routedProvider!;
+  const effectiveModel = routeResolution.effectiveModel || model;
+  const breakerKey = routeResolution.breakerKey || buildBreakerKey(routeResolution.providerSlug || 'unknown', effectiveModel);
+  const adaptiveTimeoutMs = routeResolution.timeoutMs || 120000;
+
+  // Observability Response Headers
+  res.setHeader('x-lightning-trace-id', requestId);
+  res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+  res.setHeader('x-lightning-routed-model', effectiveModel);
+  res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
 
   const estimatedRequiredTokens = Math.max(100, Math.ceil(JSON.stringify({ messages, system }).length / 4)) + Math.min(2048, Number(max_tokens || 1024));
 
@@ -1613,7 +1688,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         return res.status(400).json({ error: { type: 'ssrf_blocked', message: ssrfCheck.error || 'Blocked by SSRF security filter.' } });
       }
 
-      const prepared = buildProviderRequest(vendor, decryptedMasterKey, model, {
+      const prepared = buildProviderRequest(vendor, decryptedMasterKey, effectiveModel, {
         messages,
         max_tokens,
         stream,
@@ -1629,8 +1704,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       }, resolvedBillingType);
 
       const controller = new AbortController();
-      // LLM streaming & large reasoning requests can legitimately take up to 180s
-      const timeoutId = setTimeout(() => controller.abort(), 180000);
+      const timeoutId = setTimeout(() => controller.abort(), adaptiveTimeoutMs);
 
       // Handle client disconnect mid-flight
       let clientDisconnected = false;
@@ -1641,185 +1715,135 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }
       });
 
-      let isFailover = false;
-      let upstreamRes: Response;
-      try {
-        upstreamRes = await fetch(prepared.url, {
-          method: 'POST',
-          headers: prepared.headers,
-          body: JSON.stringify(prepared.body),
-          signal: controller.signal,
-        }) as any;
-      } catch (fetchErr: any) {
-        clearTimeout(timeoutId);
+      let upstreamRes: Response | null = null;
+      let lastFetchErr: any = null;
+      const MAX_RETRIES = 1; // 1 bounded retry attempt (max 2 attempts total)
 
-        // If not a client disconnect, attempt 1 fast retry with fallback
-        if (!clientDisconnected) {
-          console.warn(`[GATEWAY RETRY] Initial upstream fetch failed (${fetchErr.message}). Retrying with fresh controller...`);
-          try {
-            const retryController = new AbortController();
-            const retryTimeoutId = setTimeout(() => retryController.abort(), 180000);
-            upstreamRes = await fetch(prepared.url, {
-              method: 'POST',
-              headers: prepared.headers,
-              body: JSON.stringify(prepared.body),
-              signal: retryController.signal,
-            }) as any;
-            clearTimeout(retryTimeoutId);
-          } catch (retryFetchErr: any) {
-            fetchErr = retryFetchErr;
-          }
-        }
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (clientDisconnected) break;
 
-        // Automatic Primary Vendor Failover on connection failure
-        if (!upstreamRes!) {
-          const primaryProvider = await prisma.vendorProvider.findFirst({
-            where: { isPrimary: true, status: { not: 'disabled' } },
-          });
+        const attemptStart = Date.now();
+        try {
+          upstreamRes = (await pooledFetch(prepared.url, {
+            method: 'POST',
+            headers: prepared.headers,
+            body: JSON.stringify(prepared.body),
+            signal: controller.signal,
+            timeoutMs: adaptiveTimeoutMs,
+          })) as any;
 
-          if (primaryProvider && primaryProvider.id !== vendor?.id) {
-            console.warn(`[GATEWAY FAILOVER] Vendor ${vendor?.name} connection failed. Failing over to Primary Vendor (${primaryProvider.name})...`);
-            const primaryKey = decryptText(primaryProvider.masterApiKeyEncrypted);
-            if (primaryKey) {
-              try {
-                const primaryPrepared = buildProviderRequest(primaryProvider, primaryKey, model, {
-                  messages,
-                  max_tokens,
-                  stream,
-                  system,
-                  tools,
-                  tool_choice,
-                  thinking,
-                  temperature,
-                  top_p,
-                  stop_sequences,
-                  metadata,
-                  anthropicBetaHeader,
-                });
+          const attemptLatency = Date.now() - attemptStart;
 
-                const primaryController = new AbortController();
-                const primaryTimeout = setTimeout(() => primaryController.abort(), 180000);
-                const failoverRes = await fetch(primaryPrepared.url, {
-                  method: 'POST',
-                  headers: primaryPrepared.headers,
-                  body: JSON.stringify(primaryPrepared.body),
-                  signal: primaryController.signal,
-                });
-                clearTimeout(primaryTimeout);
+          // If upstream returns 5xx or 429, evaluate circuit breaker & potential retry
+          if (upstreamRes && (upstreamRes.status === 429 || upstreamRes.status >= 500)) {
+            const retryAfterSec = parseRetryAfterHeader(upstreamRes.headers.get('retry-after'));
+            await recordCircuitFailure(breakerKey, `Upstream status ${upstreamRes.status}`, retryAfterSec);
+            recordProviderCallMetric({
+              providerSlug: routeResolution.providerSlug || 'unknown',
+              modelId: effectiveModel,
+              statusCode: upstreamRes.status,
+              latencyMs: attemptLatency,
+              errorCategory: upstreamRes.status === 429 ? 'rate_limit' : 'server_error',
+            });
 
-                if (failoverRes && (failoverRes.ok || failoverRes.status < 500)) {
-                  upstreamRes = failoverRes as any;
-                  vendor = primaryProvider;
-                  isFailover = true;
-                  prisma.apiKey.update({ where: { id: keyRecord.id }, data: { providerId: primaryProvider.id } }).catch(() => {});
-                }
-              } catch (failoverErr) {
-                console.error('[GATEWAY FAILOVER ERROR]', failoverErr);
-              }
+            if (attempt < MAX_RETRIES && !clientDisconnected) {
+              const backoffMs = retryAfterSec ? Math.min(3000, retryAfterSec * 1000) : calculateExponentialBackoffJitter(attempt, 500, 2000);
+              console.warn(`[SMART ROUTER RETRY] Upstream returned ${upstreamRes.status} on attempt ${attempt + 1}. Retrying in ${backoffMs}ms...`);
+              await new Promise((r) => setTimeout(r, backoffMs));
+              continue;
             }
+          } else if (upstreamRes && (upstreamRes.ok || upstreamRes.status < 500)) {
+            // Upstream success or 4xx client request error (not provider infrastructure fault)
+            await recordCircuitSuccess(breakerKey);
+            recordProviderCallMetric({
+              providerSlug: routeResolution.providerSlug || 'unknown',
+              modelId: effectiveModel,
+              statusCode: upstreamRes.status,
+              latencyMs: attemptLatency,
+            });
           }
-        }
 
-        if (!upstreamRes!) {
-          await releaseReservation(requestId);
-          releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
-          releaseMasterReservation(requestId);
-
+          break;
+        } catch (fetchErr: any) {
+          lastFetchErr = fetchErr;
+          const attemptLatency = Date.now() - attemptStart;
           const isTimeout = fetchErr.name === 'AbortError' || clientDisconnected;
-          const errStatusCode = isTimeout ? 504 : 502;
-          const errCode = isTimeout ? 'gateway_timeout' : 'upstream_connection_failed';
-          const errMessage = isTimeout
-            ? 'Upstream vendor request timed out or client connection closed.'
-            : `Failed to establish connection to upstream vendor gateway.`;
 
-          await prisma.apiRequest.create({
-            data: {
-              apiKeyId: keyRecord.id,
-              userId: keyRecord.userId,
-              model,
-              endpoint: '/v1/messages',
-              statusCode: errStatusCode,
-              errorCode: errCode,
-              errorMessage: errMessage,
-              inputTokens: 0,
-              outputTokens: 0,
-              totalTokens: 0,
-              latencyMs: Date.now() - startTime,
-              streaming: !!stream,
-              providerId: vendor?.id || null,
-              isEstimated: false,
-              usageSource: 'LOCAL_CALCULATED',
-              clientPlatform: platform,
-              userAgent: userAgent,
-              ipAddress: clientIp,
-            },
+          await recordCircuitFailure(breakerKey, fetchErr.message);
+          recordProviderCallMetric({
+            providerSlug: routeResolution.providerSlug || 'unknown',
+            modelId: effectiveModel,
+            statusCode: isTimeout ? 504 : 502,
+            latencyMs: attemptLatency,
+            errorCategory: isTimeout ? 'timeout' : 'network_error',
           });
 
-          return res.status(errStatusCode).json({
-            error: {
-              type: isTimeout ? 'timeout_error' : 'upstream_provider_error',
-              message: errMessage,
-              code: errCode,
-            },
-          });
+          if (clientDisconnected) break;
+
+          if (attempt < MAX_RETRIES) {
+            const backoffMs = calculateExponentialBackoffJitter(attempt, 500, 2000);
+            console.warn(`[SMART ROUTER RETRY] Network failure (${fetchErr.message}) on attempt ${attempt + 1}. Retrying in ${backoffMs}ms...`);
+            await new Promise((r) => setTimeout(r, backoffMs));
+          }
         }
       }
 
       clearTimeout(timeoutId);
 
-      // Automatic Primary Vendor Failover if upstream returned 500/502/503/504
-      if (!upstreamRes.ok && [500, 502, 503, 504].includes(upstreamRes.status)) {
-        const primaryProvider = await prisma.vendorProvider.findFirst({
-          where: { isPrimary: true, status: { not: 'disabled' } },
+      // If upstream connection failed after bounded retries, return clean 502/504 without cross-billing failover
+      if (!upstreamRes) {
+        await releaseReservation(requestId);
+        releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
+        releaseMasterReservation(requestId);
+
+        const isTimeout = lastFetchErr?.name === 'AbortError' || clientDisconnected;
+        const errStatusCode = isTimeout ? 504 : 502;
+        const errCode = isTimeout ? 'gateway_timeout' : 'upstream_connection_failed';
+        const errMessage = isTimeout
+          ? 'Upstream vendor request timed out or client connection closed.'
+          : 'Failed to establish connection to upstream vendor gateway.';
+
+        await prisma.apiRequest.create({
+          data: {
+            apiKeyId: keyRecord.id,
+            userId: keyRecord.userId,
+            model,
+            endpoint: '/v1/messages',
+            statusCode: errStatusCode,
+            errorCode: errCode,
+            errorMessage: errMessage,
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            latencyMs: Date.now() - startTime,
+            streaming: !!stream,
+            providerId: vendor?.id || null,
+            isEstimated: false,
+            usageSource: 'LOCAL_CALCULATED',
+            clientPlatform: platform,
+            userAgent: userAgent,
+            ipAddress: clientIp,
+          },
         });
 
-        if (primaryProvider && primaryProvider.id !== vendor?.id) {
-          console.warn(`[GATEWAY FAILOVER] Vendor ${vendor?.name} returned ${upstreamRes.status}. Failing over to Primary Vendor (${primaryProvider.name})...`);
-          const primaryKey = decryptText(primaryProvider.masterApiKeyEncrypted);
-          if (primaryKey) {
-            try {
-              const primaryPrepared = buildProviderRequest(primaryProvider, primaryKey, model, {
-                messages,
-                max_tokens,
-                stream,
-                system,
-                tools,
-                tool_choice,
-                thinking,
-                temperature,
-                top_p,
-                stop_sequences,
-                metadata,
-                anthropicBetaHeader,
-              });
-
-              const primaryController = new AbortController();
-              const primaryTimeout = setTimeout(() => primaryController.abort(), 180000);
-              const failoverRes = await fetch(primaryPrepared.url, {
-                method: 'POST',
-                headers: primaryPrepared.headers,
-                body: JSON.stringify(primaryPrepared.body),
-                signal: primaryController.signal,
-              });
-              clearTimeout(primaryTimeout);
-
-              if (failoverRes && (failoverRes.ok || failoverRes.status < 500)) {
-                upstreamRes = failoverRes as any;
-                vendor = primaryProvider;
-                isFailover = true;
-                prisma.apiKey.update({ where: { id: keyRecord.id }, data: { providerId: primaryProvider.id } }).catch(() => {});
-              }
-            } catch (failoverErr) {
-              console.error('[GATEWAY FAILOVER ERROR]', failoverErr);
-            }
-          }
-        }
+        return res.status(errStatusCode).json({
+          error: {
+            type: isTimeout ? 'timeout_error' : 'upstream_provider_error',
+            message: errMessage,
+            code: errCode,
+          },
+        });
       }
 
       if (!upstreamRes.ok) {
         await releaseReservation(requestId);
         releaseReservedTokens(keyRecord.id, estimatedRequiredTokens);
         releaseMasterReservation(requestId);
+
+        const retryAfterHeader = upstreamRes.headers.get('retry-after');
+        if (retryAfterHeader) {
+          res.setHeader('Retry-After', retryAfterHeader);
+        }
 
         const errorText = await upstreamRes.text();
         let parsedError: any = { message: 'Upstream vendor service reported an error.' };
@@ -1867,9 +1891,14 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
       if (stream) {
         res.setHeader('x-gateway-model', model);
-                                res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+      res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+      res.setHeader('x-lightning-routed-model', effectiveModel);
+      res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
         res.setHeader('x-model-verified', 'true');
-        res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
+        res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+        res.setHeader('x-lightning-routed-model', effectiveModel);
+        res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache, no-transform');
         res.setHeader('Connection', 'keep-alive');
@@ -2133,9 +2162,14 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }
 
         res.setHeader('x-gateway-model', model);
-                                res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+      res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+      res.setHeader('x-lightning-routed-model', effectiveModel);
+      res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
         res.setHeader('x-model-verified', 'true');
-        res.setHeader('x-gateway-failover', isFailover ? 'true' : 'false');
+        res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+        res.setHeader('x-lightning-routed-model', effectiveModel);
+        res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
         res.setHeader('anthropic-inference-geo', inferenceGeo);
         res.setHeader('anthropic-usage-source', 'anthropic');
 
@@ -2510,18 +2544,68 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     });
   }
 
-  // Authoritative Provider Resolution
-  const providerResolution = await resolveProviderForApiKey(keyRecord, model);
-  if (providerResolution.error) {
-    return res.status(providerResolution.error.status).json({
+  // Multi-dimensional Anomaly Detection & Velocity Protection
+  const estimatedTokenLoad = Math.max(100, Math.ceil(JSON.stringify(messages || []).length / 4)) + Math.min(2048, Number(max_tokens || 1024));
+  const anomalyCheck = await evaluateRequestAnomalies({
+    apiKeyId: keyRecord.id,
+    userId: keyRecord.userId,
+    ipAddress: clientIp || undefined,
+    modelId: model,
+    requestedTokens: estimatedTokenLoad,
+  });
+
+  if (anomalyCheck.hasAnomaly && anomalyCheck.actionTaken === 'THROTTLED') {
+    return res.status(429).json({
+      type: 'error',
       error: {
-        message: providerResolution.error.message,
-        type: providerResolution.error.type,
+        type: 'rate_limit_error',
+        message: anomalyCheck.message || 'Request throttled by anomaly protection filter.',
       },
     });
   }
 
-  const vendor = providerResolution.provider!;
+  // Intelligent Provider-Aware Route Resolution
+  const routeResolution = await resolveIntelligentRoute({
+    keyRecord,
+    requestedModel: model,
+    isStreaming: !!stream,
+    hasThinking: false,
+    modelRecord: modelCheck.modelRecord,
+  });
+
+  if (!routeResolution.success) {
+    const err = routeResolution.error || {
+      status: 503,
+      type: 'service_unavailable',
+      message: 'Failed to route request to upstream provider.',
+      code: 'ROUTING_FAILED',
+    };
+    if (routeResolution.circuitState === 'OPEN') {
+      const breakerCheck = isCircuitOpen(routeResolution.breakerKey || '');
+      if (breakerCheck.retryAfterSeconds) {
+        res.setHeader('Retry-After', breakerCheck.retryAfterSeconds.toString());
+      }
+      res.setHeader('x-lightning-circuit-state', 'OPEN');
+    }
+    return res.status(err.status).json({
+      error: {
+        type: err.type,
+        message: err.message,
+        code: err.code,
+      },
+    });
+  }
+
+  const vendor = routeResolution.routedProvider!;
+  const effectiveModel = routeResolution.effectiveModel || model;
+  const breakerKey = routeResolution.breakerKey || buildBreakerKey(routeResolution.providerSlug || 'unknown', effectiveModel);
+  const adaptiveTimeoutMs = routeResolution.timeoutMs || 120000;
+
+  // Set smart infrastructure observability headers
+  res.setHeader('x-lightning-trace-id', requestId);
+  res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+  res.setHeader('x-lightning-routed-model', effectiveModel);
+  res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
 
   const friendlyModel = getFriendlyModelName(model);
   const lastUserPrompt = getLastUserPrompt(messages || []);
@@ -2653,7 +2737,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
   }
   const { apiKey: decryptedMasterKey, billingType: resolvedBillingType } = credResolution.credential;
 
-  const prepared = buildProviderRequest(vendor, decryptedMasterKey, model, {
+  const prepared = buildProviderRequest(vendor, decryptedMasterKey, effectiveModel, {
     messages,
     max_tokens,
     stream,
@@ -2664,7 +2748,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
   }, resolvedBillingType);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 180000);
+  const timeoutId = setTimeout(() => controller.abort(), adaptiveTimeoutMs);
 
   let clientDisconnected = false;
   req.on('close', () => {
@@ -2676,37 +2760,119 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     }
   });
 
-  try {
-    const upstreamRes = await fetch(prepared.url, {
-      method: 'POST',
-      headers: prepared.headers,
-      body: JSON.stringify(prepared.body),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+  let upstreamRes: Response | null = null;
+  let lastFetchErr: any = null;
+  const MAX_RETRIES = 1;
 
-    if (!upstreamRes.ok) {
-      await releaseReservation(requestId);
-      releaseMasterReservation(requestId);
-      const errText = await upstreamRes.text();
-      let parsedErr: any = {};
-      try { parsedErr = JSON.parse(errText); } catch {}
-      if (parsedErr?.error?.message) {
-        parsedErr.error.message = sanitizeErrorMessage(parsedErr.error.message);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (clientDisconnected) break;
+    const attemptStart = Date.now();
+
+    try {
+      upstreamRes = (await pooledFetch(prepared.url, {
+        method: 'POST',
+        headers: prepared.headers,
+        body: JSON.stringify(prepared.body),
+        signal: controller.signal,
+        timeoutMs: adaptiveTimeoutMs,
+      })) as any;
+
+      const attemptLatency = Date.now() - attemptStart;
+
+      if (upstreamRes && (upstreamRes.status === 429 || upstreamRes.status >= 500)) {
+        const retryAfterSec = parseRetryAfterHeader(upstreamRes.headers.get('retry-after'));
+        await recordCircuitFailure(breakerKey, `Upstream status ${upstreamRes.status}`, retryAfterSec);
+        recordProviderCallMetric({
+          providerSlug: routeResolution.providerSlug || 'unknown',
+          modelId: effectiveModel,
+          statusCode: upstreamRes.status,
+          latencyMs: attemptLatency,
+          errorCategory: upstreamRes.status === 429 ? 'rate_limit' : 'server_error',
+        });
+
+        if (attempt < MAX_RETRIES && !clientDisconnected) {
+          const backoffMs = retryAfterSec ? Math.min(3000, retryAfterSec * 1000) : calculateExponentialBackoffJitter(attempt, 500, 2000);
+          console.warn(`[SMART ROUTER RETRY] Chat completions upstream returned ${upstreamRes.status} on attempt ${attempt + 1}. Retrying in ${backoffMs}ms...`);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          continue;
+        }
+      } else if (upstreamRes && (upstreamRes.ok || upstreamRes.status < 500)) {
+        await recordCircuitSuccess(breakerKey);
+        recordProviderCallMetric({
+          providerSlug: routeResolution.providerSlug || 'unknown',
+          modelId: effectiveModel,
+          statusCode: upstreamRes.status,
+          latencyMs: attemptLatency,
+        });
       }
-      return res.status(upstreamRes.status).json(parsedErr?.error ? parsedErr : {
-        error: { message: sanitizeErrorMessage(errText), type: 'upstream_error' },
-      });
-    }
 
-    const friendlyModel = getFriendlyModelName(model);
-    if (stream) {
+      break;
+    } catch (fetchErr: any) {
+      lastFetchErr = fetchErr;
+      const attemptLatency = Date.now() - attemptStart;
+      const isTimeout = fetchErr.name === 'AbortError' || clientDisconnected;
+
+      await recordCircuitFailure(breakerKey, fetchErr.message);
+      recordProviderCallMetric({
+        providerSlug: routeResolution.providerSlug || 'unknown',
+        modelId: effectiveModel,
+        statusCode: isTimeout ? 504 : 502,
+        latencyMs: attemptLatency,
+        errorCategory: isTimeout ? 'timeout' : 'network_error',
+      });
+
+      if (clientDisconnected) break;
+
+      if (attempt < MAX_RETRIES) {
+        const backoffMs = calculateExponentialBackoffJitter(attempt, 500, 2000);
+        await new Promise((r) => setTimeout(r, backoffMs));
+      }
+    }
+  }
+
+  clearTimeout(timeoutId);
+
+  if (!upstreamRes) {
+    await releaseReservation(requestId);
+    releaseMasterReservation(requestId);
+    const isTimeout = lastFetchErr?.name === 'AbortError' || clientDisconnected;
+    return res.status(isTimeout ? 504 : 502).json({
+      error: {
+        message: isTimeout ? 'Request timed out waiting for upstream response.' : `Upstream gateway connection failure: ${sanitizeErrorMessage(lastFetchErr?.message || '')}`,
+        type: isTimeout ? 'gateway_timeout' : 'upstream_error',
+      },
+    });
+  }
+
+  if (!upstreamRes.ok) {
+    await releaseReservation(requestId);
+    releaseMasterReservation(requestId);
+    const retryAfterHeader = upstreamRes.headers.get('retry-after');
+    if (retryAfterHeader) {
+      res.setHeader('Retry-After', retryAfterHeader);
+    }
+    const errText = await upstreamRes.text();
+    let parsedErr: any = {};
+    try { parsedErr = JSON.parse(errText); } catch {}
+    if (parsedErr?.error?.message) {
+      parsedErr.error.message = sanitizeErrorMessage(parsedErr.error.message);
+    }
+    return res.status(upstreamRes.status).json(parsedErr?.error ? parsedErr : {
+      error: { message: sanitizeErrorMessage(errText), type: 'upstream_error' },
+    });
+  }
+
+    try {
+      if (stream) {
       res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no');
       res.setHeader('X-No-Buffer', '1');
       res.setHeader('x-gateway-model', model);
+      res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+      res.setHeader('x-lightning-routed-model', effectiveModel);
+      res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
       res.socket?.setNoDelay(true);
       res.flushHeaders();
       let firstTokenMs: number | null = null;
@@ -2815,6 +2981,9 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
         }
       }
       res.setHeader('x-gateway-model', model);
+      res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+      res.setHeader('x-lightning-routed-model', effectiveModel);
+      res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
       
       const inputTokens = data?.usage?.prompt_tokens ?? Math.max(20, Math.ceil(JSON.stringify(messages).length / 3.8));
       const outputTokens = data?.usage?.completion_tokens ?? 50;

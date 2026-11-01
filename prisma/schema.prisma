@@ -663,6 +663,81 @@ model ModelChangeLog {
   @@index([changeType])
 }
 
+
+model CircuitBreakerRecord {
+  id                   String    @id @default(uuid())
+  key                  String    @unique // "providerId:modelId" or "providerSlug:modelId"
+  state                String    @default("CLOSED") // "CLOSED" | "OPEN" | "HALF_OPEN"
+  failureCount         Int       @default(0)
+  successCount         Int       @default(0)
+  consecutiveFailures  Int       @default(0)
+  lastFailureAt        DateTime?
+  lastSuccessAt        DateTime?
+  openedAt             DateTime?
+  nextProbeAt          DateTime?
+  lastErrorMessage     String?
+  updatedAt            DateTime  @updatedAt
+}
+
+model ProviderHealthSnapshot {
+  id                  String    @id @default(uuid())
+  providerSlug        String
+  modelId             String
+  windowMinutes       Int       @default(5)
+  totalRequests       Int       @default(0)
+  successfulRequests  Int       @default(0)
+  failedRequests      Int       @default(0)
+  rateLimitedRequests Int       @default(0)
+  timeoutRequests     Int       @default(0)
+  avgLatencyMs        Float     @default(0)
+  p95LatencyMs        Float     @default(0)
+  successRate         Float     @default(100.0)
+  recordedAt          DateTime  @default(now())
+
+  @@index([providerSlug, modelId])
+  @@index([recordedAt])
+}
+
+model RoutingPolicyConfig {
+  id                             String    @id @default(uuid())
+  policyName                     String    @unique // "DEFAULT" | "CLAUDE" | "OPENAI" | "LOCAL"
+  policyType                     String    @default("exact") // "exact" | "provider_preferred" | "lowest_cost" | "lowest_latency" | "highest_reliability" | "priority"
+  preferredProvider              String?   // "opus_max" | "scalemax"
+  allowFallback                  Boolean   @default(false)
+  fallbackProviders              String?   // JSON array or comma-separated slugs
+  maxRetries                     Int       @default(2)
+  timeoutMs                      Int       @default(60000)
+  circuitBreakerFailureThreshold Int       @default(5)
+  circuitBreakerRecoverySeconds  Int       @default(30)
+  isSubstitutionAllowed          Boolean   @default(false)
+  updatedBy                      String?
+  updatedAt                      DateTime  @updatedAt
+}
+
+model AnomalyIncident {
+  id             String    @id @default(uuid())
+  anomalyType    String    // "REQUEST_SPIKE" | "BURN_RATE_SURGE" | "AUTH_SPRAY" | "ERROR_BURST" | "OVERSIZED_PAYLOAD"
+  severity       String    @default("MEDIUM") // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  apiKeyId       String?
+  userId         String?
+  ipAddress      String?
+  providerSlug   String?
+  modelId        String?
+  metricValue    Float?
+  thresholdValue Float?
+  detailsJson    String?
+  status         String    @default("DETECTED") // "DETECTED" | "INVESTIGATING" | "MITIGATED" | "RESOLVED" | "FALSE_POSITIVE"
+  actionTaken    String?   // "LOGGED" | "THROTTLED" | "KEY_TEMP_BLOCKED"
+  detectedAt     DateTime  @default(now())
+  resolvedAt     DateTime?
+  resolvedBy     String?
+
+  @@index([apiKeyId])
+  @@index([userId])
+  @@index([anomalyType])
+  @@index([detectedAt])
+}
+
 model AdminLog {
   id          String   @id @default(uuid())
   adminUserId String?

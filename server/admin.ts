@@ -25,6 +25,9 @@ import { InventoryService } from './inventory/inventoryService';
 import { AutomationEngine } from './automation/jobs';
 import { activateOrRenewSubscription } from './subscriptions/subscriptionEngine';
 import { executeModelSync } from './models/modelSyncService';
+import { getAllCircuitBreakers, tripCircuitBreaker, resetCircuitBreaker } from './infrastructure/circuitBreaker';
+import { getInfrastructureHealthOverview, persistHealthSnapshots } from './infrastructure/providerHealth';
+import { getRecentAnomalies, resolveAnomaly } from './infrastructure/anomalyDetector';
 
 const router = Router();
 
@@ -2442,6 +2445,209 @@ router.delete('/models/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     await prisma.model.delete({ where: { id } });
     res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// ============================================================================
+// 2c. Smart Infrastructure & Resiliency Controls (/admin/infrastructure/*)
+// ============================================================================
+
+// 1. Overall System Infrastructure Health & Snapshot
+router.get('/infrastructure/health', async (req: AuthRequest, res: Response) => {
+  try {
+    const healthOverview = getInfrastructureHealthOverview();
+    const circuitBreakers = await getAllCircuitBreakers();
+    const openBreakers = circuitBreakers.filter((b) => b.state === 'OPEN');
+    const halfOpenBreakers = circuitBreakers.filter((b) => b.state === 'HALF_OPEN');
+    const recentAnomalies = await getRecentAnomalies(10);
+    const activeAnomalies = recentAnomalies.filter((a) => a.status === 'DETECTED');
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      summary: {
+        totalEndpointsTracked: healthOverview.length,
+        openCircuitBreakers: openBreakers.length,
+        halfOpenCircuitBreakers: halfOpenBreakers.length,
+        activeAnomalies: activeAnomalies.length,
+        status: openBreakers.length > 0 ? 'DEGRADED' : 'HEALTHY',
+      },
+      healthOverview,
+      circuitBreakers,
+      recentAnomalies,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 2. Circuit Breakers List
+router.get('/infrastructure/circuit-breakers', async (req: AuthRequest, res: Response) => {
+  try {
+    const breakers = await getAllCircuitBreakers();
+    res.json({ success: true, breakers });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 3. Manually Trip Circuit Breaker
+router.post('/infrastructure/circuit-breakers/:key/trip', async (req: AuthRequest, res: Response) => {
+  try {
+    const key = decodeURIComponent(req.params.key);
+    const reason = req.body?.reason || 'Manually tripped by administrator';
+    await tripCircuitBreaker(key, reason);
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'TRIP_CIRCUIT_BREAKER',
+        targetType: 'Infrastructure',
+        targetId: key,
+        metadata: `Circuit breaker ${key} manually tripped: ${reason}`,
+      },
+    });
+
+    res.json({ success: true, message: `Circuit breaker ${key} tripped to OPEN.` });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 4. Manually Reset Circuit Breaker
+router.post('/infrastructure/circuit-breakers/:key/reset', async (req: AuthRequest, res: Response) => {
+  try {
+    const key = decodeURIComponent(req.params.key);
+    await resetCircuitBreaker(key);
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'RESET_CIRCUIT_BREAKER',
+        targetType: 'Infrastructure',
+        targetId: key,
+        metadata: `Circuit breaker ${key} manually reset to CLOSED`,
+      },
+    });
+
+    res.json({ success: true, message: `Circuit breaker ${key} reset to CLOSED.` });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 5. Recent Anomaly Incidents List
+router.get('/infrastructure/anomalies', async (req: AuthRequest, res: Response) => {
+  try {
+    const limit = Math.min(100, Math.max(10, Number(req.query.limit || 50)));
+    const anomalies = await getRecentAnomalies(limit);
+    res.json({ success: true, count: anomalies.length, anomalies });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 6. Resolve Anomaly Incident
+router.post('/infrastructure/anomalies/:id/resolve', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const resolved = await resolveAnomaly(id, req.user?.id || 'admin');
+    if (!resolved) {
+      return res.status(404).json({ error: { message: 'Anomaly incident not found or already resolved.' } });
+    }
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'RESOLVE_ANOMALY',
+        targetType: 'Infrastructure',
+        targetId: id,
+        metadata: `Anomaly incident ${id} marked as RESOLVED`,
+      },
+    });
+
+    res.json({ success: true, message: 'Anomaly incident resolved.' });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 7. Routing Policies List & Upsert
+router.get('/infrastructure/policies', async (req: AuthRequest, res: Response) => {
+  try {
+    const policies = await prisma.routingPolicyConfig.findMany({ orderBy: { policyName: 'asc' } });
+    res.json({ success: true, policies });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+router.post('/infrastructure/policies', async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      policyName,
+      policyType = 'exact',
+      preferredProvider,
+      allowFallback = false,
+      maxRetries = 1,
+      timeoutMs = 60000,
+      circuitBreakerFailureThreshold = 5,
+      circuitBreakerRecoverySeconds = 30,
+      isSubstitutionAllowed = false,
+    } = req.body;
+
+    if (!policyName || typeof policyName !== 'string') {
+      return res.status(400).json({ error: { message: 'Missing policyName required field.' } });
+    }
+
+    const policy = await prisma.routingPolicyConfig.upsert({
+      where: { policyName },
+      create: {
+        policyName,
+        policyType,
+        preferredProvider,
+        allowFallback,
+        maxRetries: Number(maxRetries),
+        timeoutMs: Number(timeoutMs),
+        circuitBreakerFailureThreshold: Number(circuitBreakerFailureThreshold),
+        circuitBreakerRecoverySeconds: Number(circuitBreakerRecoverySeconds),
+        isSubstitutionAllowed: !!isSubstitutionAllowed,
+      },
+      update: {
+        policyType,
+        preferredProvider,
+        allowFallback,
+        maxRetries: Number(maxRetries),
+        timeoutMs: Number(timeoutMs),
+        circuitBreakerFailureThreshold: Number(circuitBreakerFailureThreshold),
+        circuitBreakerRecoverySeconds: Number(circuitBreakerRecoverySeconds),
+        isSubstitutionAllowed: !!isSubstitutionAllowed,
+      },
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: req.user?.id,
+        action: 'UPDATE_ROUTING_POLICY',
+        targetType: 'Infrastructure',
+        targetId: policy.id,
+        metadata: `Routing policy ${policyName} updated (type: ${policyType}, substitution: ${isSubstitutionAllowed})`,
+      },
+    });
+
+    res.json({ success: true, policy });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// 8. Snapshot Health Metrics
+router.post('/infrastructure/health/snapshot', async (req: AuthRequest, res: Response) => {
+  try {
+    await persistHealthSnapshots();
+    res.json({ success: true, message: 'Provider health snapshots recorded successfully.' });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

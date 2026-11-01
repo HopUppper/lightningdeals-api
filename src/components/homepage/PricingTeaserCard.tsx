@@ -106,7 +106,7 @@ export const PricingTeaserCard: React.FC = () => {
 
             <div className="pt-2 border-t border-[#E6E1E8]">
               <span className="text-xs text-[#78716c] block">Starting from</span>
-              <span className="text-2xl font-bold text-[#7136E8]">₹2,499</span>
+              <span className="text-2xl font-bold text-[#7136E8]">₹2,999</span>
               <span className="text-[11px] text-[#78716c]"> / month</span>
             </div>
           </div>
@@ -126,14 +126,14 @@ export const PricingTeaserCard: React.FC = () => {
                   Prepaid Token Packs
                 </h3>
                 <p className="text-xs text-[#57534e] mt-1 leading-relaxed">
-                  Fixed token allowances (10M to 1B) that never reset every 5 hours. Spend at your own pace over 365 days.
+                  Fixed token allowances (10M to 500M) that never reset every 5 hours. Spend at your own pace over 365 days.
                 </p>
               </div>
 
               <div className="space-y-2 text-xs text-[#191719]">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>10M, 50M, 100M, or 1B Consumable Tokens</span>
+                  <span>10M, 50M, 100M, or 500M Consumable Tokens</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -148,7 +148,7 @@ export const PricingTeaserCard: React.FC = () => {
 
             <div className="pt-2 border-t border-[#E6E1E8]">
               <span className="text-xs text-[#78716c] block">Starting from</span>
-              <span className="text-2xl font-bold text-[#191719]">₹299</span>
+              <span className="text-2xl font-bold text-[#191719]">₹799</span>
             </div>
           </div>
 

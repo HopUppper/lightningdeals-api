@@ -15,7 +15,7 @@ export const GatewayDemo: React.FC = () => {
   const codeSnippets: Record<LanguageTab, string> = {
     claudecode: `# 1. Point Claude Code CLI to the LightningAPI gateway
 export ANTHROPIC_BASE_URL="https://lightningapi.pro"
-export ANTHROPIC_AUTH_TOKEN="ld_live_49f82d1c8e9b3a4f7e2d1c8e"
+export ANTHROPIC_AUTH_TOKEN="ld_live_your_api_key_here"
 
 # 2. Launch Claude Code CLI directly in your terminal
 claude
@@ -26,7 +26,7 @@ claude
 
 // Initialize standard client with LightningAPI gateway
 const client = new Anthropic({
-  apiKey: process.env.LIGHTNING_API_KEY, // ld_live_...
+  apiKey: process.env.LIGHTNING_API_KEY, // sk_live_...
   baseURL: 'https://lightningapi.pro',
 });
 

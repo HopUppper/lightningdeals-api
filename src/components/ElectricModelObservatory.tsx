@@ -57,7 +57,7 @@ export const ElectricModelObservatory: React.FC = () => {
       codingScore: 99,
       speedScore: 92,
       recommendedTools: ['Cursor IDE', 'Windsurf', 'Claude Code CLI', 'Multi-Repo Engineering'],
-      sampleRequest: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: ld_live_your_key" \\\n  -d '{"model": "claude-sonnet-5.5", "messages": [{"role": "user", "content": "Refactor router across 8 files"}]}'`,
+      sampleRequest: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: sk_live_your_key" \\\n  -d '{"model": "claude-sonnet-5.5", "messages": [{"role": "user", "content": "Refactor router across 8 files"}]}'`,
     },
     opus55: {
       id: 'opus55',
@@ -78,7 +78,7 @@ export const ElectricModelObservatory: React.FC = () => {
       codingScore: 97,
       speedScore: 82,
       recommendedTools: ['Deep Research', 'Systems Architecture', 'Contract Verification', 'Formal Proofs'],
-      sampleRequest: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: ld_live_your_key" \\\n  -d '{"model": "claude-opus-5.5", "messages": [{"role": "user", "content": "Verify distributed consensus invariant"}]}'`,
+      sampleRequest: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: sk_live_your_key" \\\n  -d '{"model": "claude-opus-5.5", "messages": [{"role": "user", "content": "Verify distributed consensus invariant"}]}'`,
     },
     fable5: {
       id: 'fable5',
@@ -99,7 +99,7 @@ export const ElectricModelObservatory: React.FC = () => {
       codingScore: 98,
       speedScore: 99,
       recommendedTools: ['IDE Inline Completion', 'Real-time Diffing', 'Automated CI Linters', 'Interactive REPL'],
-      sampleRequest: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: ld_live_your_key" \\\n  -d '{"model": "claude-fable-5", "messages": [{"role": "user", "content": "Generate inline typescript diff"}]}'`,
+      sampleRequest: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: sk_live_your_key" \\\n  -d '{"model": "claude-fable-5", "messages": [{"role": "user", "content": "Generate inline typescript diff"}]}'`,
     },
     opusThinking: {
       id: 'opusThinking',
@@ -120,7 +120,7 @@ export const ElectricModelObservatory: React.FC = () => {
       codingScore: 98,
       speedScore: 85,
       recommendedTools: ['Compiler Debugging', 'Security Audits', 'Logic Verification', 'Vulnerability Discovery'],
-      sampleRequest: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: ld_live_your_key" \\\n  -d '{"model": "claude-opus-5-thinking", "thinking": {"type": "enabled", "budget_tokens": 4096}, "messages": [{"role": "user", "content": "Audit kernel memory safety"}]}'`,
+      sampleRequest: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: sk_live_your_key" \\\n  -d '{"model": "claude-opus-5-thinking", "thinking": {"type": "enabled", "budget_tokens": 4096}, "messages": [{"role": "user", "content": "Audit kernel memory safety"}]}'`,
     },
   };
 

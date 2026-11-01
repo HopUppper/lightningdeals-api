@@ -62,7 +62,7 @@ export const RefundPage: React.FC = () => {
                 <span>1. Digital Product Delivery &amp; Nature of Service</span>
               </h2>
               <p>
-                LightningAPI.pro provides digital compute allocations and API key credentials (<code className="font-mono text-[#1c1917]">ld_live_...</code>). Because digital compute credentials and proxy network capacity are reserved and provisioned immediately upon transaction confirmation, our refund evaluation is tied to key delivery verification and token consumption records.
+                LightningAPI.pro provides digital compute allocations and API key credentials (<code className="font-mono text-[#1c1917]">sk_live_...</code>). Because digital compute credentials and proxy network capacity are reserved and provisioned immediately upon transaction confirmation, our refund evaluation is tied to key delivery verification and token consumption records.
               </p>
             </section>
 

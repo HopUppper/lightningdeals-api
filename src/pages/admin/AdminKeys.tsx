@@ -1048,7 +1048,7 @@ export const AdminKeys: React.FC = () => {
                         className="w-full px-3 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
                       >
                         <option value="sk_live_">sk_live_ (Standard Anthropic / OpenAI Compatible)</option>
-                        <option value="ld_live_">ld_live_ (Lightning Deals Standard)</option>
+                        <option value="sk_live_">sk_live_ (Lightning Deals Standard)</option>
                       </select>
                     </div>
                   </div>
@@ -1194,7 +1194,7 @@ export const AdminKeys: React.FC = () => {
                       ))}
                     </select>
                     <p className="text-[10px] text-muted mt-1">
-                      Trial key will be bound to this provider ({trialProvider && providers.find(p => p.id === trialProvider)?.name.toLowerCase().includes('opus') ? 'sk_trial_' : 'ld_trial_'}).
+                      Trial key will be bound to this provider ({trialProvider && providers.find(p => p.id === trialProvider)?.name.toLowerCase().includes('opus') ? 'sk_trial_' : 'sk_trial_'}).
                     </p>
                   </div>
 

@@ -481,6 +481,136 @@ export const CapacityPlans: React.FC = () => {
         )}
 
         {/* ============================================================ */}
+        {/* DECISION GUIDE: "WHICH PLAN SHOULD I CHOOSE?"                */}
+        {/* ============================================================ */}
+        <div className="p-6 sm:p-8 rounded-[24px] bg-white border border-[#E6E1E8] shadow-2xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E6E1E8] pb-4">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-[#7136E8] font-bold">
+                <HelpCircle className="w-4 h-4" />
+                <span>DECISION MATRIX</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-[#191719] font-display">
+                Which plan architecture should you choose?
+              </h3>
+            </div>
+            <p className="text-xs text-[#68636B] max-w-md">
+              Select an option below to jump directly to those plans, or compare their strengths for your workload.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Guide Option 1: Rolling Pool */}
+            <div
+              onClick={() => {
+                setSelectedFamily('claude');
+                setSelectedBillingMode('window');
+              }}
+              className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-4 ${
+                selectedBillingMode === 'window'
+                  ? 'bg-[#EEE6FF]/30 border-[#7136E8] ring-2 ring-[#7136E8]/20 shadow-sm'
+                  : 'bg-[#F8F6F2] border-[#E6E1E8] hover:border-[#7136E8]/40'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#7136E8] flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    5-Hour Rolling Pool
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-violet-100 text-[#7136E8]">
+                    Claude Exclusive
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-[#191719]">
+                  For daily full-time developers
+                </h4>
+                <p className="text-xs text-[#68636B] leading-relaxed">
+                  Best if you code 8&ndash;12 hours daily in Cursor, Windsurf, or Claude Code CLI. Your token allowance regenerates continuously every 5 hours as older requests roll out. You never run out of capacity mid-month.
+                </p>
+              </div>
+              <div className="pt-3 border-t border-[#E6E1E8]/70 flex items-center justify-between text-xs font-semibold">
+                <span className="text-[#191719]">From ₹2,999/mo</span>
+                <span className="text-[#7136E8] inline-flex items-center gap-1">
+                  {selectedBillingMode === 'window' ? 'Active Mode' : 'Switch to this'}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </div>
+
+            {/* Guide Option 2: Usage Credits */}
+            <div
+              onClick={() => setSelectedBillingMode('credit')}
+              className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-4 ${
+                selectedBillingMode === 'credit'
+                  ? 'bg-amber-50/50 border-amber-600 ring-2 ring-amber-500/20 shadow-sm'
+                  : 'bg-[#F8F6F2] border-[#E6E1E8] hover:border-amber-400'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    Usage Credits (7x Multiplier)
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                    Universal
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-[#191719]">
+                  For flexible pay-per-token spending
+                </h4>
+                <p className="text-xs text-[#68636B] leading-relaxed">
+                  Best if you want universal access across all 74 Claude, OpenAI, and DeepSeek models. Pay in INR and get up to 7x&ndash;8.75x purchasing power in USD credits. Deducts per request at true wholesale prices. Valid 365 days.
+                </p>
+              </div>
+              <div className="pt-3 border-t border-[#E6E1E8]/70 flex items-center justify-between text-xs font-semibold">
+                <span className="text-[#191719]">From ₹100 ($7 USD)</span>
+                <span className="text-amber-700 inline-flex items-center gap-1">
+                  {selectedBillingMode === 'credit' ? 'Active Mode' : 'Switch to this'}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </div>
+
+            {/* Guide Option 3: Token Packs */}
+            <div
+              onClick={() => setSelectedBillingMode('token')}
+              className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-4 ${
+                selectedBillingMode === 'token'
+                  ? 'bg-emerald-50/50 border-emerald-600 ring-2 ring-emerald-500/20 shadow-sm'
+                  : 'bg-[#F8F6F2] border-[#E6E1E8] hover:border-emerald-400'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5" />
+                    Prepaid Token Packs
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                    No 5h Reset
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-[#191719]">
+                  For batch jobs & autonomous agents
+                </h4>
+                <p className="text-xs text-[#68636B] leading-relaxed">
+                  Best if you run heavy batch evaluation jobs, autonomous multi-agent loops, or periodic workload spikes. A guaranteed quota of 10M to 500M consumable tokens that never resets every 5 hours. Valid 365 days.
+                </p>
+              </div>
+              <div className="pt-3 border-t border-[#E6E1E8]/70 flex items-center justify-between text-xs font-semibold">
+                <span className="text-[#191719]">From ₹799 (10M Tokens)</span>
+                <span className="text-emerald-700 inline-flex items-center gap-1">
+                  {selectedBillingMode === 'token' ? 'Active Mode' : 'Switch to this'}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================ */}
         {/* PLAN CARDS GRID (Properly Segregated)                        */}
         {/* ============================================================ */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">

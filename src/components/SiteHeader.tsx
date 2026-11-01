@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { ReferralAnnouncementBanner } from './ReferralAnnouncementBanner';
 
 export const SiteHeader: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -46,7 +47,9 @@ export const SiteHeader: React.FC = () => {
     { name: 'Models', href: '/models' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'How It Works', href: '/how-it-works' },
-    { name: 'Documentation', href: '/docs' },
+    { name: 'Why Us', href: '/why-us' },
+    { name: 'Demo', href: '/demo' },
+    { name: 'Docs', href: '/docs' },
     { name: 'FAQ', href: '/faq' },
   ];
 
@@ -58,6 +61,7 @@ export const SiteHeader: React.FC = () => {
           : 'bg-[#F8F6F2] border-b border-[#E6E1E8]/60'
       }`}
     >
+      <ReferralAnnouncementBanner />
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           
@@ -251,7 +255,7 @@ export const SiteHeader: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-medium text-emerald-800"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                  <span>100% Operational</span>
+                  <span>All Systems Operational</span>
                 </Link>
               </div>
 

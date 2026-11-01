@@ -25,7 +25,7 @@ const TRANSPARENCY_PILLARS: TransparencyPillar[] = [
     title: 'Cryptographic Key Management',
     category: 'Authentication',
     summary:
-      'Customer keys are issued with high-entropy cryptographic randomness using ld_live_ prefixes and hashed with SHA-256 for validation.',
+      'Customer keys are issued with high-entropy cryptographic randomness using sk_live_ prefixes and hashed with SHA-256 for validation.',
     technicalDetails: [
       'Keys hashed before storage in database',
       'Plaintext key presented exactly once at issuance',
@@ -33,21 +33,21 @@ const TRANSPARENCY_PILLARS: TransparencyPillar[] = [
     ],
   },
   {
-    title: 'Dual-Engine Quota & Credit Accounting',
+    title: 'Tri-Modal Quota, Credit & Token Pack Accounting',
     category: 'Accounting Engine',
     summary:
-      'Supports both continuous 5-hour rolling pool refills (Claude exclusive) and universal pay-as-you-go credits with atomic millisecond balance deduction.',
+      'Supports continuous 5-hour rolling pool refills (Claude exclusive), universal pay-as-you-go credits with 7x–8.75x bonus value, and non-expiring prepaid token packs.',
     technicalDetails: [
       'Continuous 5-hour sliding-window ledger',
       'Universal USD credit debit engine with 7x–8.75x bonus value',
-      'Real-time balance telemetry accessible at /check-key',
+      'Prepaid token pack consumable ledger with real-time telemetry at /check-key',
     ],
   },
   {
     title: 'Strict Ingress Architecture',
     category: 'Infrastructure',
     summary:
-      'All traffic enters through an encrypted gateway operating under sub-50ms latency overhead, proxying requests to upstream Anthropic inference.',
+      'All traffic enters through an encrypted gateway operating under sub-50ms latency overhead, proxying requests to upstream Anthropic, OpenAI, and DeepSeek inference.',
     technicalDetails: [
       'TLS 1.3 with strict modern cipher suites',
       'Direct HTTP/2 & HTTP/1.1 keep-alive connections',

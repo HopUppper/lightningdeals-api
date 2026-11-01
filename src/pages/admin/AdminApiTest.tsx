@@ -66,7 +66,7 @@ export const AdminApiTest: React.FC = () => {
               required
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="ld_live_••••••••••••••••"
+              placeholder="sk_live_••••••••••••••••"
 
               className="w-full px-3.5 py-2 text-xs font-mono bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
             />

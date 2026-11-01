@@ -128,7 +128,7 @@ export const ContextVisualizer: React.FC = () => {
                 <div>
                   <div className="font-semibold text-[#111827] mb-1">Header Authentication</div>
                   <code className="bg-white border border-[#e5e7eb] px-2 py-1 rounded text-[11px] block text-[#111827]">
-                    x-api-key: ld_live_...
+                    x-api-key: sk_live_...
                   </code>
                 </div>
                 <div>

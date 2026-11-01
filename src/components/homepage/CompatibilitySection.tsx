@@ -21,12 +21,20 @@ const VERIFIED_INTEGRATIONS: IntegrationItem[] = [
     notes: 'Full support for streaming, messages, system prompts, and tool calling.',
   },
   {
+    name: 'OpenAI Official SDKs',
+    category: 'Python & Node.js',
+    protocol: 'base_url parameter',
+    howToConnect: "OpenAI(base_url='https://lightningapi.pro/v1', api_key='sk_live_...')",
+    status: 'Verified',
+    notes: 'Direct compatibility for chat completions, reasoning tokens (o1, o3-mini), and tool calling.',
+  },
+  {
     name: 'Claude Code CLI',
     category: 'Terminal Agent',
     protocol: 'Environment variables',
     howToConnect: 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"',
     status: 'Verified',
-    notes: 'Runs natively with your ld_live_ key set as ANTHROPIC_API_KEY.',
+    notes: 'Runs natively with your sk_live_ key set as ANTHROPIC_API_KEY.',
   },
   {
     name: 'Cursor & Windsurf IDEs',

@@ -7,7 +7,7 @@ export const ApiQuickStart: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   const codeSnippets = {
-    curl: `export LIGHTNING_API_KEY="ld_live_your_key_here"
+    curl: `export LIGHTNING_API_KEY="sk_live_your_key_here"
 
 curl https://lightningapi.pro/v1/messages \\
   -H "x-api-key: $LIGHTNING_API_KEY" \\
@@ -25,7 +25,7 @@ from anthropic import Anthropic
 
 client = Anthropic(
     base_url="https://lightningapi.pro",
-    api_key="ld_live_your_key_here"
+    api_key="sk_live_your_key_here"
 )
 
 response = client.messages.create(
@@ -41,7 +41,7 @@ print(response.content[0].text)`,
 
 const client = new Anthropic({
   baseURL: 'https://lightningapi.pro',
-  apiKey: 'ld_live_your_key_here',
+  apiKey: 'sk_live_your_key_here',
 });
 
 const message = await client.messages.create({

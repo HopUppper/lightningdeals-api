@@ -23,23 +23,31 @@ import {
   Hash,
   SlidersHorizontal,
   X,
+  ChevronRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ALL_SUPPORTED_MODELS, MODEL_FAMILIES, ModelSpec } from '../data/modelsData';
+
+export type SortOption = 'featured' | 'input_asc' | 'output_asc' | 'context_desc' | 'family' | 'name_asc';
 
 export const ModelCatalog: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFamily, setSelectedFamily] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [activeCodeTab, setActiveCodeTab] = useState<'curl' | 'python' | 'node'>('curl');
+  const [selectedModelForDetail, setSelectedModelForDetail] = useState<ModelSpec | null>(null);
+  const [detailCodeTab, setDetailCodeTab] = useState<'curl' | 'python' | 'node'>('curl');
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(text);
     setTimeout(() => setCopiedId(null), 2000);
   };
+
+  const hasActiveFilters = searchQuery.trim() !== '' || selectedFamily !== 'all' || selectedTask !== 'all' || sortBy !== 'featured';
 
   // Task Filter Options
   const taskOptions = [
@@ -52,9 +60,9 @@ export const ModelCatalog: React.FC = () => {
     { id: 'long_context', label: 'Long Context (≥200k)', icon: Layers },
   ];
 
-  // Filtered Models Logic
+  // Filtered & Sorted Models Logic
   const filteredModels = useMemo(() => {
-    return ALL_SUPPORTED_MODELS.filter((model) => {
+    const list = ALL_SUPPORTED_MODELS.filter((model) => {
       // 1. Family filter
       if (selectedFamily !== 'all') {
         if (selectedFamily === 'more_models') {
@@ -102,7 +110,17 @@ export const ModelCatalog: React.FC = () => {
 
       return true;
     });
-  }, [selectedFamily, selectedTask, searchQuery]);
+
+    // Apply Sorting
+    return list.sort((a, b) => {
+      if (sortBy === 'input_asc') return a.inputPrice - b.inputPrice;
+      if (sortBy === 'output_asc') return a.outputPrice - b.outputPrice;
+      if (sortBy === 'context_desc') return b.contextWindow - a.contextWindow;
+      if (sortBy === 'family') return a.family.localeCompare(b.family);
+      if (sortBy === 'name_asc') return a.displayName.localeCompare(b.displayName);
+      return 0; // featured maintains canonical order
+    });
+  }, [selectedFamily, selectedTask, searchQuery, sortBy]);
 
   // Family styling color map
   const getFamilyColor = (family: string) => {
@@ -173,36 +191,101 @@ export const ModelCatalog: React.FC = () => {
               )}
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-white border border-[#e7e5e4] p-1 rounded-xl shadow-xs shrink-0 self-end md:self-auto">
-              <button
-                type="button"
-                onClick={() => setViewMode('grid')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-                  viewMode === 'grid'
-                    ? 'bg-[#1c1917] text-white shadow-xs'
-                    : 'text-[#57534e] hover:text-[#1c1917]'
-                }`}
-                aria-label="Grid View"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Card Grid</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-                  viewMode === 'table'
-                    ? 'bg-[#1c1917] text-white shadow-xs'
-                    : 'text-[#57534e] hover:text-[#1c1917]'
-                }`}
-                aria-label="Table View"
-              >
-                <TableIcon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Data Table</span>
-              </button>
+            {/* Controls Right: Sort Dropdown + View Mode Toggle */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0 self-end md:self-auto">
+              {/* Sort Dropdown */}
+              <div className="flex items-center gap-1.5 bg-white border border-[#e7e5e4] px-3 py-1.5 rounded-xl text-xs shadow-xs">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#78716c]" />
+                <span className="text-[11px] font-mono uppercase text-[#78716c] hidden sm:inline">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="bg-transparent text-xs font-semibold text-[#1c1917] focus:outline-none cursor-pointer"
+                  aria-label="Sort models"
+                >
+                  <option value="featured">Featured / Default</option>
+                  <option value="input_asc">Lowest Input Price</option>
+                  <option value="output_asc">Lowest Output Price</option>
+                  <option value="context_desc">Largest Context Window</option>
+                  <option value="family">Provider Family</option>
+                  <option value="name_asc">Model Name (A-Z)</option>
+                </select>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-1 bg-white border border-[#e7e5e4] p-1 rounded-xl shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-[#1c1917] text-white shadow-xs'
+                      : 'text-[#57534e] hover:text-[#1c1917]'
+                  }`}
+                  aria-label="Grid View"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Card Grid</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                    viewMode === 'table'
+                      ? 'bg-[#1c1917] text-white shadow-xs'
+                      : 'text-[#57534e] hover:text-[#1c1917]'
+                  }`}
+                  aria-label="Table View"
+                >
+                  <TableIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Data Table</span>
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Active Filters Row with Clear All */}
+          {hasActiveFilters && (
+            <div className="flex items-center gap-2 flex-wrap text-xs bg-white border border-[#e7e5e4] p-2.5 rounded-xl shadow-2xs">
+              <span className="text-[11px] font-mono text-[#78716c] uppercase font-bold">Active Filters:</span>
+              {searchQuery && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#eee6ff] text-[#6d28d9] font-medium text-[11px]">
+                  <span>Query: &ldquo;{searchQuery}&rdquo;</span>
+                  <button type="button" onClick={() => setSearchQuery('')} className="hover:text-black cursor-pointer"><X className="w-3 h-3" /></button>
+                </span>
+              )}
+              {selectedFamily !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#eee6ff] text-[#6d28d9] font-medium text-[11px]">
+                  <span>Family: {MODEL_FAMILIES.find((f) => f.id === selectedFamily)?.label || selectedFamily}</span>
+                  <button type="button" onClick={() => setSelectedFamily('all')} className="hover:text-black cursor-pointer"><X className="w-3 h-3" /></button>
+                </span>
+              )}
+              {selectedTask !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#eee6ff] text-[#6d28d9] font-medium text-[11px]">
+                  <span>Task: {taskOptions.find((t) => t.id === selectedTask)?.label || selectedTask}</span>
+                  <button type="button" onClick={() => setSelectedTask('all')} className="hover:text-black cursor-pointer"><X className="w-3 h-3" /></button>
+                </span>
+              )}
+              {sortBy !== 'featured' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#eee6ff] text-[#6d28d9] font-medium text-[11px]">
+                  <span>Sort: {sortBy}</span>
+                  <button type="button" onClick={() => setSortBy('featured')} className="hover:text-black cursor-pointer"><X className="w-3 h-3" /></button>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedFamily('all');
+                  setSelectedTask('all');
+                  setSortBy('featured');
+                }}
+                className="text-[11px] text-[#6d28d9] hover:underline font-bold ml-auto cursor-pointer"
+              >
+                Clear All Filters
+              </button>
+            </div>
+          )}
 
           {/* Maker / Family Filter Pills */}
           <div className="space-y-1.5">
@@ -313,6 +396,10 @@ export const ModelCatalog: React.FC = () => {
                     </span>
 
                     <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Operational
+                      </span>
                       {model.isNew && (
                         <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300">
                           NEW
@@ -431,6 +518,16 @@ export const ModelCatalog: React.FC = () => {
                       </span>
                     )}
                   </div>
+
+                  {/* Inspect Details & SDK Code Button */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedModelForDetail(model)}
+                    className="w-full py-2 rounded-xl bg-[#faf8f5] hover:bg-[#eee6ff] text-[#1c1917] hover:text-[#6d28d9] border border-[#e7e5e4] text-xs font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <span>Inspect Specs &amp; Code Snippets</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -535,24 +632,34 @@ export const ModelCatalog: React.FC = () => {
 
                       {/* Action */}
                       <td className="py-3 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(model.modelId)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono bg-[#faf8f5] hover:bg-[#6d28d9] hover:text-white border border-[#e7e5e4] transition-colors cursor-pointer"
-                          aria-label={`Copy model ID ${model.modelId}`}
-                        >
-                          {copiedId === model.modelId ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span>Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Copy ID</span>
-                            </>
-                          )}
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedModelForDetail(model)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-mono bg-[#eee6ff] hover:bg-[#7136E8] text-[#7136E8] hover:text-white transition-colors cursor-pointer"
+                          >
+                            <span>Specs</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(model.modelId)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono bg-[#faf8f5] hover:bg-[#6d28d9] hover:text-white border border-[#e7e5e4] transition-colors cursor-pointer"
+                            aria-label={`Copy model ID ${model.modelId}`}
+                          >
+                            {copiedId === model.modelId ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy ID</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -708,7 +815,7 @@ export const ModelCatalog: React.FC = () => {
             {activeCodeTab === 'curl' && (
               <pre className="text-slate-200">
                 {`curl https://lightningapi.pro/api/v1/models \\
-  -H "Authorization: Bearer ld_live_your_api_key_here"`}
+  -H "Authorization: Bearer sk_live_your_api_key_here"`}
               </pre>
             )}
             {activeCodeTab === 'python' && (
@@ -716,7 +823,7 @@ export const ModelCatalog: React.FC = () => {
                 {`from openai import OpenAI
 
 client = OpenAI(
-    api_key="ld_live_your_api_key_here",
+    api_key="sk_live_your_api_key_here",
     base_url="https://lightningapi.pro/api/v1"
 )
 
@@ -730,7 +837,7 @@ for m in models.data:
                 {`import OpenAI from 'openai';
 
 const client = new OpenAI({
-  apiKey: process.env.LIGHTNING_API_KEY || 'ld_live_your_api_key_here',
+  apiKey: process.env.LIGHTNING_API_KEY || 'sk_live_your_api_key_here',
   baseURL: 'https://lightningapi.pro/api/v1',
 });
 
@@ -743,10 +850,10 @@ console.log(list.data.map(m => m.id));`}
               onClick={() => {
                 const text =
                   activeCodeTab === 'curl'
-                    ? `curl https://lightningapi.pro/api/v1/models \\\n  -H "Authorization: Bearer ld_live_your_api_key_here"`
+                    ? `curl https://lightningapi.pro/api/v1/models \\\n  -H "Authorization: Bearer sk_live_your_api_key_here"`
                     : activeCodeTab === 'python'
-                    ? `from openai import OpenAI\n\nclient = OpenAI(\n    api_key="ld_live_your_api_key_here",\n    base_url="https://lightningapi.pro/api/v1"\n)\n\nmodels = client.models.list()\nfor m in models.data:\n    print(m.id)`
-                    : `import OpenAI from 'openai';\n\nconst client = new OpenAI({\n  apiKey: process.env.LIGHTNING_API_KEY || 'ld_live_your_api_key_here',\n  baseURL: 'https://lightningapi.pro/api/v1',\n});\n\nconst list = await client.models.list();\nconsole.log(list.data.map(m => m.id));`;
+                    ? `from openai import OpenAI\n\nclient = OpenAI(\n    api_key="sk_live_your_api_key_here",\n    base_url="https://lightningapi.pro/api/v1"\n)\n\nmodels = client.models.list()\nfor m in models.data:\n    print(m.id)`
+                    : `import OpenAI from 'openai';\n\nconst client = new OpenAI({\n  apiKey: process.env.LIGHTNING_API_KEY || 'sk_live_your_api_key_here',\n  baseURL: 'https://lightningapi.pro/api/v1',\n});\n\nconst list = await client.models.list();\nconsole.log(list.data.map(m => m.id));`;
                 copyToClipboard(text);
               }}
               className="absolute top-3 right-3 p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
@@ -788,6 +895,249 @@ console.log(list.data.map(m => m.id));`}
         </div>
 
       </div>
+
+      {/* Interactive Model Detail Modal */}
+      {selectedModelForDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#e7e5e4] overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-6 border-b border-[#e7e5e4] flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${getFamilyColor(
+                      selectedModelForDetail.family
+                    )}`}
+                  >
+                    {selectedModelForDetail.family}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Operational
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-[#1c1917] font-display">
+                  {selectedModelForDetail.displayName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedModelForDetail(null)}
+                className="p-2 rounded-xl text-[#78716c] hover:text-[#1c1917] hover:bg-[#faf8f5] transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              {/* Canonical ID */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase text-[#78716c] font-bold">
+                  Canonical Model ID
+                </label>
+                <div className="flex items-center justify-between bg-[#faf8f5] border border-[#e7e5e4] rounded-xl px-3.5 py-2.5 font-mono text-xs">
+                  <span className="font-semibold text-[#1c1917]">{selectedModelForDetail.modelId}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(selectedModelForDetail.modelId)}
+                    className="inline-flex items-center gap-1 text-[11px] font-mono text-[#6d28d9] hover:text-[#581c87] cursor-pointer"
+                  >
+                    {copiedId === selectedModelForDetail.modelId ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                    <span>{copiedId === selectedModelForDetail.modelId ? 'Copied' : 'Copy ID'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-mono uppercase text-[#78716c] font-bold">
+                  Overview
+                </label>
+                <p className="text-xs text-[#57534e] leading-relaxed">
+                  {selectedModelForDetail.description}
+                </p>
+              </div>
+
+              {/* Specs Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] text-center space-y-1">
+                  <span className="text-[10px] font-mono uppercase text-[#78716c]">Context Window</span>
+                  <div className="text-sm font-bold text-[#1c1917] font-mono">
+                    {formatContext(selectedModelForDetail.contextWindow)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] text-center space-y-1">
+                  <span className="text-[10px] font-mono uppercase text-[#78716c]">Input / 1M</span>
+                  <div className="text-sm font-bold text-[#1c1917] font-mono">
+                    ${selectedModelForDetail.inputPrice.toFixed(2)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] text-center space-y-1">
+                  <span className="text-[10px] font-mono uppercase text-[#78716c]">Output / 1M</span>
+                  <div className="text-sm font-bold text-[#1c1917] font-mono">
+                    ${selectedModelForDetail.outputPrice.toFixed(2)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] text-center space-y-1">
+                  <span className="text-[10px] font-mono uppercase text-[#78716c]">Cached Read</span>
+                  <div className="text-sm font-bold text-emerald-700 font-mono">
+                    {selectedModelForDetail.cachedInputPrice
+                      ? `$${selectedModelForDetail.cachedInputPrice.toFixed(2)}`
+                      : 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Integration Snippet */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-mono uppercase text-[#78716c] font-bold">
+                    Integration Snippet
+                  </label>
+                  <div className="flex items-center gap-1 text-[11px] font-semibold bg-[#faf8f5] p-1 rounded-lg border border-[#e7e5e4]">
+                    <button
+                      type="button"
+                      onClick={() => setDetailCodeTab('curl')}
+                      className={`px-2 py-0.5 rounded cursor-pointer ${
+                        detailCodeTab === 'curl' ? 'bg-[#1c1917] text-white' : 'text-[#78716c]'
+                      }`}
+                    >
+                      cURL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailCodeTab('python')}
+                      className={`px-2 py-0.5 rounded cursor-pointer ${
+                        detailCodeTab === 'python' ? 'bg-[#1c1917] text-white' : 'text-[#78716c]'
+                      }`}
+                    >
+                      Python
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailCodeTab('node')}
+                      className={`px-2 py-0.5 rounded cursor-pointer ${
+                        detailCodeTab === 'node' ? 'bg-[#1c1917] text-white' : 'text-[#78716c]'
+                      }`}
+                    >
+                      Node.js
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative p-3.5 rounded-xl bg-[#1c1917] text-white font-mono text-xs overflow-x-auto">
+                  {detailCodeTab === 'curl' && (
+                    <pre className="text-neutral-200">
+                      {selectedModelForDetail.family === 'Anthropic'
+                        ? `curl "https://lightningapi.pro/v1/messages" \\
+  -H "x-api-key: sk_live_your_key_here" \\
+  -H "anthropic-version: 2023-06-01" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "${selectedModelForDetail.modelId}",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'`
+                        : `curl "https://lightningapi.pro/v1/chat/completions" \\
+  -H "Authorization: Bearer sk_live_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "${selectedModelForDetail.modelId}",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'`}
+                    </pre>
+                  )}
+                  {detailCodeTab === 'python' && (
+                    <pre className="text-emerald-300">
+                      {selectedModelForDetail.family === 'Anthropic'
+                        ? `import anthropic
+
+client = anthropic.Anthropic(
+    base_url="https://lightningapi.pro",
+    api_key="sk_live_your_key_here"
+)
+
+response = client.messages.create(
+    model="${selectedModelForDetail.modelId}",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.content[0].text)`
+                        : `from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://lightningapi.pro/v1",
+    api_key="sk_live_your_key_here"
+)
+
+response = client.chat.completions.create(
+    model="${selectedModelForDetail.modelId}",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)`}
+                    </pre>
+                  )}
+                  {detailCodeTab === 'node' && (
+                    <pre className="text-amber-300">
+                      {selectedModelForDetail.family === 'Anthropic'
+                        ? `import Anthropic from '@anthropic-ai/sdk';
+
+const client = new Anthropic({
+  baseURL: 'https://lightningapi.pro',
+  apiKey: process.env.LIGHTNING_API_KEY || 'sk_live_your_key_here',
+});
+
+const msg = await client.messages.create({
+  model: '${selectedModelForDetail.modelId}',
+  max_tokens: 1024,
+  messages: [{ role: 'user', content: 'Hello!' }],
+});
+console.log(msg.content);`
+                        : `import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'https://lightningapi.pro/v1',
+  apiKey: process.env.LIGHTNING_API_KEY || 'sk_live_your_key_here',
+});
+
+const res = await client.chat.completions.create({
+  model: '${selectedModelForDetail.modelId}',
+  messages: [{ role: 'user', content: 'Hello!' }],
+});
+console.log(res.choices[0].message.content);`}
+                    </pre>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 bg-[#faf8f5] border-t border-[#e7e5e4] flex items-center justify-between gap-3">
+              <Link
+                to="/pricing"
+                onClick={() => setSelectedModelForDetail(null)}
+                className="px-4 py-2 rounded-xl bg-[#6d28d9] hover:bg-[#581c87] text-white text-xs font-semibold shadow-xs transition-colors inline-flex items-center gap-1.5"
+              >
+                <span>Choose a Plan for {selectedModelForDetail.displayName}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setSelectedModelForDetail(null)}
+                className="px-4 py-2 rounded-xl bg-white hover:bg-neutral-100 text-[#1c1917] border border-[#e7e5e4] text-xs font-medium transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

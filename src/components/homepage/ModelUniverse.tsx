@@ -422,7 +422,7 @@ export const ModelUniverse: React.FC = () => {
                   </span>
                   <div className="p-3 rounded-lg bg-[#110F14] border border-[#26222C] font-mono text-xs text-[#A39EAA] space-y-1">
                     <div><span className="text-[#7136E8]">POST</span> https://lightningapi.pro/v1/messages</div>
-                    <div><span className="text-[#68636B]">x-api-key:</span> ld_live_••••••••••••</div>
+                    <div><span className="text-[#68636B]">x-api-key:</span> sk_live_••••••••••••</div>
                     <div><span className="text-[#68636B]">model:</span> <span className="text-emerald-400 font-semibold">{selectedModel.id}</span></div>
                     <div><span className="text-[#68636B]">quota-accounting:</span> 5h continuous rolling window</div>
                   </div>

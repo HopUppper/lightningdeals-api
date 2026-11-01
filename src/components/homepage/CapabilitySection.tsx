@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Layers, Terminal, Clock, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Layers, Terminal, Clock, ShieldCheck, CheckCircle2, ArrowRight, Coins, Sparkles, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const CapabilitySection: React.FC = () => {
@@ -120,61 +120,112 @@ export const CapabilitySection: React.FC = () => {
           </div>
 
           {/* ============================================================ */}
-          {/* BLOCK 3: CLEAR USAGE & CAPACITY RULES (Full Width - 12 cols)  */}
+          {/* BLOCK 3: THREE BILLING ARCHITECTURES (Full Width - 12 cols)  */}
           {/* ============================================================ */}
           <div className="lg:col-span-12 p-8 sm:p-10 rounded-[20px] bg-white border border-[#E6E1E8] shadow-xs space-y-6 hover:border-[#7136E8]/40 transition-colors">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-[#E6E1E8]/70">
               <div className="space-y-2 max-w-2xl">
                 <span className="text-xs font-mono font-bold text-[#7136E8] uppercase tracking-wider">
-                  03 / CONTINUOUS ROLLING REFILLS
+                  03 / THREE BILLING ARCHITECTURES
                 </span>
                 <h3 className="text-2xl sm:text-3xl font-bold text-[#191719] font-display tracking-tight">
-                  Tokens that continuously refill every 5 hours.
+                  Choose the economic model that matches how you build.
                 </h3>
                 <p className="text-base text-[#68636B] leading-relaxed">
-                  Unlike traditional plans with rigid monthly caps, our 5-hour rolling pool automatically regenerates tokens as past requests age out. You never have to wait until the end of the month to code.
+                  Whether you code 10 hours a day in Cursor, need flexible pay-as-you-go credits across multiple providers, or run non-stop batch evaluation pipelines, LightningAPI offers three purpose-built architectures.
                 </p>
               </div>
 
               <div className="p-4 rounded-xl bg-[#EEE6FF]/50 border border-[#7136E8]/20 self-start lg:self-center font-mono text-xs text-[#4F21B5] space-y-1">
-                <div className="font-bold">CONTINUOUS 5-HOUR POOL</div>
-                <div>Tokens automatically regenerate every 300 minutes</div>
+                <div className="font-bold">ZERO LOCK-IN &bull; PREPAID INR</div>
+                <div>Transparent telemetry &bull; Real-time quota balance</div>
               </div>
             </div>
 
-            {/* Visual Timeline of 5-Hour Sliding Window */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              <div className="p-4 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-2">
-                <span className="text-[11px] font-mono text-[#68636B] uppercase font-semibold">
-                  01 · Dynamic Token Pool
-                </span>
-                <p className="text-xs text-[#191719] leading-relaxed">
-                  Your token allowance applies across a rolling 5-hour window. Active coding prompts
-                  draw tokens directly from this allowance in real time.
-                </p>
+            {/* Three Architectures Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
+              {/* Architecture 1: 5-Hour Rolling Pool */}
+              <div className="p-5 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-[#7136E8] uppercase font-bold flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      01 &middot; 5-Hour Rolling Pool
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-100 text-[#7136E8] font-bold">
+                      CLAUDE EXCLUSIVE
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-[#191719]">Continuous 300-Min Refill</h4>
+                  <p className="text-xs text-[#68636B] leading-relaxed">
+                    Tokens automatically regenerate as requests pass 5 hours. Never wait for month-end resets. Perfect for full-time engineers coding daily in Cursor and Claude Code CLI.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-[#E6E1E8]/70 text-[11px] font-mono text-[#191719] flex justify-between">
+                  <span>Capacity: 5M &ndash; 100M / 5h</span>
+                  <span className="text-[#7136E8] font-semibold">From ₹2,999/mo</span>
+                </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-2">
-                <span className="text-[11px] font-mono text-[#68636B] uppercase font-semibold">
-                  02 · Continuous Replenishment
-                </span>
-                <p className="text-xs text-[#191719] leading-relaxed">
-                  As historical requests age past the 5-hour mark, their tokens automatically replenish
-                  back into your pool. You do not wait until the next calendar month.
-                </p>
+              {/* Architecture 2: Usage Credits */}
+              <div className="p-5 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-amber-700 uppercase font-bold flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5" />
+                      02 &middot; Usage Credits
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                      7X&ndash;8.75X MULTIPLIER
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-[#191719]">Universal Pay-As-You-Go</h4>
+                  <p className="text-xs text-[#68636B] leading-relaxed">
+                    Deposit INR and receive massive USD credit multipliers (e.g. ₹100 &rarr; $7.00 USD). Tokens deduct atomically per request across all 74 Claude, OpenAI, and DeepSeek models. Valid for 365 days.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-[#E6E1E8]/70 text-[11px] font-mono text-[#191719] flex justify-between">
+                  <span>Balance: $7 &ndash; $350 USD</span>
+                  <span className="text-amber-700 font-semibold">From ₹100</span>
+                </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-2">
-                <span className="text-[11px] font-mono text-[#68636B] uppercase font-semibold">
-                  03 · Transparent Accountability
-                </span>
-                <p className="text-xs text-[#191719] leading-relaxed">
-                  Verify remaining tokens anytime via the balance endpoint or the web key checker. No
-                  hidden overages or unexpected bills.
-                </p>
+              {/* Architecture 3: Prepaid Token Packs */}
+              <div className="p-5 rounded-xl bg-[#F8F6F2] border border-[#E6E1E8] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-emerald-700 uppercase font-bold flex items-center gap-1.5">
+                      <Coins className="w-3.5 h-3.5" />
+                      03 &middot; Prepaid Token Packs
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                      NO 5H RESET
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-[#191719]">Consumable Quota Buckets</h4>
+                  <p className="text-xs text-[#68636B] leading-relaxed">
+                    Fixed prepaid buckets of 10M to 500M tokens that do not reset every 5 hours. Spend at your own speed across 365 days. Ideal for autonomous agents, evaluations, and project bursts.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-[#E6E1E8]/70 text-[11px] font-mono text-[#191719] flex justify-between">
+                  <span>Quota: 10M &ndash; 500M Tokens</span>
+                  <span className="text-emerald-700 font-semibold">From ₹799</span>
+                </div>
               </div>
             </div>
 
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <p className="text-xs text-[#68636B]">
+                Verify remaining tokens, rolling resets, and credit balances anytime via our public key verification tool.
+              </p>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#7136E8] hover:text-[#4F21B5] transition-colors shrink-0"
+              >
+                <span>Compare plans and pricing</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
 
         </div>

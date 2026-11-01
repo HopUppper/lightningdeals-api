@@ -14,7 +14,7 @@ export const FaqAccordion: React.FC = () => {
     },
     {
       question: 'How easy is the setup? Do I need complex configuration?',
-      answer: 'Setup takes under 30 seconds. For Claude Code CLI, simply run `export ANTHROPIC_BASE_URL="https://lightningapi.pro"` and `export ANTHROPIC_API_KEY="ld_live_your_key"`. For Cursor or Windsurf, paste `https://lightningapi.pro` into your editor’s API Base URL setting. For Python or Node SDKs, initialize the official Anthropic or OpenAI clients with your key.',
+      answer: 'Setup takes under 30 seconds. For Claude Code CLI, simply run `export ANTHROPIC_BASE_URL="https://lightningapi.pro"` and `export ANTHROPIC_API_KEY="sk_live_your_key"`. For Cursor or Windsurf, paste `https://lightningapi.pro` into your editor’s API Base URL setting. For Python or Node SDKs, initialize the official Anthropic or OpenAI clients with your key.',
     },
     {
       question: 'What is the base latency, and why does "xhigh" thinking take 10–12s?',

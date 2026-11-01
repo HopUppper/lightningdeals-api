@@ -714,7 +714,7 @@ export const AdminScaleMaxLive: React.FC = () => {
               <span>5-Hour Rolling Plans (Claude)</span>
             </div>
             <p className="text-[#6b7280] leading-relaxed">
-              Customer requests (<code className="font-mono text-violet-700">ld_live_...</code>) are routed via Key 1 (<code className="font-mono">sm_live_9438</code>) to Anthropic models. The 5-hour rolling pool is tracked mathematically on the LightningAPI gateway.
+              Customer requests (<code className="font-mono text-violet-700">sk_live_...</code>) are routed via Key 1 (<code className="font-mono">sm_live_9438</code>) to Anthropic models. The 5-hour rolling pool is tracked mathematically on the LightningAPI gateway.
             </p>
           </div>
 

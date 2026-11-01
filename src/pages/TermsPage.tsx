@@ -98,7 +98,7 @@ export const TermsPage: React.FC = () => {
                 <span>3. API Keys &amp; Bearer Token Custody</span>
               </h2>
               <p>
-                Access to the gateway is authorized via cryptographically generated API keys (<code className="font-mono text-[#1c1917]">ld_live_...</code> or <code className="font-mono text-[#1c1917]">ld_trial_...</code>). These keys operate as confidential bearer credentials:
+                Access to the gateway is authorized via cryptographically generated API keys (<code className="font-mono text-[#1c1917]">sk_live_...</code> or <code className="font-mono text-[#1c1917]">sk_trial_...</code>). These keys operate as confidential bearer credentials:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-xs text-[#57534e]">
                 <li><strong>Strict Confidentiality:</strong> You are solely responsible for maintaining key custody. Never hardcode keys into publicly readable GitHub repositories, client-side web bundles, or public forums.</li>

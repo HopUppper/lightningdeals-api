@@ -22,7 +22,7 @@ export const EditorialHero: React.FC = () => {
 Base URL: https://lightningapi.pro
 
 // 3. Set API Key:
-API Key:  ld_live_your_key_here
+API Key:  sk_live_your_key_here
 
 // 4. Enable any supported model:
 // claude-sonnet-5.5, claude-opus-5.5, o1, gpt-4o, deepseek-v3.2`,
@@ -32,7 +32,7 @@ API Key:  ld_live_your_key_here
       filename: '~/.bashrc or terminal',
       code: `# Use Claude Code CLI at up to 80% lower cost
 export ANTHROPIC_BASE_URL="https://lightningapi.pro"
-export ANTHROPIC_API_KEY="ld_live_your_key_here"
+export ANTHROPIC_API_KEY="sk_live_your_key_here"
 
 # Start coding
 claude`,
@@ -44,7 +44,7 @@ claude`,
 
 client = OpenAI(
     base_url="https://lightningapi.pro/v1",
-    api_key="ld_live_your_key_here"
+    api_key="sk_live_your_key_here"
 )
 
 response = client.chat.completions.create(
@@ -57,7 +57,7 @@ print(response.choices[0].message.content)`,
       title: 'cURL / REST API',
       filename: 'terminal',
       code: `curl https://lightningapi.pro/v1/chat/completions \\
-  -H "Authorization: Bearer ld_live_your_key_here" \\
+  -H "Authorization: Bearer sk_live_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "claude-sonnet-5.5",
@@ -96,10 +96,10 @@ print(response.choices[0].message.content)`,
           <div className="flex items-center gap-4 text-xs font-mono text-[#68636B]">
             <span className="inline-flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#087F5B] animate-pulse" />
-              <span>Gateway 100% Online</span>
+              <span>All Systems Operational</span>
             </span>
             <span className="hidden sm:inline text-[#E6E1E8]">/</span>
-            <span className="hidden sm:inline">100+ Models Available</span>
+            <span className="hidden sm:inline">74 Verified Models</span>
             <span className="hidden sm:inline text-[#E6E1E8]">/</span>
             <span className="hidden sm:inline font-bold text-[#191719]">Save up to 80%</span>
           </div>
@@ -120,8 +120,8 @@ print(response.choices[0].message.content)`,
             </h1>
 
             <p className="text-base sm:text-lg text-[#57534e] leading-relaxed max-w-xl">
-              Access Claude Sonnet 5.5, Claude Opus 5.5, OpenAI o1, GPT-4o, and DeepSeek through a single API key.
-              100% compatible drop-in replacement for Cursor, Windsurf, Claude Code CLI, and Python. Just paste your key and start building.
+              One unified API gateway for Claude Sonnet 3.7, Claude Opus, OpenAI o3, GPT-4o, and DeepSeek.
+              100% compatible drop-in replacement for Cursor, Windsurf, Claude Code CLI, and official Anthropic &amp; OpenAI SDKs.
             </p>
 
             {/* 4 Clear Value Highlights */}
@@ -136,30 +136,38 @@ print(response.choices[0].message.content)`,
               </div>
               <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs">
                 <span className="text-base">🚀</span>
-                <span>100+ Supported Models</span>
+                <span>74 Verified Models</span>
               </div>
               <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs">
                 <span className="text-base">⏱️</span>
-                <span>Instant 30-Sec Key Setup</span>
+                <span>Instant Automated Delivery</span>
               </div>
             </div>
 
-            {/* CTAs */}
-            <div className="flex flex-wrap items-center gap-3.5 pt-2">
+            {/* CTAs: Clear Primary Actions (Compare Pricing, Explore Models) + Secondary Trial */}
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               <Link
                 to="/pricing"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#7136E8] hover:bg-[#581c87] text-white text-sm font-bold shadow-xs transition-colors cursor-pointer"
               >
-                <span>View Pricing & Plans</span>
+                <span>Compare Pricing</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 
               <Link
-                to="/trial"
+                to="/models"
                 className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white hover:bg-[#F3F0E8] text-[#191719] border border-[#E6E1E8] text-sm font-semibold transition-colors shadow-2xs cursor-pointer"
               >
-                <Sparkles className="w-4 h-4 text-[#7136E8]" />
-                <span>Try 200k Free Trial</span>
+                <span>Explore Models</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#78716c]" />
+              </Link>
+
+              <Link
+                to="/trial"
+                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#EEE6FF] text-[#7136E8] hover:bg-[#E2D4FF] text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Free 200k Trial</span>
               </Link>
             </div>
 

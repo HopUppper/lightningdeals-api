@@ -32,7 +32,7 @@ export const UserDocs: React.FC = () => {
   };
 
   const npxSnippet = `npx lightningdeals`;
-  const npxWithKeySnippet = `npx lightningdeals --key ld_live_your_api_key_here`;
+  const npxWithKeySnippet = `npx lightningdeals --key sk_live_your_api_key_here`;
   const modelPickerSnippet = `npx lightningdeals model`;
   const directModelSnippet = `npx lightningdeals model claude-opus-5.5`;
   const claudeFlagSnippet = `claude --model claude-opus-5.5`;
@@ -41,7 +41,7 @@ export const UserDocs: React.FC = () => {
   const powershellInstallSnippet = `irm https://lightningapi.pro/setup.ps1 | iex`;
 
   const claudeCodeSnippet = `export ANTHROPIC_BASE_URL="https://lightningapi.pro"
-export ANTHROPIC_AUTH_TOKEN="ld_live_your_api_key_here"
+export ANTHROPIC_AUTH_TOKEN="sk_live_your_api_key_here"
 
 # Launch Claude Code CLI
 claude`;
@@ -51,7 +51,7 @@ claude`;
 https://lightningapi.pro
 
 // API Key:
-ld_live_your_api_key_here
+sk_live_your_api_key_here
 
 // Model name to add:
 claude-opus-5.5
@@ -62,14 +62,14 @@ claude-sonnet-5.5`;
 https://lightningapi.pro/v1
 
 // API Key:
-ld_live_your_api_key_here
+sk_live_your_api_key_here
 
 // Compatible Models:
 o1, o3-mini, gpt-4o, deepseek-chat, grok-2`;
 
   const windsurfSnippet = `// In Windsurf Settings -> Custom AI Provider:
 Base URL: https://lightningapi.pro/v1
-API Key:  ld_live_your_api_key_here
+API Key:  sk_live_your_api_key_here
 Models:   claude-sonnet-5.5, gpt-4o, deepseek-chat`;
 
   const vscodeContinueSnippet = `// ~/.continue/config.json
@@ -79,14 +79,14 @@ Models:   claude-sonnet-5.5, gpt-4o, deepseek-chat`;
       "title": "LightningAPI Claude 5.5",
       "provider": "anthropic",
       "model": "claude-sonnet-5.5",
-      "apiKey": "ld_live_your_api_key_here",
+      "apiKey": "sk_live_your_api_key_here",
       "apiBase": "https://lightningapi.pro"
     },
     {
       "title": "LightningAPI DeepSeek",
       "provider": "openai",
       "model": "deepseek-chat",
-      "apiKey": "ld_live_your_api_key_here",
+      "apiKey": "sk_live_your_api_key_here",
       "apiBase": "https://lightningapi.pro/v1"
     }
   ]
@@ -96,7 +96,7 @@ Models:   claude-sonnet-5.5, gpt-4o, deepseek-chat`;
 
 client = anthropic.Anthropic(
     base_url="https://lightningapi.pro",
-    api_key="ld_live_your_api_key_here"
+    api_key="sk_live_your_api_key_here"
 )
 
 response = client.messages.create(
@@ -110,7 +110,7 @@ print(response.content[0].text)`;
 
 client = OpenAI(
     base_url="https://lightningapi.pro/v1",
-    api_key="ld_live_your_api_key_here"
+    api_key="sk_live_your_api_key_here"
 )
 
 # Works for both OpenAI frontier & open-weight local models:
@@ -124,7 +124,7 @@ print(response.choices[0].message.content)`;
 
 const anthropic = new Anthropic({
   baseURL: 'https://lightningapi.pro',
-  apiKey: 'ld_live_your_api_key_here',
+  apiKey: 'sk_live_your_api_key_here',
 });
 
 const response = await anthropic.messages.create({
@@ -138,7 +138,7 @@ console.log(response.content[0].text);`;
 
 const openai = new OpenAI({
   baseURL: 'https://lightningapi.pro/v1',
-  apiKey: 'ld_live_your_api_key_here',
+  apiKey: 'sk_live_your_api_key_here',
 });
 
 const completion = await openai.chat.completions.create({
@@ -149,7 +149,7 @@ console.log(completion.choices[0].message.content);`;
 
   const curlAnthropicSnippet = `curl -X POST https://lightningapi.pro/v1/messages \\
   -H "content-type: application/json" \\
-  -H "x-api-key: ld_live_your_api_key_here" \\
+  -H "x-api-key: sk_live_your_api_key_here" \\
   -H "anthropic-version: 2023-06-01" \\
   -d '{
     "model": "claude-sonnet-5.5",
@@ -159,14 +159,14 @@ console.log(completion.choices[0].message.content);`;
 
   const curlOpenAISnippet = `curl -X POST https://lightningapi.pro/v1/chat/completions \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ld_live_your_api_key_here" \\
+  -H "Authorization: Bearer sk_live_your_api_key_here" \\
   -d '{
     "model": "deepseek-chat",
     "messages": [{"role": "user", "content": "Explain quantum computing in 2 sentences"}]
   }'`;
 
   const keyStatusCurl = `curl -X GET https://lightningapi.pro/api/key-status \\
-  -H "x-api-key: ld_live_your_api_key_here"`;
+  -H "x-api-key: sk_live_your_api_key_here"`;
 
   return (
     <div className="space-y-8 font-sans pb-12">

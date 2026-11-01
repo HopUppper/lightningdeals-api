@@ -18,13 +18,13 @@ export const ModelsPage: React.FC = () => {
             <div className="space-y-3 max-w-2xl">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono font-medium uppercase tracking-wider bg-[#f5f3ff] text-[#6d28d9] border border-[#ddd6fe]">
                 <Sparkles className="w-3 h-3 text-[#6d28d9]" />
-                <span>Unified Model Repertoire · 74 Models</span>
+                <span>Unified Model Repertoire · 74 Verified Models</span>
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#1c1917]">
                 Frontier &amp; Open-Weights Model Catalog
               </h1>
               <p className="text-sm sm:text-base text-[#57534e] leading-relaxed max-w-xl">
-                Access 74+ frontier and open-weights models across Anthropic Claude, OpenAI, DeepSeek, GLM, Google Gemini, xAI Grok, Alibaba Qwen, Moonshot Kimi, MiniMax, Image Generation, Video Generation, and Vector Embeddings.
+                Access 74 verified frontier and open-weights models across Anthropic Claude, OpenAI, DeepSeek, GLM, Google Gemini, xAI Grok, Alibaba Qwen, Moonshot Kimi, MiniMax, Image Generation, Video Generation, and Vector Embeddings.
               </p>
 
               {/* Quick Spec Pills */}

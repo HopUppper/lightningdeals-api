@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 export const SiteFooter: React.FC = () => {
+  const [systemStatus, setSystemStatus] = useState<'OPERATIONAL' | 'DEGRADED'>('OPERATIONAL');
+
+  useEffect(() => {
+    fetch('/api/system/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.status) {
+          const isOp = data.status.toLowerCase() === 'operational' || data.overallStatus === 'operational';
+          setSystemStatus(isOp ? 'OPERATIONAL' : 'DEGRADED');
+        }
+      })
+      .catch(() => setSystemStatus('OPERATIONAL'));
+  }, []);
   return (
     <footer className="border-t border-[#E6E1E8] bg-[#F8F6F2] pt-16 pb-12 text-xs text-[#68636B] font-sans">
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -38,8 +51,8 @@ export const SiteFooter: React.FC = () => {
                 to="/status"
                 className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white border border-[#E6E1E8] text-xs font-medium text-[#087F5B] hover:bg-emerald-50/50 transition-colors shadow-2xs"
               >
-                <span className="w-2 h-2 rounded-full bg-[#087F5B] animate-pulse" />
-                <span>All Systems Operational</span>
+                <span className={`w-2 h-2 rounded-full ${systemStatus === 'DEGRADED' ? 'bg-amber-500' : 'bg-[#087F5B] animate-pulse'}`} />
+                <span>{systemStatus === 'DEGRADED' ? 'Partial System Degradation' : 'All Systems Operational'}</span>
               </Link>
             </div>
           </div>

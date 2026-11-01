@@ -22,10 +22,10 @@ export const HowItWorksSection: React.FC = () => {
   const configSnippets = {
     env: `# .env file or system environment
 ANTHROPIC_BASE_URL="https://lightningapi.pro"
-ANTHROPIC_API_KEY="ld_live_your_api_key_here"`,
+ANTHROPIC_API_KEY="sk_live_your_api_key_here"`,
     cli: `# Claude Code CLI & Cursor Composer Setup
 export ANTHROPIC_BASE_URL="https://lightningapi.pro"
-export ANTHROPIC_API_KEY="ld_live_your_api_key_here"
+export ANTHROPIC_API_KEY="sk_live_your_api_key_here"
 
 # Launch agentic coding immediately
 claude`,
@@ -34,7 +34,7 @@ import anthropic
 
 client = anthropic.Anthropic(
     base_url="https://lightningapi.pro",
-    api_key="ld_live_your_api_key_here"
+    api_key="sk_live_your_api_key_here"
 )
 
 message = client.messages.create(
@@ -47,7 +47,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
   baseURL: 'https://lightningapi.pro',
-  apiKey: 'ld_live_your_api_key_here'
+  apiKey: 'sk_live_your_api_key_here'
 });
 
 const response = await anthropic.messages.create({
@@ -118,7 +118,7 @@ const response = await anthropic.messages.create({
                   </span>
                 </div>
                 <div className="p-2.5 bg-white rounded-xl border border-[#e7e5e4] flex items-center justify-between text-[#1c1917]">
-                  <span className="truncate">ld_live_8f93...4a12</span>
+                  <span className="truncate">sk_live_8f93...4a12</span>
                   <span className="text-[10px] text-[#6d28d9] font-bold uppercase ml-2 shrink-0">200k Trial Pool</span>
                 </div>
               </div>

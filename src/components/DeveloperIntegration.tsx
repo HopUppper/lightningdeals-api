@@ -15,7 +15,7 @@ npx lightningdeals
 
 # Option B: Standard Shell Environment Variable
 export ANTHROPIC_BASE_URL="https://lightningapi.pro"
-export ANTHROPIC_API_KEY="ld_live_your_api_key_here"
+export ANTHROPIC_API_KEY="sk_live_your_api_key_here"
 
 # Claude Code automatically routes all commands through LightningAPI
 claude`,
@@ -29,7 +29,7 @@ claude`,
 Base URL: https://lightningapi.pro/v1
 
 // 3. Paste your Lightning key into the API Key field:
-API Key:  ld_live_your_api_key_here
+API Key:  sk_live_your_api_key_here
 
 // All agentic composer and inline completions now flow via LightningAPI.`,
       note: 'Zero modifications to your workspace settings, rules, or extensions.',
@@ -43,7 +43,7 @@ from anthropic import Anthropic
 # Direct drop-in initialization with official Anthropic SDK
 client = Anthropic(
     base_url="https://lightningapi.pro/v1",
-    api_key=os.environ.get("LIGHTNING_API_KEY", "ld_live_...")
+    api_key=os.environ.get("LIGHTNING_API_KEY", "sk_live_...")
 )
 
 message = client.messages.create(
@@ -65,7 +65,7 @@ print(message.content[0].text)`,
 // Initialize with standard Anthropic client
 const anthropic = new Anthropic({
   baseURL: 'https://lightningapi.pro/v1',
-  apiKey: process.env.LIGHTNING_API_KEY || 'ld_live_...',
+  apiKey: process.env.LIGHTNING_API_KEY || 'sk_live_...',
 });
 
 const response = await anthropic.messages.create({

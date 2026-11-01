@@ -43,7 +43,7 @@ const getFaqs = (plans: PlanItem[]): FaqItem[] => [
           LightningAPI.pro operates as an intelligent, high-speed reverse proxy between your IDE/terminal and upstream model inference:
         </p>
         <ol className="list-decimal list-inside space-y-1.5 pl-1 text-[#57534e]">
-          <li><strong>Authentication:</strong> Your key (<code className="px-1.5 py-0.5 rounded bg-[#f5f2eb] font-mono text-xs text-[#1c1917]">ld_live_...</code>) is validated against SHA-256 cryptographic hashes in sub-millisecond memory.</li>
+          <li><strong>Authentication:</strong> Your key (<code className="px-1.5 py-0.5 rounded bg-[#f5f2eb] font-mono text-xs text-[#1c1917]">sk_live_...</code>) is validated against SHA-256 cryptographic hashes in sub-millisecond memory.</li>
           <li><strong>Quota Verification:</strong> Quotas are calculated in real time: sliding-window consumption for 5-hour rolling plans or atomic balance deduction for credit plans.</li>
           <li><strong>Zero-Log In-Flight Transit:</strong> Requests stream over encrypted TLS 1.3 through transient RAM directly to upstream frontier inference clusters.</li>
           <li><strong>Real-Time SSE Streaming:</strong> Server-sent event (SSE) chunks and prompt-caching headers pass directly through to your editor with sub-600ms base latency.</li>
@@ -157,9 +157,10 @@ const getFaqs = (plans: PlanItem[]): FaqItem[] => [
           Our credit plans provide extraordinary purchasing power through bulk wholesale compute discounts:
         </p>
         <ul className="list-disc list-inside space-y-1 pl-1 text-[#57534e]">
-          <li><strong>₹100 Plan:</strong> Yields <strong>$7.00 USD</strong> in API usage credits (~7x value multiplier).</li>
-          <li><strong>₹500 Plan:</strong> Yields <strong>$40.00 USD</strong> in API usage credits (~8x value multiplier).</li>
-          <li><strong>₹1,000 Plan:</strong> Yields <strong>$85.00 USD</strong> in API usage credits (~8.5x value multiplier).</li>
+          <li><strong>₹100 Starter:</strong> Yields <strong>$7.00 USD</strong> in API usage credits (7.0x value multiplier).</li>
+          <li><strong>₹499 Growth:</strong> Yields <strong>$38.50 USD</strong> in API usage credits (7.7x value multiplier).</li>
+          <li><strong>₹1,999 Pro:</strong> Yields <strong>$160.00 USD</strong> in API usage credits (8.0x value multiplier).</li>
+          <li><strong>₹3,999 Scale:</strong> Yields <strong>$350.00 USD</strong> in API usage credits (8.75x value multiplier).</li>
         </ul>
         <p>
           Credits are universally usable across Claude, OpenAI, and DeepSeek models. Token consumption is debited atomically per request based on official retail model pricing. Balance never expires for 365 days.
@@ -292,12 +293,12 @@ const getFaqs = (plans: PlanItem[]): FaqItem[] => [
         <div className="p-3.5 rounded-xl bg-[#1c1917] text-white font-mono text-xs space-y-1.5">
           <p className="text-[#a8a29e]"># 1. Export the LightningAPI base URL and your key</p>
           <p className="text-amber-300 font-bold">export ANTHROPIC_BASE_URL="https://lightningapi.pro"</p>
-          <p className="text-amber-300 font-bold">export ANTHROPIC_API_KEY="ld_live_your_key_here"</p>
+          <p className="text-amber-300 font-bold">export ANTHROPIC_API_KEY="sk_live_your_key_here"</p>
           <p className="text-[#a8a29e] pt-1"># 2. Launch Claude Code CLI</p>
           <p className="text-emerald-400 font-bold">claude</p>
         </div>
         <p className="text-xs text-[#78716c]">
-          On Windows PowerShell, use: <code className="font-mono text-xs">$env:ANTHROPIC_BASE_URL="https://lightningapi.pro"</code> and <code className="font-mono text-xs">$env:ANTHROPIC_API_KEY="ld_live_your_key_here"</code>.
+          On Windows PowerShell, use: <code className="font-mono text-xs">$env:ANTHROPIC_BASE_URL="https://lightningapi.pro"</code> and <code className="font-mono text-xs">$env:ANTHROPIC_API_KEY="sk_live_your_key_here"</code>.
         </p>
       </div>
     ),
@@ -313,7 +314,7 @@ const getFaqs = (plans: PlanItem[]): FaqItem[] => [
         </p>
         <ul className="list-disc list-inside space-y-2 pl-1 text-[#57534e]">
           <li>
-            <strong className="text-[#1c1917]">Cursor IDE (Anthropic Protocol):</strong> Navigate to <em>Cursor Settings &gt; Models &gt; Anthropic API Key</em>. Enable Custom Base URL, set it to <code className="px-1.5 py-0.5 rounded bg-[#f5f2eb] font-mono text-xs text-[#1c1917]">https://lightningapi.pro</code>, and paste your <code className="font-mono text-xs text-[#1c1917]">ld_live_...</code> key.
+            <strong className="text-[#1c1917]">Cursor IDE (Anthropic Protocol):</strong> Navigate to <em>Cursor Settings &gt; Models &gt; Anthropic API Key</em>. Enable Custom Base URL, set it to <code className="px-1.5 py-0.5 rounded bg-[#f5f2eb] font-mono text-xs text-[#1c1917]">https://lightningapi.pro</code>, and paste your <code className="font-mono text-xs text-[#1c1917]">sk_live_...</code> key.
           </li>
           <li>
             <strong className="text-[#1c1917]">Cursor IDE (OpenAI Protocol):</strong> Navigate to <em>Cursor Settings &gt; Models &gt; OpenAI API Key</em>. Set Override Base URL to <code className="px-1.5 py-0.5 rounded bg-[#f5f2eb] font-mono text-xs text-[#1c1917]">https://lightningapi.pro/v1</code> and input your key.
@@ -345,7 +346,7 @@ const getFaqs = (plans: PlanItem[]): FaqItem[] => [
 
 client = anthropic.Anthropic(
     base_url="https://lightningapi.pro",
-    api_key="ld_live_your_key_here"
+    api_key="sk_live_your_key_here"
 )
 
 message = client.messages.create(
@@ -362,7 +363,7 @@ message = client.messages.create(
 
 client = OpenAI(
     base_url="https://lightningapi.pro/v1",
-    api_key="ld_live_your_key_here"
+    api_key="sk_live_your_key_here"
 )
 
 response = client.chat.completions.create(
@@ -406,7 +407,7 @@ response = client.chat.completions.create(
     answer: (
       <div className="space-y-2.5">
         <p>
-          All API keys (<code className="px-1.5 py-0.5 rounded bg-[#f5f2eb] font-mono text-xs text-[#1c1917]">ld_live_...</code>) are generated using high-entropy CSPRNG randomness and hashed using <strong>SHA-256 with salting</strong> prior to storage.
+          All API keys (<code className="px-1.5 py-0.5 rounded bg-[#f5f2eb] font-mono text-xs text-[#1c1917]">sk_live_...</code>) are generated using high-entropy CSPRNG randomness and hashed using <strong>SHA-256 with salting</strong> prior to storage.
         </p>
         <p>
           Your plaintext key is displayed exactly once upon checkout or issuance. You can revoke, regenerate, or monitor usage telemetry for your keys at any time directly through your customer dashboard.

@@ -132,7 +132,7 @@ export const CheckKeyPage: React.FC = () => {
               type="text"
               value={keyInput}
               onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="sk_live_... or ld_live_..."
+              placeholder="sk_live_... or sk_trial_..."
               className="w-full pl-10 pr-4 py-3 text-xs sm:text-sm font-mono bg-white border border-[#e7e5e4] rounded-xl focus:outline-none focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9] text-[#1c1917] shadow-xs"
             />
           </div>

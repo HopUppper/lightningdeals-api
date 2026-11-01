@@ -47,7 +47,7 @@ const WORKFLOWS: WorkflowConduit[] = [
     latencyBadge: '28ms TTFT',
     description: 'Multi-file code synthesis, automated terminal execution, and rapid diff application across deep projects.',
     envCommand: 'curl -fsSL https://lightningapi.pro/setup.sh | bash',
-    sampleCurl: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: ld_live_your_key" \\\n  -d '{"model": "claude-sonnet-5.5", "stream": true, "messages": [{"role": "user", "content": "Refactor express proxy"}]}'`,
+    sampleCurl: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: sk_live_your_key" \\\n  -d '{"model": "claude-sonnet-5.5", "stream": true, "messages": [{"role": "user", "content": "Refactor express proxy"}]}'`,
     verifiedTools: ['Claude Code CLI', 'Cursor Composer', 'Windsurf Cascade', 'VS Code'],
     streamSimulation: [
       '⚡ [conduit] Routing to Claude Sonnet 5.5 via TLS 1.3 volatile RAM...',
@@ -73,7 +73,7 @@ const WORKFLOWS: WorkflowConduit[] = [
     latencyBadge: '38ms TTFT',
     description: 'Exhaustive multi-step problem solving, architectural invariants, formal proofs, and complex contracts.',
     envCommand: 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"',
-    sampleCurl: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: ld_live_your_key" \\\n  -d '{"model": "claude-opus-5.5", "messages": [{"role": "user", "content": "Formally verify state machine"}]}'`,
+    sampleCurl: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: sk_live_your_key" \\\n  -d '{"model": "claude-opus-5.5", "messages": [{"role": "user", "content": "Formally verify state machine"}]}'`,
     verifiedTools: ['Deep Research Suites', 'Architecture Reviewers', 'Financial Models', 'Security Auditors'],
     streamSimulation: [
       '⚡ [conduit] Routing to Claude Opus 5.5 with 1M context window...',
@@ -97,7 +97,7 @@ const WORKFLOWS: WorkflowConduit[] = [
     latencyBadge: '34ms TTFT',
     description: 'Pioneering hybrid architecture with visible thinking tokens for auditing intricate edge-case bugs and compiler logic.',
     envCommand: 'export ANTHROPIC_MODEL="claude-opus-5-thinking"',
-    sampleCurl: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: ld_live_your_key" \\\n  -d '{"model": "claude-opus-5-thinking", "thinking": {"type": "enabled", "budget_tokens": 4096}, "messages": [{"role": "user", "content": "Audit kernel lock"}]}'`,
+    sampleCurl: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: sk_live_your_key" \\\n  -d '{"model": "claude-opus-5-thinking", "thinking": {"type": "enabled", "budget_tokens": 4096}, "messages": [{"role": "user", "content": "Audit kernel lock"}]}'`,
     verifiedTools: ['Kernel Bug Hunters', 'Compiler Design', 'Smart Contract Audits', 'Logic Puzzles'],
     streamSimulation: [
       '⚡ [conduit] Routing to Claude Opus 5 Extended Thinking · Thinking budget: 4,096 tokens',
@@ -120,7 +120,7 @@ const WORKFLOWS: WorkflowConduit[] = [
     latencyBadge: '22ms TTFT',
     description: 'Sub-second response speeds with extreme throughput for classification, automated triage, and persistent agent loops.',
     envCommand: 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"',
-    sampleCurl: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: ld_live_your_key" \\\n  -d '{"model": "claude-fable-5", "messages": [{"role": "user", "content": "Classify webhook payload"}]}'`,
+    sampleCurl: `curl https://lightningapi.pro/v1/messages \\\n  -H "x-api-key: sk_live_your_key" \\\n  -d '{"model": "claude-fable-5", "messages": [{"role": "user", "content": "Classify webhook payload"}]}'`,
     verifiedTools: ['CI/CD Runners', 'Triage Linters', 'Real-time Webhook Bots', 'Data Extraction'],
     streamSimulation: [
       '⚡ [conduit] Routing to Claude Fable 5 · Sub-25ms TTFT achieved',

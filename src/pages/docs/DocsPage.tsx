@@ -548,7 +548,7 @@ export const DocsPage: React.FC = () => {
                   <CodeSnippetBlock
                     language="bash"
                     code={`curl https://lightningapi.pro/v1/messages \\
-  -H "x-api-key: ld_live_your_api_key_here" \\
+  -H "x-api-key: sk_live_your_api_key_here" \\
   -H "anthropic-version: 2023-06-01" \\
   -H "content-type: application/json" \\
   -d '{
@@ -587,7 +587,7 @@ export const DocsPage: React.FC = () => {
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-mono text-[10px] font-bold">PRODUCTION KEY</span>
-                      <code className="text-xs font-bold text-[#1c1917]">ld_live_...</code>
+                      <code className="text-xs font-bold text-[#1c1917]">sk_live_...</code>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
                       Issued instantly upon activating any plan. Backed by your chosen billing mode (continuous rolling pool, 7x usage credits, or consumable tokens).
@@ -597,7 +597,7 @@ export const DocsPage: React.FC = () => {
                   <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-[10px] font-bold">EVALUATION KEY</span>
-                      <code className="text-xs font-bold text-[#1c1917]">ld_trial_...</code>
+                      <code className="text-xs font-bold text-[#1c1917]">sk_trial_...</code>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
                       Issued via the free trial onboarding flow. Preloaded with 200,000 tokens for testing integration across Cursor, Windsurf, and Claude Code.
@@ -615,11 +615,11 @@ export const DocsPage: React.FC = () => {
                   <div className="space-y-2">
                     <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] text-xs font-mono">
                       <span className="text-[#a8a29e]">Anthropic Native Header: </span>
-                      <strong className="text-[#1c1917]">x-api-key: ld_live_your_token_here</strong>
+                      <strong className="text-[#1c1917]">x-api-key: sk_live_your_token_here</strong>
                     </div>
                     <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] text-xs font-mono">
                       <span className="text-[#a8a29e]">Bearer Authorization: </span>
-                      <strong className="text-[#1c1917]">Authorization: Bearer ld_live_your_token_here</strong>
+                      <strong className="text-[#1c1917]">Authorization: Bearer sk_live_your_token_here</strong>
                     </div>
                   </div>
                 </div>
@@ -735,7 +735,7 @@ export const DocsPage: React.FC = () => {
                   <CodeSnippetBlock
                     language="bash"
                     code={`curl https://lightningapi.pro/v1/chat/completions \\
-  -H "Authorization: Bearer ld_live_your_key_here" \\
+  -H "Authorization: Bearer sk_live_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "deepseek-ai/deepseek-v3",
@@ -775,7 +775,7 @@ export const DocsPage: React.FC = () => {
                     language="json"
                     code={`{
   "valid": true,
-  "keyPrefix": "ld_live_a1b2...",
+  "keyPrefix": "sk_live_a1b2...",
   "planName": "MAX 20X",
   "billingType": "window",
   "rollingLimit": 20000000,
@@ -847,7 +847,7 @@ export const DocsPage: React.FC = () => {
 export ANTHROPIC_BASE_URL="https://lightningapi.pro"
 
 # Set your active LightningAPI key
-export ANTHROPIC_AUTH_TOKEN="ld_live_your_key_here"
+export ANTHROPIC_AUTH_TOKEN="sk_live_your_key_here"
 
 # (Optional) Select default model
 export ANTHROPIC_MODEL="claude-sonnet-5.5"
@@ -879,7 +879,7 @@ claude`}
                         <strong className="text-[#1c1917]">Method A: Claude Models (Anthropic Native)</strong>
                         <ol className="list-decimal list-inside space-y-1 text-[#57534e] pl-1">
                           <li>Open <strong className="text-[#1c1917]">Cursor Settings &rarr; Models</strong>.</li>
-                          <li>In <strong className="text-[#1c1917]">Anthropic API Key</strong>, paste your key: <code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>.</li>
+                          <li>In <strong className="text-[#1c1917]">Anthropic API Key</strong>, paste your key: <code className="font-mono text-[#1c1917]">sk_live_your_key_here</code>.</li>
                           <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> on and set: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code>.</li>
                         </ol>
                       </div>
@@ -887,7 +887,7 @@ claude`}
                       <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-2">
                         <strong className="text-[#1c1917]">Method B: OpenAI &amp; Local Models (OpenAI Compatible)</strong>
                         <ol className="list-decimal list-inside space-y-1 text-[#57534e] pl-1">
-                          <li>In <strong className="text-[#1c1917]">OpenAI API Key</strong>, paste: <code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>.</li>
+                          <li>In <strong className="text-[#1c1917]">OpenAI API Key</strong>, paste: <code className="font-mono text-[#1c1917]">sk_live_your_key_here</code>.</li>
                           <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> and set: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro/v1</code>.</li>
                           <li>Add model: <code className="font-mono">deepseek-ai/deepseek-v3</code> or <code className="font-mono">gpt-4o</code>.</li>
                         </ol>
@@ -907,7 +907,7 @@ claude`}
                       <li>Open <strong className="text-[#1c1917]">Windsurf Settings &rarr; AI Providers</strong>.</li>
                       <li>Select <strong className="text-[#1c1917]">Anthropic</strong> or <strong className="text-[#1c1917]">Custom OpenAI Provider</strong>.</li>
                       <li>Set <strong className="text-[#1c1917]">Base URL</strong>: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code> (for Anthropic) or <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro/v1</code> (for OpenAI).</li>
-                      <li>Set <strong className="text-[#1c1917]">API Key</strong>: <code className="font-mono text-[#1c1917]">ld_live_your_key_here</code>.</li>
+                      <li>Set <strong className="text-[#1c1917]">API Key</strong>: <code className="font-mono text-[#1c1917]">sk_live_your_key_here</code>.</li>
                     </ol>
                   </div>
                 )}
@@ -923,7 +923,7 @@ claude`}
                       <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] font-mono space-y-1">
                         <div><strong>API Provider:</strong> Anthropic (or OpenAI Compatible)</div>
                         <div><strong>Base URL:</strong> https://lightningapi.pro/v1</div>
-                        <div><strong>API Key:</strong> ld_live_your_key_here</div>
+                        <div><strong>API Key:</strong> sk_live_your_key_here</div>
                         <div><strong>Model ID:</strong> claude-sonnet-5.5 (or deepseek-ai/deepseek-v3)</div>
                       </div>
                     </div>
@@ -942,7 +942,7 @@ claude`}
                           code={`import anthropic
 
 client = anthropic.Anthropic(
-    api_key="ld_live_your_key_here",
+    api_key="sk_live_your_key_here",
     base_url="https://lightningapi.pro"
 )
 
@@ -962,7 +962,7 @@ print(response.content[0].text)`}
                           code={`import openai
 
 client = openai.OpenAI(
-    api_key="ld_live_your_key_here",
+    api_key="sk_live_your_key_here",
     base_url="https://lightningapi.pro/v1"
 )
 
@@ -986,7 +986,7 @@ print(response.choices[0].message.content)`}
                       code={`import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.LIGHTNING_API_KEY || 'ld_live_your_key_here',
+  apiKey: process.env.LIGHTNING_API_KEY || 'sk_live_your_key_here',
   baseURL: 'https://lightningapi.pro',
 });
 
@@ -1009,7 +1009,7 @@ console.log(response.content[0]);`}
                       language="bash"
                       code={`# Anthropic Messages format
 curl https://lightningapi.pro/v1/messages \\
-  -H "x-api-key: ld_live_your_key_here" \\
+  -H "x-api-key: sk_live_your_key_here" \\
   -H "anthropic-version: 2023-06-01" \\
   -H "content-type: application/json" \\
   -d '{
@@ -1020,7 +1020,7 @@ curl https://lightningapi.pro/v1/messages \\
 
 # OpenAI Chat Completions format
 curl https://lightningapi.pro/v1/chat/completions \\
-  -H "Authorization: Bearer ld_live_your_key_here" \\
+  -H "Authorization: Bearer sk_live_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "deepseek-ai/deepseek-v3",
@@ -1107,7 +1107,7 @@ curl https://lightningapi.pro/v1/chat/completions \\
                   <CodeSnippetBlock
                     language="bash"
                     code={`curl https://lightningapi.pro/api/v1/models \\
-  -H "Authorization: Bearer ld_live_your_key_here"`}
+  -H "Authorization: Bearer sk_live_your_key_here"`}
                   />
                 </div>
 
@@ -1624,7 +1624,7 @@ curl https://lightningapi.pro/v1/chat/completions \\
   "type": "error",
   "error": {
     "type": "authentication_error",
-    "message": "Invalid API key provided. Verify your key starts with ld_live_ or ld_trial_."
+    "message": "Invalid API key provided. Verify your key starts with sk_live_ or sk_trial_."
   }
 }`}
                     />
@@ -1718,7 +1718,7 @@ curl https://lightningapi.pro/v1/chat/completions \\
                       To safeguard your account security, <strong className="text-rose-600">never share your full API key or proprietary source code</strong> in emails or support tickets.
                     </p>
                     <p className="text-[11px] text-[#78716c]">
-                      Please include only: (1) Masked key prefix (<code className="font-mono">ld_live_a1b2...</code>), (2) Timestamp, (3) Model ID, and (4) HTTP status code.
+                      Please include only: (1) Masked key prefix (<code className="font-mono">sk_live_a1b2...</code>), (2) Timestamp, (3) Model ID, and (4) HTTP status code.
                     </p>
                   </div>
                 </div>

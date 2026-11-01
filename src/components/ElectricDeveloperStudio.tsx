@@ -35,7 +35,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
       name: 'Claude Code CLI',
       targetFile: '~/.bashrc or terminal',
       badge: 'Automated Setup',
-      code: `# Option A: Automated CLI Assistant Setup (Auto-detects authentic models)\nnpx lightningdeals\n\n# Option B: Switch active model anytime across all tools\nnpx lightningdeals model\n# Or switch directly:\nnpx lightningdeals model claude-sonnet-5.5\n\n# Option C: Standard Shell Environment Variables\nexport ANTHROPIC_BASE_URL="https://lightningapi.pro"\nexport ANTHROPIC_API_KEY="ld_live_your_key_here"\n\n# Run Claude Code — all requests route seamlessly through LightningAPI\nclaude`,
+      code: `# Option A: Automated CLI Assistant Setup (Auto-detects authentic models)\nnpx lightningdeals\n\n# Option B: Switch active model anytime across all tools\nnpx lightningdeals model\n# Or switch directly:\nnpx lightningdeals model claude-sonnet-5.5\n\n# Option C: Standard Shell Environment Variables\nexport ANTHROPIC_BASE_URL="https://lightningapi.pro"\nexport ANTHROPIC_API_KEY="sk_live_your_key_here"\n\n# Run Claude Code — all requests route seamlessly through LightningAPI\nclaude`,
       explanatoryNote: 'Automatically configures your environment in under 60 seconds with zero manual configuration. Switch models anytime via "npx lightningdeals model".',
     },
     modelSwitch: {
@@ -51,7 +51,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
       name: 'Cursor & Windsurf',
       targetFile: 'Cursor Settings > Models > Anthropic API Key',
       badge: 'Drop-In Override',
-      code: `// 1. Open Cursor Settings > Models\n// 2. Override the Anthropic Base URL:\nBase URL: https://lightningapi.pro/v1\n\n// 3. Paste your Lightning master key into the API Key field:\nAPI Key:  ld_live_your_key_here\n\n// All Composer agentic edits and inline completions now flow via LightningAPI.`,
+      code: `// 1. Open Cursor Settings > Models\n// 2. Override the Anthropic Base URL:\nBase URL: https://lightningapi.pro/v1\n\n// 3. Paste your Lightning master key into the API Key field:\nAPI Key:  sk_live_your_key_here\n\n// All Composer agentic edits and inline completions now flow via LightningAPI.`,
       explanatoryNote: 'Requires zero changes to your existing workspace rules, system prompts, or extensions.',
     },
     python: {
@@ -59,7 +59,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
       name: 'Python SDK',
       targetFile: 'main.py',
       badge: 'Official Anthropic SDK',
-      code: `import os\nfrom anthropic import Anthropic\n\n# Direct drop-in initialization with official Anthropic SDK\nclient = Anthropic(\n    base_url="https://lightningapi.pro/v1",\n    api_key=os.environ.get("LIGHTNING_API_KEY", "ld_live_...")\n)\n\nmessage = client.messages.create(\n    model="claude-sonnet-5.5",\n    max_tokens=1024,\n    messages=[\n        {"role": "user", "content": "Analyze document insights with deep reasoning."}\n    ]\n)\n\nprint(message.content[0].text)`,
+      code: `import os\nfrom anthropic import Anthropic\n\n# Direct drop-in initialization with official Anthropic SDK\nclient = Anthropic(\n    base_url="https://lightningapi.pro/v1",\n    api_key=os.environ.get("LIGHTNING_API_KEY", "sk_live_...")\n)\n\nmessage = client.messages.create(\n    model="claude-sonnet-5.5",\n    max_tokens=1024,\n    messages=[\n        {"role": "user", "content": "Analyze document insights with deep reasoning."}\n    ]\n)\n\nprint(message.content[0].text)`,
       explanatoryNote: 'Strictly mirrors /v1/messages specifications. Works directly with official Anthropic SDKs without modification.',
     },
     node: {
@@ -67,7 +67,7 @@ export const ElectricDeveloperStudio: React.FC = () => {
       name: 'Node.js / TypeScript',
       targetFile: 'index.ts',
       badge: 'Official TypeScript SDK',
-      code: `import Anthropic from '@anthropic-ai/sdk';\n\n// Initialize official client with LightningAPI gateway base URL\nconst anthropic = new Anthropic({\n  baseURL: 'https://lightningapi.pro/v1',\n  apiKey: process.env.LIGHTNING_API_KEY || 'ld_live_...',\n});\n\nconst response = await anthropic.messages.create({\n  model: 'claude-sonnet-5.5',\n  max_tokens: 1024,\n  messages: [{ role: 'user', content: 'Generate robust unit tests.' }],\n});\n\nconsole.log(response.content[0]);`,
+      code: `import Anthropic from '@anthropic-ai/sdk';\n\n// Initialize official client with LightningAPI gateway base URL\nconst anthropic = new Anthropic({\n  baseURL: 'https://lightningapi.pro/v1',\n  apiKey: process.env.LIGHTNING_API_KEY || 'sk_live_...',\n});\n\nconst response = await anthropic.messages.create({\n  model: 'claude-sonnet-5.5',\n  max_tokens: 1024,\n  messages: [{ role: 'user', content: 'Generate robust unit tests.' }],\n});\n\nconsole.log(response.content[0]);`,
       explanatoryNote: 'Full TypeScript type safety and native SSE streaming delta listeners work out of the box.',
     },
   };

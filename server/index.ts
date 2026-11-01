@@ -320,6 +320,7 @@ app.post('/api/webhooks/cashfree', handleCashfreeWebhook);
 
 app.use('/api/user/studio', studioRouter);
 app.use('/api/user/teams', teamRouter);
+app.use('/api/teams', teamRouter);
 app.use('/api/user/mcp', mcpRouter);
 app.use('/api/user/benchmarks', benchmarkRouter);
 app.use('/api/user/developer', devEcosystemRouter);

@@ -372,3 +372,72 @@ export async function sendPasswordResetEmail(options: { email: string; name: str
     },
   });
 }
+
+function generateTeamInviteEmailHtml(inviterName: string, teamName: string, role: string, inviteUrl: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>You're Invited to Join ${escapeHtml(teamName)} on LightningAPI</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #07090E; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #f1f5f9; }
+    .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+    .card { background: #0F172A; border: 1px solid #1E293B; border-radius: 16px; padding: 40px; text-align: center; }
+    .logo-badge { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: linear-gradient(135deg, #7C3AED, #4F46E5); border-radius: 12px; margin-bottom: 24px; }
+    h1 { font-size: 24px; font-weight: 800; color: #F8FAFC; margin-bottom: 12px; }
+    p { font-size: 14px; color: #94A3B8; margin-bottom: 24px; line-height: 1.6; }
+    .role-badge { display: inline-block; background: rgba(124, 58, 237, 0.15); border: 1px solid rgba(124, 58, 237, 0.3); color: #A78BFA; font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; margin-bottom: 20px; }
+    .btn { display: inline-block; background: linear-gradient(135deg, #7C3AED, #6366F1); color: #FFFFFF !important; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 32px; border-radius: 10px; margin-top: 10px; margin-bottom: 24px; }
+    .link-box { background: #020617; border: 1px solid #334155; border-radius: 10px; padding: 14px; margin: 20px 0; font-family: monospace; font-size: 11px; color: #94A3B8; word-break: break-all; }
+    .expiry-note { font-size: 12px; color: #64748B; margin-top: 24px; border-top: 1px solid #1E293B; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="logo-badge"><span style="color: #ffffff; font-size: 24px;">⚡</span></div>
+      <h1>Join ${escapeHtml(teamName)} on LightningAPI</h1>
+      <p><strong>${escapeHtml(inviterName)}</strong> has invited you to collaborate in their team workspace on LightningAPI as:</p>
+      <div><span class="role-badge">${escapeHtml(role)}</span></div>
+      <div>
+        <a href="${inviteUrl}" class="btn" target="_blank">ACCEPT INVITATION & JOIN TEAM →</a>
+      </div>
+      <div class="link-box">
+        Or copy and paste this secure link into your browser:<br/>
+        ${escapeHtml(inviteUrl)}
+      </div>
+      <div class="expiry-note">
+        🔒 This invitation is valid for <strong>7 days</strong>. If you already have an account, sign in with your email to join the workspace instantly.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+}
+
+// Enterprise Transactional Email Dispatcher for Team Invitations
+export async function sendTeamInviteEmail(options: {
+  email: string;
+  inviterName: string;
+  teamName: string;
+  role: string;
+  inviteUrl: string;
+}): Promise<SendEmailResult> {
+  const { email, inviterName, teamName, role, inviteUrl } = options;
+  const subject = `⚡ You're invited to join ${teamName} on LightningAPI`;
+  const htmlContent = generateTeamInviteEmailHtml(inviterName, teamName, role, inviteUrl);
+
+  return dispatchEmailTransport({
+    email,
+    subject,
+    htmlContent,
+    contextName: 'Team Invitation',
+    devDetails: {
+      teamName,
+      role,
+      link: inviteUrl,
+    },
+  });
+}

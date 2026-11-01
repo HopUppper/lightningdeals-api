@@ -157,6 +157,7 @@ const RegisterPage = safeLazy(() => import('./pages/RegisterPage').then(m => ({ 
 const VerifyEmailPage = safeLazy(() => import('./pages/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
 const ForgotPasswordPage = safeLazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = safeLazy(() => import('./pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+const InvitePage = safeLazy(() => import('./pages/InvitePage').then(m => ({ default: m.InvitePage })));
 const NotFoundPage = safeLazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 // Customer Dashboard Pages (Lazy Loaded)
@@ -282,6 +283,11 @@ export function App() {
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+                {/* Team Invitation Acceptance Routes */}
+                <Route path="/invite" element={<InvitePage />} />
+                <Route path="/invite/:token" element={<InvitePage />} />
+                <Route path="/teams/join" element={<InvitePage />} />
+
                 {/* Customer Dashboard Routes — Protected via UserAuthGuard */}
                 <Route
                   path="/dashboard/*"
@@ -312,6 +318,7 @@ export function App() {
                   <Route path="migration" element={<UserMigration />} />
                   <Route path="benchmarks" element={<UserBenchmarks />} />
                   <Route path="teams" element={<UserTeams />} />
+                  <Route path="teams/join" element={<InvitePage />} />
                   <Route path="support" element={<UserSupport />} />
                   <Route path="feedback" element={<UserFeedback />} />
                   <Route path="reviews" element={<UserFeedback />} />

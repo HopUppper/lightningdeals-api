@@ -34,3 +34,24 @@
   - Claude consumable token packs (`claude_token_10m`, `claude_token_50m`, `claude_token_100m`)
   - Local/Open-weights consumable token packs (`local_token_10m`, `local_token_100m`, `local_token_500m`)
 - This applies universally across public pricing pages, customer dashboard plans, cart drawers, admin views, and API responses.
+
+## Strict Testing & Database Hygiene Rules (CRITICAL & PERMANENT)
+
+### 4. Zero Residual Test Artifacts & Strict Live Customer Isolation
+- **NEVER use or attach test data to existing customer accounts**:
+  - Never query `prisma.user.findFirst()` or attach test keys/orders to live customer IDs.
+  - Live customers (`ms861000@gmail.com`, `ms86100@gmail.com`, `kunalkumarjha97@gmail.com`, `sivadthapa.93@gmail.com`, etc.) must NEVER have their keys, orders, or usage modified or deleted.
+- **Always use dedicated test user sandboxes**:
+  - All test customer accounts must use distinct test domains: `test-...@test.internal`.
+  - Use [`scripts/test-sandbox.ts`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/scripts/test-sandbox.ts) (`createTestUser`, `createTestApiKey`, `cleanupSandbox`).
+- **Always clean up ALL test artifacts in `finally` blocks**:
+  - When tests complete, the suite must immediately delete:
+    1. Any `ApiRequest` records generated during testing (preventing orphaned "Deleted Key" rows in `/deez/usage`).
+    2. Any `TokenLedger` and `CustomerUsageCreditLedger` records created.
+    3. Any `Subscription` records associated with test orders.
+    4. Any `Order` records created for test buyers.
+    5. Any `ApiKey` records created for testing.
+    6. Any test `User` records created.
+- **Clear Identification**:
+  - Always identify test entities via sandbox tracking arrays (`userIds`, `keyIds`, `orderIds`).
+  - Never delete by generic unbounded queries that could touch live customer rows.

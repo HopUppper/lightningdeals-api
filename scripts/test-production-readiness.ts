@@ -26,22 +26,10 @@ async function runProductionReadinessSuite() {
     }
   }
 
-  // 1. Create temporary test fixtures
-  let devUser = await prisma.user.findFirst();
-  let createdUser = false;
-  if (!devUser) {
-    devUser = await prisma.user.create({
-      data: {
-        name: 'Prod Readiness User',
-        email: `prod_ready_${Date.now()}@lightningdeals.ai`,
-        passwordHash: 'dummyhash',
-        role: 'user',
-        emailVerified: true,
-        status: 'active',
-      },
-    });
-    createdUser = true;
-  }
+  // 1. Create temporary test fixtures in isolated sandbox
+  const { initSandbox, createTestUser, cleanupSandbox } = await import('./test-sandbox');
+  const sandbox = initSandbox();
+  const devUser = await createTestUser(sandbox, 'prod-readiness');
 
   const activeRawKey = 'ld_live_prodtest_' + crypto.randomBytes(8).toString('hex');
   const activeKeyHash = hashApiKey(activeRawKey);
@@ -278,16 +266,10 @@ async function runProductionReadinessSuite() {
     const d12: any = await res12.json();
     assert('12. Key Status Inspection (/api/key-status)', res12.status === 200 && d12.valid === true && typeof d12.plan === 'string' && d12.plan.length > 0);
 
+    sandbox.keyIds.push(activeKey.id, revokedKey.id, expiredKey.id, exhaustedKey.id, restrictedKey.id);
   } finally {
-    // Cleanup fixtures
-    await prisma.apiKey.deleteMany({
-      where: {
-        id: { in: [activeKey.id, revokedKey.id, expiredKey.id, exhaustedKey.id, restrictedKey.id] },
-      },
-    });
-    if (createdUser && devUser) {
-      await prisma.user.delete({ where: { id: devUser.id } }).catch(() => {});
-    }
+    // Cleanup fixtures and all created ApiRequest records completely
+    await cleanupSandbox(sandbox);
     console.log(`\n================================================================`);
     console.log(`🏁 PRODUCTION READINESS SUITE FINISHED: ${passed}/${total} PASSED`);
     console.log(`================================================================\n`);

@@ -430,6 +430,9 @@ async function runPhase4Tests() {
         }).catch(() => {});
       }
       if (createdTestKeyIds.length > 0) {
+        await prisma.apiRequest.deleteMany({
+          where: { apiKeyId: { in: createdTestKeyIds } },
+        }).catch(() => {});
         await prisma.masterTokenLedger.deleteMany({
           where: { apiKeyId: { in: createdTestKeyIds } },
         }).catch(() => {});

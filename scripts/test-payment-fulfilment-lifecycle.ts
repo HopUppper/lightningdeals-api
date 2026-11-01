@@ -985,12 +985,18 @@ async function main() {
     console.log('\nCleaning up isolated test entities...');
     try {
       if (createdTestOrderIds.length > 0) {
+        await prisma.subscription.deleteMany({
+          where: { order: { internalOrderId: { in: createdTestOrderIds } } }
+        }).catch(() => {});
         await prisma.order.deleteMany({ where: { internalOrderId: { in: createdTestOrderIds } } });
       }
       if (createdTestKeyIds.length > 0) {
+        await prisma.apiRequest.deleteMany({ where: { apiKeyId: { in: createdTestKeyIds } } }).catch(() => {});
+        await prisma.tokenLedger.deleteMany({ where: { apiKeyId: { in: createdTestKeyIds } } }).catch(() => {});
         await prisma.apiKey.deleteMany({ where: { id: { in: createdTestKeyIds } } });
       }
       if (createdTestUserIds.length > 0) {
+        await prisma.subscription.deleteMany({ where: { userId: { in: createdTestUserIds } } }).catch(() => {});
         await prisma.user.deleteMany({ where: { id: { in: createdTestUserIds } } });
       }
     } catch (e: any) {

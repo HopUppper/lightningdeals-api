@@ -195,9 +195,6 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     'claude-sonnet-5-thinking',
     'claude-haiku-5.5',
     'claude-haiku-5',
-    'claude-3-5-sonnet-20241022',
-    'claude-3-opus-20240229',
-    'claude-3-5-haiku-20241022',
   ];
 
   allDbModels.sort((a, b) => {
@@ -387,6 +384,22 @@ export async function handleGetModels(req: Request, res: Response) {
         createdAt: new Date(),
       })) as any;
     }
+
+    // Strict requirement: Never show any Claude 3 family models on website or public API
+    models = models.filter((m) => {
+      const lower = m.modelId.toLowerCase();
+      const lowerName = (m.displayName || '').toLowerCase();
+      return (
+        !lower.startsWith('claude-3') &&
+        !lower.includes('claude-3') &&
+        !lowerName.includes('claude 3') &&
+        !lowerName.includes('claude-3') &&
+        !lower.includes('3-5-sonnet') &&
+        !lower.includes('3-5-haiku') &&
+        !lower.includes('3-7-sonnet') &&
+        !lower.includes('3-opus')
+      );
+    });
 
     models.sort((a, b) => {
       const idxA = priority.indexOf(a.modelId);

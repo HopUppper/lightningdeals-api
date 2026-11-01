@@ -274,7 +274,7 @@ export const UserOverview: React.FC = () => {
               </div>
               <div className="pt-1 text-[11px] text-emerald-700 bg-emerald-50/50 p-2 rounded-lg border border-emerald-100 flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Dual routing enabled: Claude 3.5 Sonnet &amp; GPT-4o</span>
+                <span>Dual routing enabled: Claude Sonnet 5.5 &amp; GPT-4o</span>
               </div>
             </div>
           )}

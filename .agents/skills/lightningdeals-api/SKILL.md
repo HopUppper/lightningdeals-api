@@ -18,3 +18,4 @@ description: Endpoint testing standards, response payloads, error formats, and s
 - Validate HTTP status codes (200, 401, 403, 429, 500).
 - Confirm JSON error response structure (`{ error: { message, code, status } }`).
 - Verify streaming headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache`).
+- **Zero Claude 3 Family Rule**: `GET /v1/models` and all model endpoints must strictly filter out and never return Claude 3 family models (Claude 3, 3.5, 3.7). Default test models must use `claude-sonnet-5.5`, `claude-opus-5.5`, `gemini-4-argon`, etc.

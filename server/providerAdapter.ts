@@ -931,7 +931,7 @@ export class ProviderRegistry {
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: 'claude-3-5-haiku-20241022',
+            model: 'claude-haiku-5.5',
             max_tokens: 5,
             messages: [{ role: 'user', content: 'ping' }],
           }),

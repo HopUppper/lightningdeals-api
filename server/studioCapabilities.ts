@@ -482,7 +482,7 @@ export interface ModelRecommendation {
 
 export function categorizeModel(modelId: string): { category: ModelPrimaryCategory; label: string } {
   const norm = modelId.toLowerCase().trim();
-  if (norm.includes('claude-3-7') || norm.includes('deepseek-v3') || norm.includes('sonnet')) {
+  if (norm.includes('claude-sonnet') || norm.includes('deepseek-v3') || norm.includes('sonnet')) {
     return { category: 'coding', label: 'Coding & Software Architecture' };
   }
   if (norm.includes('o3-mini') || norm.includes('deepseek-r1') || norm.includes('r1')) {

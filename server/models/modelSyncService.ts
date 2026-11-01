@@ -411,9 +411,23 @@ async function discoverAllUpstreamModels(creditKey: string): Promise<DiscoveredM
     }
   }
 
-  // Deduplicate by canonicalId
+  // Deduplicate by canonicalId and strictly exclude any Claude 3 family models
   const finalUnique = new Map<string, DiscoveredModel>();
   for (const model of map.values()) {
+    const lowerId = model.canonicalId.toLowerCase();
+    const lowerName = model.displayName.toLowerCase();
+    const isClaude3 =
+      lowerId.startsWith('claude-3') ||
+      lowerId.includes('claude-3') ||
+      lowerName.includes('claude 3') ||
+      lowerName.includes('claude-3') ||
+      lowerId.includes('3-5-sonnet') ||
+      lowerId.includes('3-5-haiku') ||
+      lowerId.includes('3-7-sonnet') ||
+      lowerId.includes('3-opus');
+
+    if (isClaude3) continue;
+
     if (!finalUnique.has(model.canonicalId)) {
       finalUnique.set(model.canonicalId, model);
     }
@@ -488,7 +502,26 @@ export async function executeModelSync(
       throw new Error('Upstream model discovery returned 0 models. Sync aborted to prevent catalogue wiping.');
     }
 
-    // 3. Fetch existing models from database
+    // 3. Fetch existing models from database and ensure Claude 3 family models are purged/disabled
+    await prisma.model.updateMany({
+      where: {
+        OR: [
+          { modelId: { startsWith: 'claude-3' } },
+          { modelId: { contains: 'claude-3' } },
+          { displayName: { contains: 'claude 3', mode: 'insensitive' } },
+          { modelId: { contains: '3-5-sonnet' } },
+          { modelId: { contains: '3-5-haiku' } },
+          { modelId: { contains: '3-7-sonnet' } },
+          { modelId: { contains: '3-opus' } },
+        ],
+      },
+      data: {
+        enabled: false,
+        validationStatus: 'DISABLED',
+        isCustomerAvailable: false,
+      },
+    }).catch(() => {});
+
     const existingDbModels = await prisma.model.findMany();
     const dbModelMap = new Map<string, any>();
     for (const m of existingDbModels) {

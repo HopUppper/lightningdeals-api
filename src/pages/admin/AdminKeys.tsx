@@ -1062,7 +1062,7 @@ export const AdminKeys: React.FC = () => {
                       className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg font-medium"
                     >
                       <option value="all">Universal (All Models: Claude, OpenAI, Local Models)</option>
-                      <option value="claude">Claude Frontier Only (Sonnet 3.7, Opus 4, Sonnet 4, Fable 5)</option>
+                      <option value="claude">Claude Frontier Only (Sonnet 5.5, Opus 5.5, Sonnet 5, Fable 5)</option>
                       <option value="openai">OpenAI Frontier Only (GPT-4o, o1, o3-mini, GPT-4.5)</option>
                       <option value="local">Local Models Only (DeepSeek V3/R1, Grok, Qwen, GLM)</option>
                     </select>

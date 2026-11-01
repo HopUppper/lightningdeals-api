@@ -120,7 +120,7 @@ print(response.choices[0].message.content)`,
             </h1>
 
             <p className="text-base sm:text-lg text-[#57534e] leading-relaxed max-w-xl">
-              One unified API gateway for Claude Sonnet 3.7, Claude Opus, OpenAI o3, GPT-4o, and DeepSeek.
+              One unified API gateway for Claude Sonnet 5.5, Claude Opus 5.5, Gemini 4 Argon, OpenAI o3, and DeepSeek.
               100% compatible drop-in replacement for Cursor, Windsurf, Claude Code CLI, and official Anthropic &amp; OpenAI SDKs.
             </p>
 

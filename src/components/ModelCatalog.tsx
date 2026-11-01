@@ -55,6 +55,16 @@ export const ModelCatalog: React.FC = () => {
 
             for (const item of json.data) {
               const id = item.id.toLowerCase();
+              if (
+                id.startsWith('claude-3') ||
+                id.includes('claude-3') ||
+                id.includes('3-5-sonnet') ||
+                id.includes('3-5-haiku') ||
+                id.includes('3-7-sonnet') ||
+                id.includes('3-opus')
+              ) {
+                continue;
+              }
               if (existingMap.has(id)) {
                 const idx = existingMap.get(id)!;
                 dynamicList[idx] = {

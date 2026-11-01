@@ -283,7 +283,7 @@ export class AnthropicAdapter implements ProviderAdapter {
   /**
    * Extracts token usage from a non-streaming Anthropic response body.
    */
-  extractUsage(responseBody: any, defaultModel = 'claude-3-5-sonnet'): UsageExtractionResult {
+  extractUsage(responseBody: any, defaultModel = 'claude-sonnet-5.5'): UsageExtractionResult {
     if (!responseBody || typeof responseBody !== 'object') {
       return {
         inputTokens: 0,

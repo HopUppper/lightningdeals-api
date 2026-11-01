@@ -1127,7 +1127,7 @@ router.post('/providers/test', async (req: AuthRequest, res: Response) => {
           : `${ssrfCheck.normalizedUrl}/v1/messages`;
         const probeBody = protoToTest === 'openai-compatible' || protoToTest === 'openai'
           ? { model: 'gpt-4o', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }
-          : { model: 'claude-3-5-haiku-20241022', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 };
+          : { model: 'claude-haiku-5.5', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 };
 
         const probeRes = await fetch(probeUrl, {
           method: 'POST',

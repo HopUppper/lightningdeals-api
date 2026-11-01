@@ -41,7 +41,7 @@ interface MigrationGuideData {
 
 export const UserMigration: React.FC = () => {
   const [sourceProvider, setSourceProvider] = useState<'openai' | 'anthropic' | 'gemini'>('openai');
-  const [targetModel, setTargetModel] = useState('claude-3-5-sonnet-20241022');
+  const [targetModel, setTargetModel] = useState('claude-sonnet-5.5');
   const [activeCodeTab, setActiveCodeTab] = useState<'typescript' | 'python' | 'curl'>('typescript');
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
   const [guideData, setGuideData] = useState<MigrationGuideData | null>(null);
@@ -248,9 +248,13 @@ print()`,
             className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"
           >
             <optgroup label="Anthropic Claude Series">
-              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (claude-3-5-sonnet-20241022)</option>
-              <option value="claude-3-opus-20240229">Claude 3 Opus (claude-3-opus-20240229)</option>
-              <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (claude-3-5-haiku-20241022)</option>
+              <option value="claude-sonnet-5.5">Claude Sonnet 5.5 (claude-sonnet-5.5)</option>
+              <option value="claude-opus-5.5">Claude Opus 5.5 (claude-opus-5.5)</option>
+              <option value="claude-haiku-5.5">Claude Haiku 5.5 (claude-haiku-5.5)</option>
+              <option value="claude-fable-5">Claude Fable 5 (claude-fable-5)</option>
+            </optgroup>
+            <optgroup label="Google Gemini Series">
+              <option value="gemini-4-argon">Gemini 4 Argon (gemini-4-argon)</option>
             </optgroup>
             <optgroup label="DeepSeek & Frontier Models">
               <option value="deepseek-chat">DeepSeek V3 (deepseek-chat)</option>

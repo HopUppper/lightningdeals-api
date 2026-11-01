@@ -18,3 +18,4 @@ description: Documentation sync rules, verified code examples, and technical gui
    - Server-Sent Events (SSE) Streaming & Token Accounting
    - Client Configurations (Claude Code, Cursor, Windsurf, VS Code, Continue, Roo Code, Cline)
    - System Status & Incident History
+4. **Zero Claude 3 Family Rule**: Never document, mention, or display Claude 3, Claude 3.5, or Claude 3.7 models in docs, quickstarts, or cURL examples. Strictly use Claude Sonnet 5.5, Claude Opus 5.5, Claude Haiku 5.5, Gemini 4 Argon, etc.

@@ -7,7 +7,7 @@ export const devEcosystemRouter = Router();
 devEcosystemRouter.get('/migration-guide', async (req: AuthRequest, res: Response) => {
   try {
     const origin = ((req.query.from as string) || 'openai').toLowerCase();
-    const targetModel = (req.query.model as string) || 'claude-3-5-sonnet-20241022';
+    const targetModel = (req.query.model as string) || 'claude-sonnet-5.5';
 
     const baseUrl = 'https://lightningapi.pro/v1';
 
@@ -155,7 +155,7 @@ print()`,
         parameterSupport: {
           messages: 'Full multi-turn role array support',
           system: 'Top-level system prompt parameter supported',
-          model: 'Specify any frontier model (e.g. claude-3-5-sonnet-20241022, claude-opus-5.5)',
+          model: 'Specify any frontier model (e.g. claude-sonnet-5.5, claude-opus-5.5, gemini-4-argon)',
           thinking: 'Cryptographically signed extended thinking blocks supported',
           stream: 'Native message_start/content_block_delta event streaming',
         },

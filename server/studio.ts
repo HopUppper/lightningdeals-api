@@ -502,6 +502,21 @@ studioRouter.get('/models', async (req: AuthRequest, res: Response) => {
           validationStatus: { in: ['ACTIVE', 'VALIDATED'] },
         },
       });
+      // Strictly exclude any Claude 3 family models
+      dbActiveModels = dbActiveModels.filter((m) => {
+        const lower = m.modelId.toLowerCase();
+        const lowerName = (m.displayName || '').toLowerCase();
+        return (
+          !lower.startsWith('claude-3') &&
+          !lower.includes('claude-3') &&
+          !lowerName.includes('claude 3') &&
+          !lowerName.includes('claude-3') &&
+          !lower.includes('3-5-sonnet') &&
+          !lower.includes('3-5-haiku') &&
+          !lower.includes('3-7-sonnet') &&
+          !lower.includes('3-opus')
+        );
+      });
     } catch (e) {
       dbActiveModels = [];
     }

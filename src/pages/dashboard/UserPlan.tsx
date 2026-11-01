@@ -365,7 +365,7 @@ export const UserPlan: React.FC = () => {
               <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-violet-50 border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2 text-emerald-900 font-bold">
                   <Coins className="w-4 h-4 text-emerald-600" />
-                  <span>Dual Model Access: Claude 3.5 Sonnet / Opus & OpenAI GPT-4o / o3-mini</span>
+                  <span>Dual Model Access: Claude Sonnet 5.5 / Opus 5.5 & OpenAI GPT-4o / o3-mini</span>
                 </div>
                 <span className="text-[11px] font-mono text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-full border border-emerald-300 font-bold">
                   Direct Metered Deduction

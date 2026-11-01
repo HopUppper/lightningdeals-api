@@ -36,31 +36,26 @@ export interface StudioEntitlement {
 export const PAID_ONLY_STUDIO_MODELS = [
   'claude-opus-5.5',
   'claude-opus-5',
-  'claude-3-opus-20240229',
 ];
 
 export const DEFAULT_TRIAL_STUDIO_MODELS = [
   'claude-sonnet-5.5',
-  'claude-3-7-sonnet-20250219',
   'claude-haiku-5.5',
   'claude-fable-5',
   'claude-fable-5.1',
-  'claude-3-5-sonnet-20241022',
-  'claude-3-5-haiku-20241022',
+  'claude-sonnet-5',
   'gemini-4-argon',
 ];
 
 export const ALL_STUDIO_MODELS = [
   'claude-sonnet-5.5',
   'claude-opus-5.5',
-  'claude-3-7-sonnet-20250219',
   'claude-opus-5',
+  'claude-sonnet-5',
   'claude-fable-5',
   'claude-fable-5.1',
   'claude-haiku-5.5',
-  'claude-3-5-sonnet-20241022',
-  'claude-3-5-haiku-20241022',
-  'claude-3-opus-20240229',
+  'claude-haiku-5',
   'gemini-4-argon',
 ];
 

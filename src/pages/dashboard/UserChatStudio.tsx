@@ -3997,7 +3997,7 @@ export const UserChatStudio: React.FC = () => {
                     disabled={activeModelMeta ? !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput) : false}
                     onClick={() => {
                       if (activeModelMeta && !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput)) {
-                        alert(`${activeModelMeta.name} does not accept multimodal image/file inputs. Please switch to Claude 3.5 Sonnet, Gemini, or GPT-4o for file attachments.`);
+                        alert(`${activeModelMeta.name} does not accept multimodal image/file inputs. Please switch to Claude Sonnet 5.5, Gemini 4 Argon, or GPT-4o for file attachments.`);
                         return;
                       }
                       fileInputRef.current?.click();

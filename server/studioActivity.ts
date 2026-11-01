@@ -66,7 +66,7 @@ export function redactSensitiveActivityData(text: string): string {
 
   // 3. Redact supplier names & internal routing identifiers
   sanitized = sanitized.replace(/\b(openrouter|bedrock|anthropic-proxy|vertex-ai|azure-openai)\b/gi, 'AI Gateway');
-  sanitized = sanitized.replace(/\b(claude-3-5-sonnet-20241022|claude-3-7-sonnet-20250219|gpt-4o-2024-08-06)\b/gi, 'Verified Model');
+  sanitized = sanitized.replace(/\b(claude-[0-9a-zA-Z\.\-]+|gpt-4o-[0-9a-zA-Z\-]+)\b/gi, 'Verified Model');
 
   // 4. Redact raw file system paths
   sanitized = sanitized.replace(/[a-zA-Z]:\\[^\s<>"']+/gi, '[SYSTEM_PATH]');

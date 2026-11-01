@@ -121,6 +121,8 @@ model ApiKey {
   teamApiKey         TeamApiKey?
 
   @@index([providerId])
+  @@index([userId])
+  @@index([status])
 }
 
 model ApiRequest {

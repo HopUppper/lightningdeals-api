@@ -20,6 +20,25 @@ export interface CustomerRollingWindowMetrics {
   rolloffSchedule: Array<{ tokens: number; rollsOffAt: string; secondsUntil: number }>;
 }
 
+// In-memory window aggregation cache (5s TTL to prevent DB hammering under high request volume)
+const WINDOW_AGG_CACHE_TTL_MS = 5000;
+interface CachedWindowUsage {
+  windowTokensUsed: number;
+  cachedAt: number;
+  nextResetAt: string | null;
+  windowResetSeconds: number | null;
+  rolloffSchedule: Array<{ tokens: number; rollsOffAt: string; secondsUntil: number }>;
+}
+const windowUsageCache = new Map<string, CachedWindowUsage>();
+
+export function invalidateRollingWindowCache(keyId?: string): void {
+  if (keyId) {
+    windowUsageCache.delete(keyId);
+  } else {
+    windowUsageCache.clear();
+  }
+}
+
 /**
  * Layer B: Customer Entitlements & Rolling-Window Accounting.
  * Enforces an independent, strict rolling 5-hour window for each customer API key:
@@ -28,7 +47,8 @@ export interface CustomerRollingWindowMetrics {
  */
 export async function calculateCustomerRollingWindow(
   keyRecord: any,
-  overrideWindowHours?: number
+  overrideWindowHours?: number,
+  options: { bypassCache?: boolean; lightMode?: boolean } = {}
 ): Promise<CustomerRollingWindowMetrics> {
   const nowMs = Date.now();
   const windowHours = overrideWindowHours || keyRecord.windowHours || 5;
@@ -38,76 +58,116 @@ export async function calculateCustomerRollingWindow(
   // 1. Authoritative Rolling Window Plan Determination
   const isRollingWindow = isRollingPlan(keyRecord);
 
-  // 2. Query aggregate usage strictly within [now - 5h, now]
-  const [windowUsageAgg, lifetimeUsageAgg, requestsInWindow] = await Promise.all([
-    prisma.apiRequest.aggregate({
-      _sum: { totalTokens: true },
-      where: {
-        apiKeyId: keyRecord.id,
-        createdAt: { gte: windowStart },
-      },
-    }),
-    prisma.apiRequest.aggregate({
-      _sum: { totalTokens: true },
-      where: {
-        apiKeyId: keyRecord.id,
-      },
-    }),
-    prisma.apiRequest.findMany({
-      where: {
-        apiKeyId: keyRecord.id,
-        createdAt: { gte: windowStart },
-      },
-      select: {
-        totalTokens: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: 'asc' },
-    }),
-  ]);
+  // Short-circuit non-rolling plans immediately (Zero DB queries for consumable token packs)
+  if (!isRollingWindow) {
+    const activeReservations = await getActiveCustomerReservations(keyRecord.id);
+    const purchasedNum = Number(keyRecord.purchasedTokens || 0);
+    const lifetimeTokensUsed = Number(keyRecord.tokensUsed || 0);
+    const walletRemaining = keyRecord.tokensRemaining !== undefined && keyRecord.tokensRemaining !== null
+      ? Math.max(0, Number(keyRecord.tokensRemaining))
+      : Math.max(0, purchasedNum - lifetimeTokensUsed);
+    const remainingWindowAllowance = Math.max(0, walletRemaining - activeReservations);
+    const consumptionPercent = purchasedNum > 0
+      ? Math.min(100, Math.round(((purchasedNum - remainingWindowAllowance) / purchasedNum) * 1000) / 10)
+      : 0;
 
-  const windowTokensUsed = windowUsageAgg._sum.totalTokens || 0;
-  const lifetimeTokensUsed = lifetimeUsageAgg._sum.totalTokens || Number(keyRecord.tokensUsed || 0);
+    return {
+      apiKeyId: keyRecord.id,
+      keyPrefix: keyRecord.keyPrefix || (keyRecord.key ? keyRecord.key.substring(0, 10) + '...' : 'unknown'),
+      plan: keyRecord.plan || 'Prepaid',
+      isRollingWindow: false,
+      windowHours,
+      windowAllowance: purchasedNum,
+      windowTokensUsed: 0,
+      activeReservations,
+      remainingWindowAllowance,
+      lifetimeTokensUsed,
+      consumptionPercent,
+      windowActive: false,
+      nextResetAt: null,
+      windowResetSeconds: null,
+      effectiveFirstUse: keyRecord.firstUsedAt || keyRecord.lastUsedAt || null,
+      rolloffSchedule: [],
+    };
+  }
+
+  // 2. Rolling Window Plans: Check 5-second in-memory cache
+  const cached = windowUsageCache.get(keyRecord.id);
+  let windowTokensUsed = 0;
+  let nextResetAt: string | null = null;
+  let windowResetSeconds: number | null = null;
+  let rolloffSchedule: Array<{ tokens: number; rollsOffAt: string; secondsUntil: number }> = [];
+
+  if (!options.bypassCache && cached && (nowMs - cached.cachedAt < WINDOW_AGG_CACHE_TTL_MS)) {
+    windowTokensUsed = cached.windowTokensUsed;
+    nextResetAt = cached.nextResetAt;
+    windowResetSeconds = cached.windowResetSeconds !== null
+      ? Math.max(0, cached.windowResetSeconds - Math.floor((nowMs - cached.cachedAt) / 1000))
+      : null;
+    rolloffSchedule = cached.rolloffSchedule;
+  } else {
+    // Optimized single-pass aggregation and recent window items (bounded to max 50 for performance)
+    const [windowUsageAgg, requestsInWindow] = await Promise.all([
+      prisma.apiRequest.aggregate({
+        _sum: { totalTokens: true },
+        where: {
+          apiKeyId: keyRecord.id,
+          createdAt: { gte: windowStart },
+        },
+      }),
+      options.lightMode
+        ? Promise.resolve([])
+        : prisma.apiRequest.findMany({
+            where: {
+              apiKeyId: keyRecord.id,
+              createdAt: { gte: windowStart },
+            },
+            select: {
+              totalTokens: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+            take: 50, // Bounded index-backed fetch
+          }),
+    ]);
+
+    windowTokensUsed = windowUsageAgg._sum.totalTokens || 0;
+
+    if (requestsInWindow.length > 0) {
+      const oldest = requestsInWindow[0];
+      const oldestMs = new Date(oldest.createdAt).getTime();
+      const rollOffMs = oldestMs + windowMs;
+      nextResetAt = new Date(rollOffMs).toISOString();
+      windowResetSeconds = Math.max(0, Math.floor((rollOffMs - nowMs) / 1000));
+
+      for (const req of requestsInWindow) {
+        const rMs = new Date(req.createdAt).getTime() + windowMs;
+        rolloffSchedule.push({
+          tokens: req.totalTokens,
+          rollsOffAt: new Date(rMs).toISOString(),
+          secondsUntil: Math.max(0, Math.floor((rMs - nowMs) / 1000)),
+        });
+      }
+    }
+
+    // Cache the window calculation for 5s
+    windowUsageCache.set(keyRecord.id, {
+      windowTokensUsed,
+      cachedAt: nowMs,
+      nextResetAt,
+      windowResetSeconds,
+      rolloffSchedule,
+    });
+  }
+
+  const lifetimeTokensUsed = Number(keyRecord.tokensUsed || 0);
   const purchasedNum = Number(keyRecord.purchasedTokens || 0);
 
   // 3. Active in-flight concurrent reservations
   const activeReservations = await getActiveCustomerReservations(keyRecord.id);
 
   // 4. Calculate remaining allowance
-  let remainingWindowAllowance: number;
-  if (isRollingWindow) {
-    // For rolling window plans, remaining allowance is strictly window-based
-    remainingWindowAllowance = Math.max(0, purchasedNum - windowTokensUsed - activeReservations);
-  } else {
-    // For lifetime prepaid packs, remaining allowance is decremented from purchased
-    const walletRemaining = keyRecord.tokensRemaining !== undefined && keyRecord.tokensRemaining !== null
-      ? Math.max(0, Number(keyRecord.tokensRemaining))
-      : Math.max(0, purchasedNum - lifetimeTokensUsed);
-    remainingWindowAllowance = Math.max(0, walletRemaining - activeReservations);
-  }
-
-  // 5. Roll-off schedule and next reset calculation
-  let nextResetAt: string | null = null;
-  let windowResetSeconds: number | null = null;
-  const rolloffSchedule: Array<{ tokens: number; rollsOffAt: string; secondsUntil: number }> = [];
-
-  if (requestsInWindow.length > 0) {
-    const oldest = requestsInWindow[0];
-    const oldestMs = new Date(oldest.createdAt).getTime();
-    const rollOffMs = oldestMs + windowMs;
-    nextResetAt = new Date(rollOffMs).toISOString();
-    windowResetSeconds = Math.max(0, Math.floor((rollOffMs - nowMs) / 1000));
-
-    // Map each request's roll-off
-    for (const req of requestsInWindow) {
-      const rMs = new Date(req.createdAt).getTime() + windowMs;
-      rolloffSchedule.push({
-        tokens: req.totalTokens,
-        rollsOffAt: new Date(rMs).toISOString(),
-        secondsUntil: Math.max(0, Math.floor((rMs - nowMs) / 1000)),
-      });
-    }
-  }
+  const remainingWindowAllowance = Math.max(0, purchasedNum - windowTokensUsed - activeReservations);
 
   const consumptionPercent = purchasedNum > 0
     ? Math.min(100, Math.round(((purchasedNum - remainingWindowAllowance) / purchasedNum) * 1000) / 10)

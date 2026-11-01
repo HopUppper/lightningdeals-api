@@ -25,6 +25,7 @@ import { isModelAuthorizedForKey } from './studioEntitlement';
 import { reserveCustomerQuota, settleReservation, releaseReservation, isRollingPlan } from './accounting/tokenReservation';
 import { calculateCustomerRollingWindow } from './accounting/customerAccounting';
 import { resolveCustomerEntitlements } from './subscriptions/subscriptionEngine';
+import { invalidateKeyCache } from './cache/authCache';
 
 const router = Router();
 
@@ -2317,6 +2318,7 @@ router.delete('/keys/:id', authenticateJwt, async (req: AuthRequest, res: Respon
       where: { id: key.id },
       data: { status: 'revoked' },
     });
+    invalidateKeyCache(key.id);
 
     await recordSecurityLog({
       userId: req.user!.id,
@@ -2411,6 +2413,88 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
       orderBy: { createdAt: 'desc' },
     });
 
+    const keyIds = keys.map((k) => k.id);
+
+    // Concurrently fetch key window metrics, recent requests, and ledgers in parallel
+    const [keyMetricsResults, recentRequests, ledgerEntries, rawCreditLedgerEntries] = await Promise.all([
+      Promise.all(keys.map(async (k) => {
+        if (k.billingType === 'credit') {
+          return {
+            isCredit: true,
+            creditBalanceUsd: Number(k.creditBalanceUsd || 0),
+            totalCreditsUsedUsd: Number(k.totalCreditsUsedUsd || 0),
+            purchasedTokens: 0n,
+            tokensUsed: 0n,
+            remainingAllowance: 0n,
+          };
+        } else {
+          const metrics = await calculateCustomerRollingWindow(k, undefined, { lightMode: true });
+          return {
+            isCredit: false,
+            creditBalanceUsd: 0,
+            totalCreditsUsedUsd: 0,
+            purchasedTokens: k.purchasedTokens,
+            tokensUsed: k.tokensUsed,
+            remainingAllowance: BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance))),
+          };
+        }
+      })),
+      keyIds.length > 0 ? prisma.apiRequest.findMany({
+        where: { apiKeyId: { in: keyIds } },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          model: true,
+          statusCode: true,
+          inputTokens: true,
+          outputTokens: true,
+          totalTokens: true,
+          latencyMs: true,
+          streaming: true,
+          usageSource: true,
+          createdAt: true,
+        },
+      }) : Promise.resolve([]),
+      prisma.tokenLedger.findMany({
+        where: { userId: req.user!.id },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          amount: true,
+          balanceAfter: true,
+          type: true,
+          reference: true,
+          notes: true,
+          createdAt: true,
+        },
+      }),
+      prisma.customerUsageCreditLedger.findMany({
+        where: { userId: req.user!.id },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          balanceBefore: true,
+          balanceAfter: true,
+          currency: true,
+          model: true,
+          inputTokens: true,
+          outputTokens: true,
+          cachedTokens: true,
+          reference: true,
+          notes: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
     let totalPurchased = 0n;
     let totalUsed = 0n;
     let totalRemaining = 0n;
@@ -2418,16 +2502,15 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
     let totalCreditsUsedUsd = 0;
     let hasCreditKey = false;
 
-    for (const k of keys) {
-      if (k.billingType === 'credit') {
+    for (const res of keyMetricsResults) {
+      if (res.isCredit) {
         hasCreditKey = true;
-        totalCreditBalanceUsd += Number(k.creditBalanceUsd || 0);
-        totalCreditsUsedUsd += Number(k.totalCreditsUsedUsd || 0);
+        totalCreditBalanceUsd += res.creditBalanceUsd;
+        totalCreditsUsedUsd += res.totalCreditsUsedUsd;
       } else {
-        totalPurchased += k.purchasedTokens;
-        totalUsed += k.tokensUsed;
-        const metrics = await calculateCustomerRollingWindow(k);
-        totalRemaining += BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+        totalPurchased += res.purchasedTokens;
+        totalUsed += res.tokensUsed;
+        totalRemaining += res.remainingAllowance;
       }
     }
 
@@ -2436,65 +2519,6 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
       totalPurchased = 0n;
       totalRemaining = 0n;
     }
-
-    const keyIds = keys.map((k) => k.id);
-    const recentRequests = keyIds.length > 0 ? await prisma.apiRequest.findMany({
-      where: { apiKeyId: { in: keyIds } },
-      orderBy: { createdAt: 'desc' },
-      skip: offset,
-      take: limit,
-      select: {
-        id: true,
-        model: true,
-        statusCode: true,
-        inputTokens: true,
-        outputTokens: true,
-        totalTokens: true,
-        latencyMs: true,
-        streaming: true,
-        usageSource: true,
-        createdAt: true,
-      },
-    }) : [];
-
-    const ledgerEntries = await prisma.tokenLedger.findMany({
-      where: { userId: req.user!.id },
-      orderBy: { createdAt: 'desc' },
-      skip: offset,
-      take: limit,
-      select: {
-        id: true,
-        amount: true,
-        balanceAfter: true,
-        type: true,
-        reference: true,
-        notes: true,
-        createdAt: true,
-      },
-    });
-
-    // Sanitized credit ledger entries (strictly omit pricingSnapshotJson to protect wholesale provider rates)
-    const rawCreditLedgerEntries = await prisma.customerUsageCreditLedger.findMany({
-      where: { userId: req.user!.id },
-      orderBy: { createdAt: 'desc' },
-      skip: offset,
-      take: limit,
-      select: {
-        id: true,
-        type: true,
-        amount: true,
-        balanceBefore: true,
-        balanceAfter: true,
-        currency: true,
-        model: true,
-        inputTokens: true,
-        outputTokens: true,
-        cachedTokens: true,
-        reference: true,
-        notes: true,
-        createdAt: true,
-      },
-    });
 
     res.json({
       totalPurchased: totalPurchased.toString(),

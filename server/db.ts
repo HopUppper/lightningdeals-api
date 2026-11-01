@@ -88,6 +88,9 @@ export const prisma = new PrismaClient({
 
 export { deriveVaultKey, encryptText, decryptText, isEncrypted, tryDecryptWithKey } from './crypto';
 
+export function hashApiKey(key: string): string {
+  return crypto.createHash('sha256').update(key.trim()).digest('hex');
+}
 
 // Convert BigInt to string in JSON serialization
 (BigInt.prototype as any).toJSON = function () {

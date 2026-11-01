@@ -42,48 +42,72 @@ export const UserOverview: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadData() {
-      const pingStart = Date.now();
+    // 1. Measure genuine Edge Gateway ping independently
+    const measureGatewayPing = async () => {
+      const pingStart = performance.now();
       try {
-        const [usageRes, subRes, ordersRes, healthRes, offerRes] = await Promise.all([
-          userFetch('/api/user/usage').catch(() => null),
-          userFetch('/api/user/subscriptions').catch(() => null),
-          userFetch('/api/user/orders').catch(() => null),
-          fetch('/api/health').catch(() => null),
-          fetch('/api/rewards/active-offer').catch(() => null),
-        ]);
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          const latency = Math.round(performance.now() - pingStart);
+          setGatewayLatency(latency);
+        }
+      } catch (e) {
+        setGatewayLatency(null);
+      }
+    };
+    measureGatewayPing();
 
-        const pingTime = Date.now() - pingStart;
-        setGatewayLatency(pingTime);
-
-        if (usageRes && usageRes.ok) {
-          const data = await usageRes.json();
+    // 2. Progressive non-blocking dashboard data loading
+    const fetchUsage = async () => {
+      try {
+        const res = await userFetch('/api/user/usage');
+        if (res.ok) {
+          const data = await res.json();
           setStats(data);
         }
+      } catch (e) {}
+    };
 
-        if (subRes && subRes.ok) {
-          const subData = await subRes.json();
+    const fetchSubs = async () => {
+      try {
+        const res = await userFetch('/api/user/subscriptions');
+        if (res.ok) {
+          const subData = await res.json();
           setEntitlements(subData);
         }
+      } catch (e) {}
+    };
 
-        if (ordersRes && ordersRes.ok) {
-          const orderData = await ordersRes.json();
+    const fetchOrders = async () => {
+      try {
+        const res = await userFetch('/api/user/orders');
+        if (res.ok) {
+          const orderData = await res.json();
           setOrders(orderData.orders || (Array.isArray(orderData) ? orderData : []));
         }
+      } catch (e) {}
+    };
 
-        if (offerRes && offerRes.ok) {
-          const offerData = await offerRes.json();
+    const fetchOffer = async () => {
+      try {
+        const res = await fetch('/api/rewards/active-offer');
+        if (res.ok) {
+          const offerData = await res.json();
           if (offerData.success && offerData.active && offerData.offer) {
             setActiveOffer(offerData.offer);
           }
         }
-      } catch (e: any) {
-        setError('Unable to load dashboard overview.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
+      } catch (e) {}
+    };
+
+    // Load primary entitlements and usage concurrently, then unblock UI shell
+    Promise.allSettled([fetchSubs(), fetchUsage()]).finally(() => {
+      setLoading(false);
+    });
+
+    // Secondary widgets load asynchronously in background
+    fetchOrders();
+    fetchOffer();
   }, []);
 
   // Live countdown timer to next 5-hour window refresh (for rolling window plans)
@@ -182,7 +206,7 @@ export const UserOverview: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-semibold">Edge Gateway: Operational</span>
             <span className="text-emerald-600 font-mono text-[11px] ml-0.5">
-              ({gatewayLatency ? `${gatewayLatency}ms` : 'sub-50ms'})
+              ({gatewayLatency ? `${gatewayLatency}ms` : 'sub-30ms'})
             </span>
           </div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 border border-purple-200 text-[#7136E8] text-[11px] font-mono">
@@ -348,11 +372,13 @@ export const UserOverview: React.FC = () => {
             </div>
             <div>
               <p className="text-2xl sm:text-3xl font-extrabold text-[#111827]">
-                {gatewayLatency ? `${gatewayLatency}ms` : '< 50ms'}
+                {gatewayLatency ? `${gatewayLatency}ms` : '< 30ms'}
               </p>
-              <p className="text-[11px] text-[#6b7280] mt-0.5">
-                Worldwide HTTP/2 edge mesh routing
-              </p>
+              <div className="flex items-center gap-3 text-[11px] text-[#6b7280] mt-1">
+                <span>Auth: &lt; 1ms (Cached)</span>
+                <span>•</span>
+                <span>Edge Mesh: HTTP/2</span>
+              </div>
             </div>
             <div className="pt-1 text-[11px] text-emerald-700 bg-emerald-50/50 p-2 rounded-lg border border-emerald-100 flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />

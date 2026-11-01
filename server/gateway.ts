@@ -41,6 +41,8 @@ import {
 } from './infrastructure/circuitBreaker';
 import { recordProviderCallMetric } from './infrastructure/providerHealth';
 import { evaluateRequestAnomalies, recordAuthFailure } from './infrastructure/anomalyDetector';
+import { getCachedGlobalApiDisabled, getCachedApiKey, updateCachedKeyBalance, invalidateKeyCache } from './cache/authCache';
+export { invalidateKeyCache, updateCachedKeyBalance };
 
 const rateLimitMap = new Map<string, number[]>();
 export const inFlightReservations = inFlightTokenReservations;
@@ -1014,17 +1016,15 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
     return { errorStatus: 401, errorType: 'authentication_error', errorMessage: 'Missing API key. Pass via x-api-key header or Authorization Bearer header.' };
   }
 
-  // Check Emergency Controls
-  const globalKillswitch = await prisma.systemSetting.findUnique({ where: { key: 'global_api_disabled' } });
-  if (globalKillswitch && globalKillswitch.value === 'true') {
+  // Check Emergency Controls (High-performance in-memory cache with 10s TTL)
+  const isGlobalDisabled = await getCachedGlobalApiDisabled();
+  if (isGlobalDisabled) {
     return { errorStatus: 503, errorType: 'service_unavailable', errorMessage: 'LightningDeals API Gateway is currently under emergency maintenance.' };
   }
 
   const keyHash = hashApiKey(rawKey);
-  const keyRecord = await prisma.apiKey.findUnique({
-    where: { keyHash },
-    include: { user: true, provider: true },
-  });
+  // High-performance key authentication cache (30s TTL with instant invalidation)
+  const keyRecord = await getCachedApiKey(keyHash);
 
   if (!keyRecord) {
     const clientIp = (req?.ip || req?.headers?.['x-forwarded-for']?.toString() || '').split(',')[0].trim() || 'unknown';
@@ -1717,6 +1717,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
       let upstreamRes: Response | null = null;
       let lastFetchErr: any = null;
+      let totalAttemptLatency = 0;
       const MAX_RETRIES = 1; // 1 bounded retry attempt (max 2 attempts total)
 
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -1733,6 +1734,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           })) as any;
 
           const attemptLatency = Date.now() - attemptStart;
+          totalAttemptLatency = attemptLatency;
 
           // If upstream returns 5xx or 429, evaluate circuit breaker & potential retry
           if (upstreamRes && (upstreamRes.status === 429 || upstreamRes.status >= 500)) {
@@ -1891,14 +1893,16 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
       if (stream) {
         res.setHeader('x-gateway-model', model);
-      res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
-      res.setHeader('x-lightning-routed-model', effectiveModel);
-      res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
-        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
-        res.setHeader('x-model-verified', 'true');
+        res.setHeader('x-selected-model', model);
         res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
         res.setHeader('x-lightning-routed-model', effectiveModel);
         res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
+        res.setHeader('x-lightning-overhead-ms', String(Math.max(1, (Date.now() - startTime) - (totalAttemptLatency))));
+        res.setHeader('x-lightning-upstream-latency-ms', String(totalAttemptLatency));
+        res.setHeader('anthropic-ratelimit-requests-limit', String(keyRecord.rateLimitRpm || 60));
+        res.setHeader('anthropic-ratelimit-tokens-limit', '1000000');
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+        res.setHeader('x-model-verified', 'true');
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
         res.setHeader('Cache-Control', 'no-cache, no-transform');
         res.setHeader('Connection', 'keep-alive');
@@ -2162,14 +2166,16 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }
 
         res.setHeader('x-gateway-model', model);
-      res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
-      res.setHeader('x-lightning-routed-model', effectiveModel);
-      res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
-        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
-        res.setHeader('x-model-verified', 'true');
+        res.setHeader('x-selected-model', model);
         res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
         res.setHeader('x-lightning-routed-model', effectiveModel);
         res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
+        res.setHeader('x-lightning-overhead-ms', String(Math.max(1, (Date.now() - startTime) - (totalAttemptLatency))));
+        res.setHeader('x-lightning-upstream-latency-ms', String(totalAttemptLatency));
+        res.setHeader('anthropic-ratelimit-requests-limit', String(keyRecord.rateLimitRpm || 60));
+        res.setHeader('anthropic-ratelimit-tokens-limit', '1000000');
+        res.setHeader('x-model-alias-applied', isAliasApplied ? 'true' : 'false');
+        res.setHeader('x-model-verified', 'true');
         res.setHeader('anthropic-inference-geo', inferenceGeo);
         res.setHeader('anthropic-usage-source', 'anthropic');
 
@@ -2430,6 +2436,13 @@ export async function updateTokensAndLog({
           creditBalanceUsd: true,
         },
       });
+
+      if (updatedKey) {
+        updateCachedKeyBalance(keyRecord.id, {
+          tokensRemaining: updatedKey.tokensRemaining,
+          creditBalanceUsd: updatedKey.creditBalanceUsd,
+        });
+      }
 
       if (bType === 'token' || isRolling) {
         await tx.tokenLedger.create({

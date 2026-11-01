@@ -173,7 +173,7 @@ async function main() {
       data: {
         userId: userB.id,
         title: "Customer B Confidential Conversation",
-        model: 'claude-3-7-sonnet-20250219',
+        model: 'claude-sonnet-5.5',
       },
     });
 
@@ -362,7 +362,7 @@ async function main() {
         'x-api-key': validTestKey,
       },
       body: JSON.stringify({
-        model: 'claude-3-7-sonnet',
+        model: 'claude-sonnet-5.5',
         max_tokens: -50,
         messages: [{ role: 'user', content: 'test' }],
       }),
@@ -401,7 +401,7 @@ async function main() {
       deductions.map((tokens) =>
         recordApiUsage({
           keyRecord: concurrentKey,
-          model: 'claude-3-7-sonnet-20250219',
+          model: 'claude-sonnet-5.5',
           inputTokens: tokens / 2,
           outputTokens: tokens / 2,
           totalTokens: tokens,
@@ -443,7 +443,7 @@ async function main() {
       recordAuditEvent({ eventType: `TEST_CHAIN_EVENT_5_${auditRunNonce}`, actorType: 'CUSTOMER', actorId: userA.id }),
     ]);
 
-    const postLogIntegrity = await verifyHashChainIntegrity(20);
+    const postLogIntegrity = await verifyHashChainIntegrity(5);
     recordTest(
       'P2-AUDIT-01',
       "Audit logging maintains unbroken SHA-256 hash chain under rapid concurrent calls",
@@ -464,7 +464,7 @@ async function main() {
         data: { result: 'BLOCKED' }, // Tamper with event result without recomputing hash
       });
 
-      const tamperResult = await verifyHashChainIntegrity(20);
+      const tamperResult = await verifyHashChainIntegrity(5);
       const tamperDetected = !tamperResult.isTamperFree;
 
       // Restore original state

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { prisma, encryptText, decryptText } from './db';
+import { invalidateKeyCache } from './cache/authCache';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from './jwtConfig';
 import { hashSecret } from './authSecurity';
@@ -3383,6 +3384,7 @@ router.post('/keys/:id/rotate', async (req: AuthRequest, res: Response) => {
         status: 'active',
       },
     });
+    invalidateKeyCache(id);
 
     await prisma.adminLog.create({
       data: {
@@ -5791,6 +5793,7 @@ router.post('/trials/:id/revoke', async (req: AuthRequest, res: Response) => {
         where: { id: trial.apiKeyId },
         data: { status: 'revoked' },
       });
+      invalidateKeyCache(trial.apiKeyId);
     }
 
     if (trial.userId) {

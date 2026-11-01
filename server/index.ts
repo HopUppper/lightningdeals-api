@@ -84,12 +84,20 @@ const app = express();
 app.disable('x-powered-by');
 const PORT = process.env.PORT || 3001;
 
-// Global HTTP Response Compression (Gzip / Brotli for JS, CSS, HTML, JSON)
+// Global HTTP Response Compression (Gzip / Brotli for static assets, HTML, JSON)
+// Strictly bypass compression for SSE streams and /v1/ API routes to eliminate chunk buffering
 app.use(
   compression({
-    threshold: 512, // Compress anything larger than 512 bytes
+    threshold: 1024,
     filter: (req, res) => {
       if (req.headers['x-no-compression']) return false;
+      if (
+        req.path.startsWith('/v1/') ||
+        req.headers.accept?.includes('text/event-stream') ||
+        res.getHeader('Content-Type')?.toString().includes('text/event-stream')
+      ) {
+        return false;
+      }
       return compression.filter(req, res);
     },
   })

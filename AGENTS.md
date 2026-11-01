@@ -23,3 +23,14 @@
 - **Google Gemini**: `gemini-4-argon` (1M tokens, multimodal reasoning), `gemini-2.5-pro`, `gemini-2.5-flash`.
 - **OpenAI Frontier**: `gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini`, `gpt-4.5`.
 - **Open-Weights & Labs**: DeepSeek V3/R1, xAI Grok, Alibaba Qwen, Zhipu GLM.
+
+## Strict Pricing Display Rules (CRITICAL & PERMANENT)
+
+### 3. Strikethrough Prices ONLY for Claude 5-Hour Rolling Plans
+- **Strikethrough original prices (`originalPriceInr` and `annualOriginalPriceInr`) are permitted ONLY on Claude 5-Hour Rolling Plans** (`planCategory === 'claude_max_rolling'` / `planType === 'window'`).
+- **For EVERY other type of plan, NEVER show strikethrough prices. Only show our direct pricing**:
+  - API Credits deposit plans (`credit_starter`, `credit_growth`, `credit_pro`, `credit_scale`, etc.)
+  - OpenAI consumable token packs (`openai_token_10m`, `openai_token_50m`, `openai_token_100m`)
+  - Claude consumable token packs (`claude_token_10m`, `claude_token_50m`, `claude_token_100m`)
+  - Local/Open-weights consumable token packs (`local_token_10m`, `local_token_100m`, `local_token_500m`)
+- This applies universally across public pricing pages, customer dashboard plans, cart drawers, admin views, and API responses.

@@ -123,10 +123,18 @@ export const PricingSection: React.FC = () => {
         {viewMode === 'grid' && (
           <div className={`grid grid-cols-1 sm:grid-cols-2 ${displayPlans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 items-stretch`}>
             {displayPlans.map((pkg) => {
+              const isClaudeRolling =
+                (pkg.planType === 'window' || pkg.planCategory === 'claude_max_rolling' || pkg.windowHours === 5) &&
+                pkg.planType !== 'credit' &&
+                pkg.planType !== 'token' &&
+                pkg.planCategory !== 'claude_openai_credits' &&
+                pkg.planCategory !== 'openai_tokens' &&
+                pkg.planCategory !== 'claude_tokens' &&
+                pkg.planCategory !== 'local_models_tokens';
               const isYearly = billingPeriod === 'yearly';
               const hasAnnual = Boolean(pkg.annualPriceInr && pkg.annualPriceInr > 0);
               const activePrice = isYearly ? (pkg.annualPriceInr || 0) : pkg.priceInr;
-              const activeOriginalPrice = isYearly ? pkg.annualOriginalPriceInr : pkg.originalPriceInr;
+              const activeOriginalPrice = isClaudeRolling ? (isYearly ? pkg.annualOriginalPriceInr : pkg.originalPriceInr) : undefined;
               const monthlyEquivalent = isYearly && hasAnnual ? Math.round(activePrice / 12) : null;
               const yearly12xMonthly = pkg.priceInr * 12;
               const annualSavings = hasAnnual ? yearly12xMonthly - (pkg.annualPriceInr || 0) : 0;

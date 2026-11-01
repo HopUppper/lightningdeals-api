@@ -327,6 +327,15 @@ try {
           features = JSON.parse(p.featuresJson);
         } catch (e) {}
       }
+      const isClaudeRolling =
+        (p.planType === 'window' || p.planCategory === 'claude_max_rolling' || p.windowHours === 5) &&
+        p.planType !== 'credit' &&
+        p.planType !== 'token' &&
+        p.planCategory !== 'claude_openai_credits' &&
+        p.planCategory !== 'openai_tokens' &&
+        p.planCategory !== 'claude_tokens' &&
+        p.planCategory !== 'local_models_tokens';
+
       return {
         id: p.id,
         slug: p.slug || p.id,
@@ -340,7 +349,7 @@ try {
         validityDays: p.validityDays || 30,
         rateLimitRpm: p.rateLimitRpm || 100,
         priceInr: p.priceInr,
-        originalPriceInr: p.originalPriceInr || undefined,
+        originalPriceInr: isClaudeRolling ? (p.originalPriceInr || undefined) : undefined,
         currency: p.currency || 'INR',
         tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
         badge: p.badge || undefined,
@@ -360,7 +369,7 @@ try {
         creditAmountInr: p.creditAmountInr !== null && p.creditAmountInr !== undefined ? Number(p.creditAmountInr) : (p.creditMultiplier ? Number(p.priceInr) * Number(p.creditMultiplier) : undefined),
         creditBalanceDenomination: p.creditBalanceDenomination || 'INR',
         annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : undefined,
-        annualOriginalPriceInr: p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
+        annualOriginalPriceInr: isClaudeRolling && p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
         annualValidityDays: p.annualValidityDays || 365,
         providerScope: p.providerScope || 'all',
       };

@@ -285,7 +285,16 @@ export const CheckoutCartDrawer: React.FC = () => {
                   <div className="flex items-baseline justify-between pt-1 border-t border-[#f5f2eb]">
                     <span className="text-xs text-[#78716c] font-mono">Plan Price</span>
                     <div className="text-right">
-                      {item.originalPriceInr && (
+                      {((item.planType === 'window' || item.planCategory === 'claude_max_rolling' || item.windowHours === 5) &&
+                        item.planType !== 'credit' &&
+                        item.planType !== 'token' &&
+                        item.planCategory !== 'claude_openai_credits' &&
+                        item.planCategory !== 'openai_tokens' &&
+                        item.planCategory !== 'claude_tokens' &&
+                        item.planCategory !== 'local_models_tokens' &&
+                        !item.id.startsWith('credit_') &&
+                        !item.id.includes('token') &&
+                        item.originalPriceInr) && (
                         <span className="text-xs text-[#a8a29e] line-through mr-2 font-mono">
                           ₹{item.originalPriceInr.toLocaleString()}
                         </span>

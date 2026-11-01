@@ -103,7 +103,7 @@ export const CapacityPlans: React.FC = () => {
     e.stopPropagation();
     const isYearly = billingPeriod === 'yearly' && selectedBillingMode === 'window';
     const activePrice = isYearly ? (pkg.annualPriceInr || pkg.priceInr) : pkg.priceInr;
-    const activeOriginalPrice = isYearly ? pkg.annualOriginalPriceInr : pkg.originalPriceInr;
+    const activeOriginalPrice = selectedBillingMode === 'window' ? (isYearly ? pkg.annualOriginalPriceInr : pkg.originalPriceInr) : undefined;
     const activeValidity = isYearly ? (pkg.annualValidityDays || 365) : pkg.validityDays;
 
     addToCart({
@@ -650,7 +650,7 @@ export const CapacityPlans: React.FC = () => {
                       <span className="text-xs font-mono text-[#68636B]">
                         {selectedBillingMode === 'window' ? (isYearly ? '/yr' : '/mo') : ' deposit'}
                       </span>
-                      {plan.originalPriceInr && (
+                      {selectedBillingMode === 'window' && plan.originalPriceInr && (
                         <span className="text-xs text-[#68636B] line-through font-mono ml-auto">
                           ₹{plan.originalPriceInr.toLocaleString('en-IN')}
                         </span>

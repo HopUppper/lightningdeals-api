@@ -815,7 +815,7 @@ export const AdminPlans: React.FC = () => {
                     {/* Customer Pricing */}
                     <div className="pt-2 border-t border-border flex items-baseline gap-2 font-mono">
                       <span className="text-2xl font-extrabold text-fg">₹{p.priceInr.toLocaleString()}</span>
-                      {p.originalPriceInr && (
+                      {p.planType === 'window' && p.originalPriceInr && (
                         <span className="text-xs text-muted line-through">₹{p.originalPriceInr.toLocaleString()}</span>
                       )}
                       <span className="text-xs text-muted">

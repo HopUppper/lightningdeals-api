@@ -227,41 +227,52 @@ app.post('/api/models/sync', async (_req, res) => {
 import { getAllActivePlansAsync } from './payments/plans';
 
 export const serializePublicPlans = (plansList: any[]) => {
-  return plansList.map((p) => ({
-    id: p.id,
-    slug: p.slug || p.id,
-    name: p.name,
-    displayName: p.displayName || p.name,
-    tokenAllowance: p.tokenAllowance.toString(),
-    tokenAmount: p.tokenAllowance.toString(),
-    tokenDisplay: p.tokenDisplay || `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Tokens / ${p.windowHours || 5}h`,
-    windowHours: p.windowHours || 5,
-    validityDays: p.validityDays || 30,
-    rateLimitRpm: p.rateLimitRpm || 100,
-    priceInr: p.priceInr,
-    originalPriceInr: p.originalPriceInr,
-    annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : undefined,
-    annualOriginalPriceInr: p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
-    annualValidityDays: p.annualValidityDays || 365,
-    currency: p.currency || 'INR',
-    tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
-    badge: p.badge || undefined,
-    features: p.features || [],
-    featured: p.featured || false,
-    enabled: p.enabled,
-    sortOrder: p.displayOrder,
-    planType: p.planType || 'window',
-    planCategory: p.planCategory || (p.planType === 'window' ? 'claude_max_rolling' : p.planType === 'credit' ? 'claude_openai_credits' : 'claude_tokens'),
-    creditMultiplier: p.creditMultiplier,
-    creditAmountInr: p.creditAmountInr !== undefined && p.creditAmountInr !== null ? p.creditAmountInr : (p.creditMultiplier ? p.priceInr * p.creditMultiplier : undefined),
-    creditBalanceDenomination: p.creditBalanceDenomination || 'INR',
-    supplierCostInr: p.supplierCostInr,
-    supplierAllocation: p.supplierAllocation,
-    creditAmountUsd: p.creditAmountUsd,
-    bonusCreditsUsd: p.bonusCreditsUsd,
-    bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : undefined,
-    allowedModelFamilies: p.allowedModelFamilies,
-  }));
+  return plansList.map((p) => {
+    const isClaudeRolling =
+      (p.planType === 'window' || p.planCategory === 'claude_max_rolling' || p.windowHours === 5) &&
+      p.planType !== 'credit' &&
+      p.planType !== 'token' &&
+      p.planCategory !== 'claude_openai_credits' &&
+      p.planCategory !== 'openai_tokens' &&
+      p.planCategory !== 'claude_tokens' &&
+      p.planCategory !== 'local_models_tokens';
+
+    return {
+      id: p.id,
+      slug: p.slug || p.id,
+      name: p.name,
+      displayName: p.displayName || p.name,
+      tokenAllowance: p.tokenAllowance.toString(),
+      tokenAmount: p.tokenAllowance.toString(),
+      tokenDisplay: p.tokenDisplay || `${(Number(p.tokenAllowance) / 1000000).toFixed(0)}M Tokens / ${p.windowHours || 5}h`,
+      windowHours: p.windowHours || 5,
+      validityDays: p.validityDays || 30,
+      rateLimitRpm: p.rateLimitRpm || 100,
+      priceInr: p.priceInr,
+      originalPriceInr: isClaudeRolling ? p.originalPriceInr : undefined,
+      annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : undefined,
+      annualOriginalPriceInr: isClaudeRolling && p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
+      annualValidityDays: p.annualValidityDays || 365,
+      currency: p.currency || 'INR',
+      tagline: p.tagline || 'Prepaid token capacity with 5-hour rolling renewal',
+      badge: p.badge || undefined,
+      features: p.features || [],
+      featured: p.featured || false,
+      enabled: p.enabled,
+      sortOrder: p.displayOrder,
+      planType: p.planType || 'window',
+      planCategory: p.planCategory || (p.planType === 'window' ? 'claude_max_rolling' : p.planType === 'credit' ? 'claude_openai_credits' : 'claude_tokens'),
+      creditMultiplier: p.creditMultiplier,
+      creditAmountInr: p.creditAmountInr !== undefined && p.creditAmountInr !== null ? p.creditAmountInr : (p.creditMultiplier ? p.priceInr * p.creditMultiplier : undefined),
+      creditBalanceDenomination: p.creditBalanceDenomination || 'INR',
+      supplierCostInr: p.supplierCostInr,
+      supplierAllocation: p.supplierAllocation,
+      creditAmountUsd: p.creditAmountUsd,
+      bonusCreditsUsd: p.bonusCreditsUsd,
+      bonusTokens: p.bonusTokens ? p.bonusTokens.toString() : undefined,
+      allowedModelFamilies: p.allowedModelFamilies,
+    };
+  });
 };
 
 // Public Pricing Plans for Frontend (Directly synced with Admin Plans Center)

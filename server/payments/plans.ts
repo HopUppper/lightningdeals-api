@@ -109,6 +109,15 @@ export function calculatePlanPricing(
   plan: ServerPlan,
   billingPeriod: 'monthly' | 'yearly' = 'monthly'
 ): PlanPricingCalculation {
+    const isClaudeRolling =
+    (plan.planType === 'window' || plan.planCategory === 'claude_max_rolling' || plan.windowHours === 5) &&
+    plan.planType !== 'credit' &&
+    plan.planType !== 'token' &&
+    plan.planCategory !== 'claude_openai_credits' &&
+    plan.planCategory !== 'openai_tokens' &&
+    plan.planCategory !== 'claude_tokens' &&
+    plan.planCategory !== 'local_models_tokens';
+
   const isAnnual = billingPeriod === 'yearly';
   const monthlyPrice = Number(plan.priceInr || 0);
   const annualPrice = plan.annualPriceInr !== undefined && plan.annualPriceInr !== null
@@ -127,7 +136,7 @@ export function calculatePlanPricing(
     return {
       priceInr: annualPrice!,
       amountInr: annualPrice!,
-      originalPriceInr: plan.annualOriginalPriceInr || (fullYearMonthlySum > annualPrice! ? fullYearMonthlySum : undefined),
+      originalPriceInr: isClaudeRolling ? (plan.annualOriginalPriceInr || (fullYearMonthlySum > annualPrice! ? fullYearMonthlySum : undefined)) : undefined,
       validityDays: plan.annualValidityDays || 365,
       billingPeriod: 'yearly',
       monthlyEquivalentPrice: monthlyEquivalent,
@@ -141,7 +150,7 @@ export function calculatePlanPricing(
   return {
     priceInr: monthlyPrice,
     amountInr: monthlyPrice,
-    originalPriceInr: plan.originalPriceInr || undefined,
+    originalPriceInr: isClaudeRolling ? (plan.originalPriceInr || undefined) : undefined,
     validityDays: plan.validityDays || 30,
     billingPeriod: 'monthly',
     monthlyEquivalentPrice: monthlyPrice,
@@ -303,7 +312,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 120,
     priceInr: 100,
-    originalPriceInr: 200,
     currency: 'INR',
     planType: 'credit',
     planCategory: 'claude_openai_credits',
@@ -339,7 +347,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 150,
     priceInr: 499,
-    originalPriceInr: 999,
     currency: 'INR',
     planType: 'credit',
     planCategory: 'claude_openai_credits',
@@ -375,7 +382,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 200,
     priceInr: 1999,
-    originalPriceInr: 3999,
     currency: 'INR',
     planType: 'credit',
     planCategory: 'claude_openai_credits',
@@ -411,7 +417,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 300,
     priceInr: 3999,
-    originalPriceInr: 7999,
     currency: 'INR',
     planType: 'credit',
     planCategory: 'claude_openai_credits',
@@ -451,7 +456,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 120,
     priceInr: 999,
-    originalPriceInr: 1499,
     currency: 'INR',
     planType: 'token',
     planCategory: 'openai_tokens',
@@ -483,7 +487,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 150,
     priceInr: 3499,
-    originalPriceInr: 4999,
     currency: 'INR',
     planType: 'token',
     planCategory: 'openai_tokens',
@@ -515,7 +518,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 200,
     priceInr: 5999,
-    originalPriceInr: 8999,
     currency: 'INR',
     planType: 'token',
     planCategory: 'openai_tokens',
@@ -551,7 +553,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 120,
     priceInr: 1199,
-    originalPriceInr: 1799,
     currency: 'INR',
     planType: 'token',
     planCategory: 'claude_tokens',
@@ -583,7 +584,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 150,
     priceInr: 3999,
-    originalPriceInr: 5999,
     currency: 'INR',
     planType: 'token',
     planCategory: 'claude_tokens',
@@ -615,7 +615,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 200,
     priceInr: 6999,
-    originalPriceInr: 9999,
     currency: 'INR',
     planType: 'token',
     planCategory: 'claude_tokens',
@@ -651,7 +650,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 120,
     priceInr: 799,
-    originalPriceInr: 1199,
     currency: 'INR',
     planType: 'token',
     planCategory: 'local_models_tokens',
@@ -683,7 +681,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 150,
     priceInr: 3499,
-    originalPriceInr: 5499,
     currency: 'INR',
     planType: 'token',
     planCategory: 'local_models_tokens',
@@ -715,7 +712,6 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     validityDays: 365,
     rateLimitRpm: 200,
     priceInr: 14999,
-    originalPriceInr: 22999,
     currency: 'INR',
     planType: 'token',
     planCategory: 'local_models_tokens',
@@ -800,7 +796,7 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
           validityDays: p.validityDays,
           rateLimitRpm: p.rateLimitRpm || 100,
           priceInr: p.priceInr,
-          originalPriceInr: p.originalPriceInr || undefined,
+          originalPriceInr: ((p.planType === 'window' || p.planCategory === 'claude_max_rolling' || p.windowHours === 5) && p.planType !== 'credit' && p.planType !== 'token' && p.planCategory !== 'claude_openai_credits' && p.planCategory !== 'openai_tokens' && p.planCategory !== 'claude_tokens' && p.planCategory !== 'local_models_tokens') ? (p.originalPriceInr || undefined) : undefined,
           annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : undefined,
           annualOriginalPriceInr: p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
           annualValidityDays: p.annualValidityDays || 365,
@@ -885,7 +881,7 @@ export async function getPlanByIdAsync(planId: string): Promise<ServerPlan | nul
         validityDays: dbPlan.validityDays,
         rateLimitRpm: dbPlan.rateLimitRpm || 100,
         priceInr: dbPlan.priceInr,
-        originalPriceInr: dbPlan.originalPriceInr || undefined,
+        originalPriceInr: ((dbPlan.planType === 'window' || dbPlan.planCategory === 'claude_max_rolling' || dbPlan.windowHours === 5) && dbPlan.planType !== 'credit' && dbPlan.planType !== 'token' && dbPlan.planCategory !== 'claude_openai_credits' && dbPlan.planCategory !== 'openai_tokens' && dbPlan.planCategory !== 'claude_tokens' && dbPlan.planCategory !== 'local_models_tokens') ? (dbPlan.originalPriceInr || undefined) : undefined,
         annualPriceInr: dbPlan.annualPriceInr ? Number(dbPlan.annualPriceInr) : undefined,
         annualOriginalPriceInr: dbPlan.annualOriginalPriceInr ? Number(dbPlan.annualOriginalPriceInr) : undefined,
         annualValidityDays: dbPlan.annualValidityDays || 365,

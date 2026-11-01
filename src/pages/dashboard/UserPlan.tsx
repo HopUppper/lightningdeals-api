@@ -779,7 +779,7 @@ export const UserPlan: React.FC = () => {
                       <span className="text-2xl font-extrabold text-[#1e1b2e]">
                         ₹{p.priceInr.toLocaleString()}
                       </span>
-                      {p.originalPriceInr && (
+                      {selectedBillingMode === 'window' && p.originalPriceInr && (
                         <span className="text-xs text-[#64607d] line-through">
                           ₹{p.originalPriceInr.toLocaleString()}
                         </span>
@@ -821,7 +821,7 @@ export const UserPlan: React.FC = () => {
                           planId: p.id,
                           name: p.name,
                           priceInr: p.priceInr,
-                          originalPriceInr: p.originalPriceInr,
+                          originalPriceInr: selectedBillingMode === 'window' ? p.originalPriceInr : undefined,
                           tokenDisplay: p.tokenDisplay,
                           windowHours: p.windowHours || 5,
                           validityDays: p.validityDays || 30,

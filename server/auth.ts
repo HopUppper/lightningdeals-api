@@ -25,9 +25,10 @@ export function generateToken(payload: { id: string; email: string; role: string
 
 export async function authenticateJwt(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  const queryToken = typeof req.query?.token === 'string' ? req.query.token : undefined;
   const cookieToken = (req as any).cookies?.apexscale_token || (req as any).cookies?.token;
-  const token = authHeader || queryToken || cookieToken;
+  // Security Hardening (CWE-598): Bearer tokens are strictly accepted via Authorization header or secure cookie.
+  // URL query tokens are rejected to prevent leakage in proxy/CDN logs and Referer headers.
+  const token = authHeader || cookieToken;
 
   if (!token) {
     return res.status(401).json({ error: { type: 'authentication_error', message: 'Authentication required. Please sign in.' } });
@@ -36,8 +37,14 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
   let decoded: { id?: string; email?: string; role?: string; iat?: number; exp?: number };
   try {
     decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as any;
-  } catch (e) {
-    return res.status(401).json({ error: { type: 'authentication_error', message: 'Invalid or expired authentication session.' } });
+  } catch (e: any) {
+    const isExpired = e?.name === 'TokenExpiredError';
+    return res.status(401).json({
+      error: {
+        type: isExpired ? 'session_expired' : 'authentication_error',
+        message: isExpired ? 'Authentication session has expired. Please sign in again.' : 'Invalid authentication session.',
+      },
+    });
   }
 
   if (!decoded || !decoded.id || typeof decoded.id !== 'string') {
@@ -120,8 +127,9 @@ export async function authenticateJwt(req: AuthRequest, res: Response, next: Nex
     req.sessionId = session?.id;
 
     next();
-  } catch (err) {
-    return res.status(401).json({ error: { type: 'authentication_error', message: 'Invalid or expired authentication session.' } });
+  } catch (err: any) {
+    console.error('[authenticateJwt] Database error during session lookup:', err?.message || err);
+    return res.status(503).json({ error: { type: 'service_unavailable', message: 'Authentication service temporarily busy. Please retry.' } });
   }
 }
 

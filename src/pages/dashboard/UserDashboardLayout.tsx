@@ -68,14 +68,14 @@ export const UserDashboardLayout: React.FC = () => {
       title: 'DEVELOP',
       icon: Cpu,
       items: [
-        { name: 'AI Chat Studio', path: '/dashboard/studio', icon: Bot, badge: 'Studio' },
+        { name: 'AI Website Builder', path: '/dashboard/builder', icon: Sparkles, badge: 'Studio' },
+        { name: 'AI Chat Studio', path: '/dashboard/studio', icon: Bot },
         { name: 'API Keys', path: '/dashboard/keys', icon: Key },
-        { name: 'Models & Rates', path: '/dashboard/models', icon: Cpu, badge: '74 Models' },
+        { name: 'Models & Rates', path: '/dashboard/models', icon: Cpu, badge: '82 Models' },
         { name: 'API Console', path: '/dashboard/api-test', icon: Play },
         { name: 'Migration Guide', path: '/dashboard/migration', icon: Code2, badge: 'New' },
         { name: 'Model Benchmarks', path: '/dashboard/benchmarks', icon: Scale },
         { name: 'Documentation', path: '/dashboard/docs', icon: BookOpen },
-        { name: 'AI Website Builder', path: '/dashboard/builder', icon: Sparkles },
       ],
     },
     {

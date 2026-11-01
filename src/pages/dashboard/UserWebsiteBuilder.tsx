@@ -790,16 +790,16 @@ export const UserWebsiteBuilder: React.FC = () => {
   // =========================================================================
   if (!activeProject && !isBuilding) {
     return (
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden min-h-0 bg-[#fafaf9] text-slate-900 flex flex-col font-sans antialiased">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden min-h-0 bg-[#F8F6F2] text-[#191719] flex flex-col font-sans antialiased">
         {/* Minimal Header */}
-        <header className="h-16 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-16 border-b border-[#E6E1E8] bg-[#F8F6F2]/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <Link to="/dashboard" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center text-white font-black text-sm shadow-sm group-hover:bg-violet-700 transition-colors">
+              <div className="w-8 h-8 rounded-xl bg-[#7136E8] flex items-center justify-center text-white font-black text-sm shadow-sm group-hover:bg-[#5e2bc4] transition-colors">
                 ⚡
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-sm tracking-tight text-slate-900">LightningAPI <span className="text-violet-600">Studio</span></span>
+                <span className="font-bold text-sm tracking-tight text-[#191719]">LightningAPI <span className="text-[#7136E8]">Studio</span></span>
                 <span className="text-[10px] text-slate-500 font-medium">AI Website & App Builder</span>
               </div>
             </Link>
@@ -847,7 +847,7 @@ export const UserWebsiteBuilder: React.FC = () => {
               <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 font-bold flex items-center justify-center text-[11px]">
                 {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
               </span>
-              <span className="hidden sm:inline text-slate-700">{user?.email || 'sidhjain9002@gmail.com'}</span>
+              <span className="hidden sm:inline text-[#191719] font-medium">{user?.email || user?.name || 'Account'}</span>
             </div>
           </div>
         </header>

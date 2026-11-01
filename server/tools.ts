@@ -1,3 +1,4 @@
+import { canonicalizeModelId } from './models/modelSyncService';
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from './db';
@@ -27,7 +28,7 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
   }
 
   if (!rawKey) {
-    return res.status(401).json({ valid: false, error: { type: 'unauthenticated', message: 'API key parameter or Authorization header is required.' } });
+    return res.status(400).json({ valid: false, error: { type: 'invalid_request', message: 'API key parameter or Authorization header is required.' } });
   }
 
   // Handle direct ScaleMax provider keys inspection
@@ -123,7 +124,7 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
   if (!keyRecord || keyRecord.status === 'revoked') {
     // Constant-time execution pad to eliminate timing oracle attacks
     await new Promise((r) => setTimeout(r, 50));
-    return res.status(401).json({ valid: false, error: { type: 'authentication_failed', message: 'Invalid or revoked API key.' } });
+    return res.status(200).json({ valid: false, error: { type: 'invalid_key', message: 'Invalid or revoked API key.' } });
   }
 
   const requests24h = await prisma.apiRequest.count({
@@ -139,7 +140,10 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
   });
 
   // Multi-Plan Architecture Discrimination (Credit Wallet, Token Pack, Rolling Window)
-  const billingType = (keyRecord as any).billingType || (Number((keyRecord as any).creditBalanceUsd) > 0 ? 'credit' : 'window');
+  const rawBillingType = (keyRecord as any).billingType;
+  const billingType = (rawBillingType && ['credit', 'token', 'window'].includes(rawBillingType))
+    ? rawBillingType
+    : (Number((keyRecord as any).creditBalanceUsd) > 0 ? 'credit' : 'window');
   const isCredit = billingType === 'credit';
   const isToken = billingType === 'token';
   const isWindow = billingType === 'window';
@@ -280,17 +284,37 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     }
   }
 
+  // Authoritatively scope available model families by key architecture
+  let effectiveFamilies = allowedFamilies;
+  if (isCredit && allowedFamilies.includes('all')) {
+    effectiveFamilies = ['claude', 'openai'];
+  }
+
   let familyFilteredModels = allDbModels;
-  if (!allowedFamilies.includes('all')) {
+  if (!effectiveFamilies.includes('all')) {
     familyFilteredModels = allDbModels.filter((m) => {
       const fam = detectModelFamily(m.modelId);
-      return allowedFamilies.includes(fam) || (allowedFamilies.includes('local') && isLocalModelFamily(m.modelId));
+      return effectiveFamilies.includes(fam) || (effectiveFamilies.includes('local') && isLocalModelFamily(m.modelId));
     });
   }
 
+  // Strict Rule 1 & Strict Canonical ID Deduplication (Zero duplicates across providers)
+  const seenCheckIdentities = new Set<string>();
+  const deduplicatedFiltered = familyFilteredModels.filter((m) => {
+    const lower = m.modelId.toLowerCase();
+    const lowerName = (m.displayName || '').toLowerCase();
+    if (lower.startsWith('claude-3') || lower.includes('claude-3') || lowerName.includes('claude 3') || lowerName.includes('claude-3') || lower.includes('3-5-sonnet') || lower.includes('3-5-haiku') || lower.includes('3-7-sonnet') || lower.includes('3-opus')) {
+      return false;
+    }
+    const canonical = canonicalizeModelId(m.modelId);
+    if (seenCheckIdentities.has(canonical)) return false;
+    seenCheckIdentities.add(canonical);
+    return true;
+  });
+
   const accessibleModels = keyAllowedList.length > 0
-    ? familyFilteredModels.filter(m => keyAllowedList.some(k => k === m.modelId.toLowerCase() || m.modelId.toLowerCase().includes(k) || k.includes(m.modelId.toLowerCase())))
-    : familyFilteredModels;
+    ? deduplicatedFiltered.filter(m => keyAllowedList.some(k => k === m.modelId.toLowerCase() || m.modelId.toLowerCase().includes(k) || k.includes(m.modelId.toLowerCase())))
+    : deduplicatedFiltered;
 
   const defaultModel = accessibleModels.find(m => m.modelId === 'claude-opus-5.5')?.modelId
     || accessibleModels.find(m => m.modelId === 'claude-opus-5')?.modelId
@@ -316,7 +340,7 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     tokensRemaining: isCredit ? undefined : tokensRemainingStr,
     rateLimitRpm: keyRecord.rateLimitRpm,
     expiresAt: keyRecord.expiresAt,
-    totalRequests: keyRecord.totalRequests,
+    totalRequests: await prisma.apiRequest.count({ where: { apiKeyId: keyRecord.id } }),
     requests24h,
     totalInputTokens: keyRecord.totalInputTokens.toString(),
     totalOutputTokens: keyRecord.totalOutputTokens.toString(),
@@ -499,6 +523,16 @@ export async function handleGetModels(req: Request, res: Response) {
         }
       }
     }
+
+    // Authoritative Deduplication by Stable Model Identity (provider + canonical_id)
+    const seenIdentities = new Set<string>();
+    models = models.filter((m) => {
+      const canonical = canonicalizeModelId(m.modelId);
+      const identityKey = `${(m.provider || '').toLowerCase()}:::${canonical}`;
+      if (seenIdentities.has(identityKey)) return false;
+      seenIdentities.add(identityKey);
+      return true;
+    });
 
     res.json({
       object: 'list',

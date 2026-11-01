@@ -19,6 +19,7 @@ import { extractClientIp, resolveIpLocation } from './geoService';
 import { isDisposableOrBurnerEmail, getSubnetPrefix } from './antiAbuse';
 import { generateProviderApiKey, generateRotatedKeyMaterial } from './keyService';
 import { buildProviderRequest } from './providerAdapter';
+import { resolveProviderCredential } from './providers/credentialResolver';
 import { sanitizeErrorMessage, sanitizeModelResponse, getFriendlyModelName } from './gateway';
 import { ReferralEngine } from './referrals/referralEngine';
 import { isModelAuthorizedForKey } from './studioEntitlement';
@@ -992,6 +993,68 @@ router.get('/auth/me', authenticateJwt, async (req: AuthRequest, res: Response) 
   res.json({ user: req.user });
 });
 
+// POST /api/user/auth/refresh — Proactive Silent Session Refresh
+router.post('/auth/refresh', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: { type: 'session_expired', message: 'No active session to refresh.' } });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, email: true, role: true, name: true, phone: true, emailVerified: true, phoneVerified: true, status: true },
+    });
+
+    if (!user || user.status === 'suspended') {
+      return res.status(403).json({ error: { type: 'account_suspended', message: 'User account not active.' } });
+    }
+
+    const newToken = generateToken({ id: user.id, email: user.email, role: user.role });
+    const newTokenHash = hashSecret(newToken);
+
+    const ipAddress = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
+    const userAgent = (req.headers['user-agent'] || 'Unknown Device').substring(0, 150);
+
+    // Update existing session or create a new one
+    if (req.sessionId) {
+      await prisma.userSession.update({
+        where: { id: req.sessionId },
+        data: {
+          sessionTokenHash: newTokenHash,
+          lastActiveAt: new Date(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+        },
+      }).catch(() => {});
+    } else {
+      await prisma.userSession.create({
+        data: {
+          userId: user.id,
+          sessionTokenHash: newTokenHash,
+          ipAddress,
+          userAgent,
+          device: `${userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'} Browser`,
+          expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+        },
+      }).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      token: newToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: 'Failed to refresh authentication token.' } });
+  }
+});
+
 // GET /api/user/auth/sessions — View Active User Sessions
 router.get('/auth/sessions', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
@@ -1269,6 +1332,12 @@ router.post('/keys/:id/rotate', authenticateJwt, async (req: AuthRequest, res: R
       },
     });
 
+    // Invalidate old and new hashes across all in-memory gateway caches
+    invalidateKeyCache(key.id);
+    invalidateKeyCache(key.keyHash);
+    invalidateKeyCache(updated.id);
+    invalidateKeyCache(updated.keyHash);
+
     await recordSecurityLog({
       userId: req.user!.id,
       email: req.user!.email,
@@ -1283,7 +1352,14 @@ router.post('/keys/:id/rotate', authenticateJwt, async (req: AuthRequest, res: R
         id: updated.id,
         name: updated.name,
         displayKey: updated.displayKey,
+        keyPrefix: updated.keyPrefix,
         status: updated.status,
+        billingType: updated.billingType,
+        creditBalanceUsd: Number(updated.creditBalanceUsd || 0),
+        tokensRemaining: updated.tokensRemaining.toString(),
+        tokensUsed: updated.tokensUsed.toString(),
+        purchasedTokens: updated.purchasedTokens.toString(),
+        plan: updated.plan,
         secretKey: keyMaterial.rawKeySecret, // Returned ONCE upon rotation
       },
     });
@@ -1422,6 +1498,13 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
 
     let currentVendor = vendor;
     let currentMasterKey = masterKey;
+    let currentBillingType: string | undefined = undefined;
+
+    const credResolution = resolveProviderCredential(currentVendor, keyRecord, selectedModel);
+    if (credResolution.success) {
+      currentMasterKey = credResolution.credential.apiKey;
+      currentBillingType = credResolution.credential.billingType;
+    }
 
     const executeProbe = async (targetVendor: any, keyStr: string) => {
       const payload: any = {
@@ -1434,7 +1517,7 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       if (effectiveTemperature !== undefined) payload.temperature = effectiveTemperature;
       if (thinking) payload.thinking = thinking;
 
-      const prep = buildProviderRequest(targetVendor, keyStr, selectedModel, payload);
+      const prep = buildProviderRequest(targetVendor, keyStr, selectedModel, payload, currentBillingType);
 
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), 60000);
@@ -1501,9 +1584,10 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
       try { parsedErr = JSON.parse(errText); } catch {}
       const rawErrMsg = parsedErr?.error?.message || parsedErr?.message || errText || `HTTP ${upstreamRes.status}`;
       const safeErrMsg = sanitizeErrorMessage(rawErrMsg);
-      return res.status(upstreamRes.status).json({
+      const statusToSend = (upstreamRes.status === 401 || upstreamRes.status === 403) ? 422 : upstreamRes.status;
+      return res.status(statusToSend).json({
         success: false,
-        error: { message: `AI Gateway error: ${safeErrMsg}` },
+        error: { message: `AI Gateway probe error: ${safeErrMsg}` },
         latencyMs,
       });
     }
@@ -2274,9 +2358,19 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
 
     const mappedKeys = await Promise.all(
       keys.map(async (k) => {
-        const metrics = await calculateCustomerRollingWindow(k);
-        const effectiveRemaining = BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
-        const isOverAllocated = k.tokensUsed > k.purchasedTokens;
+        const isWindow = (k.billingType || 'window') === 'window';
+        let effectiveRemaining = k.tokensRemaining;
+        let activeReservations = 0n;
+        let isOverAllocated = false;
+
+        if (isWindow) {
+          const metrics = await calculateCustomerRollingWindow(k);
+          effectiveRemaining = BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+          activeReservations = metrics.activeReservations;
+          isOverAllocated = k.tokensUsed > k.purchasedTokens;
+        } else if (k.billingType === 'token') {
+          isOverAllocated = k.tokensRemaining <= 0n;
+        }
 
         return {
           id: k.id,
@@ -2292,7 +2386,7 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           tokensUsed: k.tokensUsed?.toString() ?? '0',
           tokensRemaining: effectiveRemaining.toString(),
           rawTokensRemaining: k.tokensRemaining?.toString() ?? '0',
-          activeReservations: metrics.activeReservations.toString(),
+          activeReservations: activeReservations.toString(),
           isOverAllocated,
           totalInputTokens: k.totalInputTokens?.toString() ?? '0',
           totalOutputTokens: k.totalOutputTokens?.toString() ?? '0',

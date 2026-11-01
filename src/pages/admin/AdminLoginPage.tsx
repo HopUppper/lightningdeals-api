@@ -12,6 +12,13 @@ export const AdminLoginPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
 
+  // Two-Factor Authentication (MFA / TOTP) state
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaTicket, setMfaTicket] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
+
   // Setup detection for initial bootstrap flow
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
   const [isBootstrapMode, setIsBootstrapMode] = useState(false);
@@ -81,6 +88,13 @@ export const AdminLoginPage: React.FC = () => {
         setRemainingAttempts(parseInt(remainingHeader, 10));
       }
 
+      if (data.mfaRequired && data.mfaTicket) {
+        setMfaRequired(true);
+        setMfaTicket(data.mfaTicket);
+        setSuccessMsg('Password accepted. Enter your 6-digit authenticator code to proceed.');
+        return;
+      }
+
       if (res.ok && data.success && data.token) {
         setSuccessMsg(isBootstrapMode ? 'Admin initialized! Entering Control Center...' : 'Authenticated successfully.');
         adminLogin(data.token, data.user);
@@ -93,6 +107,49 @@ export const AdminLoginPage: React.FC = () => {
       }
     } catch (err: any) {
       setError(err.message || 'Network error connecting to Admin Gateway.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+
+    if (!useRecoveryCode && (!mfaCode || mfaCode.trim().length !== 6)) {
+      setError('Please enter the 6-digit verification code from your authenticator app.');
+      return;
+    }
+    if (useRecoveryCode && !recoveryCode.trim()) {
+      setError('Please enter your backup recovery code.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/auth/mfa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mfaTicket,
+          code: useRecoveryCode ? undefined : mfaCode.trim(),
+          recoveryCode: useRecoveryCode ? recoveryCode.trim() : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.token) {
+        setSuccessMsg('2FA verified! Entering Control Center...');
+        adminLogin(data.token, data.user);
+        setTimeout(() => {
+          window.location.href = '/deez';
+        }, 150);
+      } else {
+        setError(data?.error?.message || 'Two-factor verification failed.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Network error during 2FA verification.');
     } finally {
       setSubmitting(false);
     }
@@ -143,7 +200,98 @@ export const AdminLoginPage: React.FC = () => {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {mfaRequired ? (
+          <form onSubmit={handleMfaSubmit} className="space-y-4">
+            <div className="p-3 bg-violet-50/70 border border-violet-200 rounded-xl text-violet-900 text-xs">
+              <p className="font-semibold mb-0.5">Two-Factor Authentication Active</p>
+              <p className="text-[#4b5563]">
+                {useRecoveryCode
+                  ? 'Enter one of your 8-character single-use emergency recovery codes.'
+                  : 'Enter the current 6-digit code from Google Authenticator, 1Password, or Authy.'}
+              </p>
+            </div>
+
+            {!useRecoveryCode ? (
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-[#111827]">
+                  6-Digit Verification Code
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    autoFocus
+                    autoComplete="one-time-code"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-center tracking-widest text-lg font-mono bg-white border border-[#d1d5db] rounded-xl focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600 text-[#111827] font-bold"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-[#111827]">
+                  Backup Recovery Code
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={recoveryCode}
+                    onChange={(e) => setRecoveryCode(e.target.value)}
+                    placeholder="xxxx-xxxx"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-center font-mono text-sm bg-white border border-[#d1d5db] rounded-xl focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600 text-[#111827] font-bold"
+                  />
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full min-h-[44px] bg-[#0f172a] hover:bg-slate-800 text-white font-semibold text-xs py-2.5 px-4 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Verifying 2FA...</span>
+                </>
+              ) : (
+                <span>Verify & Sign In →</span>
+              )}
+            </button>
+
+            <div className="flex items-center justify-between text-xs pt-2">
+              <button
+                type="button"
+                onClick={() => setUseRecoveryCode(!useRecoveryCode)}
+                className="text-violet-600 hover:underline cursor-pointer font-medium"
+              >
+                {useRecoveryCode ? 'Use 6-digit authenticator code' : 'Use a backup recovery code'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMfaRequired(false);
+                  setMfaTicket('');
+                  setMfaCode('');
+                  setRecoveryCode('');
+                  setError(null);
+                  setSuccessMsg(null);
+                }}
+                className="text-gray-500 hover:text-gray-700 cursor-pointer"
+              >
+                ← Back
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
           {isBootstrapMode && (
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-[#111827]">
@@ -254,6 +402,7 @@ export const AdminLoginPage: React.FC = () => {
             )}
           </button>
         </form>
+        )}
 
         <div className="pt-3 border-t border-[#e5e7eb] flex items-center justify-between text-xs text-[#6b7280]">
           <Link to="/" className="hover:text-[#111827] font-medium transition-colors">

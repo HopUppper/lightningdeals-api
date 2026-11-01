@@ -341,7 +341,7 @@ export const CheckKeyPage: React.FC = () => {
                 )}
 
                 {/* ========================================================= */}
-                {/* CASE C: 5-HOUR ROLLING WINDOW (Claude Max Exclusive)      */}
+                {/* CASE C: 5-HOUR ROLLING WINDOW (Claude & OpenAI Rolling Plans) */}
                 {/* ========================================================= */}
                 {isWindow && (
                   <div className="p-5 sm:p-6 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-4">

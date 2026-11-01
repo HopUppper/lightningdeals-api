@@ -49,7 +49,55 @@ let lastSyncModelCount = 0;
 /**
  * Normalise family, provider, and protocol from model ID
  */
-export function inferModelFamily(modelId: string): {
+export function canonicalizeModelId(rawId: string): string {
+  let id = (rawId || '').replace(/\[1m\]$/i, '').trim().toLowerCase();
+  
+  const knownAliases: Record<string, string> = {
+    'deepseek-v4-1-flash': 'deepseek-v4.1-flash',
+    'fable-5-1': 'fable-5.1',
+    'glm-5-1': 'glm-5.1',
+    'glm-5-2-v2': 'glm-5.2-v2',
+    'glm-5-3-flash': 'glm-5.3-flash',
+    'glm-5-3-v2': 'glm-5.3-v2',
+    'gpt-5-6-luna': 'gpt-5.6-luna',
+    'gpt-5-6-sol': 'gpt-5.6-sol',
+    'gpt-5-6-terra': 'gpt-5.6-terra',
+    'gpt-6-1-sol': 'gpt-6.1-sol',
+    'gpt-6-1-terra': 'gpt-6.1-terra',
+    'grok-4-6': 'grok-4.6',
+    'grok-4-7': 'grok-4.7',
+    'grok-imagine-video-1-5': 'grok-imagine-video-1.5',
+    'kimi-k2-6': 'kimi-k2.6',
+    'kimi-k2-7-code': 'kimi-k2.7-code',
+    'minimax-m2-5': 'minimax-m2.5',
+    'minimax-m2-7': 'minimax-m2.7',
+    'muse-spark-1-2': 'muse-spark-1.2',
+    'muse-spark-1-3-contributor': 'muse-spark-1.3-contributor',
+    'qwen-3-7-flash': 'qwen-3.7-flash',
+    'qwen-3-7-max': 'qwen-3.7-max',
+    'qwen-3-8-27b': 'qwen-3.8-27b',
+    'qwen3-8-flash': 'qwen-3.8-flash',
+    'qwen3.8-flash': 'qwen-3.8-flash',
+    'qwen3-8-max': 'qwen-3.8-max',
+    'qwen3.8-max': 'qwen-3.8-max',
+    'claude-haiku-5-5': 'claude-haiku-5.5',
+    'claude-opus-5-5': 'claude-opus-5.5',
+    'claude-sonnet-5-5': 'claude-sonnet-5.5',
+    'gemini-3-1-flash-image': 'gemini-3.1-flash-image',
+    'gemini-3-5-flash-lite': 'gemini-3.5-flash-lite',
+    'gemini-3-8-flash': 'gemini-3.8-flash',
+  };
+
+  if (knownAliases[id]) return knownAliases[id];
+
+  // Pattern normalization: hyphen between version numbers (e.g. -v4-1- -> -v4.1-)
+  id = id.replace(/-(v\d+)-(\d+)-/g, '-$1.$2-');
+  id = id.replace(/-(\d+)-(\d+)(-[a-z]|$)/g, '-$1.$2$3');
+
+  return id;
+}
+
+function inferModelFamily(modelId: string): {
   family: string;
   provider: string;
   protocol: 'anthropic' | 'openai-compatible' | 'images' | 'videos' | 'embeddings';
@@ -139,7 +187,7 @@ async function fetchScaleMaxOperationalModels(creditKey: string): Promise<Discov
     for (const item of data.data) {
       if (!item.id) continue;
       const upstreamId = item.id;
-      const canonicalId = upstreamId.replace(/\[1m\]$/i, '');
+      const canonicalId = canonicalizeModelId(upstreamId);
       const { family, provider, protocol } = inferModelFamily(canonicalId);
 
       const caps = item.capabilities || {};
@@ -219,7 +267,7 @@ async function fetchScaleMaxPublicCatalogs(): Promise<DiscoveredModel[]> {
       for (const match of html.matchAll(articleRegex)) {
         const cardHtml = match[0];
         const upstreamId = match[1];
-        const canonicalId = upstreamId.replace(/\[1m\]$/i, '');
+        const canonicalId = canonicalizeModelId(upstreamId);
 
         const nameMatch =
           cardHtml.match(/<h4[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/i) ||
@@ -297,7 +345,7 @@ async function fetchScaleMaxPublicCatalogs(): Promise<DiscoveredModel[]> {
       for (const match of html.matchAll(dashArticleRegex)) {
         const cardHtml = match[0];
         const upstreamId = match[1];
-        const canonicalId = upstreamId.replace(/\[1m\]$/i, '');
+        const canonicalId = canonicalizeModelId(upstreamId);
 
         const nameMatch =
           cardHtml.match(/<h3[^>]*>([^<]+)<\/h3>/i) ||
@@ -396,7 +444,6 @@ async function discoverAllUpstreamModels(creditKey: string): Promise<DiscoveredM
   // Public catalog models (covers scalemax.pro/models and dashboard.scalemax.pro/models)
   for (const m of publicModels) {
     map.set(m.canonicalId, m);
-    map.set(m.upstreamId, m);
   }
 
   // Operational API models augment with live token specs

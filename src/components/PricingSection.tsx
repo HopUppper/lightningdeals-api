@@ -130,7 +130,8 @@ export const PricingSection: React.FC = () => {
                 pkg.planCategory !== 'claude_openai_credits' &&
                 pkg.planCategory !== 'openai_tokens' &&
                 pkg.planCategory !== 'claude_tokens' &&
-                pkg.planCategory !== 'local_models_tokens';
+                pkg.planCategory !== 'local_models_tokens' &&
+                pkg.planCategory !== 'openai_max_rolling';
               const isYearly = billingPeriod === 'yearly';
               const hasAnnual = Boolean(pkg.annualPriceInr && pkg.annualPriceInr > 0);
               const activePrice = isYearly ? (pkg.annualPriceInr || 0) : pkg.priceInr;

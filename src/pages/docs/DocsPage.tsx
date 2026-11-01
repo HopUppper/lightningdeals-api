@@ -419,7 +419,7 @@ export const DocsPage: React.FC = () => {
                         <Zap className="h-4 w-4 text-emerald-600" />
                         <span className="text-xs font-bold text-[#1c1917]">OpenAI Frontier</span>
                       </div>
-                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">CREDITS &amp; TOKENS</span>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">5H ROLLING, CREDITS &amp; TOKENS</span>
                     </div>
                     <p className="text-[11px] text-[#57534e] leading-relaxed">
                       o1, o3-mini, GPT-4o, and many more... Full reasoning token support, function calling parity, and Chat Completions standard.
@@ -742,6 +742,34 @@ export const DocsPage: React.FC = () => {
     "messages": [{"role": "user", "content": "Explain key architectural differences between Raft and Paxos."}],
     "max_tokens": 500
   }'`}
+                  />
+                </div>
+
+                {/* Endpoint 2b: POST /v1/responses */}
+                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[11px] font-bold">POST</span>
+                      <code className="text-sm font-bold text-[#1c1917]">/v1/responses</code>
+                    </div>
+                    <span className="text-[11px] font-mono text-[#78716c]">OpenAI Codex CLI Standard</span>
+                  </div>
+
+                  <p className="text-xs text-[#57534e] leading-relaxed">
+                    Official Codex CLI format (<code className="font-mono bg-[#f5f5f4] px-1 rounded">wire_api = "responses"</code>) providing direct execution for <code className="font-mono">gpt-6.1-sol</code>, <code className="font-mono">gpt-6-astra</code>, and low-to-max reasoning effort levels.
+                  </p>
+
+                  <CodeSnippetBlock
+                    language="toml"
+                    code={`# ~/.codex/config.toml
+model_provider = "lightningapi"
+model = "gpt-6.1-sol"
+wire_api = "responses"
+
+[model_providers.lightningapi]
+name = "LightningAPI"
+base_url = "https://lightningapi.pro/v1"
+env_key = "LIGHTNING_API_KEY"`}
                   />
                 </div>
 

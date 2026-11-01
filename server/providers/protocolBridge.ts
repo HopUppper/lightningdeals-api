@@ -108,16 +108,45 @@ export function convertAnthropicMessagesToOpenAI(messages: any[], system?: any):
 
     // If content is an array of content blocks
     if (Array.isArray(msg.content)) {
-      let textParts: string[] = [];
+      const contentParts: any[] = [];
       const toolCalls: any[] = [];
       const toolResults: any[] = [];
+      let hasImages = false;
 
       for (const block of msg.content) {
         if (!block) continue;
         if (typeof block === 'string') {
-          textParts.push(block);
+          contentParts.push({ type: 'text', text: block });
         } else if (block.type === 'text' && typeof block.text === 'string') {
-          textParts.push(block.text);
+          contentParts.push({ type: 'text', text: block.text });
+        } else if (block.type === 'image') {
+          hasImages = true;
+          if (block.source?.type === 'base64' && block.source?.data) {
+            const mediaType = block.source.media_type || 'image/jpeg';
+            contentParts.push({
+              type: 'image_url',
+              image_url: {
+                url: `data:${mediaType};base64,${block.source.data}`,
+              },
+            });
+          } else if (block.source?.type === 'url' && block.source?.url) {
+            contentParts.push({
+              type: 'image_url',
+              image_url: {
+                url: block.source.url,
+              },
+            });
+          } else if (typeof block.url === 'string') {
+            contentParts.push({
+              type: 'image_url',
+              image_url: {
+                url: block.url,
+              },
+            });
+          }
+        } else if (block.type === 'image_url' && block.image_url) {
+          hasImages = true;
+          contentParts.push(block);
         } else if (block.type === 'tool_use') {
           toolCalls.push({
             id: block.id || `call_${Math.random().toString(36).slice(2, 9)}`,
@@ -148,17 +177,26 @@ export function convertAnthropicMessagesToOpenAI(messages: any[], system?: any):
 
       // If this was an assistant message with tool calls
       if (role === 'assistant' && toolCalls.length > 0) {
+        const textOnly = contentParts.filter(p => p.type === 'text').map(p => p.text).join('\n');
         const assistantMsg: any = {
           role: 'assistant',
-          content: textParts.join('\n') || null,
+          content: textOnly || null,
           tool_calls: toolCalls,
         };
         openAiMessages.push(assistantMsg);
-      } else if (textParts.length > 0) {
-        openAiMessages.push({
-          role,
-          content: textParts.join('\n'),
-        });
+      } else if (contentParts.length > 0) {
+        if (hasImages) {
+          openAiMessages.push({
+            role,
+            content: contentParts,
+          });
+        } else {
+          const textOnly = contentParts.map(p => p.text).join('\n');
+          openAiMessages.push({
+            role,
+            content: textOnly,
+          });
+        }
       }
 
       // If user message contained tool results, emit them as separate tool role messages

@@ -52,6 +52,7 @@ export const CapacityPlans: React.FC = () => {
       if (selectedBillingMode === 'credit') return 'claude_openai_credits';
       if (selectedBillingMode === 'token') return 'claude_tokens';
     } else if (selectedFamily === 'openai') {
+      if (selectedBillingMode === 'window') return 'openai_max_rolling';
       if (selectedBillingMode === 'credit') return 'claude_openai_credits';
       if (selectedBillingMode === 'token') return 'openai_tokens';
     } else if (selectedFamily === 'local') {
@@ -103,7 +104,7 @@ export const CapacityPlans: React.FC = () => {
     e.stopPropagation();
     const isYearly = billingPeriod === 'yearly' && selectedBillingMode === 'window';
     const activePrice = isYearly ? (pkg.annualPriceInr || pkg.priceInr) : pkg.priceInr;
-    const activeOriginalPrice = selectedBillingMode === 'window' ? (isYearly ? pkg.annualOriginalPriceInr : pkg.originalPriceInr) : undefined;
+    const activeOriginalPrice = pkg.planCategory === 'claude_max_rolling' ? (isYearly ? pkg.annualOriginalPriceInr : pkg.originalPriceInr) : undefined;
     const activeValidity = isYearly ? (pkg.annualValidityDays || 365) : pkg.validityDays;
 
     addToCart({
@@ -204,7 +205,7 @@ export const CapacityPlans: React.FC = () => {
               type="button"
               onClick={() => {
                 setSelectedFamily('openai');
-                if (selectedBillingMode === 'window') setSelectedBillingMode('credit');
+
               }}
               className={`p-5 rounded-[18px] text-left transition-all border cursor-pointer flex flex-col justify-between space-y-4 ${
                 selectedFamily === 'openai'
@@ -236,7 +237,7 @@ export const CapacityPlans: React.FC = () => {
               type="button"
               onClick={() => {
                 setSelectedFamily('local');
-                if (selectedBillingMode === 'window') setSelectedBillingMode('credit');
+
               }}
               className={`p-5 rounded-[18px] text-left transition-all border cursor-pointer flex flex-col justify-between space-y-4 ${
                 selectedFamily === 'local'
@@ -453,12 +454,12 @@ export const CapacityPlans: React.FC = () => {
         {/* ============================================================ */}
         {/* NON-CLAUDE ROLLING WINDOW GUARD NOTICE                       */}
         {/* ============================================================ */}
-        {selectedFamily !== 'claude' && selectedBillingMode === 'window' && (
+        {selectedFamily === 'local' && selectedBillingMode === 'window' && (
           <div className="p-6 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Info className="w-5 h-5 text-amber-700 shrink-0" />
               <p className="text-xs sm:text-sm font-medium">
-                The 5-Hour Rolling Window plan is exclusively engineered for Claude models. For {selectedFamily === 'openai' ? 'OpenAI' : 'Local'} models, please choose <strong>Usage Credits</strong> or <strong>Token Packs</strong>.
+                The 5-Hour Rolling Window plan is available for Claude and OpenAI models. For Local models, please choose <strong>Usage Credits</strong> or <strong>Token Packs</strong>.
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -650,7 +651,7 @@ export const CapacityPlans: React.FC = () => {
                       <span className="text-xs font-mono text-[#68636B]">
                         {selectedBillingMode === 'window' ? (isYearly ? '/yr' : '/mo') : ' deposit'}
                       </span>
-                      {selectedBillingMode === 'window' && plan.originalPriceInr && (
+                      {plan.planCategory === 'claude_max_rolling' && plan.originalPriceInr && (
                         <span className="text-xs text-[#68636B] line-through font-mono ml-auto">
                           ₹{plan.originalPriceInr.toLocaleString('en-IN')}
                         </span>

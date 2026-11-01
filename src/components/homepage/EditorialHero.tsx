@@ -125,7 +125,7 @@ print(response.choices[0].message.content)`,
             </p>
 
             {/* 4 Clear Value Highlights */}
-            <div className="grid grid-cols-2 gap-3 pt-1 max-w-lg text-xs font-medium text-[#191719]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 max-w-lg text-xs font-medium text-[#191719]">
               <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs">
                 <span className="text-base">💰</span>
                 <span>Up to 80% Cost Savings</span>
@@ -263,7 +263,7 @@ print(response.choices[0].message.content)`,
               </div>
 
               {/* Footer Trust Bar */}
-              <div className="px-4 py-2.5 bg-[#162032] border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
+              <div className="px-4 py-2.5 bg-[#162032] border-t border-slate-800/80 text-[10px] text-slate-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
                 <span className="flex items-center gap-1.5 text-emerald-400">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>100% Drop-in OpenAI & Anthropic Protocol Parity</span>

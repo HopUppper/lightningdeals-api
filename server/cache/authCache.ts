@@ -90,20 +90,21 @@ export function invalidateKeyCache(keyHashOrId?: string): void {
     return;
   }
 
-  // Check if argument is keyId
+  // 1. If keyHashOrId matches a keyId in the map
   const hashFromId = keyIdToHash.get(keyHashOrId);
   if (hashFromId) {
     keyCache.delete(hashFromId);
     keyIdToHash.delete(keyHashOrId);
-    return;
   }
 
-  // Otherwise assume it's keyHash
+  // 2. Also delete keyHashOrId directly from keyCache in case it's a keyHash
   keyCache.delete(keyHashOrId);
+
+  // 3. And if keyHashOrId was a hash, delete its reverse map entry
   for (const [id, hash] of keyIdToHash.entries()) {
-    if (hash === keyHashOrId) {
+    if (hash === keyHashOrId || id === keyHashOrId) {
       keyIdToHash.delete(id);
-      break;
+      keyCache.delete(hash);
     }
   }
 }

@@ -106,10 +106,12 @@ export const UserKeys: React.FC = () => {
     setTimeout(() => setCopiedKeyId(null), 2500);
   };
 
-  const handleCopyEnv = (keyText: string, id: string, type: 'anthropic' | 'openai' = 'anthropic') => {
+  const handleCopyEnv = (keyText: string, id: string, type: 'anthropic' | 'openai' | 'codex' = 'anthropic') => {
     const snippet = type === 'anthropic'
       ? `export ANTHROPIC_BASE_URL="https://lightningapi.pro"\nexport ANTHROPIC_AUTH_TOKEN="${keyText}"`
-      : `export OPENAI_BASE_URL="https://lightningapi.pro/v1"\nexport OPENAI_API_KEY="${keyText}"`;
+      : type === 'openai'
+        ? `export OPENAI_BASE_URL="https://lightningapi.pro/v1"\nexport OPENAI_API_KEY="${keyText}"`
+        : `model_provider = "lightningapi"\nmodel = "gpt-6.1-sol"\nwire_api = "responses"\n\n[model_providers.lightningapi]\nname = "LightningAPI"\nbase_url = "https://lightningapi.pro/v1"\nenv_key = "LIGHTNING_API_KEY"`;
     navigator.clipboard.writeText(snippet);
     setCopiedEnvId(id + '_' + type);
     setTimeout(() => setCopiedEnvId(null), 2500);
@@ -502,7 +504,7 @@ export const UserKeys: React.FC = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Option A: Anthropic Format */}
             <div className="p-4.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-2.5">
               <span className="text-xs font-bold text-violet-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -546,6 +548,30 @@ export const UserKeys: React.FC = () => {
               >
                 {copiedEnvId === activeKey.id + '_openai' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-blue-600" />}
                 <span>{copiedEnvId === activeKey.id + '_openai' ? 'Copied Template!' : 'Copy OpenAI Snippet'}</span>
+              </button>
+            </div>
+
+            {/* Option C: OpenAI Codex CLI */}
+            <div className="p-4.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-2.5">
+              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5 text-emerald-600" />
+                <span>OpenAI Codex CLI (~/.codex/config.toml)</span>
+              </span>
+              <p className="text-xs text-[#64607d] leading-relaxed">
+                Add to ~/.codex/config.toml for official Codex CLI &amp; GPT-6.1 Sol:
+              </p>
+              <div className="p-3 rounded-xl bg-white border border-[#ede8e1] font-mono text-[11px] text-[#1e1b2e] space-y-0.5 overflow-x-auto">
+                <div>model_provider = "lightningapi"</div>
+                <div>model = "gpt-6.1-sol"</div>
+                <div>wire_api = "responses"</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopyEnv(activeKey.displayKey, activeKey.id, 'codex')}
+                className="w-full py-2 px-3 rounded-xl bg-white border border-[#ede8e1] hover:border-violet-300 font-sans text-xs font-bold text-[#1e1b2e] flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-colors"
+              >
+                {copiedEnvId === activeKey.id + '_codex' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-emerald-600" />}
+                <span>{copiedEnvId === activeKey.id + '_codex' ? 'Copied Template!' : 'Copy Codex TOML'}</span>
               </button>
             </div>
           </div>

@@ -342,6 +342,11 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
           where: { slug: 'scalemax', status: { not: 'disabled' } },
         });
         if (scalemax) keyProviderId = scalemax.id;
+      } else if (plan.planCategory === 'openai_max_rolling' || (plan.providerScope && plan.providerScope.toLowerCase().includes('lotus'))) {
+        const lotus = await prisma.vendorProvider.findFirst({
+          where: { slug: 'lotusai', status: { not: 'disabled' } },
+        });
+        if (lotus) keyProviderId = lotus.id;
       }
 
       createdApiKey = await prisma.apiKey.create({
@@ -360,7 +365,7 @@ export async function fulfillOrder(internalOrderId: string): Promise<Fulfillment
             if (!fams || fams === 'all') {
               const cat = plan.planCategory;
               if (cat === 'claude_tokens' || cat === 'claude_max_rolling') fams = ['claude'];
-              else if (cat === 'openai_tokens') fams = ['openai'];
+              else if (cat === 'openai_tokens' || cat === 'openai_max_rolling') fams = ['openai'];
               else if (cat === 'local_models_tokens') fams = ['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen'];
               else if (cat === 'claude_openai_credits') fams = ['claude', 'openai'];
             }

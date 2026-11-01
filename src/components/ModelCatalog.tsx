@@ -49,12 +49,38 @@ export const ModelCatalog: React.FC = () => {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data) && json.data.length > 0) {
+            const canonicalize = (raw: string) => {
+              const lower = (raw || '').toLowerCase().trim();
+              return lower
+                .replace('deepseek-v4-1-flash', 'deepseek-v4.1-flash')
+                .replace('fable-5-1', 'fable-5.1')
+                .replace('glm-5-1', 'glm-5.1')
+                .replace('gpt-5-6-luna', 'gpt-5.6-luna')
+                .replace('gpt-5-6-sol', 'gpt-5.6-sol')
+                .replace('gpt-5-6-terra', 'gpt-5.6-terra')
+                .replace('gpt-6-1-sol', 'gpt-6.1-sol')
+                .replace('gpt-6-1-terra', 'gpt-6.1-terra')
+                .replace('grok-4-6', 'grok-4.6')
+                .replace('kimi-k2-6', 'kimi-k2.6')
+                .replace('minimax-m2-5', 'minimax-m2.5')
+                .replace('qwen-3-7-flash', 'qwen-3.7-flash')
+                .replace('claude-haiku-5-5', 'claude-haiku-5.5')
+                .replace('claude-opus-5-5', 'claude-opus-5.5')
+                .replace('claude-sonnet-5-5', 'claude-sonnet-5.5')
+                .replace(/-(v\d+)-(\d+)-/g, '-$1.$2-')
+                .replace(/-(\d+)-(\d+)(-[a-z]|$)/g, '-$1.$2$3');
+            };
+
             const dynamicList: ModelSpec[] = [...ALL_SUPPORTED_MODELS];
             const existingMap = new Map<string, number>();
-            dynamicList.forEach((m, idx) => existingMap.set(m.modelId.toLowerCase(), idx));
+            dynamicList.forEach((m, idx) => {
+              existingMap.set(canonicalize(m.modelId), idx);
+              existingMap.set(m.modelId.toLowerCase(), idx);
+            });
 
             for (const item of json.data) {
               const id = item.id.toLowerCase();
+              const canonical = canonicalize(id);
               if (
                 id.startsWith('claude-3') ||
                 id.includes('claude-3') ||
@@ -65,8 +91,8 @@ export const ModelCatalog: React.FC = () => {
               ) {
                 continue;
               }
-              if (existingMap.has(id)) {
-                const idx = existingMap.get(id)!;
+              if (existingMap.has(canonical) || existingMap.has(id)) {
+                const idx = existingMap.get(canonical) ?? existingMap.get(id)!;
                 dynamicList[idx] = {
                   ...dynamicList[idx],
                   inputPrice: item.input_price_per_1m ?? dynamicList[idx].inputPrice,
@@ -87,8 +113,8 @@ export const ModelCatalog: React.FC = () => {
                 else if (id.startsWith('qwen')) { fam = 'Qwen'; catKey = 'qwen'; }
                 else if (id.startsWith('glm')) { fam = 'GLM'; catKey = 'glm'; }
 
-                dynamicList.push({
-                  modelId: item.id,
+                const newSpec: ModelSpec = {
+                  modelId: canonical,
                   displayName: item.display_name || item.id,
                   family: fam,
                   categoryKey: catKey,
@@ -104,10 +130,23 @@ export const ModelCatalog: React.FC = () => {
                   supportedPlans: ['claude_max_rolling', 'claude_openai_credits', 'openai_tokens', 'claude_tokens', 'local_models_tokens'],
                   tags: ['ScaleMax', ...(item.supports_vision ? ['Vision'] : []), ...(item.supports_reasoning ? ['Reasoning'] : [])],
                   isNew: item.id.includes('argon') || item.id.includes('4-6'),
-                });
+                };
+                existingMap.set(canonical, dynamicList.length);
+                existingMap.set(id, dynamicList.length);
+                dynamicList.push(newSpec);
               }
             }
-            setCatalogModels(dynamicList);
+
+            // Deduplicate by stable model identity
+            const seen = new Set<string>();
+            const deduplicated = dynamicList.filter(m => {
+              const key = `${m.family.toLowerCase()}:::${canonicalize(m.modelId)}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+
+            setCatalogModels(deduplicated);
           }
         }
       } catch (e) {

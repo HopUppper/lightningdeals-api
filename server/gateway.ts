@@ -22,6 +22,7 @@ import {
 } from './window';
 import { buildProviderRequest, normalizeProviderResponse } from './providerAdapter';
 import { resolveProviderCredential, isLocalModelFamily } from './providers/credentialResolver';
+import { canonicalizeModelId } from './models/modelSyncService';
 import { convertOpenAIResponseToAnthropic, OpenAIToAnthropicStreamTransformer } from './providers/protocolBridge';
 import { sanitizeModelResponse, sanitizeErrorMessage, StreamChunkSanitizer } from './providers/responseSanitizer';
 export { sanitizeModelResponse, sanitizeErrorMessage, StreamChunkSanitizer };
@@ -279,12 +280,15 @@ export async function validateModelAvailability(requestedModel: string): Promise
   }
 
   const norm = requestedModel.toLowerCase().trim();
+  const canonical = canonicalizeModelId(norm);
   try {
     const modelRecord = await prisma.model.findFirst({
       where: {
         OR: [
           { modelId: norm },
           { upstreamModelId: norm },
+          { modelId: canonical },
+          { upstreamModelId: canonical },
           { modelId: requestedModel },
           { upstreamModelId: requestedModel },
           { displayName: { equals: requestedModel, mode: 'insensitive' } },
@@ -1299,6 +1303,20 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
   const modelCheck = await validateModelAvailability(model);
   if (!modelCheck.isValid && modelCheck.error) {
+    await logFailedRequest({
+      keyRecord,
+      model,
+      endpoint: '/v1/chat/completions',
+      statusCode: modelCheck.error.status,
+      errorMessage: modelCheck.error.message,
+      errorCode: modelCheck.error.type,
+      latencyMs: Date.now() - startTime,
+      streaming: !!stream,
+      clientPlatform: platform,
+      userAgent,
+      ipAddress: clientIp,
+      requestId,
+    });
     return res.status(modelCheck.error.status).json({
       error: {
         type: modelCheck.error.type,
@@ -2263,6 +2281,70 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 }
 
 
+export async function logFailedRequest({
+  keyRecord,
+  userId,
+  model,
+  endpoint,
+  statusCode,
+  errorMessage,
+  errorCode,
+  latencyMs,
+  streaming = false,
+  clientPlatform,
+  userAgent,
+  ipAddress,
+  requestId,
+}: {
+  keyRecord?: any;
+  userId?: string;
+  model: string;
+  endpoint: string;
+  statusCode: number;
+  errorMessage: string;
+  errorCode?: string;
+  latencyMs: number;
+  streaming?: boolean;
+  clientPlatform?: string;
+  userAgent?: string;
+  ipAddress?: string | null;
+  requestId?: string;
+}) {
+  try {
+    const keyId = keyRecord?.id || null;
+    const uid = userId || keyRecord?.userId || null;
+    await prisma.apiRequest.create({
+      data: {
+        apiKeyId: keyId,
+        userId: uid,
+        model: model || 'unknown',
+        endpoint: endpoint || '/v1/chat/completions',
+        statusCode,
+        latencyMs: Math.max(0, latencyMs),
+        streaming,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        errorMessage: (errorMessage || '').slice(0, 500),
+        errorCode: errorCode || 'REQUEST_FAILED',
+        failureReason: (errorMessage || '').slice(0, 500),
+        clientPlatform: clientPlatform || null,
+        userAgent: userAgent ? userAgent.slice(0, 255) : null,
+        ipAddress: ipAddress || null,
+        requestId: requestId || `req_fail_${crypto.randomBytes(8).toString('hex')}`,
+      },
+    });
+    if (keyId) {
+      await prisma.apiKey.update({
+        where: { id: keyId },
+        data: { totalRequests: { increment: 1 } },
+      }).catch(() => {});
+    }
+  } catch (err) {
+    // Non-blocking telemetry
+  }
+}
+
 // Atomic Token Deduction & Immutable Ledger Logging
 export async function updateTokensAndLog({
   keyRecord,
@@ -2626,6 +2708,20 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       }
       res.setHeader('x-lightning-circuit-state', 'OPEN');
     }
+    await logFailedRequest({
+      keyRecord,
+      model,
+      endpoint: '/v1/chat/completions',
+      statusCode: err.status,
+      errorMessage: err.message,
+      errorCode: err.code || err.type,
+      latencyMs: Date.now() - startTime,
+      streaming: !!stream,
+      clientPlatform: platform,
+      userAgent,
+      ipAddress: clientIp,
+      requestId,
+    });
     return res.status(err.status).json({
       error: {
         type: err.type,
@@ -3053,6 +3149,231 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     return res.status(isTimeout ? 504 : 502).json({
       error: {
         message: isTimeout ? 'Request timed out waiting for upstream response.' : `Upstream gateway connection failure: ${sanitizeErrorMessage(err.message)}`,
+        type: isTimeout ? 'gateway_timeout' : 'upstream_error',
+      },
+    });
+  }
+}
+
+
+export async function handleResponsesEndpoint(req: Request, res: Response) {
+  const startTime = Date.now();
+  const requestId = `resp_${crypto.randomBytes(12).toString('hex')}`;
+  (req as any).requestId = requestId;
+  const { platform, userAgent } = detectClientPlatform(req);
+  const clientIp = (req.ip || req.headers['x-forwarded-for']?.toString() || '').split(',')[0].trim() || null;
+
+  const { model, input, stream } = req.body || {};
+  const requestedModel = (model && typeof model === 'string') ? model : 'gpt-6.1-sol';
+
+  const validation = await validateAndExtractApiKey(req, requestedModel);
+  if ('errorStatus' in validation) {
+    return res.status(validation.errorStatus).json({
+      error: {
+        message: validation.errorMessage,
+        type: validation.errorType,
+        code: validation.errorCode,
+      },
+    });
+  }
+
+  const { keyRecord } = validation;
+
+  // Resolve LotusAI vendor provider
+  let vendor = await prisma.vendorProvider.findFirst({
+    where: { slug: 'lotusai', status: { not: 'disabled' } },
+  });
+
+  if (!vendor) {
+    vendor = await prisma.vendorProvider.findFirst({
+      where: { protocol: 'openai-compatible', status: { not: 'disabled' } },
+    });
+  }
+
+  if (!vendor) {
+    return res.status(503).json({
+      error: {
+        type: 'service_unavailable',
+        message: 'LotusAI provider is currently unconfigured or offline.',
+        code: 'PROVIDER_UNAVAILABLE',
+      },
+    });
+  }
+
+  const credResolution = resolveProviderCredential(vendor, keyRecord, requestedModel);
+  if (!credResolution.success) {
+    const err = credResolution.failure.error;
+    return res.status(err.status).json({
+      error: {
+        ...err,
+        message: sanitizeErrorMessage(err.message),
+      },
+    });
+  }
+
+  const { apiKey: decryptedMasterKey } = credResolution.credential;
+  const baseUrl = (vendor.baseUrl || 'https://api.lotusai.pro/v1').replace(/\/+$/, '');
+  const targetUrl = baseUrl.endsWith('/responses') ? baseUrl : `${baseUrl}/responses`;
+
+  const estimatedTokens = Math.max(100, Math.ceil(JSON.stringify(input || []).length / 4)) + 1024;
+  const customerReservation = await reserveCustomerQuota({
+    apiKeyId: keyRecord.id,
+    requestId,
+    estimatedTokens,
+  });
+
+  if (!customerReservation.success) {
+    return res.status(429).json({
+      error: {
+        type: 'rate_limit_error',
+        message: customerReservation.message || 'Token quota exceeded.',
+        code: customerReservation.code,
+      },
+    });
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180000);
+
+  let clientDisconnected = false;
+  req.on('close', () => {
+    if (!res.writableEnded) {
+      clientDisconnected = true;
+      controller.abort();
+      releaseReservation(requestId).catch(() => {});
+    }
+  });
+
+  try {
+    const upstreamRes = await pooledFetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'authorization': `Bearer ${decryptedMasterKey}`,
+      },
+      body: JSON.stringify(req.body),
+      signal: controller.signal,
+      timeoutMs: 180000,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!upstreamRes.ok) {
+      await releaseReservation(requestId);
+      const errText = await upstreamRes.text();
+      let parsedErr: any = {};
+      try { parsedErr = JSON.parse(errText); } catch {}
+      return res.status(upstreamRes.status).json(parsedErr?.error ? parsedErr : {
+        error: { message: sanitizeErrorMessage(errText), type: 'upstream_error' },
+      });
+    }
+
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.setHeader('X-No-Buffer', '1');
+      res.setHeader('x-lightning-trace-id', requestId);
+      res.setHeader('x-lightning-routed-provider', 'lotusai');
+      res.setHeader('x-lightning-routed-model', requestedModel);
+      res.socket?.setNoDelay(true);
+      res.flushHeaders();
+
+      const reader = upstreamRes.body?.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let totalTokens = 0;
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          res.write(chunk);
+          sseBuffer += chunk;
+
+          if (chunk.includes('"usage"')) {
+            try {
+              const lines = sseBuffer.split('\n');
+              for (const l of lines) {
+                const tr = l.trim();
+                if (tr.startsWith('data:') && !tr.includes('[DONE]')) {
+                  const j = JSON.parse(tr.slice(5).trim());
+                  if (j.usage) {
+                    inputTokens = Number(j.usage.prompt_tokens || j.usage.input_tokens || inputTokens);
+                    outputTokens = Number(j.usage.completion_tokens || j.usage.output_tokens || outputTokens);
+                    totalTokens = Number(j.usage.total_tokens || inputTokens + outputTokens);
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+
+      res.end();
+
+      if (totalTokens === 0) {
+        inputTokens = Math.max(10, Math.ceil(JSON.stringify(input || []).length / 4));
+        outputTokens = Math.max(20, Math.ceil(sseBuffer.length / 4));
+        totalTokens = inputTokens + outputTokens;
+      }
+
+      await settleReservation(requestId, totalTokens);
+      await updateTokensAndLog({
+        keyRecord,
+        model: requestedModel,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        latencyMs: Date.now() - startTime,
+        streaming: true,
+        vendorId: vendor.id,
+        isEstimated: false,
+        usageSource: 'PROVIDER_REPORTED',
+        clientPlatform: platform,
+        userAgent,
+        ipAddress: clientIp,
+        requestId,
+      });
+      return;
+    } else {
+      const data = await upstreamRes.json();
+      const usage = data?.usage || {};
+      const inputTokens = Number(usage.prompt_tokens || usage.input_tokens || Math.ceil(JSON.stringify(input || []).length / 4));
+      const outputTokens = Number(usage.completion_tokens || usage.output_tokens || Math.ceil(JSON.stringify(data).length / 4));
+      const totalTokens = Number(usage.total_tokens || inputTokens + outputTokens);
+
+      await settleReservation(requestId, totalTokens);
+      await updateTokensAndLog({
+        keyRecord,
+        model: requestedModel,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        latencyMs: Date.now() - startTime,
+        streaming: false,
+        vendorId: vendor.id,
+        isEstimated: false,
+        usageSource: 'PROVIDER_REPORTED',
+        clientPlatform: platform,
+        userAgent,
+        ipAddress: clientIp,
+        requestId,
+      });
+
+      return res.json(data);
+    }
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    await releaseReservation(requestId);
+    const isTimeout = err?.name === 'AbortError' || clientDisconnected;
+    return res.status(isTimeout ? 504 : 502).json({
+      error: {
+        message: isTimeout ? 'Request timed out waiting for LotusAI upstream response.' : `Upstream connection failure: ${sanitizeErrorMessage(err.message)}`,
         type: isTimeout ? 'gateway_timeout' : 'upstream_error',
       },
     });

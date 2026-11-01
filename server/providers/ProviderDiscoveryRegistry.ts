@@ -3,6 +3,7 @@ import { decryptText } from '../db';
 import { AnthropicAdapter } from './AnthropicAdapter';
 import { OpenAICompatibleAdapter } from './OpenAICompatibleAdapter';
 import { CustomHttpAdapter } from './CustomHttpAdapter';
+import { LotusAiAdapter } from './LotusAiAdapter';
 import {
   ProviderAdapter,
   DiscoveredCapacity,
@@ -14,6 +15,7 @@ export class ProviderDiscoveryRegistry {
     ['anthropic', new AnthropicAdapter()],
     ['openai-compatible', new OpenAICompatibleAdapter()],
     ['openai', new OpenAICompatibleAdapter()],
+    ['lotusai', new LotusAiAdapter()],
     ['custom_http', new CustomHttpAdapter()],
   ]);
 

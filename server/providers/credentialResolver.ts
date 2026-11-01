@@ -277,7 +277,10 @@ export function resolveProviderCredential(
   }
 
   if (!decryptedMasterKey || decryptedMasterKey.includes(':') || (!decryptedMasterKey.startsWith('sm_') && !decryptedMasterKey.startsWith('sk-'))) {
-    const envKey =
+    const isLotus = (vendor.slug || '').toLowerCase() === 'lotusai' || (vendor.name || '').toLowerCase().includes('lotus');
+    const envKey = isLotus
+      ? (process.env.LOTUSAI_MASTER_API_KEY || process.env.LOTUSAI_API_KEY || '')
+      :
       process.env.OPUS_MAX_MASTER_API_KEY ||
       process.env.OPUSMAX_MASTER_API_KEY ||
       process.env.ANTHROPIC_MASTER_API_KEY ||

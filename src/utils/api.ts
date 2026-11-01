@@ -32,7 +32,7 @@ export async function adminFetch(url: string, options: RequestInit = {}, timeout
   try {
     const response = await fetch(url, mergedOptions);
     clearTimeout(timer);
-    if (response.status === 401 || response.status === 403) {
+    if ((response.status === 401 || response.status === 403) && url.includes('/api/admin/auth/me')) {
       sessionStorage.removeItem('ld_admin_token');
       localStorage.removeItem('ld_admin_token');
     }
@@ -44,6 +44,47 @@ export async function adminFetch(url: string, options: RequestInit = {}, timeout
     }
     throw new Error(err.message || 'Network error connecting to LightningDeals server.');
   }
+}
+
+// Concurrency-Safe Silent Token Refresh Mutex
+let activeRefreshPromise: Promise<string | null> | null = null;
+
+export async function attemptTokenRefresh(): Promise<string | null> {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
+    try {
+      const currentToken = sessionStorage.getItem('apexscale_token') || localStorage.getItem('apexscale_token');
+      if (!currentToken) return null;
+
+      const refreshRes = await fetch('/api/user/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentToken}`,
+        },
+        credentials: 'include',
+      });
+
+      if (refreshRes.ok) {
+        const data = await refreshRes.json();
+        if (data.token) {
+          sessionStorage.setItem('apexscale_token', data.token);
+          localStorage.setItem('apexscale_token', data.token);
+          return data.token as string;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
 }
 
 export async function userFetch(url: string, options: RequestInit = {}, timeoutMs: number = 60000): Promise<Response> {
@@ -67,13 +108,38 @@ export async function userFetch(url: string, options: RequestInit = {}, timeoutM
   try {
     const response = await fetch(url, mergedOptions);
     clearTimeout(timer);
+
+    // If a request returns 401 Unauthorized, handle securely without sudden forced logouts
     if (response.status === 401) {
-      sessionStorage.removeItem('apexscale_token');
-      localStorage.removeItem('apexscale_token');
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:session-expired'));
+      // 1. Attempt proactive silent session refresh
+      const refreshedToken = await attemptTokenRefresh();
+      if (refreshedToken) {
+        const retryHeaders: Record<string, string> = {
+          ...(mergedOptions.headers as Record<string, string>),
+          Authorization: `Bearer ${refreshedToken}`,
+        };
+        const retryRes = await fetch(url, { ...mergedOptions, headers: retryHeaders });
+        if (retryRes.status !== 401) {
+          return retryRes;
+        }
+      }
+
+      // 2. Only if this is an authoritative session endpoint (/auth/me) and refresh failed, expire session
+      const isSessionEndpoint = url.includes('/auth/me') || url.includes('/auth/sessions');
+      if (isSessionEndpoint) {
+        sessionStorage.removeItem('apexscale_token');
+        localStorage.removeItem('apexscale_token');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired', {
+            detail: {
+              redirect: window.location.pathname + window.location.search,
+              timestamp: Date.now(),
+            },
+          }));
+        }
       }
     }
+
     return response;
   } catch (err: any) {
     clearTimeout(timer);

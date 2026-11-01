@@ -221,8 +221,10 @@ router.get('/providers', async (req: AuthRequest, res: Response) => {
           masterApiKeyEncrypted: undefined,
           creditApiKeyEncrypted: undefined,
           tokenApiKeyEncrypted: undefined,
+          localTokenApiKeyEncrypted: undefined,
           hasCreditKey: Boolean((p.creditApiKeyEncrypted && p.creditApiKeyEncrypted.length > 0) || (p.masterApiKeyEncrypted && p.masterApiKeyEncrypted.length > 0)),
           hasTokenKey: Boolean(p.tokenApiKeyEncrypted && p.tokenApiKeyEncrypted.length > 0),
+          hasLocalTokenKey: Boolean((p as any).localTokenApiKeyEncrypted && (p as any).localTokenApiKeyEncrypted.length > 0),
           displayMasterKey: displayKey,
           baseUrlHostname,
           activeKeyCount,
@@ -453,7 +455,27 @@ router.put('/providers/:id', async (req: AuthRequest, res: Response) => {
       },
     });
 
-    res.json({ success: true, provider });
+    const {
+      masterApiKeyEncrypted: _m,
+      creditApiKeyEncrypted: _c,
+      tokenApiKeyEncrypted: _t,
+      localTokenApiKeyEncrypted: _l,
+      ...safeProvider
+    } = provider as any;
+    res.json({
+      success: true,
+      provider: {
+        ...safeProvider,
+        masterApiKeyEncrypted: undefined,
+        creditApiKeyEncrypted: undefined,
+        tokenApiKeyEncrypted: undefined,
+        localTokenApiKeyEncrypted: undefined,
+        hasMasterKey: Boolean(provider.masterApiKeyEncrypted),
+        hasCreditKey: Boolean(provider.creditApiKeyEncrypted),
+        hasTokenKey: Boolean(provider.tokenApiKeyEncrypted),
+        hasLocalTokenKey: Boolean((provider as any).localTokenApiKeyEncrypted),
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }
@@ -524,7 +546,7 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
         role: 'ScaleMax Claude & OpenAI Frontier Wholesale Token Key',
         shortRole: 'Claude + OpenAI (Tokens)',
         description: 'Dedicated supplier consumable token key provisioned for Claude and OpenAI frontier models. Backs both Claude Token Plans and OpenAI Token Plans separately via gateway model isolation.',
-        key: activeTokenKey,
+        secretKey: activeTokenKey,
         targetModels: 'Claude & OpenAI Frontier Families',
         endpoint: 'https://api.scalemax.pro/v1',
         isPrimaryActive: true,
@@ -537,7 +559,7 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
         role: 'ScaleMax Local & Open-Weights Wholesale Token Key',
         shortRole: 'Local Models (Tokens)',
         description: 'Dedicated supplier consumable token key provisioned for open-weights models (DeepSeek, Grok, Qwen, GLM).',
-        key: activeLocalKey,
+        secretKey: activeLocalKey,
         targetModels: 'Open-Weights & Labs (DeepSeek, Grok, Qwen, GLM)',
         endpoint: 'https://api.scalemax.pro/v1',
         isPrimaryActive: true,
@@ -550,7 +572,7 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
         role: 'Initial Wholesale Master Key (Rotated / Superseded)',
         shortRole: 'Wholesale Master (Rotated)',
         description: 'Initial wholesale master key; superseded by vendor with the 2 dedicated replacement token keys above (sm_live_9438 & sm_live_8bea)',
-        key: activeCreditKey,
+        secretKey: activeCreditKey,
         targetModels: 'Universal (Legacy Test Quota)',
         endpoint: 'https://api.scalemax.pro/v1',
         isPrimaryActive: false,
@@ -562,7 +584,7 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
 
     const results = await Promise.all(
       keysToInspect.map(async (item) => {
-        if (!item.key) {
+        if (!item.secretKey) {
           return {
             keyIndex: item.keyIndex,
             role: item.role,
@@ -579,7 +601,7 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
           };
         }
 
-        const keyPrefix = item.key.slice(0, 12) + '••••••••';
+        const keyPrefix = item.secretKey.slice(0, 12) + '••••••••';
         const start = Date.now();
         try {
           const controller = new AbortController();
@@ -589,7 +611,7 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
             fetch('https://api.scalemax.pro/v1/usage', {
               method: 'GET',
               headers: {
-                Authorization: 'Bearer ' + item.key,
+                Authorization: 'Bearer ' + item.secretKey,
                 'User-Agent': 'LightningAPI-Admin/1.0',
               },
               signal: controller.signal,
@@ -597,7 +619,7 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
             fetch('https://api.scalemax.pro/v1/models', {
               method: 'GET',
               headers: {
-                Authorization: 'Bearer ' + item.key,
+                Authorization: 'Bearer ' + item.secretKey,
                 'User-Agent': 'LightningAPI-Admin/1.0',
               },
               signal: controller.signal,
@@ -652,7 +674,14 @@ router.get('/providers/scalemax/live-status', async (req: AuthRequest, res: Resp
               endpoint: item.endpoint,
               modelsCount: modelsList.length,
               models: modelsList,
-              rawSummary: data,
+              rawSummary: (() => {
+                if (!data || typeof data !== 'object') return data;
+                const sanitized = JSON.parse(JSON.stringify(data));
+                if (sanitized.key && typeof sanitized.key === 'object' && sanitized.key.key) {
+                  sanitized.key.key = sanitized.key.key.slice(0, 10) + '••••••••';
+                }
+                return sanitized;
+              })(),
             };
           } else {
             const uStatus = usageResp?.status || 500;
@@ -3395,7 +3424,10 @@ router.post('/keys/:id/rotate', async (req: AuthRequest, res: Response) => {
         status: 'active',
       },
     });
-    invalidateKeyCache(id);
+    invalidateKeyCache(key.id);
+    invalidateKeyCache(key.keyHash);
+    invalidateKeyCache(updated.id);
+    invalidateKeyCache(updated.keyHash);
 
     await prisma.adminLog.create({
       data: {

@@ -20,8 +20,8 @@ import {
   Layers,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 
 export const WebsiteBuilderLanding: React.FC = () => {
   const navigate = useNavigate();
@@ -113,12 +113,12 @@ export const WebsiteBuilderLanding: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-[#18181b] flex flex-col font-sans">
-      <Navbar />
+    <div className="min-h-screen bg-[#F8F6F2] text-[#191719] flex flex-col font-sans selection:bg-[#7136E8]/10 selection:text-[#7136E8] antialiased">
+      <SiteHeader />
 
       <main className="flex-1">
         {/* HERO SECTION */}
-        <section className="pt-24 pb-16 sm:pt-32 sm:pb-24 border-b border-[#e9e7e2] bg-radial from-violet-50/50 via-[#faf9f6] to-[#faf9f6]">
+        <section className="pt-28 pb-16 sm:pt-36 sm:pb-24 border-b border-[#E6E1E8] bg-gradient-to-b from-[#F0EBF8]/50 via-[#F8F6F2] to-[#F8F6F2]">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               {/* Left Column: Heading */}
@@ -127,15 +127,15 @@ export const WebsiteBuilderLanding: React.FC = () => {
                   <Sparkles className="w-3.5 h-3.5 text-violet-600" />
                   <span>LightningAPI Studio &middot; AI website & app builder</span>
                 </div>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.12]">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#191719] leading-[1.12]">
                   Describe it. <br className="hidden sm:inline" />
                   Watch it go live <br className="hidden sm:inline" />
                   in <span className="text-violet-600">minutes</span>.
                 </h1>
-                <p className="text-base sm:text-lg text-slate-600 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                <p className="text-base sm:text-lg text-[#68636B] max-w-xl mx-auto lg:mx-0 leading-relaxed">
                   Tell Studio the website or app you want. It writes the pages and code with top AI models, shows you a live interactive preview as it builds, and hands you the complete source.
                 </p>
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-y-2 gap-x-4 text-xs font-medium text-slate-500">
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-y-2 gap-x-4 text-xs font-medium text-[#68636B]">
                   <span>✓ Free instant trial</span>
                   <span>&bull;</span>
                   <span>✓ Live interactive sandbox</span>
@@ -146,8 +146,8 @@ export const WebsiteBuilderLanding: React.FC = () => {
 
               {/* Right Column: Interactive Prompt Box */}
               <div className="lg:col-span-6">
-                <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xl shadow-slate-200/50">
-                  <label className="block text-sm font-bold text-slate-900 mb-2">
+                <div className="bg-white rounded-2xl border border-[#E6E1E8] p-6 shadow-xl shadow-slate-900/5">
+                  <label className="block text-sm font-bold text-[#191719] mb-2">
                     Describe the website or app you want
                   </label>
                   <textarea
@@ -155,7 +155,7 @@ export const WebsiteBuilderLanding: React.FC = () => {
                     value={promptText}
                     onChange={(e) => setPromptText(e.target.value)}
                     placeholder="e.g. A website for my bakery with a menu, opening hours and an order-on-WhatsApp button..."
-                    className="w-full bg-[#fbfaf8] border border-slate-200 focus:border-violet-500 rounded-xl p-3.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none transition-colors resize-none"
+                    className="w-full bg-[#F8F6F2] border border-[#E6E1E8] focus:border-[#7136E8] rounded-xl p-3.5 text-sm text-[#191719] placeholder-[#68636B]/60 focus:outline-none transition-colors resize-none"
                   />
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-xs text-slate-400">
@@ -164,7 +164,7 @@ export const WebsiteBuilderLanding: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleStartBuild()}
-                      className="px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm flex items-center gap-2 shadow-md shadow-violet-500/20 transition-all cursor-pointer"
+                      className="px-6 py-2.5 rounded-xl bg-[#7136E8] hover:bg-[#5e2bc4] text-white font-bold text-sm flex items-center gap-2 shadow-md shadow-[#7136E8]/20 transition-all cursor-pointer"
                     >
                       <span>Build it</span>
                       <ArrowRight className="w-4 h-4" />
@@ -194,16 +194,16 @@ export const WebsiteBuilderLanding: React.FC = () => {
         </section>
 
         {/* SHOWCASE SECTION */}
-        <section className="py-20 border-b border-[#e9e7e2] bg-[#ffffff]">
+        <section className="py-20 border-b border-[#E6E1E8] bg-white">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="text-center max-w-2xl mx-auto mb-14">
               <span className="text-xs font-bold uppercase tracking-wider text-violet-700 font-mono">
                 Built with Studio
               </span>
-              <h2 className="text-3xl font-extrabold text-slate-900 mt-2">
+              <h2 className="text-3xl font-extrabold text-[#191719] mt-2">
                 Websites Studio built from one brief
               </h2>
-              <p className="text-slate-600 text-sm mt-2">
+              <p className="text-[#68636B] text-sm mt-2">
                 Real Studio builds, unedited. The time and code are what each build actually took.
               </p>
             </div>
@@ -243,7 +243,7 @@ export const WebsiteBuilderLanding: React.FC = () => {
         </section>
 
         {/* CATEGORY GALLERY */}
-        <section className="py-20 bg-[#faf9f6]">
+        <section className="py-20 bg-[#F8F6F2]">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="text-center max-w-2xl mx-auto mb-14">
               <span className="text-xs font-bold uppercase tracking-wider text-violet-700 font-mono">
@@ -286,7 +286,7 @@ export const WebsiteBuilderLanding: React.FC = () => {
         </section>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   );
 };

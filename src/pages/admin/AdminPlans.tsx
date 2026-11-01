@@ -253,7 +253,7 @@ export const AdminPlans: React.FC = () => {
     let defaultCreditAmount = 0;
     let defaultSupplierCost = 0;
 
-    if (newCat === 'claude_max_rolling') {
+    if (newCat === 'claude_max_rolling' || newCat === 'openai_max_rolling') {
       pType = 'window';
     } else if (newCat === 'claude_openai_credits') {
       pType = 'credit';
@@ -523,6 +523,8 @@ export const AdminPlans: React.FC = () => {
     switch (cat) {
       case 'claude_max_rolling':
         return { label: 'Claude Max (5h Rolling)', bg: 'bg-purple-100 text-purple-800 border-purple-200' };
+      case 'openai_max_rolling':
+        return { label: 'OpenAI Max (5h Rolling)', bg: 'bg-cyan-100 text-cyan-800 border-cyan-200' };
       case 'claude_openai_credits':
         return { label: 'Claude + OpenAI Credits', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
       case 'openai_tokens':
@@ -760,6 +762,16 @@ export const AdminPlans: React.FC = () => {
               }`}
             >
               Plan 5: Local Models (Tokens) ({plans.filter((p) => p.planCategory === 'local_models_tokens').length})
+            </button>
+            <button
+              onClick={() => setCategoryFilter('openai_max_rolling')}
+              className={`px-3 py-1.5 rounded-control text-xs font-mono font-bold transition-all ${
+                categoryFilter === 'openai_max_rolling'
+                  ? 'bg-cyan-100 text-cyan-900 shadow-xs border border-cyan-300'
+                  : 'text-muted hover:text-fg'
+              }`}
+            >
+              Plan 6: OpenAI Max (5h Rolling) ({plans.filter((p) => p.planCategory === 'openai_max_rolling').length})
             </button>
           </div>
 

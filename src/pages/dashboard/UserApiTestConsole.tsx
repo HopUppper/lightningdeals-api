@@ -84,30 +84,48 @@ export const UserApiTestConsole: React.FC = () => {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data) && json.data.length > 0) {
-            const mapped = json.data.map((m: any) => {
-              const id = m.id.toLowerCase();
-              let group = 'Frontier Models';
-              if (id.startsWith('claude') || id.includes('fable') || id.includes('haiku') || id.includes('sonnet') || id.includes('opus')) {
-                group = 'Anthropic Claude';
-              } else if (id.startsWith('gemini')) {
-                group = 'Google Gemini';
-              } else if (id.startsWith('gpt') || id.startsWith('o1') || id.startsWith('o3')) {
-                group = 'OpenAI';
-              } else if (id.startsWith('deepseek')) {
-                group = 'DeepSeek';
-              } else if (id.startsWith('grok')) {
-                group = 'xAI Grok';
-              } else if (id.startsWith('qwen')) {
-                group = 'Alibaba Qwen';
-              } else if (id.startsWith('glm')) {
-                group = 'Zhipu GLM';
-              }
-              return {
-                id: m.id,
-                name: m.display_name || m.id,
-                group,
-              };
-            });
+            const seenIds = new Set<string>();
+            const mapped = json.data
+              .filter((m: any) => {
+                const id = (m.id || '').toLowerCase().trim();
+                if (
+                  id.startsWith('claude-3') ||
+                  id.includes('claude-3') ||
+                  id.includes('3-5-sonnet') ||
+                  id.includes('3-5-haiku') ||
+                  id.includes('3-7-sonnet') ||
+                  id.includes('3-opus')
+                ) {
+                  return false;
+                }
+                if (seenIds.has(id)) return false;
+                seenIds.add(id);
+                return true;
+              })
+              .map((m: any) => {
+                const id = m.id.toLowerCase();
+                let group = 'Frontier Models';
+                if (id.startsWith('claude') || id.includes('fable') || id.includes('haiku') || id.includes('sonnet') || id.includes('opus')) {
+                  group = 'Anthropic Claude';
+                } else if (id.startsWith('gemini')) {
+                  group = 'Google Gemini';
+                } else if (id.startsWith('gpt') || id.startsWith('o1') || id.startsWith('o3')) {
+                  group = 'OpenAI';
+                } else if (id.startsWith('deepseek')) {
+                  group = 'DeepSeek';
+                } else if (id.startsWith('grok')) {
+                  group = 'xAI Grok';
+                } else if (id.startsWith('qwen')) {
+                  group = 'Alibaba Qwen';
+                } else if (id.startsWith('glm')) {
+                  group = 'Zhipu GLM';
+                }
+                return {
+                  id: m.id,
+                  name: m.display_name || m.id,
+                  group,
+                };
+              });
             setAvailableModels(mapped);
           }
         }

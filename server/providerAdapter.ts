@@ -600,6 +600,50 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
   }
 }
 
+export class LotusAiProviderAdapter extends BaseProviderAdapter {
+  constructor(record: VendorProviderRecord) {
+    super({
+      ...record,
+      name: record.name || 'LotusAI',
+      slug: record.slug || 'lotusai',
+      baseUrl: record.baseUrl || 'https://api.lotusai.pro/v1',
+      protocol: 'openai-compatible',
+    });
+  }
+
+  override buildRequest(
+    decryptedMasterKey: string,
+    internalModel: string,
+    payload: any,
+    billingType?: string
+  ): PreparedProviderRequest {
+    const targetModel = this.resolveModel(internalModel);
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'authorization': `Bearer ${decryptedMasterKey}`,
+      ...this.customHeaders,
+    };
+
+    const cleanBase = (this.baseUrl || 'https://api.lotusai.pro/v1').replace(/\/+$/, '');
+    const targetUrl = cleanBase.endsWith('/chat/completions')
+      ? cleanBase
+      : cleanBase.endsWith('/v1')
+        ? `${cleanBase}/chat/completions`
+        : `${cleanBase}/v1/chat/completions`;
+
+    return {
+      url: targetUrl,
+      headers,
+      targetModel,
+      timeoutMs: this.timeoutMs,
+      body: {
+        ...payload,
+        model: targetModel,
+      },
+    };
+  }
+}
+
 export class OpusMaxProviderAdapter extends BaseProviderAdapter {
   constructor(record: VendorProviderRecord) {
     super({
@@ -657,6 +701,9 @@ export class ProviderRegistry {
    */
     static createAdapterInstance(record: VendorProviderRecord): ProviderAdapter {
     const slug = (record.slug || record.name).toLowerCase();
+    if (slug.includes('lotus')) {
+      return new LotusAiProviderAdapter(record);
+    }
     if (slug.includes('scale') || record.name.toLowerCase().includes('scale') || record.protocol === 'openai-compatible' || record.providerType === 'openai-compatible') {
       return new ScaleMaxProviderAdapter(record);
     }

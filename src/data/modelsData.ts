@@ -45,6 +45,7 @@ export interface ModelSpec {
   protocol: 'anthropic' | 'openai-compatible' | 'embeddings' | 'images' | 'videos';
   supportedPlans: (
     | 'claude_max_rolling'
+    | 'openai_max_rolling'
     | 'claude_openai_credits'
     | 'openai_tokens'
     | 'claude_tokens'
@@ -417,6 +418,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     "supportsReasoning": true,
     "protocol": "openai-compatible",
     "supportedPlans": [
+      "openai_max_rolling",
       "openai_tokens",
       "claude_openai_credits"
     ],
@@ -446,6 +448,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     "supportsReasoning": true,
     "protocol": "openai-compatible",
     "supportedPlans": [
+      "openai_max_rolling",
       "openai_tokens",
       "claude_openai_credits"
     ],
@@ -473,6 +476,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     "supportsReasoning": true,
     "protocol": "openai-compatible",
     "supportedPlans": [
+      "openai_max_rolling",
       "openai_tokens",
       "claude_openai_credits"
     ],
@@ -500,6 +504,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     "supportsReasoning": true,
     "protocol": "openai-compatible",
     "supportedPlans": [
+      "openai_max_rolling",
       "openai_tokens",
       "claude_openai_credits"
     ],
@@ -528,6 +533,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     "supportsReasoning": true,
     "protocol": "openai-compatible",
     "supportedPlans": [
+      "openai_max_rolling",
       "openai_tokens",
       "claude_openai_credits"
     ],
@@ -555,6 +561,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     "supportsReasoning": true,
     "protocol": "openai-compatible",
     "supportedPlans": [
+      "openai_max_rolling",
       "openai_tokens",
       "claude_openai_credits"
     ],
@@ -582,6 +589,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     "supportsReasoning": true,
     "protocol": "openai-compatible",
     "supportedPlans": [
+      "openai_max_rolling",
       "openai_tokens",
       "claude_openai_credits"
     ],
@@ -608,6 +616,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
     "supportsReasoning": true,
     "protocol": "openai-compatible",
     "supportedPlans": [
+      "openai_max_rolling",
       "openai_tokens",
       "claude_openai_credits"
     ],
@@ -616,6 +625,35 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
       "Fast response",
       "Vision",
       "Tools"
+    ]
+  },
+  {
+    "modelId": "gpt-5.5",
+    "displayName": "GPT-5.5",
+    "family": "OpenAI",
+    "categoryKey": "openai",
+    "description": "High-consistency reproducible run model for regression suites, benchmark evaluation and pinned prompts.",
+    "contextWindow": 1050000,
+    "maxOutput": 16384,
+    "inputPrice": 1,
+    "outputPrice": 5,
+    "cachedInputPrice": 0.1,
+    "supportsStreaming": true,
+    "supportsTools": true,
+    "supportsVision": true,
+    "supportsReasoning": false,
+    "protocol": "openai-compatible",
+    "supportedPlans": [
+      "openai_max_rolling",
+      "openai_tokens",
+      "claude_openai_credits"
+    ],
+    "tags": [
+      "Reproducible",
+      "Consistent",
+      "Vision",
+      "Tools",
+      "1M Context"
     ]
   },
   {

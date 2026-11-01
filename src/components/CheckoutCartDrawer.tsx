@@ -292,6 +292,7 @@ export const CheckoutCartDrawer: React.FC = () => {
                         item.planCategory !== 'openai_tokens' &&
                         item.planCategory !== 'claude_tokens' &&
                         item.planCategory !== 'local_models_tokens' &&
+                        item.planCategory !== 'openai_max_rolling' &&
                         !item.id.startsWith('credit_') &&
                         !item.id.includes('token') &&
                         item.originalPriceInr) && (

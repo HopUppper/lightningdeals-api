@@ -2,6 +2,7 @@ import { prisma } from '../db';
 
 export type PlanCategory =
   | 'claude_max_rolling'
+  | 'openai_max_rolling'
   | 'claude_openai_credits'
   | 'openai_tokens'
   | 'claude_tokens'
@@ -116,7 +117,8 @@ export function calculatePlanPricing(
     plan.planCategory !== 'claude_openai_credits' &&
     plan.planCategory !== 'openai_tokens' &&
     plan.planCategory !== 'claude_tokens' &&
-    plan.planCategory !== 'local_models_tokens';
+    plan.planCategory !== 'local_models_tokens' &&
+    plan.planCategory !== 'openai_max_rolling';
 
   const isAnnual = billingPeriod === 'yearly';
   const monthlyPrice = Number(plan.priceInr || 0);
@@ -732,6 +734,135 @@ export const AUTHORITATIVE_PLANS: Record<string, ServerPlan> = {
     enabled: true,
     displayOrder: 42,
   },
+  // =========================================================================
+  // CATEGORY 6 — OPENAI MAX: 5-HOUR ROLLING WINDOW (LotusAI)
+  // =========================================================================
+  openai_rolling_7m: {
+    id: 'openai_rolling_7m',
+    slug: 'openai_rolling_7m',
+    name: 'OpenAI Plus 7M',
+    displayName: 'OpenAI Plus 7M (5h Window)',
+    tokenAllowance: 7000000n,
+    tokenDisplay: '7M TOKENS / 5 HOURS',
+    windowHours: 5,
+    validityDays: 30,
+    rateLimitRpm: 60,
+    priceInr: 1499,
+    currency: 'INR',
+    planType: 'window',
+    planCategory: 'openai_max_rolling',
+    providerScope: 'lotusai',
+    allowedModelFamilies: ['openai'],
+    supplierCostInr: 450.0,
+    supplierAllocation: '7M tokens per 5h window',
+    tagline: '7 Million tokens continuously refilling every 5 hours for Codex CLI, IDE extensions, and GPT-6.1 Sol.',
+    badge: 'OPENAI PLUS',
+    features: [
+      '7,000,000 Tokens every 5 hours',
+      'Continuous 5-Hour Rolling Pool Refill',
+      'Full GPT-6 & GPT-5.6 Model Lineup',
+      '1,050,000 Token Context Window',
+      'Codex CLI & IDE Extension Support',
+      'Streaming & Tool Calling Enabled',
+    ],
+    featured: false,
+    enabled: true,
+    displayOrder: 15,
+  },
+  openai_rolling_25m: {
+    id: 'openai_rolling_25m',
+    slug: 'openai_rolling_25m',
+    name: 'OpenAI Pro 25M',
+    displayName: 'OpenAI Pro 25M (5h Window)',
+    tokenAllowance: 25000000n,
+    tokenDisplay: '25M TOKENS / 5 HOURS',
+    windowHours: 5,
+    validityDays: 30,
+    rateLimitRpm: 60,
+    priceInr: 3999,
+    currency: 'INR',
+    planType: 'window',
+    planCategory: 'openai_max_rolling',
+    providerScope: 'lotusai',
+    allowedModelFamilies: ['openai'],
+    supplierCostInr: 1200.0,
+    supplierAllocation: '25M tokens per 5h window',
+    tagline: '25 Million tokens every 5 hours (~3.5x Plus allowance) for long agentic sessions and GPT-6 Astra.',
+    badge: 'OPENAI PRO',
+    features: [
+      '25,000,000 Tokens every 5 hours',
+      'About 3.5x Plus Headroom',
+      'GPT-6 Astra & GPT-6.1 Sol Flagships',
+      '1,050,000 Token Context Window',
+      'High-Throughput Streaming & Vision',
+      'Multi-File Refactors & Deep Reasoning',
+    ],
+    featured: true,
+    enabled: true,
+    displayOrder: 16,
+  },
+  openai_rolling_50m: {
+    id: 'openai_rolling_50m',
+    slug: 'openai_rolling_50m',
+    name: 'OpenAI Ultra 50M',
+    displayName: 'OpenAI Ultra 50M (5h Window)',
+    tokenAllowance: 50000000n,
+    tokenDisplay: '50M TOKENS / 5 HOURS',
+    windowHours: 5,
+    validityDays: 30,
+    rateLimitRpm: 100,
+    priceInr: 7499,
+    currency: 'INR',
+    planType: 'window',
+    planCategory: 'openai_max_rolling',
+    providerScope: 'lotusai',
+    allowedModelFamilies: ['openai'],
+    supplierCostInr: 2400.0,
+    supplierAllocation: '50M tokens per 5h window',
+    tagline: '50 Million tokens every 5 hours for engineering teams and heavy autonomous agent loops.',
+    badge: 'OPENAI ULTRA',
+    features: [
+      '50,000,000 Tokens every 5 hours',
+      'High Concurrency & 100 RPM Rate Limit',
+      'Maximum Reasoning & Autonomous Agent Depth',
+      '1,050,000 Token Context Window',
+      'VIP Gateway Ingress Routing',
+    ],
+    featured: false,
+    enabled: true,
+    displayOrder: 17,
+  },
+  openai_rolling_100m: {
+    id: 'openai_rolling_100m',
+    slug: 'openai_rolling_100m',
+    name: 'OpenAI Max 100M',
+    displayName: 'OpenAI Max 100M (5h Window)',
+    tokenAllowance: 100000000n,
+    tokenDisplay: '100M TOKENS / 5 HOURS',
+    windowHours: 5,
+    validityDays: 30,
+    rateLimitRpm: 120,
+    priceInr: 13999,
+    currency: 'INR',
+    planType: 'window',
+    planCategory: 'openai_max_rolling',
+    providerScope: 'lotusai',
+    allowedModelFamilies: ['openai'],
+    supplierCostInr: 4500.0,
+    supplierAllocation: '100M tokens per 5h window',
+    tagline: '100 Million tokens every 5 hours for enterprise workloads and high-throughput production systems.',
+    badge: 'OPENAI MAX',
+    features: [
+      '100,000,000 Tokens every 5 hours',
+      'Ultimate Capacity & Maximum Concurrency',
+      'Dedicated Upstream LotusAI Ingress',
+      '1,050,000 Token Context Window',
+      '24/7 Dedicated Support',
+    ],
+    featured: false,
+    enabled: true,
+    displayOrder: 18,
+  },
 };
 
 export const FREE_TRIAL_PLAN: ServerPlan = {
@@ -796,9 +927,9 @@ export async function getAllActivePlansAsync(): Promise<ServerPlan[]> {
           validityDays: p.validityDays,
           rateLimitRpm: p.rateLimitRpm || 100,
           priceInr: p.priceInr,
-          originalPriceInr: ((p.planType === 'window' || p.planCategory === 'claude_max_rolling' || p.windowHours === 5) && p.planType !== 'credit' && p.planType !== 'token' && p.planCategory !== 'claude_openai_credits' && p.planCategory !== 'openai_tokens' && p.planCategory !== 'claude_tokens' && p.planCategory !== 'local_models_tokens') ? (p.originalPriceInr || undefined) : undefined,
+          originalPriceInr: ((p.planType === 'window' || p.planCategory === 'claude_max_rolling' || p.windowHours === 5) && p.planType !== 'credit' && p.planType !== 'token' && p.planCategory !== 'claude_openai_credits' && p.planCategory !== 'openai_tokens' && p.planCategory !== 'claude_tokens' && p.planCategory !== 'local_models_tokens' && p.planCategory !== 'openai_max_rolling') ? (p.originalPriceInr || undefined) : undefined,
           annualPriceInr: p.annualPriceInr ? Number(p.annualPriceInr) : undefined,
-          annualOriginalPriceInr: p.annualOriginalPriceInr ? Number(p.annualOriginalPriceInr) : undefined,
+          annualOriginalPriceInr: (p.planCategory === 'claude_max_rolling' && p.annualOriginalPriceInr) ? Number(p.annualOriginalPriceInr) : undefined,
           annualValidityDays: p.annualValidityDays || 365,
           currency: p.currency || 'INR',
           tagline: p.tagline || undefined,
@@ -881,9 +1012,9 @@ export async function getPlanByIdAsync(planId: string): Promise<ServerPlan | nul
         validityDays: dbPlan.validityDays,
         rateLimitRpm: dbPlan.rateLimitRpm || 100,
         priceInr: dbPlan.priceInr,
-        originalPriceInr: ((dbPlan.planType === 'window' || dbPlan.planCategory === 'claude_max_rolling' || dbPlan.windowHours === 5) && dbPlan.planType !== 'credit' && dbPlan.planType !== 'token' && dbPlan.planCategory !== 'claude_openai_credits' && dbPlan.planCategory !== 'openai_tokens' && dbPlan.planCategory !== 'claude_tokens' && dbPlan.planCategory !== 'local_models_tokens') ? (dbPlan.originalPriceInr || undefined) : undefined,
+        originalPriceInr: ((dbPlan.planType === 'window' || dbPlan.planCategory === 'claude_max_rolling' || dbPlan.windowHours === 5) && dbPlan.planType !== 'credit' && dbPlan.planType !== 'token' && dbPlan.planCategory !== 'claude_openai_credits' && dbPlan.planCategory !== 'openai_tokens' && dbPlan.planCategory !== 'claude_tokens' && dbPlan.planCategory !== 'local_models_tokens' && dbPlan.planCategory !== 'openai_max_rolling') ? (dbPlan.originalPriceInr || undefined) : undefined,
         annualPriceInr: dbPlan.annualPriceInr ? Number(dbPlan.annualPriceInr) : undefined,
-        annualOriginalPriceInr: dbPlan.annualOriginalPriceInr ? Number(dbPlan.annualOriginalPriceInr) : undefined,
+        annualOriginalPriceInr: (dbPlan.planCategory === 'claude_max_rolling' && dbPlan.annualOriginalPriceInr) ? Number(dbPlan.annualOriginalPriceInr) : undefined,
         annualValidityDays: dbPlan.annualValidityDays || 365,
         currency: dbPlan.currency || 'INR',
         tagline: dbPlan.tagline || undefined,

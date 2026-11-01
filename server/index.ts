@@ -5,8 +5,9 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import crypto from 'crypto';
 
-import { handleMessagesEndpoint, handleChatCompletionsEndpoint } from './gateway';
+import { handleMessagesEndpoint, handleChatCompletionsEndpoint, handleResponsesEndpoint } from './gateway';
 import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
+import { authenticateJwt, requireAdmin } from './auth';
 import adminRouter from './admin';
 import adminAuthRouter from './adminAuth';
 import userRouter from './user';
@@ -117,9 +118,9 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: https://www.google-analytics.com; frame-ancestors 'self';");
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self)');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: https://www.google-analytics.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://secure.payu.in https://test.payu.in https://api.cashfree.com;");
   next();
 });
 
@@ -208,6 +209,7 @@ const gatewayStatusHandler = (req: any, res: any) => res.json({
 app.get(['/v1', '/v1/', '/token/v1', '/token/v1/'], gatewayStatusHandler);
 app.post(['/v1/messages', '/messages', '/v1/v1/messages', '/token/v1/messages'], handleMessagesEndpoint);
 app.post(['/v1/chat/completions', '/chat/completions', '/v1/v1/chat/completions', '/token/v1/chat/completions'], handleChatCompletionsEndpoint);
+app.post(['/v1/responses', '/responses', '/v1/v1/responses', '/token/v1/responses'], handleResponsesEndpoint);
 app.get(['/v1/models', '/models', '/v1/v1/models', '/token/v1/models'], handleGetModels);
 app.post(['/v1/messages/count_tokens', '/messages/count_tokens', '/v1/v1/messages/count_tokens', '/token/v1/messages/count_tokens'], handleCountTokens);
 
@@ -223,7 +225,7 @@ app.get('/api/system/status', handleSystemStatus);
 app.get('/api/models/sync-status', (_req, res) => {
   res.json(getModelSyncStatus());
 });
-app.post('/api/models/sync', async (_req, res) => {
+app.post('/api/models/sync', authenticateJwt, requireAdmin, async (_req, res) => {
   try {
     const result = await executeModelSync('MANUAL_ADMIN');
     res.json(result);

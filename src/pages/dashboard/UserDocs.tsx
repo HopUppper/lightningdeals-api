@@ -246,7 +246,7 @@ console.log(completion.choices[0].message.content);`;
             </p>
           </div>
           <div className="pt-2 border-t border-blue-200/60 flex items-center justify-between text-xs font-bold text-blue-800">
-            <span>Plans: 7x Credits &amp; Token Packs</span>
+            <span>Plans: 5h Rolling, 7x Credits &amp; Token Packs</span>
             <span className="font-mono text-[11px]">/v1/chat/completions</span>
           </div>
         </div>
@@ -268,7 +268,7 @@ console.log(completion.choices[0].message.content);`;
             </p>
           </div>
           <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs font-bold text-emerald-800">
-            <span>Plans: 7x Credits &amp; Token Packs</span>
+            <span>Plans: Token Packs</span>
             <span className="font-mono text-[11px]">/v1/chat/completions</span>
           </div>
         </div>

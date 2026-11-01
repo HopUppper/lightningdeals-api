@@ -1,9 +1,19 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { prisma } from './db';
-import { createRateLimiter, clearAuthRateLimit } from './rateLimit';
-import { AuthRequest, verifyPasswordScrypt, hashPasswordScrypt } from './auth';
+import { prisma, encryptText, decryptText } from './db';
+import { createRateLimiter, clearAuthRateLimit, resolveClientIp } from './rateLimit';
+import { AuthRequest, authenticateJwt, requireAdmin, verifyPasswordScrypt, hashPasswordScrypt } from './auth';
+import {
+  generateTotpSecret,
+  verifyTotpCode,
+  generateOtpAuthUrl,
+  generateBackupCodes,
+  verifyBackupCode,
+  getAdminMfaConfig,
+  saveAdminMfaConfig,
+  deleteAdminMfaConfig,
+} from './totp';
 import { hashSecret } from './authSecurity';
 import { recordAuditEvent } from './auditLogger';
 import { getJwtSecret, getSecurityEpoch } from './jwtConfig';
@@ -271,6 +281,46 @@ router.post('/login', adminLoginLimiter, async (req: Request, res: Response) => 
       });
     }
 
+    // Check if 2FA (MFA/TOTP) is enrolled for this administrator
+    const mfaConfig = await getAdminMfaConfig(adminUser.id);
+    if (mfaConfig && mfaConfig.enrolled) {
+      const mfaTicket = jwt.sign(
+        {
+          id: adminUser.id,
+          email: adminUser.email,
+          role: 'admin',
+          authType: 'ADMIN_MFA_CHALLENGE',
+        },
+        getJwtSecret(),
+        { algorithm: 'HS256', expiresIn: '5m' }
+      );
+
+      await recordAuditEvent({
+        eventType: 'ADMIN_MFA_CHALLENGED',
+        severity: 'INFO',
+        actorType: 'ADMIN',
+        actorId: adminUser.id,
+        actorEmail: adminUser.email,
+        adminId: adminUser.id,
+        action: 'MFA_CHALLENGE',
+        result: 'PENDING_MFA',
+        statusCode: 200,
+        req,
+      });
+
+      return res.json({
+        success: false,
+        mfaRequired: true,
+        mfaTicket,
+        message: 'Two-factor authentication code required.',
+        user: {
+          id: adminUser.id,
+          email: adminUser.email,
+          name: adminUser.name,
+        },
+      });
+    }
+
     // Password valid -> Clear IP rate limit counter & Generate Admin JWT Token
     clearAuthRateLimit(clientIp);
     const token = jwt.sign(
@@ -344,6 +394,7 @@ router.post('/login', adminLoginLimiter, async (req: Request, res: Response) => 
         email: adminUser.email,
         name: adminUser.name,
         role: adminUser.role,
+        mfaEnrolled: false,
       },
     });
   } catch (err: any) {
@@ -494,6 +545,303 @@ router.get('/me', async (req: Request, res: Response) => {
       },
     });
   }
+});
+
+
+// POST /api/admin/auth/mfa/verify - Verify TOTP code or backup recovery code during login
+router.post('/mfa/verify', adminLoginLimiter, async (req: Request, res: Response) => {
+  const { mfaTicket, code, recoveryCode } = req.body;
+  const clientIp = resolveClientIp(req);
+
+  if (!mfaTicket || (!code && !recoveryCode)) {
+    return res.status(400).json({
+      error: {
+        type: 'invalid_request',
+        message: 'MFA ticket and 6-digit verification code or recovery code are required.',
+      },
+    });
+  }
+
+  let decodedTicket: any;
+  try {
+    decodedTicket = jwt.verify(mfaTicket, getJwtSecret(), { algorithms: ['HS256'] });
+  } catch {
+    return res.status(401).json({
+      error: {
+        type: 'mfa_ticket_expired',
+        message: 'MFA verification session expired. Please sign in again with your password.',
+      },
+    });
+  }
+
+  if (decodedTicket.authType !== 'ADMIN_MFA_CHALLENGE' || !decodedTicket.id) {
+    return res.status(401).json({
+      error: {
+        type: 'invalid_mfa_ticket',
+        message: 'Invalid MFA verification challenge ticket.',
+      },
+    });
+  }
+
+  const adminUser = await prisma.user.findUnique({
+    where: { id: decodedTicket.id },
+  });
+
+  if (!adminUser || adminUser.role !== 'admin' || adminUser.status !== 'active') {
+    return res.status(403).json({
+      error: {
+        type: 'forbidden',
+        message: 'Admin user account is disabled or unauthorized.',
+      },
+    });
+  }
+
+  const mfaConfig = await getAdminMfaConfig(adminUser.id);
+  if (!mfaConfig || !mfaConfig.enrolled) {
+    return res.status(400).json({
+      error: {
+        type: 'mfa_not_enrolled',
+        message: 'Two-factor authentication is not enrolled for this account.',
+      },
+    });
+  }
+
+  let isVerified = false;
+  let verificationMethod = 'TOTP';
+
+  if (recoveryCode) {
+    const recoveryIdx = verifyBackupCode(recoveryCode, mfaConfig.backupCodes.map((b) => b.hash));
+    if (recoveryIdx !== -1 && !mfaConfig.backupCodes[recoveryIdx].used) {
+      isVerified = true;
+      verificationMethod = 'RECOVERY_CODE';
+      mfaConfig.backupCodes[recoveryIdx].used = true;
+      mfaConfig.backupCodes[recoveryIdx].usedAt = new Date().toISOString();
+      await saveAdminMfaConfig(adminUser.id, mfaConfig);
+    }
+  } else if (code) {
+    const secret = decryptText(mfaConfig.secretEncrypted);
+    const totpResult = verifyTotpCode(secret, code, mfaConfig.lastUsedStep);
+    if (totpResult.valid && totpResult.matchedStep) {
+      isVerified = true;
+      mfaConfig.lastUsedStep = totpResult.matchedStep;
+      await saveAdminMfaConfig(adminUser.id, mfaConfig);
+    }
+  }
+
+  if (!isVerified) {
+    await prisma.adminLog.create({
+      data: {
+        adminUserId: adminUser.id,
+        action: 'ADMIN_MFA_FAILED',
+        targetType: 'Auth',
+        targetId: adminUser.id,
+        metadata: JSON.stringify({ ip: clientIp, method: recoveryCode ? 'RECOVERY_CODE' : 'TOTP' }),
+      },
+    });
+
+    return res.status(401).json({
+      error: {
+        type: 'invalid_mfa_code',
+        message: recoveryCode
+          ? 'Invalid or already used backup recovery code.'
+          : 'Invalid 6-digit authentication code. Please check your authenticator app.',
+      },
+    });
+  }
+
+  // MFA verified successfully -> Clear IP rate limit and Issue 24h admin session token
+  clearAuthRateLimit(clientIp);
+  const token = jwt.sign(
+    {
+      id: adminUser.id,
+      email: adminUser.email,
+      role: 'admin',
+      authType: 'ADMIN_SESSION',
+    },
+    getJwtSecret(),
+    { algorithm: 'HS256', expiresIn: '24h' }
+  );
+
+  const tokenHash = hashSecret(token);
+  await prisma.userSession.create({
+    data: {
+      userId: adminUser.id,
+      sessionTokenHash: tokenHash,
+      ipAddress: clientIp,
+      userAgent: (req.headers['user-agent'] || 'Admin Console').substring(0, 200),
+      device: 'Admin Console (MFA Verified)',
+      expiresAt: new Date(Date.now() + 24 * 3600 * 1000),
+    },
+  });
+
+  await prisma.user.update({
+    where: { id: adminUser.id },
+    data: {
+      lastLoginAt: new Date(),
+      lastLoginIp: clientIp,
+      failedLoginAttempts: 0,
+    },
+  }).catch(() => {});
+
+  await prisma.adminLog.create({
+    data: {
+      adminUserId: adminUser.id,
+      action: 'ADMIN_LOGIN_SUCCESS_MFA',
+      targetType: 'Auth',
+      targetId: adminUser.id,
+      metadata: JSON.stringify({ ip: clientIp, method: verificationMethod }),
+    },
+  });
+
+  await recordAuditEvent({
+    eventType: 'ADMIN_LOGIN_SUCCESS',
+    severity: 'INFO',
+    actorType: 'ADMIN',
+    actorId: adminUser.id,
+    actorEmail: adminUser.email,
+    adminId: adminUser.id,
+    action: 'ADMIN_LOGIN_MFA',
+    result: 'SUCCESS',
+    statusCode: 200,
+    metadata: { method: verificationMethod },
+    req,
+  });
+
+  return res.json({
+    success: true,
+    token,
+    user: {
+      id: adminUser.id,
+      email: adminUser.email,
+      name: adminUser.name,
+      role: adminUser.role,
+      mfaEnrolled: true,
+    },
+  });
+});
+
+// GET /api/admin/auth/mfa/status - Get current administrator MFA enrollment status
+router.get('/mfa/status', authenticateJwt, requireAdmin, async (req: AuthRequest, res: Response) => {
+  const mfaConfig = await getAdminMfaConfig(req.user!.id);
+  const enrolled = Boolean(mfaConfig?.enrolled);
+  const remainingBackups = mfaConfig?.backupCodes?.filter((b) => !b.used).length || 0;
+  return res.json({
+    enrolled,
+    enrolledAt: mfaConfig?.enrolledAt || null,
+    remainingBackups,
+  });
+});
+
+// POST /api/admin/auth/mfa/setup - Start 2FA enrollment (generates secret, QR URI, and backup codes)
+router.post('/mfa/setup', authenticateJwt, requireAdmin, async (req: AuthRequest, res: Response) => {
+  const secret = generateTotpSecret();
+  const otpAuthUrl = generateOtpAuthUrl(req.user!.email, secret);
+  const { plaintextCodes, hashedCodes } = generateBackupCodes(8);
+
+  return res.json({
+    success: true,
+    secret,
+    otpAuthUrl,
+    backupCodes: plaintextCodes,
+    hashedCodes,
+  });
+});
+
+// POST /api/admin/auth/mfa/activate - Verify first code and finalize 2FA enrollment
+router.post('/mfa/activate', authenticateJwt, requireAdmin, async (req: AuthRequest, res: Response) => {
+  const { secret, code, hashedCodes } = req.body;
+
+  if (!secret || !code || !Array.isArray(hashedCodes) || hashedCodes.length === 0) {
+    return res.status(400).json({
+      error: {
+        type: 'invalid_request',
+        message: 'Secret, 6-digit confirmation code, and hashed backup codes are required.',
+      },
+    });
+  }
+
+  const verify = verifyTotpCode(secret, code);
+  if (!verify.valid || !verify.matchedStep) {
+    return res.status(400).json({
+      error: {
+        type: 'invalid_totp_code',
+        message: 'The 6-digit verification code is invalid. Please verify the code in your authenticator app and try again.',
+      },
+    });
+  }
+
+  const secretEncrypted = encryptText(secret);
+  const backupCodes = hashedCodes.map((h: string) => ({ hash: h, used: false }));
+
+  await saveAdminMfaConfig(req.user!.id, {
+    enrolled: true,
+    secretEncrypted,
+    backupCodes,
+    enrolledAt: new Date().toISOString(),
+    lastUsedStep: verify.matchedStep,
+  });
+
+  await recordAuditEvent({
+    eventType: 'ADMIN_MFA_ENROLLED',
+    severity: 'HIGH',
+    actorType: 'ADMIN',
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    adminId: req.user!.id,
+    action: 'MFA_ENROLL',
+    result: 'SUCCESS',
+    statusCode: 200,
+    req,
+  });
+
+  return res.json({
+    success: true,
+    message: 'Two-factor authentication has been activated successfully for your administrator account.',
+  });
+});
+
+// POST /api/admin/auth/mfa/disable - Disable 2FA with current password confirmation
+router.post('/mfa/disable', authenticateJwt, requireAdmin, async (req: AuthRequest, res: Response) => {
+  const { password } = req.body;
+
+  if (!password) {
+    return res.status(400).json({
+      error: {
+        type: 'invalid_request',
+        message: 'Current administrator password is required to disable 2FA.',
+      },
+    });
+  }
+
+  const admin = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!admin || !verifyPassword(password, admin.passwordHash)) {
+    return res.status(401).json({
+      error: {
+        type: 'invalid_password',
+        message: 'Incorrect password. Cannot disable 2FA.',
+      },
+    });
+  }
+
+  await deleteAdminMfaConfig(req.user!.id);
+
+  await recordAuditEvent({
+    eventType: 'ADMIN_MFA_DISABLED',
+    severity: 'HIGH',
+    actorType: 'ADMIN',
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    adminId: req.user!.id,
+    action: 'MFA_DISABLE',
+    result: 'SUCCESS',
+    statusCode: 200,
+    req,
+  });
+
+  return res.json({
+    success: true,
+    message: 'Two-factor authentication has been disabled.',
+  });
 });
 
 export default router;

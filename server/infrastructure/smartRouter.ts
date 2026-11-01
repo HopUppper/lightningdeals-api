@@ -1,5 +1,7 @@
 import { prisma } from '../db';
-import { resolveProviderCredential } from '../providers/credentialResolver';
+import { resolveProviderCredential, isLocalModelFamily } from '../providers/credentialResolver';
+import { canonicalizeModelId } from '../models/modelSyncService';
+import { detectModelFamily } from '../gateway';
 import { isCircuitOpen, buildBreakerKey, CircuitState } from './circuitBreaker';
 import { getProviderModelHealth } from './providerHealth';
 
@@ -36,6 +38,11 @@ export function resolveBillingArchitecture(keyRecord: any): string {
 
   const bType = keyRecord.billingType;
   if (bType === 'window') {
+    const scope = (keyRecord.providerScope || '').toLowerCase();
+    const planName = (keyRecord.plan || keyRecord.name || '').toLowerCase();
+    if (scope.includes('lotus') || scope.includes('openai') || planName.includes('openai')) {
+      return 'openai_max_rolling';
+    }
     return 'claude_max_rolling';
   }
   if (bType === 'credit') {
@@ -96,14 +103,18 @@ export async function resolveIntelligentRoute(params: {
 
   // 1. Central Model Registry Validation
   let modelRecord = params.modelRecord;
+  const norm = requestedModel.toLowerCase().trim();
+  const canonical = canonicalizeModelId(norm);
+
   if (!modelRecord) {
-    const norm = requestedModel.toLowerCase().trim();
     try {
       modelRecord = await prisma.model.findFirst({
         where: {
           OR: [
             { modelId: norm },
             { upstreamModelId: norm },
+            { modelId: canonical },
+            { upstreamModelId: canonical },
             { modelId: requestedModel },
             { upstreamModelId: requestedModel },
             { displayName: { equals: requestedModel, mode: 'insensitive' } },
@@ -156,11 +167,50 @@ export async function resolveIntelligentRoute(params: {
     }
   }
 
-  const canonicalModelId = modelRecord?.modelId || requestedModel;
+  const canonicalModelId = modelRecord?.modelId || canonical;
   const upstreamModelId = modelRecord?.upstreamModelId || canonicalModelId;
 
   // 2. Billing Architecture & Entitlement Verification
   const billingArchitecture = resolveBillingArchitecture(keyRecord);
+  const modelFamily = modelRecord?.family || detectModelFamily(requestedModel);
+
+  // 2a. Strict Plan-to-Model Family Entitlement Verification
+  if (billingArchitecture === 'claude_openai_credits') {
+    if (isLocalModelFamily(canonicalModelId) && !['claude', 'openai'].includes(modelFamily)) {
+      return {
+        success: false,
+        error: {
+          status: 403,
+          type: 'permission_error',
+          code: 'model_not_in_credit_plan',
+          message: `Model '${requestedModel}' is an open-weights/local model and is not available on API Usage Credits. API Usage Credits support Claude and OpenAI models. To use ${requestedModel}, please activate a Local Models Token Pack.`,
+        },
+      };
+    }
+  }
+
+  if (keyRecord?.allowedModelFamilies && keyRecord.allowedModelFamilies !== 'all') {
+    let allowedFamilies: string[] = [];
+    try {
+      allowedFamilies = JSON.parse(keyRecord.allowedModelFamilies);
+    } catch {
+      allowedFamilies = [keyRecord.allowedModelFamilies];
+    }
+    if (Array.isArray(allowedFamilies) && allowedFamilies.length > 0 && !allowedFamilies.includes('all')) {
+      const isAllowed = allowedFamilies.some(f => f.toLowerCase() === modelFamily.toLowerCase() || (f.toLowerCase() === 'local' && isLocalModelFamily(canonicalModelId)));
+      if (!isAllowed) {
+        return {
+          success: false,
+          error: {
+            status: 403,
+            type: 'permission_error',
+            code: 'model_family_not_allowed',
+            message: `Model '${requestedModel}' belongs to the '${modelFamily}' family and is not authorized for this API key. This key is provisioned for: ${allowedFamilies.join(', ')}.`,
+          },
+        };
+      }
+    }
+  }
 
   // 3. Resolve Target Provider
   let targetProviderSlug = modelRecord?.providerSlug;

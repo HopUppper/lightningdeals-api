@@ -636,7 +636,7 @@ export const UserPlan: React.FC = () => {
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-violet-600 shrink-0" />
               <div>
-                <strong className="text-[#1e1b2e]">5-Hour Continuous Rolling Window (Claude Exclusive):</strong> Tokens continuously refill as requests age past 5 hours. Fixed 30-day validity. Ideal for active developers on Cursor and Claude Code CLI.
+                <strong className="text-[#1e1b2e]">5-Hour Continuous Rolling Window ({selectedFamily === 'openai' ? 'OpenAI / LotusAI' : 'Claude Max'}):</strong> Tokens continuously refill as requests age past 5 hours. Fixed 30-day validity. Ideal for active developers on Cursor, Windsurf, Claude Code CLI, and OpenAI Codex CLI.
               </div>
             </div>
           </div>
@@ -671,11 +671,11 @@ export const UserPlan: React.FC = () => {
         )}
 
         {/* Non-Claude Rolling Guard */}
-        {selectedFamily !== 'claude' && selectedBillingMode === 'window' && (
+        {selectedFamily === 'local' && selectedBillingMode === 'window' && (
           <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Info className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>Rolling 5-hour plans are exclusive to Claude models. For {selectedFamily === 'openai' ? 'OpenAI' : 'Local'} models, please choose Usage Credits or Token Packs.</span>
+              <span>Rolling 5-hour plans are available for Claude and OpenAI models. For Local models, please choose Usage Credits or Token Packs.</span>
             </div>
             <button
               type="button"
@@ -746,6 +746,7 @@ export const UserPlan: React.FC = () => {
                   if (selectedBillingMode === 'credit') return 'claude_openai_credits';
                   if (selectedBillingMode === 'token') return 'claude_tokens';
                 } else if (selectedFamily === 'openai') {
+                  if (selectedBillingMode === 'window') return 'openai_max_rolling';
                   if (selectedBillingMode === 'credit') return 'claude_openai_credits';
                   if (selectedBillingMode === 'token') return 'openai_tokens';
                 } else if (selectedFamily === 'local') {
@@ -824,7 +825,7 @@ export const UserPlan: React.FC = () => {
                       <span className="text-2xl font-extrabold text-[#1e1b2e]">
                         ₹{p.priceInr.toLocaleString()}
                       </span>
-                      {selectedBillingMode === 'window' && p.originalPriceInr && (
+                      {p.planCategory === 'claude_max_rolling' && p.originalPriceInr && (
                         <span className="text-xs text-[#64607d] line-through">
                           ₹{p.originalPriceInr.toLocaleString()}
                         </span>

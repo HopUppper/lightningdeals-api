@@ -326,7 +326,7 @@ export const AdminProviders: React.FC = () => {
     setShowModal(true);
   };
 
-  const applyPreset = (preset: 'opus_max' | 'anthropic_direct' | 'openai_compat' | 'scalemax') => {
+  const applyPreset = (preset: 'opus_max' | 'anthropic_direct' | 'openai_compat' | 'scalemax' | 'lotusai') => {
     if (preset === 'opus_max') {
       setName('Opus Max');
       setProviderType('custom_http');
@@ -365,6 +365,18 @@ export const AdminProviders: React.FC = () => {
       setCapacityModel('lifetime_prepaid');
       setCostPerMillionInput('1.5');
       setCostPerMillionOutput('6.0');
+    } else if (preset === 'lotusai') {
+      setName('LotusAI (OpenAI 5H)');
+
+      setProviderType('openai');
+      setProtocol('openai-compatible');
+      setBaseUrl('https://api.lotusai.pro/v1');
+      setStatus('connected');
+      setCapacityModel('rolling_window');
+      setWindowHours('5');
+      setWindowAllowance('25000000');
+
+      setAvailableTokens('25000000');
     }
   };
 
@@ -1595,6 +1607,9 @@ export const AdminProviders: React.FC = () => {
                 </button>
                 <button type="button" onClick={() => applyPreset('scalemax')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-600/10 text-indigo-600 hover:bg-indigo-600/20 transition-colors">
                   ScaleMax Peer
+                </button>
+                <button type="button" onClick={() => applyPreset('lotusai')} className="px-2 py-0.5 text-[10px] font-bold rounded bg-cyan-600/10 text-cyan-600 hover:bg-cyan-600/20 transition-colors">
+                  LotusAI (OpenAI 5H)
                 </button>
               </div>
 

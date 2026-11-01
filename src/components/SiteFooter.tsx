@@ -40,9 +40,7 @@ export const SiteFooter: React.FC = () => {
             </Link>
 
             <p className="text-[#68636B] leading-relaxed max-w-sm text-xs">
-              The Intelligence Layer. A unified API gateway providing access to supported frontier
-              AI models through a consolidated, drop-in Anthropic compatible connection with continuous
-              5-hour rolling pool renewal.
+              High-performance AI API Gateway delivering wholesale token economics and multi-provider models with drop-in IDE and SDK compatibility.
             </p>
 
             {/* Operational Telemetry Badge */}
@@ -147,8 +145,13 @@ export const SiteFooter: React.FC = () => {
                 </Link>
               </li>
               <li>
+                <Link to="/why-us" className="hover:text-[#191719] transition-colors">
+                  Why LightningAPI
+                </Link>
+              </li>
+              <li>
                 <Link to="/faq" className="hover:text-[#191719] transition-colors">
-                  Frequently Asked Questions
+                  Frequently Asked Questions (FAQ)
                 </Link>
               </li>
               <li>

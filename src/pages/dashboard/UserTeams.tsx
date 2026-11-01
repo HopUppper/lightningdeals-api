@@ -229,7 +229,7 @@ export const UserTeams: React.FC = () => {
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
               Your Teams ({teams.length})
             </h3>
-            {teams.map((t) => (
+            {(teams || []).map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -243,7 +243,7 @@ export const UserTeams: React.FC = () => {
                 <div className="min-w-0">
                   <div className="font-bold text-xs truncate">{t.name}</div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                    {t.members.length} member{t.members.length !== 1 ? 's' : ''}
+                    {(t.members || []).length} member{(t.members || []).length !== 1 ? 's' : ''}
                   </div>
                 </div>
                 <Users className="w-4 h-4 text-slate-400 shrink-0" />
@@ -290,12 +290,12 @@ export const UserTeams: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                     <Users className="w-4 h-4 text-violet-500" />
-                    <span>Team Members ({activeTeam.members.length})</span>
+                    <span>Team Members ({(activeTeam.members || []).length})</span>
                   </h3>
                 </div>
 
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {activeTeam.members.map((mem) => (
+                  {(activeTeam.members || []).map((mem) => (
                     <div
                       key={mem.id}
                       className="py-3 flex items-center justify-between gap-3 text-xs"
@@ -333,7 +333,7 @@ export const UserTeams: React.FC = () => {
               </div>
 
               {/* Pending Invites */}
-              {activeTeam.invites && activeTeam.invites.length > 0 && (
+              {Array.isArray(activeTeam?.invites) && activeTeam.invites.length > 0 && (
                 <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                     <Clock className="w-4 h-4 text-amber-500" />
@@ -341,7 +341,7 @@ export const UserTeams: React.FC = () => {
                   </h3>
 
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {activeTeam.invites.map((inv) => (
+                    {(activeTeam.invites || []).map((inv) => (
                       <div
                         key={inv.id}
                         className="py-3 flex items-center justify-between gap-3 text-xs"

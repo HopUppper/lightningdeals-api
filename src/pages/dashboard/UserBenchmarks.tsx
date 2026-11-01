@@ -105,9 +105,8 @@ export const UserBenchmarks: React.FC = () => {
       const res = await userFetch('/api/user/benchmarks');
       if (res.ok) {
         const data = await res.json();
-        if (data.runs) {
-          setHistory(data.runs);
-        }
+        const runs = Array.isArray(data.benchmarks) ? data.benchmarks : Array.isArray(data.runs) ? data.runs : [];
+        setHistory(runs);
       }
     } catch (e) {
       console.error('Failed to load benchmark history', e);
@@ -337,7 +336,7 @@ export const UserBenchmarks: React.FC = () => {
             </h3>
 
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {history.map((h) => (
+              {(history || []).map((h) => (
                 <div
                   key={h.id}
                   onClick={() => setCurrentRun(h)}
@@ -379,14 +378,14 @@ export const UserBenchmarks: React.FC = () => {
                 </h2>
               </div>
               <p className="text-xs text-slate-400 mt-0.5 font-mono">
-                Duration: {currentRun.totalDurationMs || 0}ms • {currentRun.results.length} models evaluated
+                Duration: {currentRun.totalDurationMs || 0}ms • {(currentRun.results || []).length} models evaluated
               </p>
             </div>
           </div>
 
           {/* Cards for each model in run */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {currentRun.results.map((res, i) => {
+            {(currentRun.results || []).map((res, i) => {
               const throughput =
                 res.latencyMs > 0 ? ((res.outputTokens / res.latencyMs) * 1000).toFixed(1) : '0';
 

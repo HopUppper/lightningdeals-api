@@ -21,7 +21,8 @@ teamRouter.get('/', async (req: AuthRequest, res: Response) => {
       include: {
         members: { include: { user: { select: { id: true, name: true, email: true } } } },
         apiKeys: { include: { apiKey: { select: { id: true, name: true, displayKey: true, status: true } } } },
-        _count: { select: { members: true, apiKeys: true } },
+        invites: true,
+        _count: { select: { members: true, apiKeys: true, invites: true } },
       },
     });
 
@@ -33,7 +34,8 @@ teamRouter.get('/', async (req: AuthRequest, res: Response) => {
             owner: { select: { id: true, name: true, email: true } },
             members: { include: { user: { select: { id: true, name: true, email: true } } } },
             apiKeys: { include: { apiKey: { select: { id: true, name: true, displayKey: true, status: true } } } },
-            _count: { select: { members: true, apiKeys: true } },
+            invites: true,
+            _count: { select: { members: true, apiKeys: true, invites: true } },
           },
         },
       },

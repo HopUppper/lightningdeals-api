@@ -23,6 +23,7 @@ import { calculateAggregateAccounting } from './accounting/aggregateAccounting';
 import { isLocalModelFamily, isClaudeOrOpenAIModelFamily } from './providers/credentialResolver';
 import { InventoryService } from './inventory/inventoryService';
 import { AutomationEngine } from './automation/jobs';
+import { activateOrRenewSubscription } from './subscriptions/subscriptionEngine';
 
 const router = Router();
 

@@ -24,6 +24,7 @@ import { ReferralEngine } from './referrals/referralEngine';
 import { isModelAuthorizedForKey } from './studioEntitlement';
 import { reserveCustomerQuota, settleReservation, releaseReservation, isRollingPlan } from './accounting/tokenReservation';
 import { calculateCustomerRollingWindow } from './accounting/customerAccounting';
+import { resolveCustomerEntitlements } from './subscriptions/subscriptionEngine';
 
 const router = Router();
 
@@ -2376,40 +2377,23 @@ router.post('/keys/:id/reveal', authenticateJwt, async (req: AuthRequest, res: R
 // GET /api/user/plan — Get Current User Plan Details (Derived strictly from req.user.id)
 router.get('/plan', authenticateJwt, async (req: AuthRequest, res: Response) => {
   try {
-    const keys = await prisma.apiKey.findMany({
-      where: { userId: req.user!.id, status: 'active' },
-    });
-
-    let totalWindowAllowance = 0n;
-    let totalRemaining = 0n;
-    let totalCreditBalanceUsd = 0;
-    let hasCreditKey = false;
-    let hasTokenKey = false;
-
-    keys.forEach((k) => {
-      if (k.billingType === 'credit') {
-        hasCreditKey = true;
-        totalCreditBalanceUsd += Number(k.creditBalanceUsd || 0);
-      } else if (k.billingType === 'token') {
-        hasTokenKey = true;
-        totalRemaining += k.tokensRemaining;
-        totalWindowAllowance += k.purchasedTokens;
-      } else {
-        totalWindowAllowance += k.purchasedTokens;
-        totalRemaining += k.tokensRemaining;
-      }
-    });
-
-    const primaryBillingType = hasCreditKey ? 'credit' : hasTokenKey ? 'token' : 'window';
+    const entitlementsResult = await resolveCustomerEntitlements(req.user!.id);
+    const primary = entitlementsResult.activeSubscription;
+    const summary = entitlementsResult.summary;
 
     res.json({
-      planName: keys.length > 0 ? (keys[0].plan || 'API Plan') : 'No Active Plan',
+      success: true,
+      hasActivePlan: entitlementsResult.hasActivePlan,
+      planName: primary ? primary.planName : 'No Active Plan',
       status: req.user!.emailVerified ? 'active' : 'pending_verification',
-      billingType: primaryBillingType,
-      creditBalanceUsd: Math.round(totalCreditBalanceUsd * 100) / 100,
-      windowAllowance: totalWindowAllowance.toString(),
-      tokensRemaining: totalRemaining.toString(),
-      activeKeysCount: keys.length,
+      billingType: primary ? primary.billingType : 'window',
+      creditBalanceUsd: summary.totalCreditBalanceUsd,
+      tokensRemaining: summary.totalTokensRemaining,
+      windowAllowance: primary && primary.billingType === 'window' ? primary.quotaLimit : '0',
+      activeKeysCount: entitlementsResult.activeEntitlements.length,
+      activeSubscription: primary,
+      activeEntitlements: entitlementsResult.activeEntitlements,
+      summary,
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });

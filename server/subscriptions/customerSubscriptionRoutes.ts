@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { prisma } from '../db';
 import { authenticateJwt, AuthRequest } from '../auth';
 import { OrderEngine } from '../orders/orderEngine';
-import { getSubscriptionStatus } from './subscriptionEngine';
+import { getSubscriptionStatus, resolveCustomerEntitlements } from './subscriptionEngine';
 
 export const customerSubscriptionRouter = Router();
 
@@ -10,77 +10,43 @@ export const customerSubscriptionRouter = Router();
 customerSubscriptionRouter.use(authenticateJwt);
 
 /**
- * GET /api/user/subscriptions — List current customer's subscriptions
+ * GET /api/user/subscriptions — Authoritative unified customer entitlement endpoint
  * Strictly isolated to req.user!.id
+ * Resolves both Subscription records (Path A) and manually provisioned ApiKeys (Path B).
+ * Returns:
+ * - success: boolean
+ * - hasActivePlan: boolean
+ * - activeSubscription: primary active plan object (for legacy & UserPlan.tsx)
+ * - activeEntitlements: all active plans array
+ * - subscriptions: full subscription history array (for UserSubscriptions.tsx)
+ * - pastSubscriptions: expired/cancelled subscriptions
+ * - summary: aggregated totals (credits USD, token packs, rolling pools)
  */
 customerSubscriptionRouter.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
+    const entitlementsResult = await resolveCustomerEntitlements(userId);
+    res.json(entitlementsResult);
+  } catch (err: any) {
+    console.error('[customerSubscriptionRouter] Error resolving entitlements:', err);
+    res.status(500).json({ error: { message: err.message || 'Failed to resolve entitlements.' } });
+  }
+});
 
-    const subscriptions = await prisma.subscription.findMany({
-      where: { userId },
-      include: {
-        order: {
-          select: {
-            id: true,
-            internalOrderId: true,
-            amountInr: true,
-            status: true,
-            paymentStatus: true,
-            createdAt: true,
-          },
-        },
-        apiKey: {
-          select: {
-            id: true,
-            displayKey: true,
-            name: true,
-            status: true,
-            tokensRemaining: true,
-            purchasedTokens: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
+/**
+ * GET /api/user/subscriptions/active — Alias returning active entitlements
+ */
+customerSubscriptionRouter.get('/active', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const entitlementsResult = await resolveCustomerEntitlements(userId);
+    res.json({
+      success: true,
+      hasActivePlan: entitlementsResult.hasActivePlan,
+      activeSubscription: entitlementsResult.activeSubscription,
+      activeEntitlements: entitlementsResult.activeEntitlements,
+      summary: entitlementsResult.summary,
     });
-
-    const now = new Date();
-
-    const formatted = subscriptions.map((sub) => {
-      const liveStatus = getSubscriptionStatus(sub.expiryTime, sub.status, now);
-      const msRemaining = sub.expiryTime.getTime() - now.getTime();
-      const daysRemaining = Math.max(0, Math.ceil(msRemaining / (24 * 60 * 60 * 1000)));
-
-      return {
-        id: sub.id,
-        planId: sub.planId,
-        planName: sub.planName,
-        billingPeriod: sub.billingPeriod || (sub.durationDays >= 365 ? 'yearly' : 'monthly'),
-        status: liveStatus,
-        rawStatus: sub.status,
-        activationTime: sub.activationTime,
-        expiryTime: sub.expiryTime,
-        currentPeriodStart: sub.activationTime,
-        currentPeriodEnd: sub.expiryTime,
-        durationDays: sub.durationDays,
-        daysRemaining,
-        renewalCount: sub.renewalCount,
-        lastRenewedAt: sub.lastRenewedAt,
-        isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0,
-        isExpired: daysRemaining === 0,
-        apiKey: sub.apiKey
-          ? {
-              id: sub.apiKey.id,
-              displayKey: sub.apiKey.displayKey,
-              name: sub.apiKey.name,
-              tokensRemaining: sub.apiKey.tokensRemaining.toString(),
-            }
-          : null,
-        order: sub.order,
-      };
-    });
-
-    res.json({ success: true, subscriptions: formatted });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }
@@ -107,6 +73,8 @@ customerSubscriptionRouter.get('/:id', async (req: AuthRequest, res: Response) =
             status: true,
             tokensRemaining: true,
             tokensUsed: true,
+            creditBalanceUsd: true,
+            billingType: true,
           },
         },
       },
@@ -145,6 +113,7 @@ customerSubscriptionRouter.get('/:id', async (req: AuthRequest, res: Response) =
               ...sub.apiKey,
               tokensRemaining: sub.apiKey.tokensRemaining.toString(),
               tokensUsed: sub.apiKey.tokensUsed.toString(),
+              creditBalanceUsd: Number(sub.apiKey.creditBalanceUsd || 0),
             }
           : null,
         history: relatedOrders,

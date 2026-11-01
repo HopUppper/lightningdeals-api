@@ -26,6 +26,7 @@ export const UserPlan: React.FC = () => {
   } | null>(null);
 
   // Time remaining states for live countdown
+  const [selectedActiveSubIndex, setSelectedActiveSubIndex] = useState<number>(0);
   const [resetCountdown, setResetCountdown] = useState<string>('');
   const [expiryCountdown, setExpiryCountdown] = useState<string>('');
   const [selectedFamily, setSelectedFamily] = useState<'claude' | 'openai' | 'local'>('claude');
@@ -148,7 +149,10 @@ export const UserPlan: React.FC = () => {
     );
   }
 
-  const activeSub = data?.activeSubscription;
+  const activeSubs: any[] = data?.activeEntitlements && data.activeEntitlements.length > 0
+    ? data.activeEntitlements
+    : data?.activeSubscription ? [data.activeSubscription] : [];
+  const activeSub = activeSubs[selectedActiveSubIndex] || activeSubs[0] || data?.activeSubscription || null;
   const quotaLimit = Number(activeSub?.quotaLimit || 0);
   const currentUsage = Number(activeSub?.currentUsage || 0);
   const remainingTokens = Math.max(0, quotaLimit - currentUsage);
@@ -252,6 +256,47 @@ export const UserPlan: React.FC = () => {
             {claimingTrial ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Gift className="w-3.5 h-3.5" />}
             <span>{claimingTrial ? 'Provisioning Key...' : 'Claim 200k Free Trial'}</span>
           </button>
+        </div>
+      )}
+
+      {/* MULTI-PLAN SWITCHER (If customer holds multiple active entitlements) */}
+      {activeSubs.length > 1 && (
+        <div className="bg-white p-4 rounded-2xl border border-[#ede8e1] shadow-2xs space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold text-[#64607d]">
+            <span className="uppercase tracking-wider">Your Active Plans ({activeSubs.length})</span>
+            <span className="text-[11px] font-normal text-[#9ca3af]">Select to inspect details</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {activeSubs.map((sub: any, idx: number) => {
+              const isSelected = selectedActiveSubIndex === idx;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setSelectedActiveSubIndex(idx)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-2 ${
+                    isSelected
+                      ? 'bg-[#7136E8] text-white border-[#7136E8] shadow-xs'
+                      : 'bg-[#faf8f5] text-[#374151] border-[#ede8e1] hover:bg-white'
+                  }`}
+                >
+                  <Zap className={`w-3.5 h-3.5 ${isSelected ? 'fill-current text-amber-300' : 'text-[#7136E8]'}`} />
+                  <span>{sub.planName}</span>
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-[#64607d]'
+                    }`}
+                  >
+                    {sub.billingType === 'credit'
+                      ? `$${Number(sub.creditBalanceUsd || 0).toFixed(2)}`
+                      : sub.billingType === 'token'
+                      ? formatTokens(sub.tokensRemaining)
+                      : `${formatTokens(sub.quotaLimit)}/5h`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

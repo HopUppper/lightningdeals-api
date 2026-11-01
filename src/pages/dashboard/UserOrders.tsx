@@ -368,7 +368,7 @@ export const UserOrders: React.FC = () => {
                       {new Date(o.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-3 text-right font-extrabold text-fg whitespace-nowrap">
-                      ₹{Number(o.amountInr ?? o.amount ?? 0).toLocaleString()}
+                      ₹{Number(o.paidAmountInr ?? o.amountInr ?? o.amount ?? 0).toLocaleString()}
                     </td>
                     <td className="py-3.5 px-3 text-center whitespace-nowrap">
                       {getPaymentStatusBadge(o.paymentStatus)}
@@ -425,7 +425,7 @@ export const UserOrders: React.FC = () => {
                 <div>
                   <span className="text-muted block text-[11px]">Total Paid</span>
                   <span className="font-bold text-fg text-sm">
-                    ₹{Number(selectedOrder.amountInr ?? selectedOrder.amount ?? 0).toLocaleString()}
+                    ₹{Number(selectedOrder.paidAmountInr ?? selectedOrder.amountInr ?? selectedOrder.amount ?? 0).toLocaleString()}
                   </span>
                 </div>
                 <div>

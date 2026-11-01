@@ -314,3 +314,243 @@ export async function activateOrRenewSubscription(
     };
   }
 }
+
+
+/**
+ * ============================================================================
+ * ⚡ UNIFIED CUSTOMER ENTITLEMENT RESOLVER — LIGHTNINGAPI.PRO
+ * ============================================================================
+ * Authoritatively resolves and unifies a customer's active entitlements across:
+ * 1. Active Subscription records (Path A - website checkout)
+ * 2. Active ApiKey records (Path B - manual admin WhatsApp/panel provisioning)
+ * 3. Captured Orders awaiting entitlement reconciliation
+ *
+ * Distinctly classifies across all 5 billing architectures:
+ * - claude_max_rolling: Claude Max rolling 5h window
+ * - claude_openai_credits: Combined Claude + OpenAI credit balances with multiplier
+ * - openai_tokens: Consumable OpenAI token packs
+ * - claude_tokens: Consumable Claude token packs
+ * - local_models_tokens: DeepSeek, Llama, Qwen, Mistral consumable packs
+ */
+export async function resolveCustomerEntitlements(userId: string) {
+  const now = new Date();
+
+  // 1. Fetch all user subscriptions (active and past)
+  const existingSubs = await prisma.subscription.findMany({
+    where: { userId },
+    include: {
+      apiKey: true,
+      order: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // 2. Fetch all user active API keys
+  const activeKeys = await prisma.apiKey.findMany({
+    where: {
+      userId,
+      status: 'active',
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // 3. Resilient Auto-Reconciliation:
+  // If an active key exists without a subscription row, automatically create one so DB stays normalized
+  const subKeyIds = new Set(existingSubs.map((s) => s.apiKeyId).filter(Boolean));
+  for (const key of activeKeys) {
+    if (!subKeyIds.has(key.id)) {
+      const isCredit = key.billingType === 'credit';
+      const isToken = key.billingType === 'token';
+      const quotaWindowHours = isCredit || isToken ? 0 : 5;
+      const expiry = key.expiresAt || new Date(now.getTime() + 30 * 24 * 3600 * 1000);
+      const days = Math.max(1, Math.ceil((expiry.getTime() - now.getTime()) / (24 * 3600 * 1000)));
+
+      // Auto-reconcile subscription record in DB
+      try {
+        const autoSub = await prisma.subscription.create({
+          data: {
+            userId,
+            planId: key.plan ? key.plan.toLowerCase().replace(/[^a-z0-9]+/g, '_') : 'custom_plan',
+            planName: key.plan || (isCredit ? 'API Credits' : 'Claude Max Plan'),
+            apiKeyId: key.id,
+            activationTime: key.createdAt || now,
+            expiryTime: expiry,
+            durationDays: days,
+            billingPeriod: days >= 365 ? 'yearly' : 'monthly',
+            quotaLimit: isCredit ? 0n : key.purchasedTokens,
+            quotaWindowHours,
+            currentUsage: key.tokensUsed || 0n,
+            nextResetTime: new Date(now.getTime() + 5 * 3600 * 1000),
+            status: 'ACTIVE',
+            notes: 'Auto-reconciled active subscription from provisioned key',
+          },
+          include: {
+            apiKey: true,
+            order: true,
+          },
+        });
+        existingSubs.unshift(autoSub);
+        subKeyIds.add(key.id);
+      } catch (err) {
+        console.warn(`[EntitlementResolver] Failed to auto-persist subscription for key ${key.id}:`, err);
+      }
+    }
+  }
+
+  // 4. Format all subscriptions and classify into entitlements
+  const formattedSubscriptions = existingSubs.map((sub) => {
+    const liveStatus = getSubscriptionStatus(sub.expiryTime, sub.status, now);
+    const msRemaining = sub.expiryTime.getTime() - now.getTime();
+    const daysRemaining = Math.max(0, Math.ceil(msRemaining / (24 * 60 * 60 * 1000)));
+
+    const key = sub.apiKey;
+    const isCredit = key?.billingType === 'credit' || sub.quotaLimit === 0n;
+    const isToken = key?.billingType === 'token';
+
+    let planCategory = sub.order?.planCategory;
+    if (!planCategory) {
+      if (isCredit) {
+        planCategory = 'claude_openai_credits';
+      } else if (isToken) {
+        const pLower = (sub.planName || '').toLowerCase();
+        if (pLower.includes('deepseek') || pLower.includes('llama') || pLower.includes('qwen') || pLower.includes('local')) {
+          planCategory = 'local_models_tokens';
+        } else if (pLower.includes('openai') || pLower.includes('gpt')) {
+          planCategory = 'openai_tokens';
+        } else {
+          planCategory = 'claude_tokens';
+        }
+      } else {
+        planCategory = 'claude_max_rolling';
+      }
+    }
+
+    const quotaLimitStr = sub.quotaLimit.toString();
+    const tokensUsedStr = key ? key.tokensUsed.toString() : sub.currentUsage.toString();
+    const tokensRemainingStr = key
+      ? key.tokensRemaining.toString()
+      : Math.max(0n, sub.quotaLimit - sub.currentUsage).toString();
+
+    const creditBalanceUsd = key?.creditBalanceUsd ? Number(key.creditBalanceUsd) : 0;
+    const totalCreditsUsedUsd = key?.totalCreditsUsedUsd ? Number(key.totalCreditsUsedUsd) : 0;
+
+    return {
+      id: sub.id,
+      planId: sub.planId,
+      planName: sub.planName,
+      planCategory,
+      billingType: isCredit ? 'credit' : isToken ? 'token' : 'window',
+      billingPeriod: sub.billingPeriod || (sub.durationDays >= 365 ? 'yearly' : 'monthly'),
+      status: liveStatus,
+      rawStatus: sub.status,
+      activationTime: sub.activationTime,
+      expiryTime: sub.expiryTime,
+      currentPeriodStart: sub.activationTime,
+      currentPeriodEnd: sub.expiryTime,
+      durationDays: sub.durationDays,
+      daysRemaining,
+      renewalCount: sub.renewalCount,
+      lastRenewedAt: sub.lastRenewedAt,
+      isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0,
+      isExpired: daysRemaining === 0 || liveStatus === 'EXPIRED',
+      quotaLimit: quotaLimitStr,
+      currentUsage: tokensUsedStr,
+      tokensRemaining: tokensRemainingStr,
+      quotaWindowHours: sub.quotaWindowHours,
+      nextResetTime: sub.nextResetTime,
+      creditBalanceUsd,
+      totalCreditsUsedUsd,
+      apiKey: key
+        ? {
+            id: key.id,
+            displayKey: key.displayKey,
+            name: key.name,
+            billingType: key.billingType,
+            status: key.status,
+            tokensRemaining: key.tokensRemaining.toString(),
+            creditBalanceUsd: Number(key.creditBalanceUsd || 0),
+          }
+        : null,
+      apiKeyDisplay: key?.displayKey || null,
+      order: sub.order
+        ? {
+            id: sub.order.id,
+            internalOrderId: sub.order.internalOrderId,
+            amountInr: sub.order.amountInr,
+            paidAmountInr: sub.order.paidAmountInr,
+            status: sub.order.status,
+            paymentStatus: sub.order.paymentStatus,
+            createdAt: sub.order.createdAt,
+          }
+        : null,
+      orderId: sub.orderId,
+    };
+  });
+
+  // Filter active entitlements
+  const activeEntitlements = formattedSubscriptions.filter(
+    (s) => s.status === 'ACTIVE' || s.status === 'EXPIRING'
+  );
+
+  const pastSubscriptions = formattedSubscriptions.filter(
+    (s) => s.status !== 'ACTIVE' && s.status !== 'EXPIRING'
+  );
+
+  // Pick primary active subscription: prefer non-trial active plan, else highest quota/latest
+  let primaryActiveSubscription = activeEntitlements.find(
+    (s) => !s.planId.includes('trial') && !s.planName.toLowerCase().includes('trial')
+  );
+  if (!primaryActiveSubscription && activeEntitlements.length > 0) {
+    primaryActiveSubscription = activeEntitlements[0];
+  }
+
+  // Aggregate summary
+  let totalCreditBalanceUsd = 0;
+  let totalCreditsUsedUsd = 0;
+  let totalTokensRemainingBig = 0n;
+  let totalTokensPurchasedBig = 0n;
+  const rollingPools: any[] = [];
+
+  for (const ent of activeEntitlements) {
+    if (ent.billingType === 'credit') {
+      totalCreditBalanceUsd += ent.creditBalanceUsd;
+      totalCreditsUsedUsd += ent.totalCreditsUsedUsd;
+    } else if (ent.billingType === 'token') {
+      totalTokensRemainingBig += BigInt(ent.tokensRemaining || '0');
+      totalTokensPurchasedBig += BigInt(ent.quotaLimit || '0');
+    } else if (ent.billingType === 'window') {
+      rollingPools.push({
+        id: ent.id,
+        planName: ent.planName,
+        quotaLimit: ent.quotaLimit,
+        tokensUsed: ent.currentUsage,
+        tokensRemaining: ent.tokensRemaining,
+        windowHours: ent.quotaWindowHours,
+        nextResetTime: ent.nextResetTime,
+        status: ent.status,
+        apiKeyDisplay: ent.apiKeyDisplay,
+      });
+    }
+  }
+
+  const summary = {
+    hasActivePlan: activeEntitlements.length > 0,
+    activePlansCount: activeEntitlements.length,
+    totalCreditBalanceUsd: Math.round(totalCreditBalanceUsd * 10000) / 10000,
+    totalCreditsUsedUsd: Math.round(totalCreditsUsedUsd * 10000) / 10000,
+    totalTokensRemaining: totalTokensRemainingBig.toString(),
+    totalTokensPurchased: totalTokensPurchasedBig.toString(),
+    rollingPools,
+  };
+
+  return {
+    success: true,
+    hasActivePlan: activeEntitlements.length > 0,
+    activeSubscription: primaryActiveSubscription || null,
+    activeEntitlements,
+    subscriptions: formattedSubscriptions,
+    pastSubscriptions,
+    summary,
+  };
+}

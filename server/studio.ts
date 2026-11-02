@@ -1,6 +1,7 @@
 import { normalizeErrorResponse } from './friendlyErrors';
 import { Router, Response } from 'express';
 import { prisma, decryptText } from './db';
+import { resolveProviderCredential } from './providers/credentialResolver';
 import { authenticateJwt, optionalAuthenticateJwt, AuthRequest } from './auth';
 import { builderRouter } from './studioBuilder';
 import { buildProviderRequest } from './providerAdapter';
@@ -2382,8 +2383,17 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 4. Resolve Active Vendor Provider
+    const selectedModel = requestedModel || 'claude-sonnet-5.5';
+
+    // 4. Resolve Active Vendor Provider according to Key Architecture
     let vendor = keyRecord.provider;
+    if (!vendor || vendor.status === 'disabled') {
+      if (keyRecord.billingType === 'credit') {
+        vendor = await prisma.vendorProvider.findFirst({
+          where: { slug: 'scalemax', status: { not: 'disabled' } },
+        });
+      }
+    }
     if (!vendor || vendor.status === 'disabled') {
       vendor = await prisma.vendorProvider.findFirst({
         where: { isPrimary: true, status: { not: 'disabled' } },
@@ -2404,7 +2414,15 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const masterKey = vendor.masterApiKeyEncrypted ? decryptText(vendor.masterApiKeyEncrypted) : '';
+    const credRes = resolveProviderCredential(vendor, keyRecord, selectedModel);
+    if (!credRes.success) {
+      await releaseReservation(studioRequestId);
+      return res.status(credRes.failure.error.status || 502).json({
+        success: false,
+        error: credRes.failure.error,
+      });
+    }
+    const masterKey = credRes.credential.apiKey;
     if (!masterKey) {
       await releaseReservation(studioRequestId);
       return res.status(503).json({
@@ -2515,7 +2533,6 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
 
-    const selectedModel = requestedModel || 'claude-sonnet-5.5';
     const friendlyModel = getFriendlyModelName(selectedModel);
     const modelMeta = VERIFIED_STUDIO_MODELS.find((m) => m.id === selectedModel);
 
@@ -2795,7 +2812,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       await releaseReservation(studioRequestId);
       if (clientDisconnected) return;
       console.warn(`[STUDIO UPSTREAM FETCH FAILED] ${fetchErr.message}`);
-      const normalized = normalizeErrorResponse(502, fetchErr.message, { model });
+      const normalized = normalizeErrorResponse(502, fetchErr.message, { model: selectedModel });
       activityTracker.failCurrentStep(`Model request failed: ${normalized.error.message}`);
       sendSse('error', normalized.error);
       return res.end();
@@ -2807,7 +2824,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       let parsedErr: any = {};
       try { parsedErr = JSON.parse(errText); } catch {}
       const rawErrMsg = parsedErr?.error?.message || parsedErr?.message || errText || `HTTP ${upstreamRes?.status || 502}`;
-      const normalized = normalizeErrorResponse(upstreamRes?.status || 502, parsedErr?.error?.message ? parsedErr : rawErrMsg, { model });
+      const normalized = normalizeErrorResponse(upstreamRes?.status || 502, parsedErr?.error?.message ? parsedErr : rawErrMsg, { model: selectedModel });
 
       activityTracker.failCurrentStep(`Model request failed: ${normalized.error.message}`);
       sendSse('error', normalized.error);

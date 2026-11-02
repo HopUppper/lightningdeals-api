@@ -471,15 +471,19 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
       effectiveBaseUrl = this.baseUrl;
     }
 
-    if (this.protocol === 'openai-compatible' || this.protocol === 'openai') {
+    const isAnthropicEndpoint = Boolean(
+      payload?.isAnthropicEndpoint ||
+      payload?.anthropicBetaHeader ||
+      (this.protocol === 'anthropic' && !payload?.isOpenAiEndpoint)
+    );
+
+    if (!isAnthropicEndpoint && (this.protocol === 'openai-compatible' || this.protocol === 'openai' || payload?.isOpenAiEndpoint)) {
       const cleanBase = (effectiveBaseUrl || 'https://api.scalemax.pro/v1').replace(/\/+$/, '');
       const targetUrl = cleanBase.endsWith('/chat/completions')
         ? cleanBase
         : cleanBase.endsWith('/v1')
           ? `${cleanBase}/chat/completions`
           : `${cleanBase}/v1/chat/completions`;
-
-
 
       const openAiMessages = convertAnthropicMessagesToOpenAI(payload.messages, payload.system);
       const openAiTools = convertAnthropicToolsToOpenAI(payload.tools);
@@ -502,7 +506,6 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
       if (openAiToolChoice) body.tool_choice = openAiToolChoice;
       if (payload.stop_sequences && Array.isArray(payload.stop_sequences)) body.stop = payload.stop_sequences;
 
-
       return {
         url: targetUrl,
         headers,
@@ -512,9 +515,16 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
       };
     }
 
-    // Anthropic-compatible protocol
-    headers['x-api-key'] = decryptedMasterKey;
-    headers['anthropic-version'] = '2023-06-01';
+    // Anthropic-compatible protocol (ScaleMax native /v1/messages route)
+    const anthropicHeaders: Record<string, string> = {
+      'content-type': 'application/json',
+      'x-api-key': decryptedMasterKey,
+      'anthropic-version': '2023-06-01',
+      ...this.customHeaders,
+    };
+    if (payload.anthropicBetaHeader) {
+      anthropicHeaders['anthropic-beta'] = payload.anthropicBetaHeader;
+    }
     const cleanBase = (effectiveBaseUrl || 'https://api.scalemax.pro/v1').replace(/\/+$/, '');
     const targetUrl = cleanBase.endsWith('/messages')
       ? cleanBase
@@ -522,11 +532,9 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
         ? `${cleanBase}/messages`
         : `${cleanBase}/v1/messages`;
 
-
-
     return {
       url: targetUrl,
-      headers,
+      headers: anthropicHeaders,
       targetModel,
       timeoutMs: this.timeoutMs,
       body: {

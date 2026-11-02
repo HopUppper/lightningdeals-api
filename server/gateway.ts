@@ -1763,6 +1763,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         stop_sequences,
         metadata,
         anthropicBetaHeader,
+        isAnthropicEndpoint: true,
       }, resolvedBillingType);
 
       const controller = new AbortController();
@@ -2907,6 +2908,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     top_p,
     tools,
     tool_choice,
+    isOpenAiEndpoint: true,
   }, resolvedBillingType);
 
   if (stream && prepared.body && typeof prepared.body === 'object') {

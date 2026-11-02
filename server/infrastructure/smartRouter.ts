@@ -172,7 +172,10 @@ export async function resolveIntelligentRoute(params: {
 
   // 2. Billing Architecture & Entitlement Verification
   const billingArchitecture = resolveBillingArchitecture(keyRecord);
-  const modelFamily = modelRecord?.family || detectModelFamily(requestedModel);
+  const rawModelFamily = modelRecord?.family || detectModelFamily(requestedModel);
+  const modelFamily = (rawModelFamily.toLowerCase() === 'anthropic' || rawModelFamily.toLowerCase() === 'claude')
+    ? 'claude'
+    : rawModelFamily.toLowerCase();
 
   // 2a. Strict Plan-to-Model Family Entitlement Verification
   if (billingArchitecture === 'claude_openai_credits') {
@@ -197,7 +200,13 @@ export async function resolveIntelligentRoute(params: {
       allowedFamilies = [keyRecord.allowedModelFamilies];
     }
     if (Array.isArray(allowedFamilies) && allowedFamilies.length > 0 && !allowedFamilies.includes('all')) {
-      const isAllowed = allowedFamilies.some(f => f.toLowerCase() === modelFamily.toLowerCase() || (f.toLowerCase() === 'local' && isLocalModelFamily(canonicalModelId)));
+      const isAllowed = allowedFamilies.some(f => {
+        const normF = f.toLowerCase();
+        if (normF === 'claude' || normF === 'anthropic') {
+          return modelFamily === 'claude';
+        }
+        return normF === modelFamily || (normF === 'local' && isLocalModelFamily(canonicalModelId));
+      });
       if (!isAllowed) {
         return {
           success: false,
@@ -212,32 +221,55 @@ export async function resolveIntelligentRoute(params: {
     }
   }
 
-  // 3. Resolve Target Provider
-  let targetProviderSlug = modelRecord?.providerSlug;
+  // 3. Resolve Target Provider based on customer key billing architecture
   let targetProvider: any = null;
 
-  if (modelRecord?.providerId) {
+  // Strict Billing Architecture Provider Routing:
+  // - API Credit keys (claude_openai_credits / credit) route strictly to ScaleMax
+  // - Token pack keys (claude_tokens, openai_tokens, local_models_tokens / token) route strictly to ScaleMax
+  // - OpenAI Rolling Window keys (openai_max_rolling) route strictly to LotusAI
+  // - Claude Rolling Window keys (claude_max_rolling / window) route strictly to OpusMax
+  if (billingArchitecture === 'claude_openai_credits' || keyRecord?.billingType === 'credit') {
+    targetProvider = await prisma.vendorProvider.findFirst({
+      where: { slug: 'scalemax', status: { not: 'disabled' } },
+    });
+  } else if (
+    billingArchitecture === 'openai_tokens' ||
+    billingArchitecture === 'claude_tokens' ||
+    billingArchitecture === 'local_models_tokens' ||
+    keyRecord?.billingType === 'token'
+  ) {
+    targetProvider = await prisma.vendorProvider.findFirst({
+      where: { slug: 'scalemax', status: { not: 'disabled' } },
+    });
+  } else if (billingArchitecture === 'openai_max_rolling') {
+    targetProvider = await prisma.vendorProvider.findFirst({
+      where: { slug: 'lotusai', status: { not: 'disabled' } },
+    });
+  } else if (billingArchitecture === 'claude_max_rolling' || keyRecord?.billingType === 'window') {
+    targetProvider = await prisma.vendorProvider.findFirst({
+      where: { slug: 'opus_max', status: { not: 'disabled' } },
+    });
+  }
+
+  // Fallback to key explicit provider, model record provider, or primary vendor
+  if (!targetProvider && keyRecord?.providerId) {
+    targetProvider = await prisma.vendorProvider.findUnique({ where: { id: keyRecord.providerId } });
+  }
+  if (!targetProvider && modelRecord?.providerId) {
     targetProvider = await prisma.vendorProvider.findUnique({ where: { id: modelRecord.providerId } });
   }
-  if (!targetProvider && targetProviderSlug) {
+  if (!targetProvider && modelRecord?.providerSlug) {
     targetProvider = await prisma.vendorProvider.findFirst({
       where: {
-        OR: [{ slug: targetProviderSlug }, { name: { contains: targetProviderSlug, mode: 'insensitive' } }],
+        OR: [{ slug: modelRecord.providerSlug }, { name: { contains: modelRecord.providerSlug, mode: 'insensitive' } }],
         status: { not: 'disabled' },
       },
     });
   }
-  if (!targetProvider && keyRecord?.providerId) {
-    targetProvider = await prisma.vendorProvider.findUnique({ where: { id: keyRecord.providerId } });
-  }
   if (!targetProvider) {
     targetProvider = await prisma.vendorProvider.findFirst({
       where: { isPrimary: true, status: { not: 'disabled' } },
-    });
-  }
-  if (!targetProvider) {
-    targetProvider = await prisma.vendorProvider.findFirst({
-      where: { OR: [{ slug: 'opus_max' }, { name: { contains: 'Opus', mode: 'insensitive' } }], status: { not: 'disabled' } },
     });
   }
 
@@ -293,7 +325,9 @@ export async function resolveIntelligentRoute(params: {
     providerSlug: effectiveProviderSlug,
     billingType: credResolution.credential.billingType,
     billingArchitecture,
-    protocol: (modelRecord?.protocol as any) || (modelRecord?.family === 'claude' ? 'anthropic' : 'openai-compatible'),
+    protocol: targetProvider.slug === 'scalemax'
+      ? (targetProvider.protocol || 'openai-compatible')
+      : ((modelRecord?.protocol as any) || (modelFamily === 'claude' ? 'anthropic' : 'openai-compatible')),
     timeoutMs,
     breakerKey,
     circuitState: breakerCheck.state,

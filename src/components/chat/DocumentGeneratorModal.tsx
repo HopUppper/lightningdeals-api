@@ -13,7 +13,7 @@ import {
   ArrowRight,
   Copy,
 } from 'lucide-react';
-import { userFetch } from '../../utils/api';
+import { userFetch, getAuthHeaders } from '../../utils/api';
 
 export interface DocumentGeneratorModalProps {
   open: boolean;
@@ -196,13 +196,14 @@ export const DocumentGeneratorModal: React.FC<DocumentGeneratorModalProps> = ({
 
     try {
       // Direct binary download from server
-      const token = localStorage.getItem('token') || '';
+      const authHeaders = getAuthHeaders();
       const response = await fetch('/api/user/studio/documents/generate?download=1', {
         method: 'POST',
         headers: {
+          ...authHeaders,
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify({
           title: title.trim(),
           format: selectedFormat,

@@ -196,6 +196,8 @@ export interface ChatMessage {
   provider?: string;
   activities?: StudioActivityEvent[];
   currentActivity?: StudioActivityEvent;
+  memoryCount?: number;
+  memoryItems?: any[];
   errorCode?: string;
   errorAction?: 'retry' | 'switch_key' | 'switch_model' | 'recharge' | 'view_plans';
 }
@@ -753,6 +755,8 @@ export const UserChatStudio: React.FC = () => {
 
   const [availableModels, setAvailableModels] = useState<StudioModelMeta[]>(VERIFIED_MODELS);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [memoryScope, setMemoryScope] = useState<'account' | 'project' | 'session'>('account');
+  const [isTemporarySession, setIsTemporarySession] = useState(false);
 
   // Workspace Skills Modal State
   const [isSkillsModalOpen, setIsSkillsModalOpen] = useState(false);
@@ -1182,7 +1186,7 @@ export const UserChatStudio: React.FC = () => {
     loadMemories();
   }, []);
 
-  // Load Memories from server
+  // Load Memories and Settings from server
   const loadMemories = async () => {
     try {
       const res = await userFetch('/api/user/studio/memories');
@@ -1190,6 +1194,18 @@ export const UserChatStudio: React.FC = () => {
         const data = await res.json();
         if (Array.isArray(data.memories)) {
           setUserMemories(data.memories);
+        }
+      }
+      const setRes = await userFetch('/api/user/studio/memory/settings');
+      if (setRes.ok) {
+        const setData = await setRes.json();
+        if (setData?.settings) {
+          if (typeof setData.settings.memoryEnabled === 'boolean') {
+            setMemoryEnabled(setData.settings.memoryEnabled);
+          }
+          if (setData.settings.scope) {
+            setMemoryScope(setData.settings.scope);
+          }
         }
       }
     } catch {}
@@ -2048,7 +2064,7 @@ export const UserChatStudio: React.FC = () => {
           systemPrompt: activeThread.systemPrompt,
           thinkingEnabled: activeThread.thinkingEnabled,
           tokenSaverEnabled: activeThread.tokenSaverEnabled,
-          memoryEnabled: memoryEnabled,
+          memoryEnabled: memoryEnabled && !isTemporarySession,
           activeSkills: activeSkillIds,
           temperature: activeThread.temperature,
           attachments: options?.isContinuation ? [] : (userMessage.attachments || []),
@@ -2076,7 +2092,7 @@ export const UserChatStudio: React.FC = () => {
                 systemPrompt: activeThread.systemPrompt,
                 thinkingEnabled: activeThread.thinkingEnabled,
                 tokenSaverEnabled: activeThread.tokenSaverEnabled,
-                memoryEnabled: memoryEnabled,
+                memoryEnabled: memoryEnabled && !isTemporarySession,
                 activeSkills: activeSkillIds,
                 temperature: activeThread.temperature,
                 attachments: userMessage.attachments || [],
@@ -2258,7 +2274,26 @@ export const UserChatStudio: React.FC = () => {
             try {
               const parsed = JSON.parse(eventData);
 
-              if (eventType === 'session') {
+              if (eventType === 'memory_used') {
+                if (parsed.usedCount > 0) {
+                  setThreads((prev) =>
+                    prev.map((t) =>
+                      t.id === boundThreadId
+                        ? {
+                            ...t,
+                            messages: t.messages.map((m) =>
+                              m.id === assistantMsgId
+                                ? { ...m, memoryCount: parsed.usedCount, memoryItems: parsed.memories }
+                                : m
+                            ),
+                          }
+                        : t
+                    )
+                  );
+                }
+              } else if (eventType === 'memory_saved' || eventType === 'memory_forgotten') {
+                loadMemories();
+              } else if (eventType === 'session') {
                 if (parsed.conversationId && parsed.conversationId !== boundThreadId) {
                   const newId = parsed.conversationId;
                   const oldId = boundThreadId;
@@ -4330,6 +4365,21 @@ export const UserChatStudio: React.FC = () => {
                                   </span>
                                   <ChevronDown className={`w-2.5 h-2.5 transition-transform ${activeTelemetryMsgId === msg.id ? 'rotate-180' : ''}`} />
                                 </button>
+                                {Boolean(msg.memoryCount && msg.memoryCount > 0) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setContextManagerOpen(true)}
+                                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                                      isDark
+                                        ? 'bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20'
+                                        : 'bg-violet-50 border-violet-300 text-violet-900 hover:bg-violet-100 font-semibold'
+                                    }`}
+                                    title={`Personalised using ${msg.memoryCount} remembered preference${(msg.memoryCount ?? 0) > 1 ? 's' : ''}. Click to inspect memory.`}
+                                  >
+                                    <Brain className="w-2.5 h-2.5 text-violet-400" />
+                                    <span>Personalised ({msg.memoryCount})</span>
+                                  </button>
+                                )}
 
                                 {activeTelemetryMsgId === msg.id && (
                                   <div className={`absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-2xl shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn ${c.cardBg} ${c.border}`}>
@@ -4993,9 +5043,7 @@ export const UserChatStudio: React.FC = () => {
               isGenerating={generating}
               onClose={() => setWorkspaceMode('chat')}
               onTriggerAiAction={(actionPrompt) => {
-                setPrompt(actionPrompt);
-                setMobileDocTab('chat');
-                textareaRef.current?.focus();
+                handleSendMessage(actionPrompt);
               }}
             />
           </div>
@@ -5227,7 +5275,25 @@ export const UserChatStudio: React.FC = () => {
         totalContextTokens={activeThread.messages.length * 150}
         messagesCount={activeThread.messages.length}
         isPaidCustomer={isPaidCustomer}
-        onToggleMemoryEnabled={setMemoryEnabled}
+        onToggleMemoryEnabled={(enabled) => {
+          setMemoryEnabled(enabled);
+          userFetch('/api/user/studio/memory/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ memoryEnabled: enabled }),
+          }).catch(() => {});
+        }}
+        memoryScope={memoryScope}
+        onUpdateMemoryScope={(scope) => {
+          setMemoryScope(scope);
+          userFetch('/api/user/studio/memory/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scope }),
+          }).catch(() => {});
+        }}
+        isTemporarySession={isTemporarySession}
+        onToggleTemporarySession={setIsTemporarySession}
         onAddMemory={handleAddMemory}
         onEditMemory={handleEditMemory}
         onRemoveMemory={handleRemoveMemory}

@@ -1,26 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   Brain,
   Zap,
-  Sliders,
   Sparkles,
-  Layers,
   Plus,
   Trash2,
   Check,
-  RefreshCw,
   Cpu,
-  Info,
-  ShieldCheck,
-  Code,
   Edit2,
+  Search,
+  Lock,
+  EyeOff,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export interface ProjectMemoryItem {
   id: string;
   category: string;
   fact: string;
+  type?: string; // 'explicit' | 'automatic' | 'profile' | 'project' | 'continuity'
+  normalizedFact?: string | null;
+  confidence?: number;
+  projectId?: string | null;
+  updatedAt?: string;
+  createdAt?: string;
 }
 
 interface ContextManagerDrawerProps {
@@ -53,6 +58,10 @@ interface ContextManagerDrawerProps {
   }) => void;
   onCompressContext: () => Promise<void>;
   isCompressing: boolean;
+  memoryScope?: 'account' | 'project' | 'session';
+  onUpdateMemoryScope?: (scope: 'account' | 'project' | 'session') => void;
+  isTemporarySession?: boolean;
+  onToggleTemporarySession?: (temp: boolean) => void;
 }
 
 const PERSONA_PRESETS = [
@@ -92,6 +101,15 @@ const PERSONA_PRESETS = [
   },
 ];
 
+const MEMORY_CATEGORIES = [
+  'All',
+  'Tech Stack',
+  'Preferences',
+  'Working Style',
+  'About Me',
+  'Projects',
+];
+
 export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   open,
   onClose,
@@ -105,7 +123,6 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   memoryEnabled = true,
   totalContextTokens,
   messagesCount,
-  isPaidCustomer,
   onToggleMemoryEnabled,
   onAddMemory,
   onEditMemory,
@@ -114,8 +131,15 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   onUpdateSettings,
   onCompressContext,
   isCompressing,
+  memoryScope = 'account',
+  onUpdateMemoryScope,
+  isTemporarySession = false,
+  onToggleTemporarySession,
 }) => {
   const [activeTab, setActiveTab] = useState<'memory' | 'persona' | 'parameters'>('memory');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showManualAdd, setShowManualAdd] = useState(false);
   const [newCategory, setNewCategory] = useState('Tech Stack');
   const [newFact, setNewFact] = useState('');
   const [isSavingMemory, setIsSavingMemory] = useState(false);
@@ -129,6 +153,24 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   const contextLimit = 200000;
   const contextPercent = Math.min(100, Math.round((totalContextTokens / contextLimit) * 100));
 
+  // Compute memory statistics
+  const explicitCount = memoryItems.filter((m) => m.type === 'explicit').length;
+  const automaticCount = memoryItems.filter((m) => m.type !== 'explicit').length;
+
+  // Filter memories by category and search query
+  const filteredMemories = useMemo(() => {
+    return memoryItems.filter((item) => {
+      const matchesCategory =
+        selectedCategory === 'All' ||
+        item.category.toLowerCase() === selectedCategory.toLowerCase();
+      const matchesSearch =
+        !searchQuery.trim() ||
+        item.fact.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [memoryItems, selectedCategory, searchQuery]);
+
   const handleAddMemory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFact.trim()) return;
@@ -136,19 +178,22 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
     if (onAddMemory) {
       try {
         setIsSavingMemory(true);
-        await onAddMemory(newCategory.trim() || 'General', newFact.trim());
+        await onAddMemory(newCategory.trim() || 'Preferences', newFact.trim());
         setNewFact('');
+        setShowManualAdd(false);
       } finally {
         setIsSavingMemory(false);
       }
     } else {
       const newItem: ProjectMemoryItem = {
         id: `mem_${Date.now()}`,
-        category: newCategory.trim() || 'General',
+        category: newCategory.trim() || 'Preferences',
         fact: newFact.trim(),
+        type: 'explicit',
       };
       onUpdateSettings({ memoryItems: [...memoryItems, newItem] });
       setNewFact('');
+      setShowManualAdd(false);
     }
   };
 
@@ -161,11 +206,11 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   const handleSaveEdit = async (id: string) => {
     if (!editFact.trim()) return;
     if (onEditMemory) {
-      await onEditMemory(id, editCategory.trim() || 'General', editFact.trim());
+      await onEditMemory(id, editCategory.trim() || 'Preferences', editFact.trim());
     } else {
       onUpdateSettings({
         memoryItems: memoryItems.map((m) =>
-          m.id === id ? { ...m, category: editCategory.trim() || 'General', fact: editFact.trim() } : m
+          m.id === id ? { ...m, category: editCategory.trim() || 'Preferences', fact: editFact.trim() } : m
         ),
       });
     }
@@ -207,13 +252,13 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                <span>Chat Memory & Context Manager</span>
+                <span>Memory & Context Intelligence</span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/40">
-                  PRO
+                  PERSISTENT
                 </span>
               </h3>
               <p className="text-[11px] text-slate-400">
-                Persistent project knowledge, context compression & reasoning controls
+                Cross-conversation recall, automatic preference extraction & reasoning
               </p>
             </div>
           </div>
@@ -278,7 +323,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
         {/* Tab Buttons */}
         <div className="flex border-b border-[#28334B] px-6 mt-4 gap-4 text-xs font-mono shrink-0">
           {[
-            { id: 'memory', label: '🧠 Project Memory', count: memoryItems.length },
+            { id: 'memory', label: '🧠 Long-Term Memory', count: memoryItems.length },
             { id: 'persona', label: '🎭 Persona Preset', count: null },
             { id: 'parameters', label: '⚙️ Parameters', count: null },
           ].map((tab) => (
@@ -306,126 +351,218 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
           {activeTab === 'memory' && (
             <div className="space-y-4">
-              {/* Memory Active Toggle Banner */}
-              <div className="p-3 bg-slate-900 border border-[#28334B] rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
-                    <Brain className="w-3.5 h-3.5 text-violet-400" />
-                    <span>Project Memory System</span>
-                  </span>
-                  <p className="text-[11px] text-slate-400">
-                    {memoryEnabled
-                      ? 'Active: Stored facts below are referenced in conversations'
-                      : 'Paused: Facts preserved in DB but excluded from prompts'}
-                  </p>
-                </div>
-                {onToggleMemoryEnabled && (
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={memoryEnabled}
-                      onChange={(e) => onToggleMemoryEnabled(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
-                  </label>
-                )}
-              </div>
-
-              <div className="p-3 bg-violet-950/20 border border-violet-500/20 rounded-xl space-y-1">
-                <p className="font-bold text-violet-300 flex items-center gap-1.5 text-xs">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>How Chat Memory Works</span>
-                </p>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Facts stored here persist across all messages in this thread. The AI will
-                  automatically reference these architectural choices, tech stack versions, and
-                  coding conventions without needing you to re-type them!
-                </p>
-              </div>
-
-              {/* Add Memory Fact Form */}
-              <form onSubmit={handleAddMemory} className="p-3.5 bg-slate-900 border border-[#28334B] rounded-xl space-y-2.5">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                  Add Persistent Memory Fact
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Category (e.g. Stack)"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="p-2 rounded-lg bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Fact (e.g. React 19 + Tailwind v4 + PostgreSQL)"
-                    value={newFact}
-                    onChange={(e) => setNewFact(e.target.value)}
-                    className="col-span-2 p-2 rounded-lg bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={!newFact.trim() || isSavingMemory}
-                  className="w-full py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isSavingMemory ? 'Saving...' : 'Save to Chat Memory'}</span>
-                </button>
-              </form>
-
-              {/* Memory Items List */}
-              <div className="space-y-2">
+              {/* Memory Master Switch & Status */}
+              <div className="p-3.5 bg-slate-900 border border-[#28334B] rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                    Stored Facts ({memoryItems.length})
-                  </span>
-                  {memoryItems.length > 0 && !showClearConfirm && (
-                    <button
-                      type="button"
-                      onClick={() => setShowClearConfirm(true)}
-                      className="text-[10px] text-rose-400 hover:underline cursor-pointer"
-                    >
-                      Clear All Facts
-                    </button>
+                  <div className="flex items-center gap-2">
+                    <Brain className={`w-4 h-4 ${memoryEnabled ? 'text-violet-400' : 'text-slate-500'}`} />
+                    <div>
+                      <span className="font-bold text-slate-200 text-xs block">
+                        Intelligent Memory System
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {memoryEnabled
+                          ? 'Active: Automatically recalls preferences across conversations'
+                          : 'Paused: Memories preserved safely in DB, omitted from model prompts'}
+                      </span>
+                    </div>
+                  </div>
+                  {onToggleMemoryEnabled && (
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
+                      <input
+                        type="checkbox"
+                        checked={memoryEnabled}
+                        onChange={(e) => onToggleMemoryEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                    </label>
                   )}
                 </div>
 
-                {/* Clear All Confirmation Modal */}
-                {showClearConfirm && (
-                  <div className="p-3 bg-rose-950/30 border border-rose-500/40 rounded-xl space-y-2">
-                    <p className="text-xs text-rose-200 font-semibold">
-                      Are you sure you want to delete all stored memory facts?
-                    </p>
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowClearConfirm(false)}
-                        className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-[11px]"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleClearAll}
-                        className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px]"
-                      >
-                        Confirm Delete All
-                      </button>
+                {/* Private / Temporary Session Toggle */}
+                {onToggleTemporarySession && (
+                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <EyeOff className={`w-3.5 h-3.5 ${isTemporarySession ? 'text-amber-400' : 'text-slate-500'}`} />
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-300 block">
+                          Incognito / Temporary Chat Mode
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          Operate without personal recall; won't save new memories
+                        </span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
+                      <input
+                        type="checkbox"
+                        checked={isTemporarySession}
+                        onChange={(e) => onToggleTemporarySession(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+                )}
+
+                {/* Scope selector */}
+                {onUpdateMemoryScope && (
+                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400 font-mono">Memory Recall Scope:</span>
+                    <div className="flex gap-1">
+                      {(['account', 'project', 'session'] as const).map((sc) => (
+                        <button
+                          key={sc}
+                          type="button"
+                          onClick={() => onUpdateMemoryScope(sc)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold capitalize transition-colors ${
+                            memoryScope === sc
+                              ? 'bg-violet-600 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {sc}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {memoryItems.length === 0 ? (
-                  <div className="p-6 text-center text-slate-500 border border-dashed border-[#28334B] rounded-xl font-mono text-[11px]">
-                    No memory facts defined yet. Add facts above to guide the AI across all turns.
+                {/* Memory Metrics Strip */}
+                <div className="grid grid-cols-3 gap-2 pt-1 text-center font-mono text-[10px]">
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <span className="text-slate-400 block">Total</span>
+                    <span className="text-slate-100 font-bold text-xs">{memoryItems.length}</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <span className="text-violet-400 block">Explicit Rules</span>
+                    <span className="text-violet-300 font-bold text-xs">{explicitCount}</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
+                    <span className="text-cyan-400 block">Learned Facts</span>
+                    <span className="text-cyan-300 font-bold text-xs">{automaticCount}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Natural Experience Guidance Callout */}
+              <div className="p-3 bg-violet-950/20 border border-violet-500/20 rounded-xl space-y-1 text-slate-300">
+                <p className="font-bold text-violet-300 flex items-center gap-1.5 text-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                  <span>Natural Memory Instructions</span>
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  You can chat naturally to manage your memory anytime:
+                </p>
+                <div className="space-y-1 text-[10px] font-mono text-violet-200/80 bg-slate-950/60 p-2 rounded-lg border border-violet-500/10">
+                  <p>• "Remember that I prefer TypeScript and PostgreSQL"</p>
+                  <p>• "Always give me concise, production-ready code"</p>
+                  <p>• "Forget that I prefer Python"</p>
+                  <p>• "What do you remember about me?"</p>
+                </div>
+              </div>
+
+              {/* Filter Tabs & Search Bar */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Search memories (e.g. React, PostgreSQL, style)..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-900 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-200"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-1 overflow-x-auto pb-1 text-[11px] font-mono scrollbar-none">
+                  {MEMORY_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-2.5 py-1 rounded-lg shrink-0 font-medium transition-colors ${
+                        selectedCategory === cat
+                          ? 'bg-violet-600 text-white font-bold'
+                          : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Memory List Header & Clear All Action */}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                  What LightningAPI Remembers ({filteredMemories.length})
+                </span>
+                {memoryItems.length > 0 && !showClearConfirm && (
+                  <button
+                    type="button"
+                    onClick={() => setShowClearConfirm(true)}
+                    className="text-[10px] text-rose-400 hover:underline cursor-pointer"
+                  >
+                    Clear All Memories
+                  </button>
+                )}
+              </div>
+
+              {/* Clear All Confirmation Modal */}
+              {showClearConfirm && (
+                <div className="p-3 bg-rose-950/40 border border-rose-500/40 rounded-xl space-y-2">
+                  <p className="text-xs text-rose-200 font-semibold">
+                    Are you sure you want to delete all {memoryItems.length} persistent memories?
+                  </p>
+                  <p className="text-[10px] text-rose-300">
+                    This will permanently clear your cross-conversation preferences and cannot be undone.
+                  </p>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowClearConfirm(false)}
+                      className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-[11px]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearAll}
+                      className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px]"
+                    >
+                      Confirm Delete All
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Memory Cards */}
+              <div className="space-y-2">
+                {filteredMemories.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500 border border-dashed border-[#28334B] rounded-xl font-mono text-[11px] space-y-1">
+                    <p className="text-slate-400 font-medium">No memories found</p>
+                    <p className="text-[10px] text-slate-500">
+                      {searchQuery
+                        ? 'Try a different search term.'
+                        : 'Memories will automatically appear here as you chat, or you can add one manually.'}
+                    </p>
                   </div>
                 ) : (
-                  memoryItems.map((item) => (
+                  filteredMemories.map((item) => (
                     <div
                       key={item.id}
-                      className="p-3 bg-slate-900/80 border border-[#28334B]/80 rounded-xl space-y-2 group"
+                      className="p-3 bg-slate-900/90 border border-[#28334B]/80 rounded-xl space-y-2 group hover:border-slate-700 transition-all"
                     >
                       {editingId === item.id ? (
                         /* Inline Edit Form */
@@ -435,13 +572,15 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                               type="text"
                               value={editCategory}
                               onChange={(e) => setEditCategory(e.target.value)}
-                              className="p-1.5 rounded bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                              className="p-1.5 rounded bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500 font-mono"
+                              placeholder="Category"
                             />
                             <input
                               type="text"
                               value={editFact}
                               onChange={(e) => setEditFact(e.target.value)}
-                              className="col-span-2 p-1.5 rounded bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                              className="col-span-2 p-1.5 rounded bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500 font-mono"
+                              placeholder="Preference statement"
                             />
                           </div>
                           <div className="flex items-center justify-end gap-2">
@@ -463,19 +602,39 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                         </div>
                       ) : (
                         /* Display Fact Item */
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-300 uppercase">
-                              {item.category}
-                            </span>
-                            <p className="text-xs text-slate-200 mt-1 font-mono break-all">{item.fact}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-300">
+                                {item.category}
+                              </span>
+                              {item.type === 'explicit' ? (
+                                <span className="px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30 flex items-center gap-0.5">
+                                  <Lock className="w-2.5 h-2.5" />
+                                  EXPLICIT
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-0.5">
+                                  <Sparkles className="w-2.5 h-2.5" />
+                                  LEARNED
+                                </span>
+                              )}
+                              {item.projectId && (
+                                <span className="px-1.5 py-0.2 rounded text-[8px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                  PROJECT SCOPED
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-200 font-mono leading-relaxed break-words">
+                              {item.fact}
+                            </p>
                           </div>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                             <button
                               type="button"
                               onClick={() => handleStartEdit(item)}
                               className="p-1 rounded text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
-                              title="Edit fact"
+                              title="Edit memory"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -483,7 +642,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                               type="button"
                               onClick={() => handleRemoveMemory(item.id)}
                               className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
-                              title="Delete fact"
+                              title="Delete memory"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -492,6 +651,58 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
                       )}
                     </div>
                   ))
+                )}
+              </div>
+
+              {/* Secondary: Manual Memory Entry Accordion */}
+              <div className="pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowManualAdd(!showManualAdd)}
+                  className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-[#28334B] flex items-center justify-between text-slate-300 text-xs font-semibold cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Plus className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Add Memory Manually</span>
+                  </span>
+                  {showManualAdd ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                </button>
+
+                {showManualAdd && (
+                  <form onSubmit={handleAddMemory} className="mt-2 p-3 bg-slate-900 border border-[#28334B] rounded-xl space-y-2.5">
+                    <div className="grid grid-cols-3 gap-2">
+                      <select
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        className="p-2 rounded-lg bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                      >
+                        <option value="Tech Stack">Tech Stack</option>
+                        <option value="Preferences">Preferences</option>
+                        <option value="Working Style">Working Style</option>
+                        <option value="About Me">About Me</option>
+                        <option value="Projects">Projects</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Fact (e.g. Always write code with TypeScript and strict typing)"
+                        value={newFact}
+                        onChange={(e) => setNewFact(e.target.value)}
+                        className="col-span-2 p-2 rounded-lg bg-slate-950 border border-[#28334B] text-slate-200 text-xs focus:outline-none focus:border-violet-500"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={!newFact.trim() || isSavingMemory}
+                      className="w-full py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{isSavingMemory ? 'Saving...' : 'Save to Memory'}</span>
+                    </button>
+                  </form>
                 )}
               </div>
             </div>
@@ -643,7 +854,7 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
         {/* Drawer Footer */}
         <div className="p-4 px-6 bg-[#141C30] border-t border-[#28334B] flex items-center justify-between shrink-0">
           <span className="text-[11px] text-slate-400 font-mono">
-            Settings auto-save to thread
+            {memoryEnabled && !isTemporarySession ? '⚡ Personalisation enabled' : '🔒 Incognito mode'}
           </span>
           <button
             type="button"

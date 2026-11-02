@@ -28,6 +28,7 @@ try {
   console.log('⚡ [DB-SYNC] Running token accounting and discovery migration...');
   execSync('npx tsx scripts/migrate-token-accounting.ts', { stdio: 'inherit' });
   execSync('npx tsx scripts/migrate-studio-projects.ts', { stdio: 'inherit' });
+  execSync('npx tsx scripts/migrate-intelligent-memory.ts', { stdio: 'inherit' });
   console.log('✓ [DB-SYNC] Token accounting and discovery migration succeeded.');
   console.log('⚡ [DB-SYNC] Running five-plan architecture seed...');
   execSync('npx tsx scripts/seed-five-plan-architecture.ts', { stdio: 'inherit' });
@@ -39,6 +40,7 @@ try {
     execSync('npx tsx scripts/migrate-annual-pricing-entitlements.ts', { stdio: 'inherit' });
     execSync('npx tsx scripts/migrate-token-accounting.ts', { stdio: 'inherit' });
     execSync('npx tsx scripts/migrate-studio-projects.ts', { stdio: 'inherit' });
+    execSync('npx tsx scripts/migrate-intelligent-memory.ts', { stdio: 'inherit' });
     execSync('npx tsx scripts/seed-five-plan-architecture.ts', { stdio: 'inherit' });
     console.log('✓ [DB-SYNC] Fallback schema migration succeeded.');
   } catch (mErr) {

@@ -71,6 +71,8 @@ model User {
   studioConversations           StudioConversation[]
   studioMemories                StudioMemory[]
   studioProjects                StudioProject[]
+  memorySettings                UserMemorySettings?
+  memoryActivities              MemoryActivity[]
   builderProjects               BuilderProject[]
   usageCreditLedgers            CustomerUsageCreditLedger[]
   ownedTeams                    Team[]                      @relation("TeamOwner")
@@ -1443,15 +1445,27 @@ model StudioMessage {
 }
 
 model StudioMemory {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category  String   @default("General") // "General" | "Coding" | "Preferences" | "Context"
-  fact      String   @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String          @id @default(uuid())
+  userId               String
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category             String          @default("General") // "General" | "Coding" | "Preferences" | "Context" | "Tech Stack" | "Working Style" | "About Me" | "Skill"
+  fact                 String          @db.Text
+  normalizedFact       String?         @db.Text
+  type                 String          @default("automatic") // "explicit" | "automatic" | "profile" | "project" | "continuity"
+  projectId            String?
+  project              StudioProject?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceConversationId String?
+  confidence           Float           @default(1.0)
+  isArchived           Boolean         @default(false)
+  lastRetrievedAt      DateTime?
+  metadataJson         String?         @db.Text
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
   @@index([userId, updatedAt])
+  @@index([userId, type])
+  @@index([userId, projectId])
+  @@index([userId, isArchived])
 }
 
 model StudioProject {
@@ -1465,6 +1479,7 @@ model StudioProject {
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   conversations StudioConversation[]
+  memories      StudioMemory[]
 
   @@index([userId, updatedAt])
 }
@@ -1729,4 +1744,30 @@ model BenchmarkResult {
 
   @@index([runId])
   @@index([modelId])
+}
+
+model UserMemorySettings {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memoryEnabled           Boolean  @default(true)
+  autoExtractionEnabled   Boolean  @default(true)
+  crossConversationRecall Boolean  @default(true)
+  scope                   String   @default("account") // "account" | "project" | "session"
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model MemoryActivity {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String   // "created" | "updated" | "deleted" | "retrieved" | "cleared"
+  memoryId    String?
+  category    String?
+  factSnippet String?  @db.Text
+  details     String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

@@ -369,6 +369,15 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   );
 };
 
+export function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[*_`#]/g, '')
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 interface TableData {
   headers: string[];
   alignments: ('left' | 'center' | 'right')[];
@@ -392,15 +401,22 @@ const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text
   return (
     <div className="space-y-3.5">
       {blocks.map((block, idx) => {
-        // 1. Heading Elements H1 - H6
+        // 1. Heading Elements H1 - H6 with deterministic IDs & scroll margins for ToC
         if (block.type === 'heading') {
           const content = block.content || '';
+          const cleanText = content.replace(/[*_`#]/g, '').trim();
+          const slug = slugifyHeading(cleanText);
+          const headingId = slug ? `doc-heading-${slug}` : undefined;
+
           switch (block.level) {
             case 1:
               return (
                 <h1
                   key={idx}
-                  className="text-xl sm:text-2xl font-black text-[#111827] dark:text-white mt-6 mb-3 tracking-tight leading-tight"
+                  id={headingId}
+                  data-heading={slug}
+                  data-heading-text={cleanText}
+                  className="text-xl sm:text-2xl font-black text-[#111827] dark:text-white mt-6 mb-3 tracking-tight leading-tight scroll-mt-10"
                 >
                   {formatInline(content, sources)}
                 </h1>
@@ -409,7 +425,10 @@ const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text
               return (
                 <h2
                   key={idx}
-                  className="text-lg sm:text-xl font-bold text-[#111827] dark:text-white mt-5 mb-2.5 pb-1.5 border-b border-[#e5e7eb] dark:border-[#28334B] leading-tight"
+                  id={headingId}
+                  data-heading={slug}
+                  data-heading-text={cleanText}
+                  className="text-lg sm:text-xl font-bold text-[#111827] dark:text-white mt-5 mb-2.5 pb-1.5 border-b border-[#e5e7eb] dark:border-[#28334B] leading-tight scroll-mt-10"
                 >
                   {formatInline(content, sources)}
                 </h2>
@@ -418,7 +437,10 @@ const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text
               return (
                 <h3
                   key={idx}
-                  className="text-base font-bold text-[#111827] dark:text-white mt-4 mb-2 leading-snug"
+                  id={headingId}
+                  data-heading={slug}
+                  data-heading-text={cleanText}
+                  className="text-base font-bold text-[#111827] dark:text-white mt-4 mb-2 leading-snug scroll-mt-10"
                 >
                   {formatInline(content, sources)}
                 </h3>
@@ -427,7 +449,10 @@ const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text
               return (
                 <h4
                   key={idx}
-                  className="text-sm font-bold text-[#111827] dark:text-white mt-3.5 mb-1.5 leading-snug"
+                  id={headingId}
+                  data-heading={slug}
+                  data-heading-text={cleanText}
+                  className="text-sm font-bold text-[#111827] dark:text-white mt-3.5 mb-1.5 leading-snug scroll-mt-10"
                 >
                   {formatInline(content, sources)}
                 </h4>
@@ -436,7 +461,10 @@ const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text
               return (
                 <h5
                   key={idx}
-                  className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mt-3 mb-1"
+                  id={headingId}
+                  data-heading={slug}
+                  data-heading-text={cleanText}
+                  className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mt-3 mb-1 scroll-mt-10"
                 >
                   {formatInline(content, sources)}
                 </h5>
@@ -446,7 +474,10 @@ const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text
               return (
                 <h6
                   key={idx}
-                  className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-2.5 mb-1"
+                  id={headingId}
+                  data-heading={slug}
+                  data-heading-text={cleanText}
+                  className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-2.5 mb-1 scroll-mt-10"
                 >
                   {formatInline(content, sources)}
                 </h6>

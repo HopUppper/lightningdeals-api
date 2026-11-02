@@ -203,53 +203,156 @@ export function generateWordDocument(options: DocumentGenerationOptions): Buffer
   const content = options.content || 'Generated report created in LightningAPI Studio.';
   const author = options.author || 'LightningAPI AI Studio';
 
-  const paragraphs = content
-    .split(/\r?\n\r?\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-
+  const rawLines = content.split(/\r?\n/).map((l) => l.trimEnd());
   let paragraphsXml = '';
-  for (const p of paragraphs) {
-    if (p.startsWith('# ')) {
+  let i = 0;
+
+  while (i < rawLines.length) {
+    const line = rawLines[i].trim();
+
+    if (!line) {
+      i++;
+      continue;
+    }
+
+    // 1. Markdown Table detection
+    if (line.startsWith('|') && line.endsWith('|') && i + 1 < rawLines.length && /^\|[\s\-:\|]+\|$/.test(rawLines[i + 1].trim())) {
+      const tableRows: string[][] = [];
+      const headerCells = line.slice(1, -1).split('|').map((c) => c.trim());
+      tableRows.push(headerCells);
+      i += 2; // skip header and separator line
+
+      while (i < rawLines.length && rawLines[i].trim().startsWith('|') && rawLines[i].trim().endsWith('|')) {
+        const rowCells = rawLines[i].trim().slice(1, -1).split('|').map((c) => c.trim());
+        tableRows.push(rowCells);
+        i++;
+      }
+
+      paragraphsXml += `
+        <w:tbl>
+          <w:tblPr>
+            <w:tblStyle w:val="TableGrid"/>
+            <w:tblW w:w="9200" w:type="dxa"/>
+            <w:tblBorders>
+              <w:top w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+              <w:bottom w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+              <w:insideH w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+              <w:insideV w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+            </w:tblBorders>
+          </w:tblPr>`;
+
+      tableRows.forEach((row, rIdx) => {
+        const isHeader = rIdx === 0;
+        paragraphsXml += '<w:tr>';
+        row.forEach((cell) => {
+          paragraphsXml += `
+            <w:tc>
+              <w:tcPr>
+                ${isHeader ? '<w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/>' : ''}
+                <w:tcMar><w:top w:w="120" w:type="dxa"/><w:bottom w:w="120" w:type="dxa"/><w:left w:w="160" w:type="dxa"/><w:right w:w="160" w:type="dxa"/></w:tcMar>
+              </w:tcPr>
+              <w:p>
+                <w:r>${isHeader ? '<w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="0F172A"/></w:rPr>' : '<w:rPr><w:sz w:val="20"/><w:color w:val="334155"/></w:rPr>'}<w:t xml:space="preserve">${escapeXml(cell)}</w:t></w:r>
+              </w:p>
+            </w:tc>`;
+        });
+        paragraphsXml += '</w:tr>';
+      });
+
+      paragraphsXml += `</w:tbl>
+        <w:p><w:pPr><w:spacing w:after="160"/></w:pPr></w:p>`;
+      continue;
+    }
+
+    // 2. Headings
+    if (line.startsWith('# ')) {
       paragraphsXml += `
         <w:p>
-          <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
-          <w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t>${escapeXml(p.slice(2))}</w:t></w:r>
+          <w:pPr><w:pStyle w:val="Heading1"/><w:spacing w:before="240" w:after="120"/></w:pPr>
+          <w:r><w:rPr><w:b/><w:sz w:val="34"/><w:color w:val="1E1B4B"/></w:rPr><w:t xml:space="preserve">${escapeXml(line.slice(2))}</w:t></w:r>
         </w:p>`;
-    } else if (p.startsWith('## ')) {
+    } else if (line.startsWith('## ')) {
       paragraphsXml += `
         <w:p>
-          <w:pPr><w:pStyle w:val="Heading2"/></w:pPr>
-          <w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>${escapeXml(p.slice(3))}</w:t></w:r>
+          <w:pPr><w:pStyle w:val="Heading2"/><w:spacing w:before="200" w:after="100"/></w:pPr>
+          <w:r><w:rPr><w:b/><w:sz w:val="28"/><w:color w:val="4338CA"/></w:rPr><w:t xml:space="preserve">${escapeXml(line.slice(3))}</w:t></w:r>
         </w:p>`;
-    } else if (p.startsWith('- ') || p.startsWith('* ')) {
+    } else if (line.startsWith('### ')) {
       paragraphsXml += `
         <w:p>
-          <w:pPr><w:pStyle w:val="ListBullet"/></w:pPr>
-          <w:r><w:t>• ${escapeXml(p.slice(2))}</w:t></w:r>
+          <w:pPr><w:pStyle w:val="Heading3"/><w:spacing w:before="160" w:after="80"/></w:pPr>
+          <w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="312E81"/></w:rPr><w:t xml:space="preserve">${escapeXml(line.slice(4))}</w:t></w:r>
+        </w:p>`;
+    } else if (line.startsWith('#### ')) {
+      paragraphsXml += `
+        <w:p>
+          <w:pPr><w:pStyle w:val="Heading4"/><w:spacing w:before="120" w:after="60"/></w:pPr>
+          <w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="475569"/></w:rPr><w:t xml:space="preserve">${escapeXml(line.slice(5))}</w:t></w:r>
+        </w:p>`;
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      paragraphsXml += `
+        <w:p>
+          <w:pPr><w:ind w:left="400"/><w:spacing w:after="60"/></w:pPr>
+          <w:r><w:rPr><w:color w:val="7C3AED"/></w:rPr><w:t>• </w:t></w:r>
+          <w:r><w:t xml:space="preserve">${escapeXml(line.slice(2))}</w:t></w:r>
+        </w:p>`;
+    } else if (/^\d+\.\s+/.test(line)) {
+      const match = line.match(/^(\d+\.)\s+(.+)$/);
+      const numPrefix = match ? match[1] : '';
+      const text = match ? match[2] : line;
+      paragraphsXml += `
+        <w:p>
+          <w:pPr><w:ind w:left="400"/><w:spacing w:after="60"/></w:pPr>
+          <w:r><w:rPr><w:b/><w:color w:val="4F46E5"/></w:rPr><w:t xml:space="preserve">${escapeXml(numPrefix)} </w:t></w:r>
+          <w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>
+        </w:p>`;
+    } else if (line === '---' || line === '***') {
+      paragraphsXml += `
+        <w:p>
+          <w:pPr>
+            <w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="E2E8F0"/></w:pBdr>
+            <w:spacing w:before="120" w:after="120"/>
+          </w:pPr>
         </w:p>`;
     } else {
       paragraphsXml += `
         <w:p>
-          <w:r><w:t>${escapeXml(p)}</w:t></w:r>
+          <w:pPr><w:spacing w:after="120"/><w:line w:line="276" w:lineRule="auto"/></w:pPr>
+          <w:r><w:t xml:space="preserve">${escapeXml(line)}</w:t></w:r>
         </w:p>`;
     }
+
+    i++;
   }
 
+  // Handle explicit options.tableData if provided separately
   if (options.tableData && options.tableData.length > 0) {
     paragraphsXml += `
       <w:tbl>
         <w:tblPr>
           <w:tblStyle w:val="TableGrid"/>
-          <w:tblW w:w="0" w:type="auto"/>
+          <w:tblW w:w="9200" w:type="dxa"/>
+          <w:tblBorders>
+            <w:top w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+            <w:bottom w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+          </w:tblBorders>
         </w:tblPr>`;
     options.tableData.forEach((row, rowIdx) => {
+      const isHeader = rowIdx === 0;
       paragraphsXml += '<w:tr>';
       row.forEach((cell) => {
         paragraphsXml += `
           <w:tc>
+            <w:tcPr>
+              ${isHeader ? '<w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/>' : ''}
+              <w:tcMar><w:top w:w="120" w:type="dxa"/><w:bottom w:w="120" w:type="dxa"/><w:left w:w="160" w:type="dxa"/><w:right w:w="160" w:type="dxa"/></w:tcMar>
+            </w:tcPr>
             <w:p>
-              <w:r>${rowIdx === 0 ? '<w:rPr><w:b/></w:rPr>' : ''}<w:t>${escapeXml(cell)}</w:t></w:r>
+              ${isHeader
+                ? `<w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="0F172A"/></w:rPr><w:t xml:space="preserve">${escapeXml(cell)}</w:t></w:r>`
+                : `<w:r><w:rPr><w:sz w:val="20"/><w:color w:val="334155"/></w:rPr><w:t xml:space="preserve">${escapeXml(cell)}</w:t></w:r>`}
             </w:p>
           </w:tc>`;
       });
@@ -262,20 +365,20 @@ export function generateWordDocument(options: DocumentGenerationOptions): Buffer
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
     <w:p>
-      <w:pPr><w:pStyle w:val="Title"/></w:pPr>
+      <w:pPr><w:pStyle w:val="Title"/><w:spacing w:after="60"/></w:pPr>
       <w:r>
-        <w:rPr><w:b/><w:sz w:val="48"/><w:color w:val="6D28D9"/></w:rPr>
-        <w:t>${escapeXml(title)}</w:t>
+        <w:rPr><w:b/><w:sz w:val="44"/><w:color w:val="6D28D9"/></w:rPr>
+        <w:t xml:space="preserve">${escapeXml(title)}</w:t>
       </w:r>
     </w:p>
     <w:p>
-      <w:pPr><w:pStyle w:val="Subtitle"/></w:pPr>
+      <w:pPr><w:pStyle w:val="Subtitle"/><w:spacing w:after="240"/></w:pPr>
       <w:r>
-        <w:rPr><w:i/><w:color w:val="666666"/><w:sz w:val="22"/></w:rPr>
-        <w:t>Authored by ${escapeXml(author)} • ${new Date().toLocaleDateString()}</w:t>
+        <w:rPr><w:i/><w:color w:val="64748B"/><w:sz w:val="20"/></w:rPr>
+        <w:t xml:space="preserve">Authored by ${escapeXml(author)} • ${new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</w:t>
       </w:r>
     </w:p>
-    <w:p><w:r><w:t></w:t></w:r></w:p>
+    <w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="1" w:color="DDD6FE"/></w:pBdr><w:spacing w:after="240"/></w:pPr></w:p>
     ${paragraphsXml}
   </w:body>
 </w:document>`;
@@ -299,9 +402,6 @@ export function generateWordDocument(options: DocumentGenerationOptions): Buffer
   ]);
 }
 
-// ---------------------------------------------------------------------------
-// 2. Excel Spreadsheet (.xlsx) OpenXML Generator
-// ---------------------------------------------------------------------------
 export function generateExcelWorkbook(options: DocumentGenerationOptions): Buffer {
   const table = options.tableData && options.tableData.length > 0
     ? options.tableData
@@ -458,60 +558,128 @@ export function generatePdfDocument(options: DocumentGenerationOptions): Buffer 
   const title = (options.title || 'LightningAPI Studio Document').slice(0, 80);
   const rawContent = options.content || 'Generated document report created by LightningAPI Studio.';
 
-  const lines: string[] = [];
+  function escapePdfString(str: string): string {
+    return str.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  }
+
+  const safeTitle = escapePdfString(title);
+  const rawLines: string[] = [];
+
   rawContent.split(/\r?\n/).forEach((l) => {
-    const clean = l.replace(/[()\\\\]/g, '').trim();
-    if (clean.length > 80) {
-      for (let i = 0; i < clean.length; i += 80) {
-        lines.push(clean.slice(i, i + 80));
+    const trimmed = l.trim();
+    if (!trimmed) {
+      rawLines.push('');
+      return;
+    }
+    if (trimmed.length > 85) {
+      for (let i = 0; i < trimmed.length; i += 85) {
+        rawLines.push(trimmed.slice(i, i + 85));
       }
-    } else if (clean.length > 0) {
-      lines.push(clean);
+    } else {
+      rawLines.push(trimmed);
     }
   });
 
-  let streamText = `BT /F1 18 Tf 50 740 Td (${title.replace(/[()\\\\]/g, '')}) Tj ET\n`;
-  streamText += `BT /F1 10 Tf 50 715 Td (Created with LightningAPI Studio • ${new Date().toLocaleDateString()}) Tj ET\n`;
-  streamText += `50 700 m 560 700 l S\n`;
+  const linesPerPage = 38;
+  const numPages = Math.max(1, Math.ceil(rawLines.length / linesPerPage));
+  const pageStreams: string[] = [];
 
-  let currentY = 675;
-  for (const line of lines.slice(0, 36)) {
-    streamText += `BT /F1 11 Tf 50 ${currentY} Td (${line}) Tj ET\n`;
-    currentY -= 16;
+  for (let p = 0; p < numPages; p++) {
+    const pageLines = rawLines.slice(p * linesPerPage, (p + 1) * linesPerPage);
+    let s = '';
+
+    // Running Header
+    s += `BT /F2 11 Tf 0.1 0.1 0.3 rg 50 755 Td (${safeTitle}) Tj ET\n`;
+    s += `BT /F1 8 Tf 0.4 0.4 0.4 rg 50 742 Td (LightningAPI Studio • Engineering Artifact) Tj ET\n`;
+    s += `50 734 m 562 734 l 0.75 w 0.85 G S\n`;
+
+    // Running Footer
+    s += `50 50 m 562 50 l 0.5 w 0.85 G S\n`;
+    s += `BT /F1 8 Tf 0.4 0.4 0.4 rg 50 38 Td (Confidential • Generated by LightningAPI Studio) Tj ET\n`;
+    s += `BT /F1 8 Tf 0.4 0.4 0.4 rg 490 38 Td (Page ${p + 1} of ${numPages}) Tj ET\n`;
+
+    let currentY = 710;
+    for (const line of pageLines) {
+      if (!line) {
+        currentY -= 10;
+        continue;
+      }
+      const clean = escapePdfString(line);
+      if (line.startsWith('# ')) {
+        s += `BT /F2 13 Tf 0.1 0.1 0.3 rg 50 ${currentY} Td (${clean.slice(2)}) Tj ET\n`;
+        currentY -= 18;
+      } else if (line.startsWith('## ')) {
+        s += `BT /F2 11 Tf 0.25 0.2 0.55 rg 50 ${currentY} Td (${clean.slice(3)}) Tj ET\n`;
+        currentY -= 16;
+      } else if (line.startsWith('### ')) {
+        s += `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 ${currentY} Td (${clean.slice(4)}) Tj ET\n`;
+        currentY -= 15;
+      } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        s += `BT /F2 9 Tf 0.4 0.2 0.8 rg 50 ${currentY} Td (- ) Tj /F1 9 Tf 0.15 0.15 0.15 rg 62 ${currentY} Td (${clean.slice(2)}) Tj ET\n`;
+        currentY -= 14;
+      } else if (line.startsWith('|')) {
+        s += `BT /F1 8.5 Tf 0.2 0.2 0.25 rg 50 ${currentY} Td (${clean}) Tj ET\n`;
+        currentY -= 13;
+      } else {
+        s += `BT /F1 9.5 Tf 0.15 0.15 0.15 rg 50 ${currentY} Td (${clean}) Tj ET\n`;
+        currentY -= 14;
+      }
+    }
+
+    pageStreams.push(s);
   }
 
-  const streamBuf = Buffer.from(streamText, 'utf8');
   let body = '%PDF-1.4\n';
   const offsets: number[] = [];
 
+  // Obj 1: Catalog
   offsets.push(body.length);
   body += '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
 
-  offsets.push(body.length);
-  body += '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n';
+  // Kids list
+  const kids: string[] = [];
+  for (let p = 0; p < numPages; p++) {
+    kids.push(`${5 + 2 * p} 0 R`);
+  }
 
+  // Obj 2: Pages
   offsets.push(body.length);
-  body += '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n';
+  body += `2 0 obj\n<< /Type /Pages /Kids [ ${kids.join(' ')} ] /Count ${numPages} >>\nendobj\n`;
 
+  // Obj 3: Regular Font (Helvetica)
   offsets.push(body.length);
-  body += `4 0 obj\n<< /Length ${streamBuf.length} >>\nstream\n${streamText}endstream\nendobj\n`;
+  body += '3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n';
 
+  // Obj 4: Bold Font (Helvetica-Bold)
   offsets.push(body.length);
-  body += '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n';
+  body += '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n';
 
+  // Page and Stream objects
+  for (let p = 0; p < numPages; p++) {
+    const pageObjId = 5 + 2 * p;
+    const streamObjId = 6 + 2 * p;
+    const streamBuf = Buffer.from(pageStreams[p], 'utf8');
+
+    // Page Obj
+    offsets.push(body.length);
+    body += `${pageObjId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${streamObjId} 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>\nendobj\n`;
+
+    // Stream Obj
+    offsets.push(body.length);
+    body += `${streamObjId} 0 obj\n<< /Length ${streamBuf.length} >>\nstream\n${pageStreams[p]}endstream\nendobj\n`;
+  }
+
+  const totalObjs = 5 + 2 * numPages;
   const startXref = body.length;
-  body += 'xref\n0 6\n0000000000 65535 f \n';
+  body += `xref\n0 ${totalObjs}\n0000000000 65535 f \n`;
   for (const off of offsets) {
     body += `${String(off).padStart(10, '0')} 00000 n \n`;
   }
-  body += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF`;
+  body += `trailer\n<< /Size ${totalObjs} /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF`;
 
-  return Buffer.from(body, 'binary');
+  return Buffer.from(body, 'utf8');
 }
 
-// ---------------------------------------------------------------------------
-// 5. CSV Spreadsheet (.csv) RFC 4180 with UTF-8 BOM
-// ---------------------------------------------------------------------------
 export function generateCsvSpreadsheet(options: DocumentGenerationOptions): Buffer {
   let table: string[][] = [];
 

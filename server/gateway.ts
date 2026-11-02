@@ -1,3 +1,4 @@
+import { retrieveRelevantMemories, extractMemoriesAsync } from './memory/memoryEngine';
 import { normalizeErrorResponse } from './friendlyErrors';
 import { Request, Response } from 'express';
 import crypto from 'crypto';
@@ -1750,11 +1751,33 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         return res.status(400).json({ error: { type: 'ssrf_blocked', message: ssrfCheck.error || 'Blocked by SSRF security filter.' } });
       }
 
+      // Cross-platform Intelligent Memory Injection for authenticated user API keys
+      let effectiveSystem = system;
+      const lastUserPrompt = getLastUserPrompt(messages || []);
+      if (keyRecord.userId && lastUserPrompt) {
+        const memoryRetrieval = await retrieveRelevantMemories({
+          userId: keyRecord.userId,
+          prompt: lastUserPrompt,
+          limit: 4,
+          maxTokensBudget: 250,
+        }).catch(() => null);
+
+        if (memoryRetrieval?.formattedContext) {
+          if (typeof effectiveSystem === 'string' && effectiveSystem.trim()) {
+            effectiveSystem = `${effectiveSystem}\n\n${memoryRetrieval.formattedContext}`;
+          } else if (Array.isArray(effectiveSystem)) {
+            effectiveSystem = [...effectiveSystem, { type: 'text', text: memoryRetrieval.formattedContext }];
+          } else {
+            effectiveSystem = memoryRetrieval.formattedContext;
+          }
+        }
+      }
+
       const prepared = buildProviderRequest(vendor, decryptedMasterKey, effectiveModel, {
         messages,
         max_tokens,
         stream,
-        system,
+        system: effectiveSystem,
         tools,
         tool_choice,
         thinking,
@@ -2900,8 +2923,32 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
   }
   const { apiKey: decryptedMasterKey, billingType: resolvedBillingType } = credResolution.credential;
 
+  // Cross-platform Intelligent Memory Injection for authenticated user API keys
+  let effectiveMessages = messages;
+  if (keyRecord.userId && lastUserPrompt && Array.isArray(messages)) {
+    const memoryRetrieval = await retrieveRelevantMemories({
+      userId: keyRecord.userId,
+      prompt: lastUserPrompt,
+      limit: 4,
+      maxTokensBudget: 250,
+    }).catch(() => null);
+
+    if (memoryRetrieval?.formattedContext) {
+      effectiveMessages = [...messages];
+      const existingSysIdx = effectiveMessages.findIndex((m: any) => m && m.role === 'system');
+      if (existingSysIdx >= 0) {
+        effectiveMessages[existingSysIdx] = {
+          ...effectiveMessages[existingSysIdx],
+          content: `${effectiveMessages[existingSysIdx].content}\n\n${memoryRetrieval.formattedContext}`,
+        };
+      } else {
+        effectiveMessages = [{ role: 'system', content: memoryRetrieval.formattedContext }, ...effectiveMessages];
+      }
+    }
+  }
+
   const prepared = buildProviderRequest(vendor, decryptedMasterKey, effectiveModel, {
-    messages,
+    messages: effectiveMessages,
     max_tokens,
     stream,
     temperature,

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   FileText,
   Download,
@@ -19,7 +19,8 @@ import {
   AlignLeft,
   BookOpen,
 } from 'lucide-react';
-import { MarkdownBlock } from './MarkdownBlock';
+import { MarkdownBlock, slugifyHeading } from './MarkdownBlock';
+import { getAuthHeaders } from '../../utils/api';
 
 export type DocumentExportFormat = 'docx' | 'pdf' | 'xlsx' | 'md' | 'html' | 'txt';
 
@@ -49,6 +50,8 @@ export const StudioDocumentWorkspace: React.FC<StudioDocumentWorkspaceProps> = (
   const [isTocOpen, setIsTocOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
 
   // Compute document statistics
   const stats = useMemo(() => {
@@ -63,32 +66,75 @@ export const StudioDocumentWorkspace: React.FC<StudioDocumentWorkspaceProps> = (
   const tocItems = useMemo(() => {
     if (!content) return [];
     const lines = content.split('\n');
-    const items: { id: string; text: string; level: number }[] = [];
-    let headingIndex = 0;
+    const items: { id: string; slug: string; text: string; level: number }[] = [];
 
     for (const line of lines) {
-      const match = line.match(/^(#{1,3})\s+(.+)$/);
+      const match = line.match(/^(#{1,4})\s+(.+)$/);
       if (match) {
         const level = match[1].length;
         const text = match[2].trim().replace(/[*_`]/g, '');
-        const id = `heading-${headingIndex++}-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-        items.push({ id, text, level });
+        const slug = slugifyHeading(text);
+        const id = `doc-heading-${slug}`;
+        items.push({ id, slug, text, level });
       }
     }
     return items;
   }, [content]);
 
+  // Smoothly autoscroll to the specific heading section inside the document canvas
+  const handleScrollToSection = (slug: string, text: string) => {
+    // 1. Exact element ID
+    let target = document.getElementById(`doc-heading-${slug}`);
+
+    // 2. Query selector by data-heading
+    if (!target && scrollContainerRef.current) {
+      target = scrollContainerRef.current.querySelector(`[data-heading="${slug}"]`);
+    }
+
+    // 3. Fuzzy text match on headings
+    if (!target && scrollContainerRef.current) {
+      const headings = scrollContainerRef.current.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      const cleanTargetText = text.toLowerCase().trim();
+      for (const h of headings) {
+        const hText = (h.textContent || '').toLowerCase().trim();
+        if (hText.includes(cleanTargetText) || cleanTargetText.includes(hText)) {
+          target = h as HTMLElement;
+          break;
+        }
+      }
+    }
+
+    if (target && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const targetTop = targetRect.top - containerRect.top + container.scrollTop - 28;
+
+      container.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth',
+      });
+
+      // Brief elegant pulse ring highlight so user sees arrival
+      target.classList.add('ring-2', 'ring-violet-500', 'ring-offset-2', 'rounded-md', 'transition-all', 'duration-300');
+      setTimeout(() => {
+        target?.classList.remove('ring-2', 'ring-violet-500', 'ring-offset-2');
+      }, 1800);
+    }
+  };
+
   // Handle Export download via backend binary generator
   const handleExport = async (format: DocumentExportFormat) => {
     setExportingFormat(format);
     try {
-      const token = localStorage.getItem('token') || '';
+      const authHeaders = getAuthHeaders();
       const response = await fetch('/api/user/studio/documents/generate?download=1', {
         method: 'POST',
         headers: {
+          ...authHeaders,
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify({
           title: docTitle.trim() || 'Document',
           format,
@@ -97,7 +143,12 @@ export const StudioDocumentWorkspace: React.FC<StudioDocumentWorkspaceProps> = (
       });
 
       if (!response.ok) {
-        throw new Error(`Export failed with status: ${response.status}`);
+        let errMsg = `Export failed with status: ${response.status}`;
+        try {
+          const errJson = await response.json();
+          if (errJson?.error?.message) errMsg = errJson.error.message;
+        } catch {}
+        throw new Error(errMsg);
       }
 
       const blob = await response.blob();
@@ -116,7 +167,7 @@ export const StudioDocumentWorkspace: React.FC<StudioDocumentWorkspaceProps> = (
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[DOCUMENT EXPORT ERROR]', err);
       // Fallback client-side download for text/markdown
       if (format === 'md' || format === 'txt') {
@@ -126,7 +177,7 @@ export const StudioDocumentWorkspace: React.FC<StudioDocumentWorkspaceProps> = (
         link.download = `${docTitle.replace(/\s+/g, '_') || 'document'}.${format}`;
         link.click();
       } else {
-        alert('Could not export document binary. Please check network connection.');
+        alert(`Could not export ${format.toUpperCase()} document: ${err.message || 'Please check network connection.'}`);
       }
     } finally {
       setExportingFormat(null);

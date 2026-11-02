@@ -27,7 +27,8 @@
     "test:vendor:scrubbing": "tsx scripts/test-vendor-scrubbing.ts",
     "verify:audit": "tsx scripts/verify-audit-chain.ts",
     "provision:admin": "tsx scripts/provision-admin.ts",
-    "session:revoke": "tsx scripts/revoke-all-sessions.ts"
+    "session:revoke": "tsx scripts/revoke-all-sessions.ts",
+    "test:memory": "tsx scripts/test-intelligent-memory.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",

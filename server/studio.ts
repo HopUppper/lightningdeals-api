@@ -1,3 +1,18 @@
+import {
+  detectExplicitMemoryInstruction,
+  retrieveRelevantMemories,
+  extractMemoriesAsync,
+  getUserMemorySettings,
+  updateUserMemorySettings,
+  listUserMemories,
+  updateUserMemory,
+  deleteUserMemory,
+  clearAllUserMemories,
+  getMemoryActivity,
+  saveOrUpdateMemory,
+  forgetMatchingMemories,
+  containsSecretOrSensitiveData,
+} from './memory/memoryEngine';
 import { normalizeErrorResponse } from './friendlyErrors';
 import { Router, Response } from 'express';
 import { prisma, decryptText } from './db';
@@ -1314,14 +1329,12 @@ studioRouter.post('/conversations/:id/restore-context', async (req: AuthRequest,
   }
 });
 
-// GET /api/user/studio/memories - List persistent memories
+// GET /api/user/studio/memories - List persistent memories with project filtering
 studioRouter.get('/memories', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const memories = await prisma.studioMemory.findMany({
-      where: { userId, category: { not: 'Skill' } },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const projectId = typeof req.query.projectId === 'string' ? req.query.projectId : undefined;
+    const memories = await listUserMemories(userId, projectId);
     return res.json({ success: true, memories });
   } catch (err: any) {
     console.error('[STUDIO MEMORIES GET ERROR]', err);
@@ -1329,22 +1342,27 @@ studioRouter.get('/memories', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/user/studio/memories - Add persistent memory
+// POST /api/user/studio/memories - Add persistent memory (explicit or automatic)
 studioRouter.post('/memories', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { category, fact } = req.body;
+    const { category, fact, type, projectId } = req.body;
 
     if (!fact || typeof fact !== 'string' || !fact.trim()) {
       return res.status(400).json({ success: false, error: { message: 'Memory fact text is required.' } });
     }
 
-    const memory = await prisma.studioMemory.create({
-      data: {
-        userId,
-        category: (typeof category === 'string' && category.trim()) ? category.trim() : 'General',
-        fact: fact.trim().slice(0, 1000),
-      },
+    if (containsSecretOrSensitiveData(fact)) {
+      return res.status(400).json({ success: false, error: { message: 'Memory rejected: contains sensitive data or credentials.' } });
+    }
+
+    const memory = await saveOrUpdateMemory({
+      userId,
+      category: (typeof category === 'string' && category.trim()) ? category.trim() : 'Preferences',
+      fact: fact.trim(),
+      type: type || 'explicit',
+      projectId: projectId || null,
+      confidence: 1.0,
     });
 
     return res.json({ success: true, memory });
@@ -1361,20 +1379,14 @@ studioRouter.patch('/memories/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { category, fact } = req.body;
 
-    const existing = await prisma.studioMemory.findFirst({
-      where: { id, userId },
-    });
-    if (!existing) {
-      return res.status(404).json({ success: false, error: { message: 'Memory not found.' } });
+    if (fact && containsSecretOrSensitiveData(fact)) {
+      return res.status(400).json({ success: false, error: { message: 'Memory rejected: contains sensitive data or credentials.' } });
     }
 
-    const updated = await prisma.studioMemory.update({
-      where: { id },
-      data: {
-        category: (typeof category === 'string' && category.trim()) ? category.trim() : existing.category,
-        fact: (typeof fact === 'string' && fact.trim()) ? fact.trim().slice(0, 1000) : existing.fact,
-      },
-    });
+    const updated = await updateUserMemory(userId, id, { category, fact });
+    if (!updated) {
+      return res.status(404).json({ success: false, error: { message: 'Memory not found.' } });
+    }
 
     return res.json({ success: true, memory: updated });
   } catch (err: any) {
@@ -1389,9 +1401,10 @@ studioRouter.delete('/memories/:id', async (req: AuthRequest, res: Response) => 
     const userId = req.user!.id;
     const { id } = req.params;
 
-    await prisma.studioMemory.deleteMany({
-      where: { id, userId },
-    });
+    const success = await deleteUserMemory(userId, id);
+    if (!success) {
+      return res.status(404).json({ success: false, error: { message: 'Memory not found.' } });
+    }
 
     return res.json({ success: true, message: 'Memory deleted.' });
   } catch (err: any) {
@@ -1404,110 +1417,54 @@ studioRouter.delete('/memories/:id', async (req: AuthRequest, res: Response) => 
 studioRouter.delete('/memories', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    await prisma.studioMemory.deleteMany({
-      where: { userId, category: { not: 'Skill' } },
-    });
-    return res.json({ success: true, message: 'All memories cleared.' });
+    const count = await clearAllUserMemories(userId);
+    return res.json({ success: true, message: 'All memories cleared.', count });
   } catch (err: any) {
     console.error('[STUDIO MEMORIES CLEAR ERROR]', err);
     return res.status(500).json({ success: false, error: { message: err.message || 'Failed to clear memories.' } });
   }
 });
 
-// Strict secret / PII filter for automatic memory
-export function containsSecretOrSensitiveData(text: string): boolean {
-  const sensitivePatterns = [
-    /\bpassword\b/i,
-    /\bsecret\b/i,
-    /\bbearer\b\s+/i,
-    /\bapi[_-]?key\b/i,
-    /\baccess[_-]?token\b/i,
-    /\btoken\b/i,
-    /sk-[a-zA-Z0-9_-]{16,}/i,
-    /lk-[a-zA-Z0-9_-]{10,}/i,
-    /ghp_[a-zA-Z0-9]{20,}/i,
-    /ey[A-Za-z0-9-_]{20,}\.[A-Za-z0-9-_]{20,}/,
-    /-----BEGIN (?:RSA|OPENSSH|PGP|PRIVATE) KEY-----/i,
-    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/,
-    /\b(?:\d{4}[- ]?){3}\d{4}\b/,
-    /\b(?:pin|cvv|ssn)\b/i,
-  ];
-  return sensitivePatterns.some((p) => p.test(text));
-}
-
-export async function extractAndSavePreferences(userId: string, userPrompt: string): Promise<void> {
-  if (!userPrompt || typeof userPrompt !== 'string') return;
-  const trimmed = userPrompt.trim();
-  if (trimmed.length < 8 || trimmed.length > 5000) return;
-  if (containsSecretOrSensitiveData(trimmed)) return;
-
-  const preferencePatterns = [
-    {
-      regex: /(?:i prefer|i like|always use|prefer to use|please use|default to)\s+([a-zA-Z0-9\+\#\.\s\,\-]{3,60})/i,
-      category: 'Preferences',
-      prefix: 'User prefers',
-    },
-    {
-      regex: /(?:my (?:primary )?tech stack is|our stack is|we use|i am building with|built with)\s+([a-zA-Z0-9\+\#\.\s\,\-]{3,80})/i,
-      category: 'Tech Stack',
-      prefix: 'Tech stack',
-    },
-    {
-      regex: /(?:i usually write in|i code in|my main language is)\s+([a-zA-Z0-9\+\#\.\s\,\-]{3,50})/i,
-      category: 'Coding Style',
-      prefix: 'Language preference',
-    },
-    {
-      regex: /(?:call me|my name is)\s+([A-Z][a-zA-Z\s]{1,30})/i,
-      category: 'General',
-      prefix: 'User name',
-    },
-    {
-      regex: /(?:keep answers|responses should be|always be|give me answers that are)\s+(concise|detailed|bulleted|step[- ]by[- ]step|production[- ]ready|minimal)/i,
-      category: 'Preferences',
-      prefix: 'Response style preference',
-    },
-  ];
-
-  for (const { regex, category, prefix } of preferencePatterns) {
-    const match = regex.exec(trimmed);
-    if (match && match[1]) {
-      const captured = match[1].trim().replace(/[\.\,\;]+$/, '');
-      if (captured.length >= 3 && captured.length <= 80 && !containsSecretOrSensitiveData(captured)) {
-        const fact = `${prefix}: ${captured}`;
-
-        const existing = await prisma.studioMemory.findFirst({
-          where: {
-            userId,
-            category,
-            fact: { contains: captured, mode: 'insensitive' },
-          },
-        }).catch(() => null);
-
-        if (!existing) {
-          const count = await prisma.studioMemory.count({ where: { userId, category: { not: 'Skill' } } }).catch(() => 0);
-          if (count >= 20) {
-            const oldest = await prisma.studioMemory.findFirst({
-              where: { userId, category: { not: 'Skill' } },
-              orderBy: { updatedAt: 'asc' },
-            }).catch(() => null);
-            if (oldest) {
-              await prisma.studioMemory.delete({ where: { id: oldest.id } }).catch(() => {});
-            }
-          }
-
-          await prisma.studioMemory.create({
-            data: {
-              userId,
-              category,
-              fact,
-            },
-          }).catch((e) => console.error('[STUDIO AUTO-MEMORY SAVE ERROR]', e));
-        }
-        break;
-      }
-    }
+// GET /api/user/studio/memory/settings - Get user memory configuration
+studioRouter.get('/memory/settings', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const settings = await getUserMemorySettings(userId);
+    return res.json({ success: true, settings });
+  } catch (err: any) {
+    console.error('[STUDIO MEMORY SETTINGS GET ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to load settings.' } });
   }
+});
+
+// PUT /api/user/studio/memory/settings - Update user memory configuration
+studioRouter.put('/memory/settings', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const settings = await updateUserMemorySettings(userId, req.body);
+    return res.json({ success: true, settings });
+  } catch (err: any) {
+    console.error('[STUDIO MEMORY SETTINGS PUT ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to update settings.' } });
+  }
+});
+
+// GET /api/user/studio/memory/activity - Get transparent memory audit activity log
+studioRouter.get('/memory/activity', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const activity = await getMemoryActivity(userId);
+    return res.json({ success: true, activity });
+  } catch (err: any) {
+    console.error('[STUDIO MEMORY ACTIVITY GET ERROR]', err);
+    return res.status(500).json({ success: false, error: { message: err.message || 'Failed to load activity.' } });
+  }
+});
+
+// Backward-compatible export helper
+export { containsSecretOrSensitiveData };
+export async function extractAndSavePreferences(userId: string, userPrompt: string): Promise<void> {
+  return extractMemoriesAsync({ userId, userPrompt });
 }
 
 // GET /api/user/studio/skills - List prebuilt and custom skills
@@ -2457,20 +2414,37 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 6. Build Context & Ingest User Persistent Memories & Workspace Skills (Bounded to max 5 items and 500 chars)
-    const rawMemories = await prisma.studioMemory.findMany({
-      where: { userId, category: { not: 'Skill' } },
-      take: 5,
-      orderBy: { updatedAt: 'desc' },
-    });
+    // 6. Intelligent Scoped Memory Retrieval & Explicit Memory Action Processing
+    let explicitActionConfirmation = '';
+    let memoryResult = { memories: [] as any[], formattedContext: null as string | null, usedCount: 0, explicitCount: 0 };
 
-    const boundedMemories: string[] = [];
-    let memoryChars = 0;
-    for (const m of rawMemories) {
-      const entry = `- [${m.category}]: ${m.fact}`;
-      if (memoryChars + entry.length > 500 && boundedMemories.length > 0) break;
-      boundedMemories.push(entry);
-      memoryChars += entry.length;
+    if (memoryEnabled !== false && prompt && !isContinuation) {
+      const explicitAction = detectExplicitMemoryInstruction(prompt);
+      if (explicitAction.type === 'save' && explicitAction.fact) {
+        await saveOrUpdateMemory({
+          userId,
+          category: explicitAction.category || 'Preferences',
+          fact: explicitAction.fact,
+          type: 'explicit',
+          projectId: conversation.projectId,
+          sourceConversationId: conversation.id,
+          confidence: 1.0,
+        });
+        explicitActionConfirmation = explicitAction.confirmationText || `Got it — I'll remember that "${explicitAction.fact}" for future conversations.`;
+      } else if (explicitAction.type === 'forget' && explicitAction.targetQuery) {
+        const count = await forgetMatchingMemories(userId, explicitAction.targetQuery);
+        explicitActionConfirmation = count > 0
+          ? `Got it — I have forgotten ${count} preference${count > 1 ? 's' : ''} matching "${explicitAction.targetQuery}".`
+          : `I checked your memory, but found no active preferences matching "${explicitAction.targetQuery}".`;
+      }
+
+      memoryResult = await retrieveRelevantMemories({
+        userId,
+        projectId: conversation.projectId,
+        prompt,
+        limit: 6,
+        maxTokensBudget: 350,
+      });
     }
 
     let effectiveSystemPrompt = customSystemPrompt || conversation.systemPrompt || '';
@@ -2487,8 +2461,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         effectiveSystemPrompt += `\n\n[PROJECT DIRECTIVE - ${projectRecord.name}]:\n${projectRecord.instructions}`;
       }
     }
-    if (memoryEnabled !== false && boundedMemories.length > 0) {
-      effectiveSystemPrompt += `\n\n[USER PROJECT CONTEXT & PREFERENCES]:\n${boundedMemories.join('\n')}`;
+    if (memoryEnabled !== false && memoryResult.formattedContext) {
+      effectiveSystemPrompt += `\n\n${memoryResult.formattedContext}`;
+    }
+    if (explicitActionConfirmation) {
+      effectiveSystemPrompt += `\n\n[EXPLICIT USER MEMORY INSTRUCTION DIRECTIVE]:\nThe user explicitly gave you a memory command. You MUST acknowledge this naturally and directly in your response: "${explicitActionConfirmation}"`;
     }
 
     if (Array.isArray(activeSkills) && activeSkills.length > 0) {
@@ -2519,6 +2496,15 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     if (res.flushHeaders) res.flushHeaders();
+
+    // Emit memory usage event to client
+    if (memoryResult.usedCount > 0) {
+      res.write(`event: memory_used\ndata: ${JSON.stringify({
+        usedCount: memoryResult.usedCount,
+        explicitCount: memoryResult.explicitCount,
+        memories: memoryResult.memories.map((m: any) => ({ id: m.id, category: m.category, fact: m.fact, type: m.type }))
+      })}\n\n`);
+    }
 
     const abortController = new AbortController();
     let clientDisconnected = false;
@@ -3167,9 +3153,15 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         }).catch(() => {});
       }
 
-      // Automatic Contextual Memory Extraction (non-blocking, secrets-filtered)
+      // Automatic Contextual Memory Extraction (non-blocking, secrets-filtered, asynchronous)
       if (memoryEnabled !== false && prompt && !isContinuation) {
-        extractAndSavePreferences(userId, prompt).catch((e) => console.error('[STUDIO AUTO-MEMORY EXTRACT ERROR]', e));
+        extractMemoriesAsync({
+          userId,
+          userPrompt: prompt,
+          assistantReply: accumulatedResponseText,
+          conversationId: conversation.id,
+          projectId: conversation.projectId || undefined,
+        }).catch((e) => console.error('[STUDIO AUTO-MEMORY EXTRACT ERROR]', e));
       }
     }
 

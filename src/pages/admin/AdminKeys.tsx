@@ -727,12 +727,32 @@ export const AdminKeys: React.FC = () => {
                     <p className="font-bold text-fg text-base mt-0.5">{formatTokens(Number(selectedUsageKey.totalInputTokens || 0))}</p>
                   </div>
                   <div>
-                    <span className="text-muted uppercase text-[10px]">Output Tokens</span>
-                    <p className="font-bold text-fg text-base mt-0.5">{formatTokens(Number(selectedUsageKey.totalOutputTokens || 0))}</p>
+                    <span className="text-muted uppercase text-[10px]">
+                      {selectedUsageKey.billingType === 'credit' ? 'Total Credits Used' : 'Output Tokens'}
+                    </span>
+                    <p className="font-bold text-fg text-base mt-0.5">
+                      {selectedUsageKey.billingType === 'credit'
+                        ? `${Number(selectedUsageKey.totalCreditsUsedUsd || 0).toFixed(2)} USD`
+                        : formatTokens(Number(selectedUsageKey.totalOutputTokens || 0))}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-muted uppercase text-[10px]">5h Window Remaining</span>
-                    <p className="font-bold text-emerald-500 text-base mt-0.5">{formatTokens(Number(selectedUsageKey.tokensRemaining || 0))}</p>
+                    <span className="text-muted uppercase text-[10px]">
+                      {selectedUsageKey.billingType === 'credit'
+                        ? 'Credit Balance'
+                        : selectedUsageKey.billingType === 'token'
+                        ? 'Tokens Remaining'
+                        : '5h Window Remaining'}
+                    </span>
+                    <p className={`font-bold text-base mt-0.5 ${
+                      selectedUsageKey.billingType === 'credit' && Number(selectedUsageKey.creditBalanceUsd || 0) <= 0
+                        ? 'text-red-500'
+                        : 'text-emerald-500'
+                    }`}>
+                      {selectedUsageKey.billingType === 'credit'
+                        ? `${Number(selectedUsageKey.creditBalanceUsd || 0).toFixed(2)} USD`
+                        : formatTokens(Number(selectedUsageKey.tokensRemaining || 0))}
+                    </p>
                   </div>
                 </div>
 
@@ -761,6 +781,7 @@ export const AdminKeys: React.FC = () => {
                               <th className="py-2.5 px-3">Input</th>
                               <th className="py-2.5 px-3">Output</th>
                               <th className="py-2.5 px-3">Total Tokens</th>
+                              <th className="py-2.5 px-3">Cost (USD)</th>
                               <th className="py-2.5 px-3">Latency</th>
                             </tr>
                           </thead>
@@ -810,6 +831,11 @@ export const AdminKeys: React.FC = () => {
                                       ESTIMATED
                                     </span>
                                   )}
+                                </td>
+                                <td className="py-2.5 px-3 text-muted">
+                                  {req.costDeductedUsd !== undefined && req.costDeductedUsd !== null && Number(req.costDeductedUsd) > 0
+                                    ? `${Number(req.costDeductedUsd).toFixed(5)}`
+                                    : '—'}
                                 </td>
                                 <td className="py-2.5 px-3 text-muted">{req.latencyMs} ms</td>
                               </tr>

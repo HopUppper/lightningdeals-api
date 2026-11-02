@@ -474,6 +474,7 @@ export const UserChatStudio: React.FC = () => {
   // Prompt input state
   const [inputMessage, setPrompt] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -1461,7 +1462,7 @@ export const UserChatStudio: React.FC = () => {
   };
 
   // File Upload Handlers (with server-side validation via /api/user/studio/upload)
-  const handleFilesSelected = (files: FileList | null) => {
+  const handleFilesSelected = async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
 
     if (!activeKey) {
@@ -1482,40 +1483,93 @@ export const UserChatStudio: React.FC = () => {
       return;
     }
 
-    Array.from(files).forEach((file) => {
-      if (file.size > 25 * 1024 * 1024) {
-        alert(`"${file.name}" exceeds the maximum 25MB file upload limit.`);
+    const fileList = Array.from(files);
+    setIsUploadingAttachment(true);
+
+    try {
+      for (const file of fileList) {
+        if (file.size > 25 * 1024 * 1024) {
+          alert(`"${file.name}" exceeds the maximum 25MB file upload limit.`);
+          continue;
+        }
+
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const rawResult = reader.result as string;
+            resolve(rawResult.split(',')[1] || '');
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const res = await userFetch('/api/user/studio/upload', {
+          method: 'POST',
+          body: JSON.stringify({
+            fileName: file.name,
+            mimeType: file.type || 'text/plain',
+            base64Data,
+            size: file.size,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.attachment) {
+          setAttachments((prev) => [...prev, data.attachment]);
+        } else {
+          alert(data.error?.message || 'Failed to process attachment.');
+        }
+      }
+    } catch (e: any) {
+      alert('Upload failed: ' + (e.message || 'Network error'));
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  };
+
+  // Clipboard Paste Handler (Ctrl+V screenshot / image paste)
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement> | ClipboardEvent) => {
+    const clipboardData = (e as any).clipboardData;
+    if (!clipboardData) return;
+
+    const imageFiles: File[] = [];
+
+    if (clipboardData.items && clipboardData.items.length > 0) {
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        const item = clipboardData.items[i];
+        if (item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            const ext = item.type.split('/')[1]?.replace('+xml', '') || 'png';
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(11, 19);
+            const fileName = file.name && file.name !== 'image.png'
+              ? file.name
+              : `screenshot-${timestamp}.${ext}`;
+            const namedFile = new File([file], fileName, { type: item.type });
+            imageFiles.push(namedFile);
+          }
+        }
+      }
+    }
+
+    if (imageFiles.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
+      for (let i = 0; i < clipboardData.files.length; i++) {
+        const file = clipboardData.files[i];
+        if (file.type && file.type.startsWith('image/')) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      if (activeModelMeta && !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput)) {
+        alert(`${activeModelMeta.name} does not accept multimodal image inputs. Please switch to Claude Sonnet 5.5, Gemini 4 Argon, or GPT-4o to analyze images.`);
         return;
       }
-
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const rawResult = reader.result as string;
-        const base64Data = rawResult.split(',')[1] || '';
-
-        try {
-          const res = await userFetch('/api/user/studio/upload', {
-            method: 'POST',
-            body: JSON.stringify({
-              fileName: file.name,
-              mimeType: file.type || 'text/plain',
-              base64Data,
-              size: file.size,
-            }),
-          });
-          const data = await res.json();
-          if (data.success && data.attachment) {
-            setAttachments((prev) => [...prev, data.attachment]);
-          } else {
-            alert(data.error?.message || 'Failed to process attachment.');
-          }
-        } catch (e: any) {
-          alert('Upload failed: ' + (e.message || 'Network error'));
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+      e.preventDefault();
+      handleFilesSelected(imageFiles);
+    }
   };
+
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -2217,6 +2271,21 @@ export const UserChatStudio: React.FC = () => {
     if (num < 1000000) return `${Math.round(num / 1000)}k`;
     return `${(num / 1000000).toFixed(2)}M`;
   }, [remainingTokens]);
+
+// Global window paste listener so Ctrl+V anywhere in Studio pastes screenshots
+  useEffect(() => {
+    const onWindowPaste = (e: ClipboardEvent) => {
+      if (document.activeElement && document.activeElement !== textareaRef.current && (
+        document.activeElement.tagName === 'INPUT' ||
+        (document.activeElement.tagName === 'TEXTAREA' && document.activeElement !== textareaRef.current)
+      )) {
+        return;
+      }
+      handlePaste(e);
+    };
+    window.addEventListener('paste', onWindowPaste);
+    return () => window.removeEventListener('paste', onWindowPaste);
+  }, [activeModelMeta, activeKey, remainingTokens]);
 
   // Token Intelligence metrics for active thread & draft input
   const threadTokenStats = useMemo(() => {
@@ -3829,7 +3898,7 @@ export const UserChatStudio: React.FC = () => {
               generating ? 'opacity-90' : 'focus-within:ring-2 focus-within:ring-violet-500/30'
             }`}>
               {/* Attachment Preview Chips */}
-              {attachments.length > 0 && (
+              {(attachments.length > 0 || isUploadingAttachment) && (
                 <div className="px-4 pt-3 flex flex-wrap gap-2 border-b border-black/5 dark:border-white/5 pb-2">
                   {attachments.map((att, idx) => (
                     <div
@@ -3851,6 +3920,12 @@ export const UserChatStudio: React.FC = () => {
                       </button>
                     </div>
                   ))}
+                  {isUploadingAttachment && (
+                    <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl border bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400 font-medium animate-pulse">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-500" />
+                      <span className="text-[11px]">Attaching screenshot / image...</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3929,6 +4004,7 @@ export const UserChatStudio: React.FC = () => {
                   ref={textareaRef}
                   rows={2}
                   value={inputMessage}
+                  onPaste={handlePaste}
                   onChange={(e) => {
                     setPrompt(e.target.value);
                     if (e.target.value.startsWith('/')) {

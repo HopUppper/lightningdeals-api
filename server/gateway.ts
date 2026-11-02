@@ -2140,8 +2140,19 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         res.end();
 
         const isProviderReported = reportedInputTokens !== null && reportedInputTokens > 0;
-        const fullPayloadStr = JSON.stringify({ system, tools, messages });
-        const fallbackInputTokens = Math.max(20, Math.ceil(fullPayloadStr.length / 3.8));
+        let fallbackInputTokens = 20;
+        if (!isProviderReported) {
+          const msgs = Array.isArray(messages) ? messages : [];
+          const activeTurnMsgs = msgs.slice(-2);
+          const priorHistoryMsgs = msgs.slice(0, -2);
+          const staticToolsSystemStr = JSON.stringify({ system: system || '', tools: tools || [] });
+          const activeChars = JSON.stringify(activeTurnMsgs).length;
+          const historyChars = JSON.stringify(priorHistoryMsgs).length;
+          // Prompt caching: static tools/system & prior history are discounted to 10%
+          const activeTokens = Math.ceil(activeChars / 3.8);
+          const cachedTokens = Math.ceil((staticToolsSystemStr.length + historyChars) / 3.8);
+          fallbackInputTokens = Math.max(20, Math.ceil(activeTokens + cachedTokens * 0.10));
+        }
         const fallbackOutputTokens = Math.max(10, Math.ceil(streamedCharsLength / 3.8));
 
         const inputTokens = isProviderReported ? (reportedInputTokens || fallbackInputTokens) : fallbackInputTokens;
@@ -2882,6 +2893,10 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     tool_choice,
   }, resolvedBillingType);
 
+  if (stream && prepared.body && typeof prepared.body === 'object') {
+    prepared.body.stream_options = { include_usage: true };
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), adaptiveTimeoutMs);
 
@@ -3016,6 +3031,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       const decoder = new TextDecoder();
       let totalStreamedChars = 0;
       let sseBuffer = '';
+      let reportedPromptTokens: number | null = null;
+      let reportedCompTokens: number | null = null;
       const chatSanitizer = new StreamChunkSanitizer(friendlyModel);
       const reasoningSanitizer = new StreamChunkSanitizer(friendlyModel);
 
@@ -3059,6 +3076,10 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
 
               try {
                 const parsed = JSON.parse(jsonStr);
+                if (parsed.usage) {
+                  if (typeof parsed.usage.prompt_tokens === 'number') reportedPromptTokens = parsed.usage.prompt_tokens;
+                  if (typeof parsed.usage.completion_tokens === 'number') reportedCompTokens = parsed.usage.completion_tokens;
+                }
                 if (parsed.model) parsed.model = model;
                 if (Array.isArray(parsed.choices)) {
                   for (const c of parsed.choices) {
@@ -3086,18 +3107,23 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       }
       res.end();
 
-      const inputEst = Math.max(20, Math.ceil(JSON.stringify(messages).length / 3.8));
-      const outputEst = Math.max(10, Math.ceil(totalStreamedChars / 3.8));
+      const isProviderReported = reportedPromptTokens !== null && reportedPromptTokens > 0;
+      const inputTokens = isProviderReported ? reportedPromptTokens : Math.max(20, Math.ceil(JSON.stringify(messages).length / 3.8));
+      const outputTokens = (reportedCompTokens !== null && reportedCompTokens > 0) ? reportedCompTokens : Math.max(10, Math.ceil(totalStreamedChars / 3.8));
+      const totalTokens = inputTokens + outputTokens;
+
       await updateTokensAndLog({
         keyRecord,
         model,
-        inputTokens: inputEst,
-        outputTokens: outputEst,
-        totalTokens: inputEst + outputEst,
+        inputTokens,
+        outputTokens,
+        totalTokens,
         latencyMs: firstTokenMs ?? (Date.now() - startTime),
         streaming: true,
         requestId,
         vendorId: vendor.id,
+        isEstimated: !isProviderReported,
+        usageSource: isProviderReported ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
         clientPlatform: platform,
         userAgent,
         ipAddress: clientIp,

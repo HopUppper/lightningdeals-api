@@ -492,6 +492,10 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
         stream: !!payload.stream,
       };
 
+      if (payload.stream) {
+        body.stream_options = { include_usage: true };
+      }
+
       if (payload.temperature !== undefined) body.temperature = payload.temperature;
       if (payload.top_p !== undefined) body.top_p = payload.top_p;
       if (openAiTools) body.tools = openAiTools;
@@ -631,15 +635,20 @@ export class LotusAiProviderAdapter extends BaseProviderAdapter {
         ? `${cleanBase}/chat/completions`
         : `${cleanBase}/v1/chat/completions`;
 
+    const body: Record<string, any> = {
+      ...payload,
+      model: targetModel,
+    };
+    if (payload?.stream) {
+      body.stream_options = { include_usage: true };
+    }
+
     return {
       url: targetUrl,
       headers,
       targetModel,
       timeoutMs: this.timeoutMs,
-      body: {
-        ...payload,
-        model: targetModel,
-      },
+      body,
     };
   }
 }

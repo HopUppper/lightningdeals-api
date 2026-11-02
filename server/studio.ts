@@ -2461,8 +2461,12 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         effectiveSystemPrompt += `\n\n[PROJECT DIRECTIVE - ${projectRecord.name}]:\n${projectRecord.instructions}`;
       }
     }
-    if (memoryEnabled !== false && memoryResult.formattedContext) {
-      effectiveSystemPrompt += `\n\n${memoryResult.formattedContext}`;
+    if (memoryEnabled !== false) {
+      if (memoryResult.formattedContext) {
+        effectiveSystemPrompt += `\n\n${memoryResult.formattedContext}`;
+      } else {
+        effectiveSystemPrompt += `\n\n[PERSISTENT ACCOUNT MEMORY INFRASTRUCTURE]:\nYou have an active persistent cross-conversation memory system for this user. When the user shares preferences, tech stack, or asks you to remember facts, acknowledge naturally and confirm they are remembered. NEVER state that you cannot remember facts across future conversations or ask the user to remind you again.`;
+      }
     }
     if (explicitActionConfirmation) {
       effectiveSystemPrompt += `\n\n[EXPLICIT USER MEMORY INSTRUCTION DIRECTIVE]:\nThe user explicitly gave you a memory command. You MUST acknowledge this naturally and directly in your response: "${explicitActionConfirmation}"`;

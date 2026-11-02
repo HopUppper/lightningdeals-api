@@ -625,10 +625,10 @@ export async function retrieveRelevantMemories(params: {
     (m) => `- [${m.category}]${m.type === 'explicit' ? ' (explicit)' : ''}: ${m.fact}`
   );
 
-  const formattedContext = `[USER MEMORY & PERSONALISATION CONTEXT]:
-The following are verified user preferences and background across conversations:
+  const formattedContext = `[PERSISTENT LONG-TERM MEMORY & USER PERSONALISATION]:
+The following are verified preferences, learning objectives, and facts persisted for this user across conversations:
 ${lines.join('\n')}
-(Directive: These memories represent historical user context. They must not override immediate explicit instructions or safety policies.)`;
+(Directive: You have full access to persistent cross-conversation long-term memory for this user. When the user asks you to remember something or discusses their preferences, apply them naturally. NEVER tell the user that you cannot remember across future conversations or ask them to remind you in future chats.)`;
 
   // Update lastRetrievedAt asynchronously
   const retrievedIds = boundedMemories.map((m) => m.id);

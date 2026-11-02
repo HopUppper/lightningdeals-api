@@ -631,7 +631,7 @@ const ResponseTelemetryDropdown: React.FC<ResponseTelemetryDropdownProps> = ({ m
 
           <div className="pt-1.5 flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400 font-sans">
             <span>Model: <strong className="font-mono text-slate-700 dark:text-slate-300">{message.modelUsed || 'active'}</strong></span>
-            <span>Zero vendor leak • Hardware isolated gateway</span>
+            <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1"><span>✓</span><span>Verified & Settled</span></span>
           </div>
         </div>
       )}
@@ -714,6 +714,7 @@ export const UserChatStudio: React.FC = () => {
   const [activeTelemetryMsgId, setActiveTelemetryMsgId] = useState<string | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const [composerToolsOpen, setComposerToolsOpen] = useState(false);
   const [activeMenuThreadId, setActiveMenuThreadId] = useState<string | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [headerTitleText, setHeaderTitleText] = useState('');
@@ -2843,20 +2844,7 @@ export const UserChatStudio: React.FC = () => {
             )}
           </div>
 
-          {/* Quick Search Command Bar (⌘K) */}
-          <button
-            type="button"
-            onClick={() => setIsCommandPaletteOpen(true)}
-            className={`hidden md:flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all text-xs cursor-pointer shadow-2xs ${c.pillBg}`}
-            title="Search & Commands (⌘K)"
-          >
-            <Search className={`w-3.5 h-3.5 ${isDark ? 'text-violet-400' : 'text-violet-700'}`} />
-            <span className={`text-[11px] ${c.textMuted}`}>Search...</span>
-            <kbd className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${isDark ? 'bg-black/30 border-[#28334B] text-slate-400' : 'bg-slate-200 border-slate-300 text-slate-700 font-bold'}`}>
-              ⌘K
-            </kbd>
-          </button>
-        </div>
+          </div>
 
         {/* Right: Model Selector Pill, Context Meter, API Key Pill, Tools Menu ▾, Theme Toggle */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -3398,6 +3386,58 @@ export const UserChatStudio: React.FC = () => {
                       </span>
                     </button>
 
+                    {/* Search, Guide & Theme Controls */}
+                    <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-1">
+                      <div className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Preferences & Navigation
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setToolsMenuOpen(false);
+                          setIsCommandPaletteOpen(true);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Search className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Search & Commands</span>
+                        </span>
+                        <kbd className="px-1.5 py-0.2 rounded text-[10px] font-mono border border-black/10 dark:border-white/10 text-slate-400">
+                          ⌘K
+                        </kbd>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setToolsMenuOpen(false);
+                          setIsOnboardingOpen(true);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <HelpCircle className="w-3.5 h-3.5 text-violet-400" />
+                          <span>Getting Started Guide</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">?</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleTheme();
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between hover:bg-violet-500/10 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-700" />}
+                          <span>{isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}</span>
+                        </span>
+                        <span className="text-[10px] font-mono uppercase text-slate-400">{theme}</span>
+                      </button>
+                    </div>
+
                     {/* Conversation Export Options */}
                     {activeThread.messages.length > 0 && (
                       <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-1">
@@ -3444,26 +3484,7 @@ export const UserChatStudio: React.FC = () => {
             )}
           </div>
 
-          {/* Studio Guide Help Button */}
-          <button
-            type="button"
-            onClick={() => setIsOnboardingOpen(true)}
-            className={`p-1.5 rounded-xl border transition-all cursor-pointer ${c.pillBg}`}
-            title="Getting Started & Capability Guide (?)"
-          >
-            <HelpCircle className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-          </button>
-
-          {/* Theme Toggle Button */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className={`p-1.5 rounded-xl border transition-all cursor-pointer ${c.pillBg}`}
-            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-          </button>
-        </div>
+          </div>
       </header>
 
       {/* Main Studio Body: Sessions Sidebar + Chat Column + Artifact Canvas */}
@@ -3480,61 +3501,35 @@ export const UserChatStudio: React.FC = () => {
             aria-label="Close sidebar"
           />
           <aside className={`fixed md:static inset-y-0 left-0 z-50 md:z-auto w-72 sm:w-80 md:w-64 lg:w-72 border-r ${c.sidebarBorder} ${c.sidebarBg} flex flex-col shrink-0 h-full overflow-hidden text-xs shadow-2xl md:shadow-none transition-transform duration-200 ease-in-out`}>
-            {/* 1. CREATE SECTION */}
+            {/* 1. SIDEBAR HEADER: Clean New Chat Trigger (ChatGPT Style) */}
             <div className="p-3 border-b border-black/5 dark:border-white/5 shrink-0 space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 px-1">
-                <span>Create</span>
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 opacity-60" />
-                  <button
-                    type="button"
-                    onClick={() => setSidebarOpen(false)}
-                    className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 md:hidden cursor-pointer"
-                    title="Close sidebar"
-                    aria-label="Close sidebar"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+              <div className="flex items-center justify-between pb-1 md:hidden">
+                <span className="font-bold text-xs">Navigation</span>
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
+                  title="Close sidebar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
+
               <button
                 type="button"
                 onClick={() => handleCreateNewThread()}
-                className="w-full py-2.5 px-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-semibold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                className="w-full py-2 px-3 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-100 font-semibold flex items-center justify-between shadow-2xs transition-all cursor-pointer text-xs group"
               >
-                <Plus className="w-4 h-4" />
-                <span>+ New Chat</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-lg bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                    <Plus className="w-3.5 h-3.5" />
+                  </div>
+                  <span>New chat</span>
+                </div>
+                <kbd className="hidden sm:inline-block px-1.5 py-0.2 rounded text-[10px] font-mono border border-black/10 dark:border-white/10 text-slate-400">
+                  ⌘K
+                </kbd>
               </button>
-
-              {/* Quick Starters */}
-              <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => setIsDocGenOpen(true)}
-                  className={`px-2 py-1.5 rounded-xl border flex items-center gap-1.5 text-[11px] font-medium transition-colors cursor-pointer ${c.pillBg}`}
-                  title="Generate Word, Excel or PDF document"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                  <span className="truncate">Document</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMediaGenOpen(true)}
-                  className={`px-2 py-1.5 rounded-xl border flex items-center gap-1.5 text-[11px] font-medium transition-colors cursor-pointer ${c.pillBg}`}
-                  title="Open Media Studio"
-                >
-                  <ImageIcon className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                  <span className="truncate">Media</span>
-                </button>
-                <Link
-                  to="/dashboard/builder"
-                  className={`px-2 py-1.5 rounded-xl border flex items-center gap-1.5 text-[11px] font-medium transition-colors cursor-pointer ${c.pillBg}`}
-                  title="Open AI Website & App Builder"
-                >
-                  <Globe className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="truncate">Website</span>
-                </Link>
-              </div>
             </div>
 
             {/* 2. NAVIGATION SEGMENT (Chats / Documents / Projects) */}
@@ -4337,188 +4332,30 @@ export const UserChatStudio: React.FC = () => {
                       </div>
                     ) : (
                       /* Assistant Message Bubble */
-                      <div className="space-y-2">
-                        {/* Assistant Header */}
+                      <div className="space-y-2.5">
+                        {/* Assistant Header (ChatGPT Minimalist Style) */}
                         <div className="flex items-center justify-between text-xs px-1">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-lg bg-violet-600/20 text-violet-600 dark:text-violet-400 flex items-center justify-center font-bold text-xs">
+                            <div className="w-6 h-6 rounded-lg bg-violet-600/15 text-violet-600 dark:text-violet-400 flex items-center justify-center font-bold text-xs shrink-0">
                               <Sparkles className="w-3.5 h-3.5" />
                             </div>
-                            <span className="font-bold text-xs">
+                            <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
                               {getModelDisplayName(msg.modelUsed || activeThread.model)}
                             </span>
-                            {msg.usage ? (() => {
-                              const isMsgCredit = msg.billingType === 'credit' || (activeKey ? getKeyPlanCategory(activeKey) === 'credit' : false);
-                              const costNum = msg.costUsd !== undefined ? Number(msg.costUsd) : Number(msg.usage.cost_usd || 0);
 
-                              return (
-                                <div className="relative inline-block">
-                                  {isMsgCredit ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveTelemetryMsgId(activeTelemetryMsgId === msg.id ? null : msg.id)}
-                                      className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1.5 cursor-pointer ${
-                                        isDark
-                                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                                          : 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100 font-semibold'
-                                      }`}
-                                      title="View verified credit consumption"
-                                    >
-                                      <Zap className="w-2.5 h-2.5 text-emerald-500" />
-                                      <span className="font-bold">${costNum.toFixed(4)} USD consumed</span>
-                                      <span className="text-[9px] uppercase px-1 rounded bg-emerald-500/20 text-emerald-400 font-semibold">
-                                        Credit Key
-                                      </span>
-                                      <ChevronDown className={`w-2.5 h-2.5 transition-transform ${activeTelemetryMsgId === msg.id ? 'rotate-180' : ''}`} />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveTelemetryMsgId(activeTelemetryMsgId === msg.id ? null : msg.id)}
-                                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
-                                        isDark
-                                          ? 'bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20'
-                                          : 'bg-teal-50 border-teal-300 text-teal-900 hover:bg-teal-100 font-semibold'
-                                      }`}
-                                      title="View verified token telemetry"
-                                    >
-                                      <Zap className="w-2.5 h-2.5" />
-                                      <span>{msg.usage.total_tokens.toLocaleString()} tokens</span>
-                                      <span className="text-[9px] uppercase px-1 rounded bg-teal-500/20 text-teal-300">
-                                        {msg.usage.usage_source === 'PROVIDER_REPORTED' ? 'Verified' : 'Tracked'}
-                                      </span>
-                                      <ChevronDown className={`w-2.5 h-2.5 transition-transform ${activeTelemetryMsgId === msg.id ? 'rotate-180' : ''}`} />
-                                    </button>
-                                  )}
-
-                                  {Boolean(msg.memoryCount && msg.memoryCount > 0) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setContextManagerOpen(true)}
-                                      className={`ml-1.5 text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all inline-flex items-center gap-1 cursor-pointer ${
-                                        isDark
-                                          ? 'bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20'
-                                          : 'bg-violet-50 border-violet-300 text-violet-900 hover:bg-violet-100 font-semibold'
-                                      }`}
-                                      title={`Personalised using ${msg.memoryCount} remembered preference${(msg.memoryCount ?? 0) > 1 ? 's' : ''}. Click to inspect memory.`}
-                                    >
-                                      <Brain className="w-2.5 h-2.5 text-violet-400" />
-                                      <span>Personalised ({msg.memoryCount})</span>
-                                    </button>
-                                  )}
-
-                                  {activeTelemetryMsgId === msg.id && (
-                                    <div className={`absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-2xl shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn ${c.cardBg} ${c.border}`}>
-                                      <div className="flex items-center justify-between pb-1 border-b border-black/10 dark:border-slate-800">
-                                        <span className={`font-bold flex items-center gap-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                          <Activity className={`w-3 h-3 ${isMsgCredit ? 'text-emerald-400' : 'text-teal-400'}`} />
-                                          <span>{isMsgCredit ? 'Credit Consumption' : 'Token Telemetry'}</span>
-                                        </span>
-                                        <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-400 font-bold">
-                                          Verified
-                                        </span>
-                                      </div>
-
-                                      <div className={`space-y-1 font-mono text-[11px] ${isDark ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>
-                                        {isMsgCredit ? (
-                                          <>
-                                            <div className="flex justify-between">
-                                              <span className="text-slate-400 font-sans">Credits consumed:</span>
-                                              <span className="font-bold text-emerald-600 dark:text-emerald-400">${costNum.toFixed(4)} USD</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <span className="text-slate-400 font-sans">Wallet balance:</span>
-                                              <span>{activeKey ? `${Number(activeKey.creditBalanceUsd || 0).toFixed(2)} USD` : 'Active'}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <span className="text-slate-400 font-sans">Key Type:</span>
-                                              <span className="text-violet-500 font-sans font-bold">Prepaid Credit Key</span>
-                                            </div>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <div className="flex justify-between">
-                                              <span className="text-slate-400 font-sans">Input tokens:</span>
-                                              <span>{msg.usage.input_tokens.toLocaleString()}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <span className="text-slate-400 font-sans">Output tokens:</span>
-                                              <span>{msg.usage.output_tokens.toLocaleString()}</span>
-                                            </div>
-                                            {Boolean(msg.usage.reasoning_tokens) && (
-                                              <div className="flex justify-between text-amber-400">
-                                                <span className="font-sans">Reasoning:</span>
-                                                <span>{msg.usage.reasoning_tokens?.toLocaleString()}</span>
-                                              </div>
-                                            )}
-                                            {Boolean(msg.usage.cached_tokens) && (
-                                              <div className="flex justify-between text-teal-400">
-                                                <span className="font-sans">Cached:</span>
-                                                <span>{msg.usage.cached_tokens?.toLocaleString()}</span>
-                                              </div>
-                                            )}
-                                            <div className={`flex justify-between pt-1 border-t border-black/10 dark:border-slate-800 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                              <span className="font-sans">Total tokens:</span>
-                                              <span>{msg.usage.total_tokens.toLocaleString()}</span>
-                                            </div>
-                                          </>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })() : null}
-                          </div>
-
-                          <div className="flex items-center gap-1 text-xs">
-                            {/* Open in Dedicated Document Workspace button */}
-                            {msg.content && (msg.content.length > 250 || msg.content.includes('#')) && (
+                            {Boolean(msg.memoryCount && msg.memoryCount > 0) && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setActiveDocumentId(msg.id);
-                                  setWorkspaceMode('document');
-                                }}
-                                className={`px-2 py-1 rounded-lg border transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-medium ${c.pillBg}`}
-                                title="Open in dedicated Document Workspace with Table of Contents & Word/PDF export"
+                                onClick={() => setContextManagerOpen(true)}
+                                className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all inline-flex items-center gap-1 cursor-pointer ${
+                                  isDark
+                                    ? 'bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20'
+                                    : 'bg-violet-50 border-violet-300 text-violet-900 hover:bg-violet-100 font-semibold'
+                                }`}
+                                title={`Personalised using ${msg.memoryCount} remembered preference${(msg.memoryCount ?? 0) > 1 ? 's' : ''}. Click to inspect memory.`}
                               >
-                                <FileText className="w-3 h-3 text-violet-500" />
-                                <span className="hidden sm:inline">Open in Document</span>
-                              </button>
-                            )}
-
-                            {/* Read aloud TTS */}
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSpeak(msg.id, msg.content)}
-                              className={`p-1 rounded-md border transition-colors cursor-pointer ${
-                                speakingMsgId === msg.id ? 'bg-violet-600 text-white border-violet-500' : c.pillBg
-                              }`}
-                              title={speakingMsgId === msg.id ? 'Stop Speaking' : 'Read Aloud'}
-                            >
-                              {speakingMsgId === msg.id ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-                            </button>
-
-                            {/* Copy button */}
-                            <button
-                              type="button"
-                              onClick={() => navigator.clipboard.writeText(msg.content)}
-                              className={`p-1 rounded-md border transition-colors cursor-pointer ${c.pillBg}`}
-                              title="Copy Message"
-                            >
-                              <Copy className="w-3 h-3" />
-                            </button>
-
-                            {/* Regenerate if last assistant message */}
-                            {idx === activeThread.messages.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={handleRegenerate}
-                                className={`p-1 rounded-md border transition-colors cursor-pointer ${c.pillBg}`}
-                                title="Regenerate Response"
-                              >
-                                <RotateCcw className="w-3 h-3" />
+                                <Brain className="w-2.5 h-2.5 text-violet-400" />
+                                <span>Personalised ({msg.memoryCount})</span>
                               </button>
                             )}
                           </div>
@@ -4553,7 +4390,7 @@ export const UserChatStudio: React.FC = () => {
                         )}
 
                         {/* 1. Assistant Direct Answer (PART 4.1: Streamed directly into conversation with inline citations) */}
-                        <div className={`p-4 rounded-2xl border shadow-2xs mb-3 ${c.cardBg} ${c.border}`}>
+                        <div className="w-full py-1 mb-2">
                           {msg.content ? (
                             <MarkdownBlock content={msg.content} sources={msg.sources} />
                           ) : !msg.currentActivity && !(msg.activities && msg.activities.length > 0) ? (
@@ -4660,13 +4497,70 @@ export const UserChatStudio: React.FC = () => {
                           </div>
                         )}
 
-                        {/* 4. Small Post-Response Telemetry & Credit/Token Breakdown Box */}
-                        {Boolean(msg.content && msg.usage) && (
-                          <ResponseTelemetryDropdown
-                            message={msg}
-                            isDark={isDark}
-                            activeKey={activeKey}
-                          />
+                        {/* 4. Assistant Action Bar & Discrete Usage Telemetry (ChatGPT Style) */}
+                        {Boolean(msg.content) && (
+                          <div className="mt-2 pt-1 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1 text-slate-400">
+                              {/* Copy button */}
+                              <button
+                                type="button"
+                                onClick={() => navigator.clipboard.writeText(msg.content)}
+                                className={`p-1.5 rounded-lg border transition-colors cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 ${c.pillBg}`}
+                                title="Copy response to clipboard"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Read aloud TTS */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSpeak(msg.id, msg.content)}
+                                className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                  speakingMsgId === msg.id ? 'bg-violet-600 text-white border-violet-500' : `${c.pillBg} hover:text-slate-800 dark:hover:text-slate-200`
+                                }`}
+                                title={speakingMsgId === msg.id ? 'Stop speaking' : 'Read aloud'}
+                              >
+                                {speakingMsgId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                              </button>
+
+                              {/* Regenerate if last message */}
+                              {idx === activeThread.messages.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={handleRegenerate}
+                                  className={`p-1.5 rounded-lg border transition-colors cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 ${c.pillBg}`}
+                                  title="Regenerate response"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+
+                              {/* Open in Document Workspace */}
+                              {(msg.content.length > 250 || msg.content.includes('#')) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveDocumentId(msg.id);
+                                    setWorkspaceMode('document');
+                                  }}
+                                  className={`px-2 py-1 rounded-lg border transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-medium hover:text-violet-600 dark:hover:text-violet-400 ${c.pillBg}`}
+                                  title="Open in dedicated Document Workspace with Table of Contents & Word/PDF export"
+                                >
+                                  <FileText className="w-3 h-3 text-violet-500" />
+                                  <span>Document View</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Discrete Telemetry Pill */}
+                            {Boolean(msg.usage) && (
+                              <ResponseTelemetryDropdown
+                                message={msg}
+                                isDark={isDark}
+                                activeKey={activeKey}
+                              />
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
@@ -4799,6 +4693,51 @@ export const UserChatStudio: React.FC = () => {
                 </div>
               )}
 
+              {/* Active Feature Indicator Chips (Web Search, Compare, Thinking) */}
+              {(researchMode === 'web_search' || isComparingModels || activeThread.thinkingEnabled) && (
+                <div className="px-4 pt-2 flex flex-wrap items-center gap-1.5">
+                  {researchMode === 'web_search' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/25">
+                      <Globe className="w-3 h-3" />
+                      <span>Web Search</span>
+                      <button
+                        type="button"
+                        onClick={() => setResearchMode('standard')}
+                        className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  )}
+                  {isComparingModels && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
+                      <Scale className="w-3 h-3" />
+                      <span>Comparison Mode</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsComparingModels(false)}
+                        className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  )}
+                  {activeThread.thinkingEnabled && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                      <Brain className="w-3 h-3 text-amber-500" />
+                      <span>Thinking Mode</span>
+                      <button
+                        type="button"
+                        onClick={() => updateActiveThread({ thinkingEnabled: false })}
+                        className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Textarea */}
               <div className="px-4 pt-3 pb-2">
                 <textarea
@@ -4827,7 +4766,7 @@ export const UserChatStudio: React.FC = () => {
                       ? 'Enter deep research topic for multi-round web investigation...'
                       : researchMode === 'open_link'
                       ? 'Paste URL to inspect and analyze page content...'
-                      : 'Ask Claude to code, debug an error, or drop files/images (Enter to send, / for commands)...'
+                      : 'Ask anything or describe what you want to create...'
                   }
                   className={`w-full bg-transparent resize-none text-xs sm:text-sm focus:outline-none leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-500 ${c.text}`}
                 />
@@ -4854,118 +4793,162 @@ export const UserChatStudio: React.FC = () => {
                 </div>
               )}
 
-              {/* Bottom Action Bar inside Composer */}
-              <div className="px-3 pb-2.5 pt-1.5 flex items-center justify-between border-t border-black/5 dark:border-white/5">
-                {/* Left controls: Attach, Web Search, Thinking toggle, Mic */}
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                  {/* Hidden File Input */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.txt,.ts,.tsx,.js,.py,.json,.md,.csv,.sql"
-                    className="hidden"
-                    onChange={(e) => handleFilesSelected(e.target.files)}
-                  />
+              {/* Bottom Action Bar inside Composer (ChatGPT / Claude style) */}
+              <div className="px-3 pb-2.5 pt-1.5 flex items-center justify-between border-t border-black/5 dark:border-white/5 relative">
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.txt,.ts,.tsx,.js,.py,.json,.md,.csv,.sql"
+                  className="hidden"
+                  onChange={(e) => handleFilesSelected(e.target.files)}
+                />
 
-                  {/* Primary 1-Click Attach Button (adaptive to vision capability) */}
+                {/* Left: Plus / Tools Unified Contextual Dropdown */}
+                <div className="relative">
                   <button
                     type="button"
-                    disabled={activeModelMeta ? !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput) : false}
-                    onClick={() => {
-                      if (activeModelMeta && !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput)) {
-                        alert(`${activeModelMeta.name} does not accept multimodal image/file inputs. Please switch to Claude Sonnet 5.5, Gemini 4 Argon, or GPT-4o for file attachments.`);
-                        return;
-                      }
-                      fileInputRef.current?.click();
-                    }}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                      activeModelMeta && !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput)
-                        ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800/50 text-slate-400'
+                    onClick={() => setComposerToolsOpen(!composerToolsOpen)}
+                    className={`p-1.5 rounded-full border transition-all cursor-pointer ${
+                      composerToolsOpen
+                        ? 'bg-violet-600 text-white border-violet-500 shadow-xs'
+                        : researchMode === 'web_search' || isComparingModels || activeThread.thinkingEnabled
+                        ? 'bg-violet-500/15 border-violet-500/40 text-violet-600 dark:text-violet-400'
                         : c.pillBg
                     }`}
-                    title={
-                      activeModelMeta && !(activeModelMeta.supportsVision || activeModelMeta.supportsImageInput)
-                        ? 'Selected model does not support vision or file attachments'
-                        : 'Attach documents, code files, or images (.pdf, .docx, .ts, .py, .png, etc.)'
-                    }
+                    title="Tools, web search & attachments"
                   >
-                    <Paperclip className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
-                    <span className="hidden sm:inline">Attach</span>
+                    <Plus className={`w-4 h-4 transition-transform ${composerToolsOpen ? 'rotate-45' : ''}`} />
                   </button>
 
-                  {/* Web Search Toggle Pill */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setResearchMode(researchMode === 'web_search' ? 'standard' : 'web_search');
-                    }}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                      researchMode === 'web_search'
-                        ? 'bg-blue-500/15 border-blue-500/40 text-blue-600 dark:text-blue-400 font-semibold'
-                        : c.pillBg
-                    }`}
-                    title="Toggle Web Search for live citations & up-to-date data"
-                  >
-                    <Globe className={`w-3.5 h-3.5 ${researchMode === 'web_search' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
-                    <span className="hidden sm:inline">Web Search</span>
-                    {researchMode === 'web_search' && <Check className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
-                  </button>
+                  {/* Contextual Tools Popup Menu */}
+                  {composerToolsOpen && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setComposerToolsOpen(false)} />
+                      <div className={`absolute left-0 bottom-full mb-2 z-40 w-64 rounded-2xl border shadow-2xl p-1.5 space-y-1 text-xs animate-fadeIn ${c.cardBg} ${c.border}`}>
+                        <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Workspace Tools
+                        </div>
 
-                  {/* Model Comparison Toggle Pill */}
-                  <button
-                    type="button"
-                    onClick={() => setIsComparingModels(!isComparingModels)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                      isComparingModels
-                        ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-600 dark:text-indigo-400 font-semibold'
-                        : c.pillBg
-                    }`}
-                    title="Toggle Side-by-Side Dual Model Comparison"
-                  >
-                    <Scale className={`w-3.5 h-3.5 ${isComparingModels ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
-                    <span className="hidden sm:inline">Compare</span>
-                    {isComparingModels && <Check className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
-                  </button>
+                        {/* Attach File */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setComposerToolsOpen(false);
+                            fileInputRef.current?.click();
+                          }}
+                          className="w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Paperclip className="w-4 h-4 text-violet-500" />
+                            <div>
+                              <p className="font-semibold text-xs">Attach Files & Images</p>
+                              <p className="text-[10px] text-slate-400">PDF, Word, Code, Images</p>
+                            </div>
+                          </div>
+                        </button>
 
-                  {/* Image Generation Studio Pill */}
-                  <button
-                    type="button"
-                    onClick={() => setIsMediaGenOpen(true)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                      activeModelMeta?.supportsImageGeneration
-                        ? 'bg-fuchsia-500/15 border-fuchsia-500/40 text-fuchsia-600 dark:text-fuchsia-400 font-semibold'
-                        : c.pillBg
-                    }`}
-                    title="Generate high-resolution AI images with aspect ratio controls & instant download"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5 text-fuchsia-500" />
-                    <span className="hidden sm:inline">Image Gen</span>
-                  </button>
+                        {/* Web Search Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResearchMode(researchMode === 'web_search' ? 'standard' : 'web_search');
+                            setComposerToolsOpen(false);
+                          }}
+                          className="w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Globe className="w-4 h-4 text-blue-500" />
+                            <div>
+                              <p className="font-semibold text-xs">Web Search</p>
+                              <p className="text-[10px] text-slate-400">Real-time live citations</p>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            researchMode === 'web_search' ? 'bg-blue-500/20 text-blue-500' : 'bg-black/5 dark:bg-white/5 text-slate-400'
+                          }`}>
+                            {researchMode === 'web_search' ? 'ON' : 'OFF'}
+                          </span>
+                        </button>
 
-                  {/* Thinking Mode Toggle Pill (when model supports it) */}
-                  {activeModelMeta?.supportsThinking && (
-                    <button
-                      type="button"
-                      onClick={() => updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled })}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                        activeThread.thinkingEnabled
-                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 font-semibold'
-                          : c.pillBg
-                      }`}
-                      title="Toggle Extended Thinking (Deep reasoning before responding)"
-                    >
-                      <Brain className={`w-3.5 h-3.5 ${activeThread.thinkingEnabled ? 'text-amber-500' : 'text-slate-400'}`} />
-                      <span className="hidden sm:inline">Thinking</span>
-                      {activeThread.thinkingEnabled && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                    </button>
+                        {/* Model Comparison Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsComparingModels(!isComparingModels);
+                            setComposerToolsOpen(false);
+                          }}
+                          className="w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Scale className="w-4 h-4 text-indigo-500" />
+                            <div>
+                              <p className="font-semibold text-xs">Side-by-Side Compare</p>
+                              <p className="text-[10px] text-slate-400">Dual model response test</p>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            isComparingModels ? 'bg-indigo-500/20 text-indigo-500' : 'bg-black/5 dark:bg-white/5 text-slate-400'
+                          }`}>
+                            {isComparingModels ? 'ON' : 'OFF'}
+                          </span>
+                        </button>
+
+                        {/* Image Generation */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setComposerToolsOpen(false);
+                            setIsMediaGenOpen(true);
+                          }}
+                          className="w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <ImageIcon className="w-4 h-4 text-fuchsia-500" />
+                            <div>
+                              <p className="font-semibold text-xs">Generate Image</p>
+                              <p className="text-[10px] text-slate-400">HD AI Art & Visuals</p>
+                            </div>
+                          </div>
+                        </button>
+
+                        {/* Extended Thinking Mode */}
+                        {activeModelMeta?.supportsThinking && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateActiveThread({ thinkingEnabled: !activeThread.thinkingEnabled });
+                              setComposerToolsOpen(false);
+                            }}
+                            className="w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between hover:bg-violet-500/10 cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Brain className="w-4 h-4 text-amber-500" />
+                              <div>
+                                <p className="font-semibold text-xs">Extended Thinking</p>
+                                <p className="text-[10px] text-slate-400">Deep step-by-step reasoning</p>
+                              </div>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                              activeThread.thinkingEnabled ? 'bg-amber-500/20 text-amber-500' : 'bg-black/5 dark:bg-white/5 text-slate-400'
+                            }`}>
+                              {activeThread.thinkingEnabled ? 'ON' : 'OFF'}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </>
                   )}
+                </div>
 
+                {/* Right: Voice Dictation + Send Button */}
+                <div className="flex items-center gap-2">
                   {/* Voice Dictation (Mic) */}
                   <button
                     type="button"
                     onClick={toggleVoiceDictation}
-                    className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                    className={`p-1.5 rounded-full border transition-all cursor-pointer ${
                       isListening
                         ? 'bg-rose-500/20 border-rose-500 text-rose-500 animate-pulse'
                         : c.pillBg
@@ -5526,23 +5509,20 @@ export const UserChatStudio: React.FC = () => {
               className="w-full text-xs font-semibold bg-white dark:bg-[#0B1020] border border-violet-500 rounded px-1.5 py-0.5 focus:outline-none"
             />
           ) : (
-            <p className="truncate text-xs leading-snug">{t.title}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {t.pinned && (
+                <Pin className="w-3 h-3 text-amber-500 shrink-0" />
+              )}
+              {t.project && (
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: t.project.color || '#8b5cf6' }}
+                  title={t.project.name}
+                />
+              )}
+              <p className="truncate text-xs leading-snug font-normal group-hover:text-slate-950 dark:group-hover:text-white transition-colors">{t.title}</p>
+            </div>
           )}
-          <div className="flex items-center gap-1.5 mt-0.5">
-            {t.pinned && (
-              <Pin className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-            )}
-            {t.project && (
-              <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: t.project.color || '#8b5cf6' }}
-                title={t.project.name}
-              />
-            )}
-            <p className={`text-[10px] truncate font-mono ${isDark ? 'text-[#77839E]' : 'text-slate-500 font-medium'}`}>
-              {getModelDisplayName(t.model).replace('Claude ', '')} · {t.messages.length} msgs
-            </p>
-          </div>
         </div>
 
         {/* Single Contextual 3-dots Menu Button */}

@@ -307,10 +307,7 @@ export const UserUsage: React.FC = () => {
             <span className="text-[#64607d] text-xs font-semibold">Active Keys</span>
             <span className="font-extrabold text-[#1e1b2e]">{stats.activeKeysCount ?? 0}</span>
           </div>
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1]">
-            <span className="text-[#64607d] text-xs font-semibold">Avg Latency</span>
-            <span className="font-extrabold text-emerald-700 font-mono">{avgLatency}</span>
-          </div>
+
           <div className="flex items-center justify-between p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1]">
             <span className="text-[#64607d] text-xs font-semibold">Success Rate</span>
             <span className="font-extrabold text-[#1e1b2e] font-mono">{successRate}</span>
@@ -397,10 +394,15 @@ export const UserUsage: React.FC = () => {
                     <tr className="border-b border-[#ede8e1] text-[#64607d] uppercase bg-[#faf8f5] text-[10px] font-bold">
                       <th className="py-3 px-4">Timestamp</th>
                       <th className="py-3 px-4">Target Model</th>
-                      <th className="py-3 px-4 text-right">Prompt / Output</th>
-                      <th className="py-3 px-4 text-right">Total Tokens</th>
+                      {isCreditPlan ? (
+                        <th className="py-3 px-4 text-right">Credits Consumed</th>
+                      ) : (
+                        <>
+                          <th className="py-3 px-4 text-right">Prompt / Output</th>
+                          <th className="py-3 px-4 text-right">Total Tokens</th>
+                        </>
+                      )}
                       <th className="py-3 px-4 text-center">Usage Source</th>
-                      <th className="py-3 px-4 text-right">Latency / Speed</th>
                       <th className="py-3 px-4 text-center">Status</th>
                     </tr>
                   </thead>
@@ -423,12 +425,20 @@ export const UserUsage: React.FC = () => {
                           <td className="py-3 px-4 font-semibold text-violet-700">
                             {req.model}
                           </td>
-                          <td className="py-3 px-4 text-right text-[11px] text-[#64607d]">
-                            {formatTokens(inTok)} / {formatTokens(outTok)}
-                          </td>
-                          <td className="py-3 px-4 text-right font-bold text-[#1e1b2e]">
-                            {formatTokens(totTok)}
-                          </td>
+                          {isCreditPlan ? (
+                            <td className="py-3 px-4 text-right font-bold text-emerald-700 font-mono">
+                              ${Number(req.costUsd || req.customerCostUsd || 0).toFixed(4)} USD
+                            </td>
+                          ) : (
+                            <>
+                              <td className="py-3 px-4 text-right text-[11px] text-[#64607d]">
+                                {formatTokens(inTok)} / {formatTokens(outTok)}
+                              </td>
+                              <td className="py-3 px-4 text-right font-bold text-[#1e1b2e]">
+                                {formatTokens(totTok)}
+                              </td>
+                            </>
+                          )}
                           <td className="py-3 px-4 text-center">
                             <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-sans font-bold ${
                               isEstimated
@@ -437,9 +447,6 @@ export const UserUsage: React.FC = () => {
                             }`}>
                               {isEstimated ? 'Estimated' : 'Provider Reported'}
                             </span>
-                          </td>
-                          <td className="py-3 px-4 text-right text-emerald-700">
-                            {req.latencyMs ? `${req.latencyMs}ms` : '—'}
                           </td>
                           <td className="py-3 px-4 text-center">
                             {req.statusCode >= 200 && req.statusCode < 300 ? (

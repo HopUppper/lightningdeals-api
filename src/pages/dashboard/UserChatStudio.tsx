@@ -524,7 +524,7 @@ const ResponseTelemetryDropdown: React.FC<ResponseTelemetryDropdownProps> = ({ m
             <>
               <span className="text-violet-500">✦</span>
               <span className="text-violet-600 dark:text-violet-400 font-bold">
-                {usage.total_tokens.toLocaleString()} tokens in 5h window
+                {usage.total_tokens.toLocaleString()} tokens consumed
               </span>
             </>
           ) : (
@@ -535,14 +535,7 @@ const ResponseTelemetryDropdown: React.FC<ResponseTelemetryDropdownProps> = ({ m
               </span>
             </>
           )}
-          <span className="opacity-40">·</span>
-          <span className="opacity-80">{usage.total_tokens.toLocaleString()} tokens</span>
-          {latencySec && (
-            <>
-              <span className="opacity-40">·</span>
-              <span className="opacity-80">{latencySec}s</span>
-            </>
-          )}
+
         </span>
 
         {/* Plan badge */}
@@ -574,49 +567,67 @@ const ResponseTelemetryDropdown: React.FC<ResponseTelemetryDropdownProps> = ({ m
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-[11px] font-mono">
-            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
-              <div className="text-[10px] font-sans text-slate-400">Plan Model</div>
-              <div className="font-bold text-violet-600 dark:text-violet-400 font-sans truncate">
-                {isCredit ? 'Prepaid Credit Wallet' : isWindow ? '5h Rolling Window' : 'Consumable Token Pack'}
+          {isCredit ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px] font-mono">
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-sans text-slate-400">Plan Architecture</div>
+                <div className="font-bold text-violet-600 dark:text-violet-400 font-sans truncate">
+                  Prepaid Credit Wallet
+                </div>
               </div>
-            </div>
 
-            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
-              <div className="text-[10px] font-sans text-slate-400">Cost Consumed</div>
-              <div className="font-bold text-emerald-600 dark:text-emerald-400 truncate">
-                {isCredit ? `${costFormatted || '0.0000'} USD` : `${usage.total_tokens.toLocaleString()} tok`}
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-sans text-slate-400">Credits Consumed</div>
+                <div className="font-bold text-emerald-600 dark:text-emerald-400 truncate">
+                  ${costFormatted || '0.0000'} USD
+                </div>
               </div>
-            </div>
 
-            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
-              <div className="text-[10px] font-sans text-slate-400">Remaining Balance</div>
-              <div className="font-bold text-slate-700 dark:text-slate-300 truncate">
-                {message.remainingBalance || (activeKey ? (isCredit ? `${Number(activeKey.creditBalanceUsd || 0).toFixed(2)}` : `${(Number(activeKey.tokensRemaining || 0) / 1000000).toFixed(2)}M`) : 'Active')}
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-sans text-slate-400">Wallet Remaining</div>
+                <div className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                  {message.remainingBalance || (activeKey ? `${Number(activeKey.creditBalanceUsd || 0).toFixed(2)} USD` : 'Active')}
+                </div>
               </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-[11px] font-mono">
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-sans text-slate-400">Plan Architecture</div>
+                <div className="font-bold text-violet-600 dark:text-violet-400 font-sans truncate">
+                  {isWindow ? '5h Rolling Window' : 'Consumable Token Pack'}
+                </div>
+              </div>
 
-            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
-              <div className="text-[10px] font-sans text-slate-400">Prompt (Input)</div>
-              <div className="font-semibold text-slate-600 dark:text-slate-300">
-                {usage.input_tokens.toLocaleString()} tokens
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-sans text-slate-400">Tokens Consumed</div>
+                <div className="font-bold text-indigo-600 dark:text-indigo-400 truncate">
+                  {usage.total_tokens.toLocaleString()} tokens
+                </div>
               </div>
-            </div>
 
-            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
-              <div className="text-[10px] font-sans text-slate-400">Completion (Output)</div>
-              <div className="font-semibold text-slate-600 dark:text-slate-300">
-                {usage.output_tokens.toLocaleString()} tokens
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-sans text-slate-400">Remaining Balance</div>
+                <div className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                  {message.remainingBalance || (activeKey ? `${(Number(activeKey.tokensRemaining || 0) / 1000000).toFixed(2)}M` : 'Active')}
+                </div>
               </div>
-            </div>
 
-            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
-              <div className="text-[10px] font-sans text-slate-400">Response Latency</div>
-              <div className="font-semibold text-slate-600 dark:text-slate-300">
-                {message.latencyMs ? `${message.latencyMs} ms` : 'N/A'}
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-sans text-slate-400">Prompt (Input)</div>
+                <div className="font-semibold text-slate-600 dark:text-slate-300">
+                  {usage.input_tokens.toLocaleString()} tokens
+                </div>
+              </div>
+
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+                <div className="text-[10px] font-sans text-slate-400">Completion (Output)</div>
+                <div className="font-semibold text-slate-600 dark:text-slate-300">
+                  {usage.output_tokens.toLocaleString()} tokens
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="pt-1.5 flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400 font-sans">
             <span>Model: <strong className="font-mono text-slate-700 dark:text-slate-300">{message.modelUsed || 'active'}</strong></span>
@@ -4229,11 +4240,7 @@ export const UserChatStudio: React.FC = () => {
                                   </div>
                                   <span className="font-bold text-xs">{msg.comparison.modelA.modelName}</span>
                                 </div>
-                                {msg.comparison.modelA.latencyMs ? (
-                                  <span className={`text-[10px] font-mono ${c.textMuted}`}>
-                                    {msg.comparison.modelA.latencyMs}ms
-                                  </span>
-                                ) : null}
+                                null
                               </div>
 
                               {msg.comparison.modelA.thinking && (
@@ -4285,11 +4292,7 @@ export const UserChatStudio: React.FC = () => {
                                   </div>
                                   <span className="font-bold text-xs">{msg.comparison.modelB.modelName}</span>
                                 </div>
-                                {msg.comparison.modelB.latencyMs ? (
-                                  <span className={`text-[10px] font-mono ${c.textMuted}`}>
-                                    {msg.comparison.modelB.latencyMs}ms
-                                  </span>
-                                ) : null}
+                                null
                               </div>
 
                               {msg.comparison.modelB.thinking && (
@@ -4344,97 +4347,128 @@ export const UserChatStudio: React.FC = () => {
                             <span className="font-bold text-xs">
                               {getModelDisplayName(msg.modelUsed || activeThread.model)}
                             </span>
-                            {msg.usage ? (
-                              <div className="relative inline-block">
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveTelemetryMsgId(activeTelemetryMsgId === msg.id ? null : msg.id)}
-                                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
-                                    isDark
-                                      ? 'bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20'
-                                      : 'bg-teal-50 border-teal-300 text-teal-900 hover:bg-teal-100 font-semibold'
-                                  }`}
-                                  title="View verified token telemetry"
-                                >
-                                  <Zap className="w-2.5 h-2.5" />
-                                  <span>{msg.usage.total_tokens.toLocaleString()} tokens</span>
-                                  {msg.latencyMs ? <span>• {(msg.latencyMs / 1000).toFixed(1)}s</span> : null}
-                                  {msg.tokensPerSec ? <span className="opacity-75">({msg.tokensPerSec} tok/s)</span> : null}
-                                  <span className="text-[9px] uppercase px-1 rounded bg-teal-500/20 text-teal-300">
-                                    {msg.usage.usage_source === 'PROVIDER_REPORTED' ? 'Verified' : 'Tracked'}
-                                  </span>
-                                  <ChevronDown className={`w-2.5 h-2.5 transition-transform ${activeTelemetryMsgId === msg.id ? 'rotate-180' : ''}`} />
-                                </button>
-                                {Boolean(msg.memoryCount && msg.memoryCount > 0) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setContextManagerOpen(true)}
-                                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
-                                      isDark
-                                        ? 'bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20'
-                                        : 'bg-violet-50 border-violet-300 text-violet-900 hover:bg-violet-100 font-semibold'
-                                    }`}
-                                    title={`Personalised using ${msg.memoryCount} remembered preference${(msg.memoryCount ?? 0) > 1 ? 's' : ''}. Click to inspect memory.`}
-                                  >
-                                    <Brain className="w-2.5 h-2.5 text-violet-400" />
-                                    <span>Personalised ({msg.memoryCount})</span>
-                                  </button>
-                                )}
+                            {msg.usage ? (() => {
+                              const isMsgCredit = msg.billingType === 'credit' || (activeKey ? getKeyPlanCategory(activeKey) === 'credit' : false);
+                              const costNum = msg.costUsd !== undefined ? Number(msg.costUsd) : Number(msg.usage.cost_usd || 0);
 
-                                {activeTelemetryMsgId === msg.id && (
-                                  <div className={`absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-2xl shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn ${c.cardBg} ${c.border}`}>
-                                    <div className="flex items-center justify-between pb-1 border-b border-black/10 dark:border-slate-800">
-                                      <span className={`font-bold flex items-center gap-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                        <Activity className="w-3 h-3 text-teal-400" />
-                                        <span>Token Telemetry</span>
+                              return (
+                                <div className="relative inline-block">
+                                  {isMsgCredit ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveTelemetryMsgId(activeTelemetryMsgId === msg.id ? null : msg.id)}
+                                      className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border transition-all flex items-center gap-1.5 cursor-pointer ${
+                                        isDark
+                                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                                          : 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100 font-semibold'
+                                      }`}
+                                      title="View verified credit consumption"
+                                    >
+                                      <Zap className="w-2.5 h-2.5 text-emerald-500" />
+                                      <span className="font-bold">${costNum.toFixed(4)} USD consumed</span>
+                                      <span className="text-[9px] uppercase px-1 rounded bg-emerald-500/20 text-emerald-400 font-semibold">
+                                        Credit Key
                                       </span>
-                                      <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-400 font-bold">
-                                        {msg.usage.usage_source || 'PROVIDER_REPORTED'}
+                                      <ChevronDown className={`w-2.5 h-2.5 transition-transform ${activeTelemetryMsgId === msg.id ? 'rotate-180' : ''}`} />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveTelemetryMsgId(activeTelemetryMsgId === msg.id ? null : msg.id)}
+                                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer ${
+                                        isDark
+                                          ? 'bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20'
+                                          : 'bg-teal-50 border-teal-300 text-teal-900 hover:bg-teal-100 font-semibold'
+                                      }`}
+                                      title="View verified token telemetry"
+                                    >
+                                      <Zap className="w-2.5 h-2.5" />
+                                      <span>{msg.usage.total_tokens.toLocaleString()} tokens</span>
+                                      <span className="text-[9px] uppercase px-1 rounded bg-teal-500/20 text-teal-300">
+                                        {msg.usage.usage_source === 'PROVIDER_REPORTED' ? 'Verified' : 'Tracked'}
                                       </span>
-                                    </div>
+                                      <ChevronDown className={`w-2.5 h-2.5 transition-transform ${activeTelemetryMsgId === msg.id ? 'rotate-180' : ''}`} />
+                                    </button>
+                                  )}
 
-                                    <div className={`space-y-1 font-mono text-[11px] ${isDark ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>
-                                      <div className="flex justify-between">
-                                        <span className="text-slate-400 font-sans">Input tokens:</span>
-                                        <span>{msg.usage.input_tokens.toLocaleString()}</span>
+                                  {Boolean(msg.memoryCount && msg.memoryCount > 0) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setContextManagerOpen(true)}
+                                      className={`ml-1.5 text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all inline-flex items-center gap-1 cursor-pointer ${
+                                        isDark
+                                          ? 'bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20'
+                                          : 'bg-violet-50 border-violet-300 text-violet-900 hover:bg-violet-100 font-semibold'
+                                      }`}
+                                      title={`Personalised using ${msg.memoryCount} remembered preference${(msg.memoryCount ?? 0) > 1 ? 's' : ''}. Click to inspect memory.`}
+                                    >
+                                      <Brain className="w-2.5 h-2.5 text-violet-400" />
+                                      <span>Personalised ({msg.memoryCount})</span>
+                                    </button>
+                                  )}
+
+                                  {activeTelemetryMsgId === msg.id && (
+                                    <div className={`absolute left-0 mt-1.5 z-30 w-64 p-3 rounded-2xl shadow-2xl text-[11px] font-sans space-y-1.5 animate-fadeIn ${c.cardBg} ${c.border}`}>
+                                      <div className="flex items-center justify-between pb-1 border-b border-black/10 dark:border-slate-800">
+                                        <span className={`font-bold flex items-center gap-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                          <Activity className={`w-3 h-3 ${isMsgCredit ? 'text-emerald-400' : 'text-teal-400'}`} />
+                                          <span>{isMsgCredit ? 'Credit Consumption' : 'Token Telemetry'}</span>
+                                        </span>
+                                        <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-400 font-bold">
+                                          Verified
+                                        </span>
                                       </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-slate-400 font-sans">Output tokens:</span>
-                                        <span>{msg.usage.output_tokens.toLocaleString()}</span>
+
+                                      <div className={`space-y-1 font-mono text-[11px] ${isDark ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>
+                                        {isMsgCredit ? (
+                                          <>
+                                            <div className="flex justify-between">
+                                              <span className="text-slate-400 font-sans">Credits consumed:</span>
+                                              <span className="font-bold text-emerald-600 dark:text-emerald-400">${costNum.toFixed(4)} USD</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-slate-400 font-sans">Wallet balance:</span>
+                                              <span>{activeKey ? `${Number(activeKey.creditBalanceUsd || 0).toFixed(2)} USD` : 'Active'}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-slate-400 font-sans">Key Type:</span>
+                                              <span className="text-violet-500 font-sans font-bold">Prepaid Credit Key</span>
+                                            </div>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <div className="flex justify-between">
+                                              <span className="text-slate-400 font-sans">Input tokens:</span>
+                                              <span>{msg.usage.input_tokens.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-slate-400 font-sans">Output tokens:</span>
+                                              <span>{msg.usage.output_tokens.toLocaleString()}</span>
+                                            </div>
+                                            {Boolean(msg.usage.reasoning_tokens) && (
+                                              <div className="flex justify-between text-amber-400">
+                                                <span className="font-sans">Reasoning:</span>
+                                                <span>{msg.usage.reasoning_tokens?.toLocaleString()}</span>
+                                              </div>
+                                            )}
+                                            {Boolean(msg.usage.cached_tokens) && (
+                                              <div className="flex justify-between text-teal-400">
+                                                <span className="font-sans">Cached:</span>
+                                                <span>{msg.usage.cached_tokens?.toLocaleString()}</span>
+                                              </div>
+                                            )}
+                                            <div className={`flex justify-between pt-1 border-t border-black/10 dark:border-slate-800 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                              <span className="font-sans">Total tokens:</span>
+                                              <span>{msg.usage.total_tokens.toLocaleString()}</span>
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
-                                      {Boolean(msg.usage.reasoning_tokens) && (
-                                        <div className="flex justify-between text-amber-400">
-                                          <span className="font-sans">Reasoning:</span>
-                                          <span>{msg.usage.reasoning_tokens?.toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      {Boolean(msg.usage.cached_tokens) && (
-                                        <div className="flex justify-between text-teal-400">
-                                          <span className="font-sans">Cached:</span>
-                                          <span>{msg.usage.cached_tokens?.toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      <div className={`flex justify-between pt-1 border-t border-black/10 dark:border-slate-800 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                        <span className="font-sans">Total:</span>
-                                        <span>{msg.usage.total_tokens.toLocaleString()}</span>
-                                      </div>
-                                      {msg.multiplier && msg.multiplier !== 1 && (
-                                        <div className="flex justify-between text-violet-400">
-                                          <span className="font-sans">Multiplier:</span>
-                                          <span>{msg.multiplier}x</span>
-                                        </div>
-                                      )}
-                                      {msg.latencyMs && (
-                                        <div className="flex justify-between">
-                                          <span className="text-slate-400 font-sans">Duration:</span>
-                                          <span>{msg.latencyMs}ms</span>
-                                        </div>
-                                      )}
                                     </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : null}
+                                  )}
+                                </div>
+                              );
+                            })() : null}
                           </div>
 
                           <div className="flex items-center gap-1 text-xs">

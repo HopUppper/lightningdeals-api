@@ -439,18 +439,37 @@ export const CheckKeyPage: React.FC = () => {
                       {Number(result.requests24h || 0).toLocaleString()}
                     </p>
                   </div>
-                  <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
-                    <p className="text-xs text-[#78716c] font-mono uppercase">Input Tokens</p>
-                    <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
-                      {formatTokens(result.totalInputTokens)}
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
-                    <p className="text-xs text-[#78716c] font-mono uppercase">Output Tokens</p>
-                    <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
-                      {formatTokens(result.totalOutputTokens)}
-                    </p>
-                  </div>
+                  {isCredit ? (
+                    <>
+                      <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                        <p className="text-xs text-[#78716c] font-mono uppercase">Credits Consumed</p>
+                        <p className="text-lg sm:text-xl font-bold font-mono text-emerald-700 mt-1">
+                          ${Number(result.totalCreditsUsedUsd || 0).toFixed(4)} USD
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                        <p className="text-xs text-[#78716c] font-mono uppercase">Credits Remaining</p>
+                        <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
+                          ${Number(result.creditBalanceUsd || 0).toFixed(2)} USD
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                        <p className="text-xs text-[#78716c] font-mono uppercase">Input Tokens</p>
+                        <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
+                          {formatTokens(result.totalInputTokens)}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                        <p className="text-xs text-[#78716c] font-mono uppercase">Output Tokens</p>
+                        <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
+                          {formatTokens(result.totalOutputTokens)}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Authorized Permitted Models List */}
@@ -500,10 +519,15 @@ export const CheckKeyPage: React.FC = () => {
                               <th className="py-2.5 px-3 whitespace-nowrap">Model Used</th>
                               <th className="py-2.5 px-3 whitespace-nowrap">Endpoint</th>
                               <th className="py-2.5 px-3 whitespace-nowrap">Status</th>
-                              <th className="py-2.5 px-3 whitespace-nowrap">Input</th>
-                              <th className="py-2.5 px-3 whitespace-nowrap">Output</th>
-                              <th className="py-2.5 px-3 whitespace-nowrap">Total Tokens</th>
-                              <th className="py-2.5 px-3 whitespace-nowrap">Latency</th>
+                              {isCredit ? (
+                                <th className="py-2.5 px-3 whitespace-nowrap text-right">Credits Consumed</th>
+                              ) : (
+                                <>
+                                  <th className="py-2.5 px-3 whitespace-nowrap">Input</th>
+                                  <th className="py-2.5 px-3 whitespace-nowrap">Output</th>
+                                  <th className="py-2.5 px-3 whitespace-nowrap">Total Tokens</th>
+                                </>
+                              )}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#e7e5e4]">
@@ -557,20 +581,27 @@ export const CheckKeyPage: React.FC = () => {
                                     </div>
                                   )}
                                 </td>
-                                <td className="py-2.5 px-3 text-[#78716c]">{req.inputTokens?.toLocaleString()}</td>
-                                <td className="py-2.5 px-3 text-[#78716c]">{req.outputTokens?.toLocaleString()}</td>
-                                <td className="py-2.5 px-3 font-bold text-[#1c1917]">
-                                  <span>{req.totalTokens?.toLocaleString()}</span>
-                                  {req.isEstimated && (
-                                    <span
-                                      className="ml-1.5 text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans"
-                                      title="Estimated via length heuristics"
-                                    >
-                                      ESTIMATED
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-3 text-[#78716c]">{req.latencyMs} ms</td>
+                                {isCredit ? (
+                                  <td className="py-2.5 px-3 font-bold text-emerald-700 text-right">
+                                    ${Number(req.costUsd || req.customerCostUsd || 0).toFixed(4)} USD
+                                  </td>
+                                ) : (
+                                  <>
+                                    <td className="py-2.5 px-3 text-[#78716c]">{req.inputTokens?.toLocaleString()}</td>
+                                    <td className="py-2.5 px-3 text-[#78716c]">{req.outputTokens?.toLocaleString()}</td>
+                                    <td className="py-2.5 px-3 font-bold text-[#1c1917]">
+                                      <span>{req.totalTokens?.toLocaleString()}</span>
+                                      {req.isEstimated && (
+                                        <span
+                                          className="ml-1.5 text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans"
+                                          title="Estimated via length heuristics"
+                                        >
+                                          ESTIMATED
+                                        </span>
+                                      )}
+                                    </td>
+                                  </>
+                                )}
                               </tr>
                             ))}
                           </tbody>

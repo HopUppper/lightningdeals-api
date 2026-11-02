@@ -3155,13 +3155,17 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
 
       // Automatic Contextual Memory Extraction (non-blocking, secrets-filtered, asynchronous)
       if (memoryEnabled !== false && prompt && !isContinuation) {
-        extractMemoriesAsync({
-          userId,
-          userPrompt: prompt,
-          assistantReply: accumulatedResponseText,
-          conversationId: conversation.id,
-          projectId: conversation.projectId || undefined,
-        }).catch((e) => console.error('[STUDIO AUTO-MEMORY EXTRACT ERROR]', e));
+        try {
+          extractMemoriesAsync({
+            userId,
+            userPrompt: prompt,
+            assistantReply: accumulatedText.trim(),
+            conversationId: conversation.id,
+            projectId: conversation.projectId || undefined,
+          }).catch((e) => console.error('[STUDIO AUTO-MEMORY EXTRACT ERROR]', e));
+        } catch (memSyncErr) {
+          console.error('[STUDIO AUTO-MEMORY EXTRACT SYNC ERROR]', memSyncErr);
+        }
       }
     }
 

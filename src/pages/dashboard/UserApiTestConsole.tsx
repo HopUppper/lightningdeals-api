@@ -476,28 +476,40 @@ export const UserApiTestConsole: React.FC = () => {
                 </div>
 
                 {/* Telemetry pill */}
-                <div className="p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] grid grid-cols-4 gap-2 text-center text-xs">
-                  <div>
-                    <span className="text-[10px] text-[#64607d] block">Tokens In</span>
-                    <strong className="text-[#1e1b2e] font-mono">{response?.usage?.input_tokens || 14}</strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[#64607d] block">Tokens Out</span>
-                    <strong className="text-[#1e1b2e] font-mono">{response?.usage?.output_tokens || 48}</strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[#64607d] block">Cost / Deducted</span>
-                    <strong className="text-emerald-700 font-mono">
-                      {response?.billingType === 'credit' || response?.costUsd !== undefined
-                        ? `${Number(response?.costUsd || 0).toFixed(4)} USD`
-                        : `${(response?.usage?.total_tokens || 0).toLocaleString()} tok`}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[#64607d] block">Latency</span>
-                    <strong className="text-violet-700 font-mono">{response?.latencyMs || 42}ms</strong>
-                  </div>
-                </div>
+                {(() => {
+                  const selKeyObj = keys.find((k) => k.id === selectedKey);
+                  const isCredit = selKeyObj?.billingType === 'credit' || response?.billingType === 'credit' || (selKeyObj?.creditBalanceUsd !== null && selKeyObj?.creditBalanceUsd !== undefined && Number(selKeyObj?.creditBalanceUsd) > 0);
+
+                  return isCredit ? (
+                    <div className="p-3.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-[10px] text-[#64607d] uppercase tracking-wider block font-bold">Billing Architecture</span>
+                        <span className="text-violet-700 font-bold font-sans">Prepaid Credit Key</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-[#64607d] uppercase tracking-wider block font-bold">Credits Consumed</span>
+                        <strong className="text-emerald-700 font-mono text-sm sm:text-base">
+                          ${Number(response?.costUsd || response?.customerCostUsd || response?.usage?.cost_usd || 0).toFixed(4)} USD
+                        </strong>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-[10px] text-[#64607d] uppercase tracking-wider block font-bold">Billing Architecture</span>
+                        <span className="text-violet-700 font-bold font-sans">
+                          {selKeyObj?.billingType === 'window' ? '5-Hour Rolling Window' : 'Consumable Token Pack'}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-[#64607d] uppercase tracking-wider block font-bold">Tokens Consumed</span>
+                        <strong className="text-indigo-700 font-mono text-sm sm:text-base">
+                          {(response?.usage?.total_tokens || 0).toLocaleString()} tokens
+                        </strong>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : !loading && !error ? (
               <div className="py-14 text-center space-y-2 text-[#64607d]">

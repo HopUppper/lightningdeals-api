@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   BookOpen,
-  Check,
   Terminal,
   FileCode,
   Globe,
@@ -14,159 +13,190 @@ import {
   Copy,
   Check as CheckIcon,
   AlertTriangle,
-  List,
   ChevronDown,
+  ChevronRight,
   ArrowRight,
   ExternalLink,
   ShieldCheck,
   RefreshCw,
-  Sliders,
   Layers,
   HelpCircle,
-  Coins,
-  DollarSign,
   Sparkles,
-  Code2,
+  Search,
+  CheckCircle2,
+  Lock,
+  Clock,
+  CreditCard,
+  Laptop,
 } from 'lucide-react';
 import { SiteHeader } from '../../components/SiteHeader';
 import { SiteFooter } from '../../components/SiteFooter';
+import { MultiOsCodeBlock } from '../../components/docs/MultiOsCodeBlock';
+import { SetupWizard } from '../../components/docs/SetupWizard';
+import { DocSearchModal } from '../../components/docs/DocSearchModal';
 
-// Uniform Developer Workbench Code Snippet
-const CodeSnippetBlock: React.FC<{
-  code: string;
-  language?: string;
-  filename?: string;
-}> = ({ code, language = 'bash', filename }) => {
-  const [copied, setCopied] = useState(false);
+interface NavItem {
+  id: string;
+  label: string;
+}
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+interface NavSection {
+  id: string;
+  title: string;
+  icon: any;
+  items: NavItem[];
+}
 
-  return (
-    <div className="relative my-4 rounded-2xl border border-neutral-800 bg-[#0c0d14] text-[#f4f4f5] shadow-xl overflow-hidden font-mono text-xs ring-1 ring-white/10">
-      {/* Chrome Top Rail */}
-      <div className="flex items-center justify-between border-b border-neutral-800/80 bg-[#11131c] px-4 py-2.5 text-[11px] text-neutral-400">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57] border border-[#e0443e]/50 shadow-2xs" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e] border border-[#d8a123]/50 shadow-2xs" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#28c840] border border-[#1aab29]/50 shadow-2xs" />
-          </div>
-          {filename ? (
-            <span className="flex items-center gap-1.5 font-medium text-neutral-200 ml-1">
-              <FileCode className="h-3.5 w-3.5 text-[#a855f7]" />
-              {filename}
-            </span>
-          ) : (
-            <span className="uppercase text-[10px] text-neutral-400 font-bold ml-1 tracking-wider">{language}</span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {filename && (
-            <span className="uppercase text-[10px] text-neutral-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-              {language}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="px-2.5 py-1 rounded-lg bg-[#6d28d9] hover:bg-[#7c3aed] text-white text-[11px] font-mono font-semibold transition-all shadow-plum flex items-center gap-1.5 cursor-pointer"
-            title="Copy to clipboard"
-            aria-label="Copy to clipboard"
-          >
-            {copied ? (
-              <>
-                <CheckIcon className="h-3 w-3 text-emerald-300" />
-                <span className="text-emerald-300">Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-3 w-3" />
-                <span>Copy</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Code Body */}
-      <div className="relative p-4 sm:p-5 overflow-x-auto bg-[#08090f]">
-        <pre className="leading-relaxed font-mono text-xs sm:text-[13px] selection:bg-purple-900 selection:text-white">
-          {code.split('\n').map((line, idx) => {
-            const trimmed = line.trim();
-            const isComment = trimmed.startsWith('#') || trimmed.startsWith('//');
-            const isCommand = trimmed.startsWith('npx ') || trimmed.startsWith('claude') || trimmed.startsWith('export ') || trimmed.startsWith('curl ');
-            return (
-              <div
-                key={idx}
-                className={`table-row ${isComment ? 'text-neutral-500 italic' : isCommand ? 'text-amber-300 font-bold' : 'text-neutral-200'}`}
-              >
-                <span className="table-cell pr-4 text-right select-none text-neutral-700 text-[11px] w-8">
-                  {idx + 1}
-                </span>
-                <span className="table-cell">{line || ' '}</span>
-              </div>
-            );
-          })}
-        </pre>
-      </div>
-    </div>
-  );
-};
+const SIDEBAR_NAV: NavSection[] = [
+  {
+    id: 'sec-getting-started',
+    title: 'A. GETTING STARTED',
+    icon: BookOpen,
+    items: [
+      { id: 'overview', label: '1. Introduction to LightningAPI' },
+      { id: 'what-is-api-key', label: '2. What is an API Key?' },
+      { id: 'how-it-works', label: '3. How LightningAPI Works' },
+      { id: 'getting-your-key', label: '4. How to Get Your API Key' },
+      { id: 'plan-types-overview', label: '5. Understanding Your Plan' },
+      { id: 'first-request', label: '6. Your First Successful Request' },
+      { id: 'check-key-status', label: '7. Checking Your Key Status' },
+    ],
+  },
+  {
+    id: 'sec-quick-setup',
+    title: 'B. QUICK SETUP',
+    icon: Terminal,
+    items: [
+      { id: 'windows-setup', label: '1. Windows Setup (PowerShell)' },
+      { id: 'macos-setup', label: '2. macOS Setup (Terminal/Zsh)' },
+      { id: 'linux-setup', label: '3. Linux Setup (Bash)' },
+      { id: 'automatic-setup', label: '4. Automatic Setup (CLI)' },
+      { id: 'manual-setup', label: '5. Manual Configuration' },
+      { id: 'verify-installation', label: '6. Verifying Installation' },
+      { id: 'rotate-key', label: '7. Changing / Rotating Keys' },
+      { id: 'remove-config', label: '8. Removing Configurations' },
+    ],
+  },
+  {
+    id: 'sec-connect-apps',
+    title: 'C. CONNECT YOUR APP',
+    icon: Wrench,
+    items: [
+      { id: 'interactive-wizard', label: '★ Interactive Setup Wizard' },
+      { id: 'guide-claude-code', label: '1. Claude Code CLI' },
+      { id: 'guide-cursor', label: '2. Cursor IDE' },
+      { id: 'guide-codex', label: '3. Codex CLI' },
+      { id: 'guide-vscode', label: '4. Visual Studio Code' },
+      { id: 'guide-windsurf', label: '5. Windsurf IDE' },
+      { id: 'guide-cline', label: '6. Cline (Autonomous Agent)' },
+      { id: 'guide-roo-code', label: '7. Roo Code' },
+      { id: 'guide-continue', label: '8. Continue.dev' },
+      { id: 'guide-trae', label: '9. TRAE SOLO' },
+      { id: 'guide-claude-desktop', label: '10. Claude Desktop' },
+      { id: 'guide-cherry-studio', label: '11. Cherry Studio' },
+      { id: 'guide-n8n', label: '12. n8n Automation Engine' },
+      { id: 'guide-python', label: '13. Python SDK' },
+      { id: 'guide-node', label: '14. Node.js & TypeScript' },
+    ],
+  },
+  {
+    id: 'sec-models',
+    title: 'D. MODELS & PROVIDERS',
+    icon: Cpu,
+    items: [
+      { id: 'models-claude', label: '1. Claude Frontier Models' },
+      { id: 'models-openai', label: '2. OpenAI Frontier Models' },
+      { id: 'models-gemini', label: '3. Google Gemini Models' },
+      { id: 'models-local', label: '4. Open-Weights & Labs' },
+      { id: 'model-selection', label: '5. Model Selection Guide' },
+      { id: 'model-ids', label: '6. Technical Model IDs' },
+      { id: 'model-permissions', label: '7. Model Plan Permissions' },
+    ],
+  },
+  {
+    id: 'sec-api-reference',
+    title: 'E. API REFERENCE',
+    icon: Globe,
+    items: [
+      { id: 'api-authentication', label: '1. Authentication Standards' },
+      { id: 'api-base-urls', label: '2. Base URLs & Protocols' },
+      { id: 'api-models', label: '3. GET /v1/models' },
+      { id: 'api-messages', label: '4. POST /v1/messages' },
+      { id: 'api-chat-completions', label: '5. POST /v1/chat/completions' },
+      { id: 'api-responses', label: '6. POST /v1/responses' },
+      { id: 'api-streaming', label: '7. Server-Sent Events (SSE)' },
+      { id: 'api-multimodal', label: '8. Multimodal Vision & Images' },
+      { id: 'api-token-count', label: '9. Token Counting' },
+      { id: 'api-rate-limits', label: '10. Rate Limits & Concurrency' },
+    ],
+  },
+  {
+    id: 'sec-usage-billing',
+    title: 'F. USAGE & BILLING',
+    icon: Layers,
+    items: [
+      { id: 'billing-architectures', label: '1. Six Billing Architectures' },
+      { id: 'billing-rolling-window', label: '2. 5-Hour Rolling Windows' },
+      { id: 'billing-credits', label: '3. Prepaid Credit Wallet' },
+      { id: 'billing-tokens', label: '4. Consumable Token Packs' },
+      { id: 'billing-dashboard', label: '5. Dashboard Telemetry' },
+      { id: 'billing-expiry', label: '6. Validity & Expiry Rules' },
+      { id: 'billing-guarantee', label: '7. Fair Billing Guarantee' },
+    ],
+  },
+  {
+    id: 'sec-troubleshooting',
+    title: 'G. TROUBLESHOOTING',
+    icon: AlertTriangle,
+    items: [
+      { id: 'troubleshooting-intro', label: '1. Diagnostic Assistant' },
+      { id: 'error-400', label: '2. HTTP 400 — Invalid Request' },
+      { id: 'error-401', label: '3. HTTP 401 — Invalid Key' },
+      { id: 'error-402', label: '4. HTTP 402 — Depleted Balance' },
+      { id: 'error-403-model', label: '5. HTTP 403 — Model Denied' },
+      { id: 'error-403-key', label: '6. HTTP 403 — Key Inactive' },
+      { id: 'error-429-quota', label: '7. HTTP 429 — Quota Reached' },
+      { id: 'error-429-rpm', label: '8. HTTP 429 — Speed Limit' },
+      { id: 'error-500-503', label: '9. HTTP 500/503 — Cluster Busy' },
+      { id: 'client-connection-errors', label: '10. Application Issues' },
+    ],
+  },
+  {
+    id: 'sec-security-support',
+    title: 'H. SECURITY & SUPPORT',
+    icon: ShieldCheck,
+    items: [
+      { id: 'key-security', label: '1. API Key Storage Hygiene' },
+      { id: 'environment-variables', label: '2. Environment Variables' },
+      { id: 'emergency-rotation', label: '3. Key Rotation Procedure' },
+      { id: 'faq-section', label: '4. Frequently Asked Questions' },
+      { id: 'contact-support', label: '5. Engineering Support' },
+    ],
+  },
+];
 
 export const DocsPage: React.FC = () => {
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeClientTab, setActiveClientTab] = useState<'claude-code' | 'cursor' | 'windsurf' | 'vscode' | 'python' | 'node' | 'curl'>('claude-code');
-
-  const sidebarNav = [
-    {
-      title: 'GETTING STARTED',
-      items: [
-        { id: 'overview', label: '1. Overview & Architecture', icon: BookOpen },
-        { id: 'quick-start', label: '2. Quick Start Guide', icon: Terminal },
-        { id: 'authentication', label: '3. Authentication & API Keys', icon: KeyRound },
-      ],
-    },
-    {
-      title: 'DEVELOPER SPECIFICATION',
-      items: [
-        { id: 'api-reference', label: '4. Full API Reference', icon: Globe },
-        { id: 'client-config', label: '5. IDE & Client Config', icon: Wrench },
-        { id: 'streaming', label: '6. Streaming & SSE Events', icon: Layers },
-      ],
-    },
-    {
-      title: 'GATEWAY ENGINE',
-      items: [
-        { id: 'models', label: '7. Model Catalog (Claude, OpenAI, Local)', icon: Cpu },
-        { id: 'quotas', label: '8. Billing Modes & Quota Engines', icon: RefreshCw },
-        { id: 'errors', label: '9. Errors & Troubleshooting', icon: AlertTriangle },
-        { id: 'support', label: '10. Support & Diagnostics', icon: LifeBuoy },
-      ],
-    },
-  ];
-
-  const sectionIds = [
-    'overview',
-    'quick-start',
-    'authentication',
-    'api-reference',
-    'client-config',
-    'streaming',
-    'models',
-    'quotas',
-    'errors',
-    'support',
-  ];
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    'sec-getting-started': true,
+    'sec-quick-setup': true,
+    'sec-connect-apps': true,
+    'sec-models': false,
+    'sec-api-reference': false,
+    'sec-usage-billing': false,
+    'sec-troubleshooting': false,
+    'sec-security-support': false,
+  });
 
   const isManualScrollingRef = useRef(false);
   const manualScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const toggleSectionExpand = (secId: string) => {
+    setExpandedSections((prev) => ({ ...prev, [secId]: !prev[secId] }));
+  };
 
   const scrollToSection = (id: string) => {
     setActiveSection(id);
@@ -191,1570 +221,1142 @@ export const DocsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    let ticking = false;
-
-    const handleScroll = () => {
-      if (isManualScrollingRef.current) return;
-
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const isAtBottom =
-            window.innerHeight + window.scrollY >=
-            document.documentElement.scrollHeight - 70;
-
-          if (isAtBottom) {
-            setActiveSection(sectionIds[sectionIds.length - 1]);
-            ticking = false;
-            return;
-          }
-
-          const READ_THRESHOLD = Math.max(260, window.innerHeight * 0.35);
-          let currentId = sectionIds[0];
-
-          for (const id of sectionIds) {
-            const el = document.getElementById(id);
-            if (el) {
-              const rect = el.getBoundingClientRect();
-              if (rect.top <= READ_THRESHOLD) {
-                currentId = id;
-              }
-            }
-          }
-
-          setActiveSection(currentId);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (manualScrollTimerRef.current) {
-        clearTimeout(manualScrollTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     const hash = location.hash.replace('#', '');
-    if (hash && sectionIds.includes(hash)) {
-      scrollToSection(hash);
+    if (hash) {
+      setTimeout(() => scrollToSection(hash), 150);
     }
   }, [location.hash]);
 
-  const activeSectionItem = sidebarNav.flatMap((g) => g.items).find((i) => i.id === activeSection);
+  // Keyboard shortcut Ctrl+K or / to open search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      } else if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans selection:bg-violet-500/10 selection:text-violet-700">
+    <div className="min-h-screen bg-[#faf8f5] text-[#1c1917] selection:bg-purple-900 selection:text-white flex flex-col font-sans">
       <SiteHeader />
 
-      <div className="flex-1 border-b border-[#e7e5e4]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-12">
-            
-            {/* ------------------------------------------------------------- */}
-            {/* DESKTOP STICKY SIDEBAR NAVIGATION                            */}
-            {/* ------------------------------------------------------------- */}
-            <aside className="hidden lg:block sticky top-[72px] h-[calc(100vh-72px)] overflow-y-auto py-8 pr-4">
-              <div className="mb-6 pb-4 border-b border-[#e7e5e4] space-y-1">
-                <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#6d28d9]">
-                  <BookOpen className="h-4 w-4" />
-                  <span>LIGHTNINGAPI SPECIFICATION</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-[#78716c] font-mono">
-                  <span>Version 2.4.0</span>
-                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    LIVE
-                  </span>
-                </div>
-              </div>
+      {/* SEARCH MODAL */}
+      <DocSearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelectSection={scrollToSection}
+      />
 
-              <nav className="space-y-6">
-                {sidebarNav.map((group, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#a8a29e]">
-                      {group.title}
-                    </p>
-                    <ul className="space-y-1 border-l-2 border-[#e7e5e4]">
-                      {group.items.map((item) => {
-                        const Icon = item.icon;
+      {/* TOP HERO & ONBOARDING HEADER */}
+      <header className="border-b border-[#ede8e1] bg-white pt-10 pb-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-100 text-violet-800 text-xs font-bold font-mono">
+                <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+                <span>LightningAPI Documentation Centre</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#1c1917]">
+                Everything you need to get started.
+              </h1>
+              <p className="text-sm sm:text-base text-[#78716c] max-w-2xl leading-relaxed">
+                Connect your LightningAPI key to your favourite AI tools in a few simple steps. Choose your application, follow the verified guide, and start building.
+              </p>
+            </div>
+
+            {/* Global Search Button */}
+            <div className="shrink-0 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="w-full md:w-72 px-4 py-2.5 rounded-2xl border border-[#ede8e1] bg-[#faf8f5] hover:bg-white text-left flex items-center justify-between gap-3 text-xs text-[#78716c] hover:border-violet-300 transition-all shadow-2xs cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Search className="w-4 h-4 text-violet-600" />
+                  <span className="font-medium">Search documentation...</span>
+                </div>
+                <kbd className="px-2 py-0.5 rounded bg-white border border-[#ede8e1] text-[10px] font-mono text-[#a8a29e]">
+                  Ctrl+K
+                </kbd>
+              </button>
+            </div>
+          </div>
+
+          {/* THREE ENTRY PATHWAYS (TRIAGE) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <button
+              type="button"
+              onClick={() => scrollToSection('overview')}
+              className="p-4 rounded-2xl border border-[#ede8e1] bg-white hover:border-violet-300 hover:bg-[#faf8f5] transition-all text-left group shadow-xs cursor-pointer flex flex-col justify-between"
+            >
+              <div className="space-y-1.5">
+                <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-700 flex items-center justify-center">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-[#1c1917] group-hover:text-violet-700 transition-colors">
+                  1. I am new to APIs
+                </h2>
+                <p className="text-xs text-[#78716c] leading-relaxed">
+                  Start with the fundamentals: what an API key is, how plans work, and your first request.
+                </p>
+              </div>
+              <div className="pt-3 text-[11px] font-bold text-violet-700 flex items-center gap-1">
+                <span>Start Beginner Guide</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('interactive-wizard')}
+              className="p-4 rounded-2xl border border-violet-200 bg-violet-50/50 hover:bg-violet-50 hover:border-violet-300 transition-all text-left group shadow-xs cursor-pointer flex flex-col justify-between ring-1 ring-violet-500/20"
+            >
+              <div className="space-y-1.5">
+                <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center">
+                  <Wrench className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-[#1c1917] group-hover:text-violet-700 transition-colors">
+                  2. Connect an Application
+                </h2>
+                <p className="text-xs text-[#78716c] leading-relaxed">
+                  Interactive setup wizard for Claude Code, Cursor, Codex, Windsurf, Cline, and 14+ tools.
+                </p>
+              </div>
+              <div className="pt-3 text-[11px] font-bold text-violet-700 flex items-center gap-1">
+                <span>Open Setup Wizard</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('api-reference')}
+              className="p-4 rounded-2xl border border-[#ede8e1] bg-white hover:border-violet-300 hover:bg-[#faf8f5] transition-all text-left group shadow-xs cursor-pointer flex flex-col justify-between"
+            >
+              <div className="space-y-1.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-[#1c1917] group-hover:text-violet-700 transition-colors">
+                  3. Developer Reference
+                </h2>
+                <p className="text-xs text-[#78716c] leading-relaxed">
+                  Full API specifications, cURL, Python & Node.js code snippets, endpoints, and streaming.
+                </p>
+              </div>
+              <div className="pt-3 text-[11px] font-bold text-purple-700 flex items-center gap-1">
+                <span>Explore Endpoints</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* MAIN DOCUMENTATION WORKSPACE */}
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col lg:flex-row gap-8">
+        {/* MOBILE NAVIGATION TOGGLE */}
+        <div className="lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-[#ede8e1] bg-white font-bold text-xs text-[#1c1917] shadow-xs cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-violet-600" />
+              <span>Browse Documentation Sections</span>
+            </div>
+            <ChevronDown className={`w-4 h-4 transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+
+        {/* LEFT SIDEBAR NAVIGATION */}
+        <aside
+          className={`${
+            mobileMenuOpen ? 'block' : 'hidden'
+          } lg:block w-full lg:w-72 shrink-0 space-y-4 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto pr-2`}
+        >
+          <div className="space-y-3">
+            {SIDEBAR_NAV.map((sec) => {
+              const isExpanded = expandedSections[sec.id] ?? true;
+              const SecIcon = sec.icon;
+              return (
+                <div key={sec.id} className="rounded-2xl border border-[#ede8e1] bg-white overflow-hidden shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionExpand(sec.id)}
+                    className="w-full p-3 flex items-center justify-between bg-[#faf8f5] hover:bg-stone-100/60 transition-colors cursor-pointer text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <SecIcon className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+                      <span className="text-[11px] font-bold text-[#1c1917] tracking-wider uppercase font-mono">
+                        {sec.title}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-[#78716c] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="p-2 space-y-0.5">
+                      {sec.items.map((item) => {
                         const isActive = activeSection === item.id;
                         return (
-                          <li key={item.id}>
-                            <button
-                              type="button"
-                              onClick={() => scrollToSection(item.id)}
-                              className={`-ml-[2px] flex w-full items-center justify-between border-l-2 py-1.5 pl-3 pr-2 text-left text-xs transition-all cursor-pointer rounded-r-lg ${
-                                isActive
-                                   ? 'border-[#6d28d9] font-bold text-[#6d28d9] bg-[#f5f3ff]'
-                                  : 'border-transparent text-[#57534e] hover:border-[#a8a29e] hover:text-[#1c1917]'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Icon className={`h-3.5 w-3.5 shrink-0 transition-colors ${isActive ? 'text-[#6d28d9]' : 'text-[#a8a29e]'}`} />
-                                <span className="truncate">{item.label}</span>
-                              </div>
-                              {isActive && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-[#6d28d9] shrink-0" />
-                              )}
-                            </button>
-                          </li>
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => scrollToSection(item.id)}
+                            className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center justify-between ${
+                              isActive
+                                ? 'bg-violet-600 text-white font-bold shadow-xs'
+                                : 'text-[#78716c] hover:text-[#1c1917] hover:bg-[#faf8f5]'
+                            }`}
+                          >
+                            <span className="truncate">{item.label}</span>
+                            {isActive && <ChevronRight className="w-3 h-3 shrink-0" />}
+                          </button>
                         );
                       })}
-                    </ul>
-                  </div>
-                ))}
-              </nav>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-              <div className="mt-8 pt-6 border-t border-[#e7e5e4] space-y-2">
-                <Link
-                  to="/trial"
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#e7e5e4] shadow-xs text-xs font-semibold text-[#1c1917] hover:border-[#6d28d9] transition-colors"
-                >
-                  <span>Claim 200k Free Trial</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#6d28d9]" />
-                </Link>
-                <Link
-                  to="/check-key"
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#e7e5e4] shadow-xs text-xs font-medium text-[#57534e] hover:text-[#1c1917] transition-colors"
-                >
-                  <span>Verify Key Balance</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-[#a8a29e]" />
-                </Link>
-                <Link
-                  to="/pricing"
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#e7e5e4] shadow-xs text-xs font-medium text-[#57534e] hover:text-[#1c1917] transition-colors"
-                >
-                  <span>View Capacity Plans</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-[#a8a29e]" />
-                </Link>
+          {/* Quick Support Badge */}
+          <div className="p-4 rounded-2xl border border-[#ede8e1] bg-white space-y-2 text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-[#1c1917]">
+              <LifeBuoy className="w-4 h-4 text-violet-600" />
+              <span>Need Assistance?</span>
+            </div>
+            <p className="text-[11px] text-[#78716c] leading-relaxed">
+              Verify your key anytime on the live checker or email engineering support.
+            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <Link
+                to="/check-key"
+                className="text-[11px] font-bold text-violet-700 hover:text-violet-800 underline"
+              >
+                Verify Key
+              </Link>
+              <span className="text-[#a8a29e]">•</span>
+              <a
+                href="mailto:support@lightningapi.pro"
+                className="text-[11px] font-bold text-violet-700 hover:text-violet-800 underline"
+              >
+                Contact Support
+              </a>
+            </div>
+          </div>
+        </aside>
+
+        {/* CENTRAL DOCUMENTATION CONTENT COLUMN */}
+        <main className="flex-1 min-w-0 space-y-12">
+          {/* ============================================================== */}
+          {/* CHAPTER C: INTERACTIVE SETUP WIZARD (EMBEDDED HERO FEATURE) */}
+          {/* ============================================================== */}
+          <section id="interactive-wizard" className="scroll-mt-24 space-y-4">
+            <SetupWizard />
+          </section>
+
+          {/* ============================================================== */}
+          {/* CHAPTER A: GETTING STARTED */}
+          {/* ============================================================== */}
+          <section id="sec-getting-started" className="space-y-8 pt-4">
+            <div className="border-b border-[#ede8e1] pb-3">
+              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
+                Section A
+              </span>
+              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
+                Getting Started with LightningAPI
+              </h2>
+            </div>
+
+            {/* A1: Overview */}
+            <article id="overview" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-violet-600" />
+                <span>1. Introduction & System Overview</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                LightningAPI is a modern, unified AI API gateway that provides high-speed, enterprise-grade access to frontier intelligence models—including Anthropic Claude, OpenAI, and Google Gemini—through a single, highly available endpoint.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div className="p-3.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1">
+                  <div className="text-xs font-bold text-[#1c1917]">Unified Endpoints</div>
+                  <p className="text-[11.5px] text-[#78716c]">One key connects Claude Code, Cursor, Codex, and custom scripts.</p>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1">
+                  <div className="text-xs font-bold text-[#1c1917]">Sub-50ms Routing</div>
+                  <p className="text-[11.5px] text-[#78716c]">Edge-optimized reverse proxy with automatic health failovers.</p>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1">
+                  <div className="text-xs font-bold text-[#1c1917]">Fair Accounting</div>
+                  <p className="text-[11.5px] text-[#78716c]">Zero tokens or credits billed for failed or interrupted requests.</p>
+                </div>
               </div>
-            </aside>
+            </article>
 
-            {/* ------------------------------------------------------------- */}
-            {/* MAIN CONTENT AREA                                             */}
-            {/* ------------------------------------------------------------- */}
-            <main className="min-w-0 pb-20 pt-6 lg:py-10">
-              
-              {/* Mobile Table of Contents Selector */}
-              <div className="sticky top-[64px] z-30 -mx-4 mb-8 border-b border-[#e7e5e4] bg-[#faf8f5]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:hidden">
-                <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="flex w-full items-center justify-between border border-[#e7e5e4] bg-white px-3.5 py-2 text-left rounded-xl shadow-xs cursor-pointer"
-                  type="button"
-                >
-                  <span className="flex items-center gap-2">
-                    <List className="h-4 w-4 text-[#6d28d9]" />
-                    <span className="font-mono text-[10px] uppercase font-bold text-[#78716c]">DOCS INDEX:</span>
-                    <span className="truncate text-xs font-bold text-[#1c1917]">{activeSectionItem?.label || activeSection.replace('-', ' ')}</span>
-                  </span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 text-[#78716c] transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {mobileMenuOpen && (
-                  <div className="mt-2 max-h-80 overflow-y-auto border border-[#e7e5e4] bg-white p-3 rounded-xl shadow-lg space-y-3">
-                    {sidebarNav.map((g, idx) => (
-                      <div key={idx}>
-                        <p className="font-mono text-[10px] font-bold text-[#6d28d9] uppercase">{g.title}</p>
-                        <div className="grid grid-cols-1 gap-1 mt-1">
-                          {g.items.map((i) => (
-                            <button
-                              key={i.id}
-                              onClick={() => scrollToSection(i.id)}
-                              className="text-left text-xs py-1.5 px-2 hover:bg-[#faf8f5] rounded-lg text-[#1c1917] cursor-pointer"
-                            >
-                              {i.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 1: OVERVIEW & ARCHITECTURE                          */}
-              {/* ----------------------------------------------------------- */}
-              <section id="overview" className="mb-16 scroll-mt-24 space-y-6">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#6d28d9]" />
-                  <span>SECTION 01</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">OVERVIEW &amp; ARCHITECTURE</span>
+            {/* A2: What is an API key */}
+            <article id="what-is-api-key" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-violet-600" />
+                <span>2. What is an API Key?</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                An API key is a unique, secret password that your coding assistant (like Cursor, Claude Code, or VS Code) uses to authenticate with LightningAPI on your behalf.
+              </p>
+              <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-2 text-xs">
+                <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Key Anatomy at LightningAPI</span>
                 </div>
-
-                <div className="space-y-2">
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[#1c1917]">
-                    Developer Documentation &amp; Gateway Specification
-                  </h1>
-                  <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed max-w-3xl">
-                    LightningAPI.pro is a unified, high-performance AI API Gateway delivering sub-50ms routing across three major model ecosystems: <strong>Claude (Anthropic)</strong>, <strong>OpenAI Frontier</strong>, and <strong>Local &amp; Open Weights</strong>. Our gateway supports continuous 5-hour rolling pool renewal, wholesale usage credits with 7x purchasing value, and consumable token packs with 100% white-label confidentiality.
-                  </p>
-                </div>
-
-                {/* 3 Model Ecosystems Ribbon */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-[#6d28d9]" />
-                        <span className="text-xs font-bold text-[#1c1917]">Claude (Anthropic)</span>
-                      </div>
-                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-violet-100 text-[#6d28d9]">ALL 3 MODES</span>
-                    </div>
-                    <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Sonnet 5.5, Opus 5.5, Haiku 5.5, and many more... Drop-in Anthropic Messages replacement with continuous 5-hour rolling pool refills.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-emerald-600" />
-                        <span className="text-xs font-bold text-[#1c1917]">OpenAI Frontier</span>
-                      </div>
-                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">5H ROLLING, CREDITS &amp; TOKENS</span>
-                    </div>
-                    <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      o1, o3-mini, GPT-4o, and many more... Full reasoning token support, function calling parity, and Chat Completions standard.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Cpu className="h-4 w-4 text-amber-600" />
-                        <span className="text-xs font-bold text-[#1c1917]">Local &amp; Open Weights</span>
-                      </div>
-                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">7X MULTIPLIER</span>
-                    </div>
-                    <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      DeepSeek V3, Grok 3, Gemini 2.5, and many more... High-throughput wholesale economy for batch evaluation and agent loops.
-                    </p>
-                  </div>
-                </div>
-
-                {/* 3 Billing Modes Summary */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6d28d9] font-mono">
-                    Three Distinct Billing Architectures
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                    <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
-                        <RefreshCw className="w-3.5 h-3.5 text-[#6d28d9]" />
-                        <span>5-Hour Rolling Pool</span>
-                      </div>
-                      <p className="text-[#57534e] text-[11px] leading-relaxed">
-                        <strong>Claude Exclusive.</strong> Quota continuously renews every 300 minutes. No month-end cutoffs. 30-day fixed duration.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
-                        <DollarSign className="w-3.5 h-3.5 text-amber-600" />
-                        <span>API Credits (7x Multiplier)</span>
-                      </div>
-                      <p className="text-[#57534e] text-[11px] leading-relaxed">
-                        <strong>Universal.</strong> Deposit funds in INR and unlock 7x–8.75x in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits). Atomically deducted per token. 365-day validity.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
-                        <Coins className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Prepaid Consumable Tokens</span>
-                      </div>
-                      <p className="text-[#57534e] text-[11px] leading-relaxed">
-                        <strong>No 5-Hour Resets.</strong> Fixed consumable pool (5M, 20M, 50M) that stays until depleted over 365 days.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 sm:p-5 rounded-2xl bg-[#f8f5ff] border border-[#ddd6fe] text-xs text-[#5b21b6] space-y-2 shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#ede9fe] text-[#6d28d9] border border-[#ddd6fe]">
-                      💡 BASE URL PROTOCOL RULE
-                    </span>
-                  </div>
-                  <p className="leading-relaxed">
-                    • <strong>Rolling Window &amp; Credit Plans:</strong> Base URL is <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://lightningapi.pro/v1</code> (or <code className="font-mono bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#5b21b6]">https://lightningapi.pro</code> in Anthropic SDKs that auto-append <code className="font-mono">/v1/messages</code>).<br />
-                    • <strong>Prepaid Token Pack Plans:</strong> Base URL is <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded-md border border-[#c4b5fd] text-[#6d28d9] shadow-2xs">https://lightningapi.pro/token/v1</code>.
-                  </p>
-                </div>
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 2: QUICK START GUIDE                                */}
-              {/* ----------------------------------------------------------- */}
-              <section id="quick-start" className="mb-16 scroll-mt-24 space-y-4">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <Terminal className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 02</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">QUICK START GUIDE</span>
-                </div>
-
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  Get Connected in 30 Seconds
-                </h2>
-
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  Connect your development tools with automated shell setup scripts or our headless NPX configuration tool.
+                <p className="text-[#64607d] leading-relaxed">
+                  Every active LightningAPI key begins with the prefix <code className="font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">ld_live_</code> (or <code className="font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">ld_trial_</code> for free trials). Treat your key like a credit card: never share it in public repositories or client-side browser code.
                 </p>
+              </div>
+            </article>
 
-                {/* 1-Click Shell Installers */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#1c1917]">macOS &amp; Linux (Bash / Zsh)</span>
-                      <span className="text-[10px] font-mono text-[#78716c]">Automated Export</span>
-                    </div>
-                    <CodeSnippetBlock
-                      language="bash"
-                      code="curl -sSL https://lightningapi.pro/setup.sh | bash"
-                    />
-                  </div>
+            {/* A3: How it works */}
+            <article id="how-it-works" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Zap className="w-5 h-5 text-violet-600" />
+                <span>3. How LightningAPI Works</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                When your tool sends a prompt, it connects to LightningAPI's gateway. The gateway verifies your key's quota, translates the protocol if necessary, routes to the healthiest cluster, streams tokens back in real-time, and settles usage in an immutable ledger.
+              </p>
+              <div className="p-4 rounded-2xl bg-[#0c0d14] text-[#f4f4f5] font-mono text-xs border border-neutral-800 space-y-2">
+                <div className="text-neutral-400 text-[11px] uppercase tracking-wider font-bold">Request Pipeline</div>
+                <div className="text-violet-400">Your Client (Cursor / Claude Code)</div>
+                <div className="text-neutral-500 pl-4">↳ HTTPS POST with ld_live_...</div>
+                <div className="text-emerald-400 pl-8">↳ LightningAPI Gateway (Authentication & Rate Limiting)</div>
+                <div className="text-neutral-500 pl-12">↳ Intelligent Model Cluster Routing</div>
+                <div className="text-amber-300 pl-16">↳ Server-Sent Events (SSE) Stream Completion</div>
+              </div>
+            </article>
 
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#1c1917]">Windows (PowerShell)</span>
-                      <span className="text-[10px] font-mono text-[#78716c]">Persistent User Env</span>
-                    </div>
-                    <CodeSnippetBlock
-                      language="powershell"
-                      code="irm https://lightningapi.pro/setup.ps1 | iex"
-                    />
-                  </div>
+            {/* A4: Getting your key */}
+            <article id="getting-your-key" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-violet-600" />
+                <span>4. How to Get Your API Key</span>
+              </h3>
+              <ol className="space-y-3 text-sm text-[#44403c] list-decimal list-inside leading-relaxed">
+                <li>
+                  <strong>Create an Account:</strong> Register at <Link to="/register" className="text-violet-700 underline font-semibold">lightningapi.pro/register</Link>.
+                </li>
+                <li>
+                  <strong>Choose a Plan:</strong> Select a 5-Hour Rolling Window plan, Credit Wallet top-up, or Token Pack.
+                </li>
+                <li>
+                  <strong>Copy Your Key:</strong> Go to <Link to="/dashboard/keys" className="text-violet-700 underline font-semibold">Dashboard → API Keys</Link> and copy your active key.
+                </li>
+              </ol>
+            </article>
+
+            {/* A5: Plan types */}
+            <article id="plan-types-overview" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Layers className="w-5 h-5 text-violet-600" />
+                <span>5. Understanding Your Plan Architecture</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                LightningAPI supports three distinct billing structures so you only pay for what you actually use:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200/70 space-y-1.5">
+                  <div className="font-bold text-purple-900 text-sm">5-Hour Rolling Window</div>
+                  <p className="text-purple-800 leading-relaxed">
+                    Designed for heavy coding. Your token allowance automatically regenerates continuously over every 5-hour rolling cycle.
+                  </p>
                 </div>
+                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 space-y-1.5">
+                  <div className="font-bold text-emerald-900 text-sm">Prepaid Credit Wallet</div>
+                  <p className="text-emerald-800 leading-relaxed">
+                    Deposit credits (e.g. $15, $35, $75). Credits never expire for 365 days and work across all supported models.
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/70 space-y-1.5">
+                  <div className="font-bold text-amber-900 text-sm">Consumable Token Packs</div>
+                  <p className="text-amber-800 leading-relaxed">
+                    Buy high-volume token blocks (10M, 50M, 100M). Ideal for continuous agent runs and automated scripts.
+                  </p>
+                </div>
+              </div>
+            </article>
 
-                {/* Direct cURL Verification */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1c1917] font-mono">
-                      Direct Gateway Verification (cURL)
-                    </h3>
-                    <span className="text-[10px] font-mono text-[#78716c]">Sub-50ms Response</span>
-                  </div>
-                  <CodeSnippetBlock
-                    language="bash"
-                    code={`curl https://lightningapi.pro/v1/messages \\
-  -H "x-api-key: sk_live_your_api_key_here" \\
+            {/* A6: First request */}
+            <article id="first-request" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-violet-600" />
+                <span>6. Your First Successful Request</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                Copy and paste this command into your terminal to test your key immediately:
+              </p>
+              <MultiOsCodeBlock
+                title="First API Request (Native cURL)"
+                tabs={[
+                  {
+                    label: 'macOS / Linux (cURL)',
+                    language: 'bash',
+                    code: `curl -X POST "https://lightningapi.pro/v1/messages" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: ld_live_your_api_key_here" \\
   -H "anthropic-version: 2023-06-01" \\
-  -H "content-type: application/json" \\
   -d '{
     "model": "claude-sonnet-5.5",
-    "max_tokens": 100,
-    "messages": [{"role": "user", "content": "Hello LightningAPI! Confirm connection."}]
-  }'`}
-                  />
+    "max_tokens": 1024,
+    "messages": [
+      {"role": "user", "content": "Explain binary search in two sentences."}
+    ]
+  }'`,
+                  },
+                  {
+                    label: 'Windows (PowerShell)',
+                    language: 'powershell',
+                    code: `$headers = @{
+  "Content-Type" = "application/json"
+  "x-api-key" = "ld_live_your_api_key_here"
+  "anthropic-version" = "2023-06-01"
+}
+$body = @{
+  model = "claude-sonnet-5.5"
+  max_tokens = 1024
+  messages = @(
+    @{ role = "user"; content = "Explain binary search in two sentences." }
+  )
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "https://lightningapi.pro/v1/messages" -Method Post -Headers $headers -Body $body`,
+                  },
+                ]}
+              />
+            </article>
+
+            {/* A7: Check key status */}
+            <article id="check-key-status" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-violet-600" />
+                <span>7. Checking Your Key Status & Live Consumption</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                You can inspect your remaining tokens, active rolling quota, and recent request activity at any time using our dedicated verification tool:
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Link
+                  to="/check-key"
+                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <span>Open Verify Key Tool</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+                <span className="text-xs text-[#78716c] font-mono">lightningapi.pro/check-key</span>
+              </div>
+            </article>
+          </section>
+
+          {/* ============================================================== */}
+          {/* CHAPTER B: QUICK SETUP */}
+          {/* ============================================================== */}
+          <section id="sec-quick-setup" className="space-y-8 pt-4">
+            <div className="border-b border-[#ede8e1] pb-3">
+              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
+                Section B
+              </span>
+              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
+                Quick Setup by Operating System
+              </h2>
+            </div>
+
+            {/* B1: Windows Setup */}
+            <article id="windows-setup" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Laptop className="w-5 h-5 text-blue-600" />
+                <span>1. Windows Setup (PowerShell & Command Prompt)</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                On Windows, configure persistent environment variables so all terminal sessions and applications recognize your LightningAPI key:
+              </p>
+              <MultiOsCodeBlock
+                title="Windows Environment Variable Setup"
+                tabs={[
+                  {
+                    label: 'PowerShell (Current User)',
+                    language: 'powershell',
+                    code: `[Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", "https://lightningapi.pro", "User")
+[Environment]::SetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN", "ld_live_your_api_key_here", "User")
+[Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "https://lightningapi.pro/v1", "User")
+[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "ld_live_your_api_key_here", "User")
+Write-Host "Configuration saved to Windows User Environment!" -ForegroundColor Green`,
+                  },
+                  {
+                    label: 'PowerShell (Session Only)',
+                    language: 'powershell',
+                    code: `$env:ANTHROPIC_BASE_URL = "https://lightningapi.pro"
+$env:ANTHROPIC_AUTH_TOKEN = "ld_live_your_api_key_here"
+$env:OPENAI_BASE_URL = "https://lightningapi.pro/v1"
+$env:OPENAI_API_KEY = "ld_live_your_api_key_here"`,
+                  },
+                ]}
+              />
+            </article>
+
+            {/* B2: macOS Setup */}
+            <article id="macos-setup" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Laptop className="w-5 h-5 text-violet-600" />
+                <span>2. macOS Setup (Terminal / Zsh)</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                On macOS (default Zsh shell), add your environment variables to <code className="font-mono text-xs bg-stone-100 px-1 py-0.5 rounded">~/.zshrc</code>:
+              </p>
+              <MultiOsCodeBlock
+                title="macOS Persistent Setup (~/.zshrc)"
+                tabs={[
+                  {
+                    label: 'macOS Zsh (~/.zshrc)',
+                    language: 'bash',
+                    code: `echo 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"' >> ~/.zshrc
+echo 'export ANTHROPIC_AUTH_TOKEN="ld_live_your_api_key_here"' >> ~/.zshrc
+echo 'export OPENAI_BASE_URL="https://lightningapi.pro/v1"' >> ~/.zshrc
+echo 'export OPENAI_API_KEY="ld_live_your_api_key_here"' >> ~/.zshrc
+source ~/.zshrc`,
+                  },
+                ]}
+              />
+            </article>
+
+            {/* B3: Linux Setup */}
+            <article id="linux-setup" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-emerald-600" />
+                <span>3. Linux Setup (Ubuntu / Debian / Fedora)</span>
+              </h3>
+              <MultiOsCodeBlock
+                title="Linux Persistent Setup (~/.bashrc)"
+                tabs={[
+                  {
+                    label: 'Linux Bash (~/.bashrc)',
+                    language: 'bash',
+                    code: `echo 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"' >> ~/.bashrc
+echo 'export ANTHROPIC_AUTH_TOKEN="ld_live_your_api_key_here"' >> ~/.bashrc
+source ~/.bashrc`,
+                  },
+                ]}
+              />
+            </article>
+
+            {/* B4: Automatic setup */}
+            <article id="automatic-setup" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-violet-600" />
+                <span>4. Automatic Setup (1-Command CLI Installer)</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                LightningAPI provides a one-command interactive setup tool that detects your installed AI editors, creates backups, and configures everything automatically:
+              </p>
+              <MultiOsCodeBlock
+                title="1-Command CLI Installer"
+                tabs={[
+                  {
+                    label: 'Universal NPX',
+                    language: 'bash',
+                    code: `npx lightningdeals`,
+                  },
+                  {
+                    label: 'macOS / Linux Shell',
+                    language: 'bash',
+                    code: `curl -fsSL https://lightningapi.pro/setup.sh | bash`,
+                  },
+                  {
+                    label: 'Windows PowerShell',
+                    language: 'powershell',
+                    code: `irm https://lightningapi.pro/setup.ps1 | iex`,
+                  },
+                ]}
+              />
+            </article>
+          </section>
+
+          {/* ============================================================== */}
+          {/* CHAPTER C: CONNECT YOUR APPLICATION (DETAILED GUIDES) */}
+          {/* ============================================================== */}
+          <section id="sec-connect-apps" className="space-y-8 pt-4">
+            <div className="border-b border-[#ede8e1] pb-3">
+              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
+                Section C
+              </span>
+              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
+                Connect Your Application (14+ Verified Guides)
+              </h2>
+            </div>
+
+            {/* C1: Claude Code */}
+            <article id="guide-claude-code" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-violet-600" />
+                  <span>1. Claude Code CLI</span>
+                </h3>
+                <span className="text-[10px] font-bold font-mono bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full">
+                  Native Anthropic Protocol
+                </span>
+              </div>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                Claude Code is Anthropic's agentic command-line assistant. Configure your settings file or terminal environment to route requests through LightningAPI:
+              </p>
+              <div className="text-xs font-mono text-[#78716c] bg-stone-100 p-2.5 rounded-xl border border-stone-200">
+                Configuration File: <strong>~/.claude/settings.json</strong> (macOS/Linux) or <strong>%USERPROFILE%\.claude\settings.json</strong> (Windows)
+              </div>
+              <MultiOsCodeBlock
+                filename="~/.claude/settings.json"
+                tabs={[
+                  {
+                    label: 'Configuration JSON',
+                    language: 'json',
+                    code: `{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://lightningapi.pro",
+    "ANTHROPIC_AUTH_TOKEN": "ld_live_your_api_key_here",
+    "ANTHROPIC_MODEL": "claude-sonnet-5.5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5.5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5.5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-5.5"
+  },
+  "model": "claude-sonnet-5.5"
+}`,
+                  },
+                ]}
+              />
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Verify by running <code className="font-mono font-bold">claude</code> in your terminal.</span>
+              </div>
+            </article>
+
+            {/* C2: Cursor IDE */}
+            <article id="guide-cursor" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                  <Wrench className="w-5 h-5 text-violet-600" />
+                  <span>2. Cursor IDE</span>
+                </h3>
+                <span className="text-[10px] font-bold font-mono bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
+                  Anthropic & OpenAI Compatible
+                </span>
+              </div>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                In Cursor, open Settings (<kbd className="px-1.5 py-0.5 rounded bg-stone-100 border text-[11px] font-mono">Ctrl+,</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-stone-100 border text-[11px] font-mono">Cmd+,</kbd>) → Models:
+              </p>
+              <ul className="list-disc list-inside text-xs text-[#44403c] space-y-1.5">
+                <li>Toggle on <strong>"Override Anthropic Base URL"</strong> and enter: <code className="font-mono font-bold text-violet-700">https://lightningapi.pro</code></li>
+                <li>Enter your LightningAPI key in <strong>Anthropic API Key</strong>: <code className="font-mono font-bold text-violet-700">ld_live_...</code></li>
+                <li>Add Model Name: <code className="font-mono font-bold text-violet-700">claude-sonnet-5.5</code> or <code className="font-mono font-bold text-violet-700">claude-opus-5.5</code></li>
+              </ul>
+              <MultiOsCodeBlock
+                filename="settings.json (Cursor User Settings)"
+                tabs={[
+                  {
+                    label: 'Cursor settings.json',
+                    language: 'json',
+                    code: `{
+  "cursor.cpp.overrideAnthropicApiKey": "ld_live_your_api_key_here",
+  "cursor.cpp.anthropicBaseUrl": "https://lightningapi.pro",
+  "cursor.general.model": "claude-sonnet-5.5"
+}`,
+                  },
+                ]}
+              />
+            </article>
+
+            {/* C3: Codex */}
+            <article id="guide-codex" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-blue-600" />
+                  <span>3. Codex CLI</span>
+                </h3>
+                <span className="text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
+                  OpenAI Compatible (/v1)
+                </span>
+              </div>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                Codex connects via OpenAI compatibility mode. Set your environment variables:
+              </p>
+              <MultiOsCodeBlock
+                tabs={[
+                  {
+                    label: 'macOS / Linux',
+                    language: 'bash',
+                    code: `export OPENAI_BASE_URL="https://lightningapi.pro/v1"
+export OPENAI_API_KEY="ld_live_your_api_key_here"
+codex "Create a React modal component"`,
+                  },
+                  {
+                    label: 'Windows PowerShell',
+                    language: 'powershell',
+                    code: `$env:OPENAI_BASE_URL="https://lightningapi.pro/v1"
+$env:OPENAI_API_KEY="ld_live_your_api_key_here"
+codex "Create a React modal component"`,
+                  },
+                ]}
+              />
+            </article>
+
+            {/* C4: Cline & Roo Code */}
+            <article id="guide-cline" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-purple-600" />
+                  <span>4. Cline & Roo Code (VS Code Autonomous Coding)</span>
+                </h3>
+                <span className="text-[10px] font-bold font-mono bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
+                  Autonomous Agent
+                </span>
+              </div>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                In VS Code, install the Cline or Roo Code extension. Open extension settings:
+              </p>
+              <ul className="list-disc list-inside text-xs text-[#44403c] space-y-1.5">
+                <li>API Provider: <strong>Anthropic</strong></li>
+                <li>Base URL: <code className="font-mono font-bold text-violet-700">https://lightningapi.pro</code></li>
+                <li>API Key: <code className="font-mono font-bold text-violet-700">ld_live_your_api_key_here</code></li>
+                <li>Model ID: <code className="font-mono font-bold text-violet-700">claude-sonnet-5.5</code></li>
+              </ul>
+            </article>
+
+            {/* C5: Continue.dev */}
+            <article id="guide-continue" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <FileCode className="w-5 h-5 text-violet-600" />
+                <span>5. Continue.dev</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                Add this model definition to your <code className="font-mono text-xs bg-stone-100 px-1 py-0.5 rounded">~/.continue/config.json</code>:
+              </p>
+              <MultiOsCodeBlock
+                filename="~/.continue/config.json"
+                tabs={[
+                  {
+                    label: 'config.json',
+                    language: 'json',
+                    code: `{
+  "models": [
+    {
+      "title": "Claude Sonnet 5.5 (LightningAPI)",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5.5",
+      "apiKey": "ld_live_your_api_key_here",
+      "apiBase": "https://lightningapi.pro"
+    }
+  ]
+}`,
+                  },
+                ]}
+              />
+            </article>
+          </section>
+
+          {/* ============================================================== */}
+          {/* CHAPTER D: MODELS & PROVIDERS */}
+          {/* ============================================================== */}
+          <section id="sec-models" className="scroll-mt-24 space-y-8 pt-4">
+            <div className="border-b border-[#ede8e1] pb-3">
+              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
+                Section D
+              </span>
+              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
+                Models & Providers
+              </h2>
+            </div>
+
+            <article id="models-claude" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-violet-600" />
+                <span>Showcase Frontier Models Catalog</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                LightningAPI routes to leading frontier intelligence clusters. Use the exact technical model IDs in your configuration:
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-[#ede8e1] bg-[#faf8f5] text-[10px] font-bold uppercase text-[#78716c]">
+                      <th className="py-2.5 px-3">Technical Model ID</th>
+                      <th className="py-2.5 px-3">Display Name</th>
+                      <th className="py-2.5 px-3">Provider</th>
+                      <th className="py-2.5 px-3">Context Window</th>
+                      <th className="py-2.5 px-3">Vision</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#ede8e1]">
+                    <tr>
+                      <td className="py-2.5 px-3 font-bold text-violet-700">claude-sonnet-5.5</td>
+                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Claude Sonnet 5.5</td>
+                      <td className="py-2.5 px-3 text-[#78716c]">Anthropic</td>
+                      <td className="py-2.5 px-3">1,000,000</td>
+                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-bold text-violet-700">claude-opus-5.5</td>
+                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Claude Opus 5.5</td>
+                      <td className="py-2.5 px-3 text-[#78716c]">Anthropic</td>
+                      <td className="py-2.5 px-3">1,000,000</td>
+                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-bold text-violet-700">claude-fable-5</td>
+                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Claude Fable 5</td>
+                      <td className="py-2.5 px-3 text-[#78716c]">Anthropic</td>
+                      <td className="py-2.5 px-3">1,000,000</td>
+                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-bold text-violet-700">claude-haiku-5.5</td>
+                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Claude Haiku 5.5</td>
+                      <td className="py-2.5 px-3 text-[#78716c]">Anthropic</td>
+                      <td className="py-2.5 px-3">500,000</td>
+                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-bold text-blue-700">gpt-4o</td>
+                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">GPT-4o</td>
+                      <td className="py-2.5 px-3 text-[#78716c]">OpenAI</td>
+                      <td className="py-2.5 px-3">128,000</td>
+                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-bold text-emerald-700">gemini-4-argon</td>
+                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Gemini 4 Argon</td>
+                      <td className="py-2.5 px-3 text-[#78716c]">Google</td>
+                      <td className="py-2.5 px-3">1,000,000</td>
+                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          {/* ============================================================== */}
+          {/* CHAPTER E: API REFERENCE */}
+          {/* ============================================================== */}
+          <section id="sec-api-reference" className="scroll-mt-24 space-y-8 pt-4">
+            <div className="border-b border-[#ede8e1] pb-3">
+              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
+                Section E
+              </span>
+              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
+                API Reference Specification
+              </h2>
+            </div>
+
+            {/* E1: Base URLs */}
+            <article id="api-base-urls" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Globe className="w-5 h-5 text-violet-600" />
+                <span>Base URLs & Protocols</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                LightningAPI hosts dual protocol endpoints. Choose based on your SDK or tool:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+                <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1.5">
+                  <div className="text-xs font-bold text-violet-700 font-sans">Anthropic Native Base URL</div>
+                  <div className="font-bold text-[#1c1917] select-all">https://lightningapi.pro</div>
+                  <p className="text-[11px] text-[#78716c] font-sans">Used for Claude Code, Cursor Anthropic mode, and @anthropic-ai/sdk.</p>
                 </div>
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 3: AUTHENTICATION & API KEYS                        */}
-              {/* ----------------------------------------------------------- */}
-              <section id="authentication" className="mb-16 scroll-mt-24 space-y-6">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <KeyRound className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 03</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">AUTHENTICATION &amp; KEYS</span>
+                <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1.5">
+                  <div className="text-xs font-bold text-blue-700 font-sans">OpenAI Compatible Base URL</div>
+                  <div className="font-bold text-[#1c1917] select-all">https://lightningapi.pro/v1</div>
+                  <p className="text-[11px] text-[#78716c] font-sans">Used for Codex, Windsurf, LangChain, and openai official SDKs.</p>
                 </div>
+              </div>
+            </article>
 
-                <div className="space-y-2">
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                    Unified API Keys &amp; Header Authorization
-                  </h2>
-                  <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                    LightningAPI uses unified API keys. Your active plan entitlement (Rolling Window vs. Usage Credits vs. Token Pack) is bound strictly on the server side—never requiring client-side parameter overrides.
-                  </p>
-                </div>
-
-                {/* Key Types Matrix */}
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-mono text-[10px] font-bold">PRODUCTION KEY</span>
-                      <code className="text-xs font-bold text-[#1c1917]">sk_live_...</code>
-                    </div>
-                    <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Issued instantly upon activating any plan. Backed by your chosen billing mode (continuous rolling pool, 7x usage credits, or consumable tokens).
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-[10px] font-bold">EVALUATION KEY</span>
-                      <code className="text-xs font-bold text-[#1c1917]">sk_trial_...</code>
-                    </div>
-                    <p className="text-[11px] text-[#57534e] leading-relaxed">
-                      Issued via the free trial onboarding flow. Preloaded with 200,000 tokens for testing integration across Cursor, Windsurf, and Claude Code.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Supported Headers */}
-                <div className="space-y-3 pt-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-[#1c1917]">Supported Authentication Headers</h3>
-                  <p className="text-xs text-[#57534e]">
-                    The gateway accepts authentication through standard Anthropic headers or standard RFC 6750 Bearer authorization:
-                  </p>
-
-                  <div className="space-y-2">
-                    <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] text-xs font-mono">
-                      <span className="text-[#a8a29e]">Anthropic Native Header: </span>
-                      <strong className="text-[#1c1917]">x-api-key: sk_live_your_token_here</strong>
-                    </div>
-                    <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] text-xs font-mono">
-                      <span className="text-[#a8a29e]">Bearer Authorization: </span>
-                      <strong className="text-[#1c1917]">Authorization: Bearer sk_live_your_token_here</strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* White-Label & Supplier Privacy Assurance */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-xs text-emerald-950 space-y-2 shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                    <span className="font-bold">Strict White-Label &amp; Security Assurance</span>
-                  </div>
-                  <p className="leading-relaxed text-[11px] text-emerald-900">
-                    LightningAPI operates an isolated, high-security proxy architecture. Supplier master credentials, infrastructure URLs, and upstream internal metadata are completely isolated from client terminals, headers, logs, and frontend bundles. Your requests flow securely through TLS 1.3 without intermediary prompt storage.
-                  </p>
-                </div>
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 4: FULL API REFERENCE                               */}
-              {/* ----------------------------------------------------------- */}
-              <section id="api-reference" className="mb-16 scroll-mt-24 space-y-6">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <Globe className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 04</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">FULL API REFERENCE</span>
-                </div>
-
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                    Public Endpoints &amp; Request Specifications
-                  </h2>
-                  <p className="text-xs sm:text-sm text-[#57534e] mt-1">
-                    Every endpoint mounted on the gateway with field types, required parameters, and JSON payloads.
-                  </p>
-                </div>
-
-                {/* Endpoint 1: POST /v1/messages */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-[#6d28d9] text-white font-mono text-[11px] font-bold">POST</span>
-                      <code className="text-sm font-bold text-[#1c1917]">/v1/messages</code>
-                    </div>
-                    <span className="text-[11px] font-mono text-[#78716c]">Anthropic Messages Standard</span>
-                  </div>
-
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Main inference endpoint for Claude models. Generates a response or streams server-sent events for a conversational context. Supports tool calling, reasoning, and thinking tokens.
-                  </p>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs font-sans">
-                      <thead>
-                        <tr className="border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
-                          <th className="py-2 pr-4">Parameter</th>
-                          <th className="py-2 pr-4">Type</th>
-                          <th className="py-2 pr-4">Required</th>
-                          <th className="py-2">Description</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
-                        <tr>
-                          <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">model</td>
-                          <td className="py-2 pr-4 font-mono text-purple-700">string</td>
-                          <td className="py-2 pr-4 font-bold text-rose-600">Yes</td>
-                          <td className="py-2">Supported model ID (e.g. <code className="font-mono">claude-sonnet-5.5</code>) or alias.</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">messages</td>
-                          <td className="py-2 pr-4 font-mono text-purple-700">array</td>
-                          <td className="py-2 pr-4 font-bold text-rose-600">Yes</td>
-                          <td className="py-2">Array of message objects with <code className="font-mono">role</code> ("user" | "assistant") and <code className="font-mono">content</code>.</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">max_tokens</td>
-                          <td className="py-2 pr-4 font-mono text-purple-700">integer</td>
-                          <td className="py-2 pr-4 font-bold text-rose-600">Yes</td>
-                          <td className="py-2">Maximum number of completion tokens to generate.</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">stream</td>
-                          <td className="py-2 pr-4 font-mono text-purple-700">boolean</td>
-                          <td className="py-2 pr-4 text-[#78716c]">Optional</td>
-                          <td className="py-2">Streams token chunks incrementally via Server-Sent Events (SSE).</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 pr-4 font-mono font-bold text-[#1c1917]">tools</td>
-                          <td className="py-2 pr-4 font-mono text-purple-700">array</td>
-                          <td className="py-2 pr-4 text-[#78716c]">Optional</td>
-                          <td className="py-2">Function declarations the model may invoke.</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Endpoint 2: POST /v1/chat/completions */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[11px] font-bold">POST</span>
-                      <code className="text-sm font-bold text-[#1c1917]">/v1/chat/completions</code>
-                    </div>
-                    <span className="text-[11px] font-mono text-[#78716c]">OpenAI Chat Completions Standard</span>
-                  </div>
-
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Main inference endpoint for OpenAI Frontier (o1, o3-mini, GPT-4o) and Local Models (DeepSeek, Grok, Qwen, GLM). Drop-in replacement for OpenAI SDK clients.
-                  </p>
-
-                  <CodeSnippetBlock
-                    language="bash"
-                    code={`curl https://lightningapi.pro/v1/chat/completions \\
-  -H "Authorization: Bearer sk_live_your_key_here" \\
+            {/* E2: Messages Endpoint */}
+            <article id="api-messages" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-lg bg-violet-100 text-violet-800 font-mono text-xs font-bold">POST</span>
+                  <span>/v1/messages</span>
+                </h3>
+                <span className="text-xs text-[#78716c] font-mono">Native Anthropic Protocol</span>
+              </div>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                Sends a structured message sequence to Claude Frontier models with streaming, tool execution, and vision support.
+              </p>
+              <MultiOsCodeBlock
+                title="POST /v1/messages Example"
+                tabs={[
+                  {
+                    label: 'cURL',
+                    language: 'bash',
+                    code: `curl -X POST "https://lightningapi.pro/v1/messages" \\
   -H "Content-Type: application/json" \\
+  -H "x-api-key: ld_live_your_api_key_here" \\
+  -H "anthropic-version: 2023-06-01" \\
   -d '{
-    "model": "deepseek-ai/deepseek-v3",
-    "messages": [{"role": "user", "content": "Explain key architectural differences between Raft and Paxos."}],
-    "max_tokens": 500
-  }'`}
-                  />
-                </div>
+    "model": "claude-sonnet-5.5",
+    "max_tokens": 1024,
+    "messages": [
+      {"role": "user", "content": "Explain microservices in two sentences."}
+    ]
+  }'`,
+                  },
+                  {
+                    label: 'Python (anthropic SDK)',
+                    language: 'python',
+                    code: `from anthropic import Anthropic
 
-                {/* Endpoint 2b: POST /v1/responses */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[11px] font-bold">POST</span>
-                      <code className="text-sm font-bold text-[#1c1917]">/v1/responses</code>
-                    </div>
-                    <span className="text-[11px] font-mono text-[#78716c]">OpenAI Codex CLI Standard</span>
-                  </div>
-
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Official Codex CLI format (<code className="font-mono bg-[#f5f5f4] px-1 rounded">wire_api = "responses"</code>) providing direct execution for <code className="font-mono">gpt-6.1-sol</code>, <code className="font-mono">gpt-6-astra</code>, and low-to-max reasoning effort levels.
-                  </p>
-
-                  <CodeSnippetBlock
-                    language="toml"
-                    code={`# ~/.codex/config.toml
-model_provider = "lightningapi"
-model = "gpt-6.1-sol"
-wire_api = "responses"
-
-[model_providers.lightningapi]
-name = "LightningAPI"
-base_url = "https://lightningapi.pro/v1"
-env_key = "LIGHTNING_API_KEY"`}
-                  />
-                </div>
-
-                {/* Endpoint 3: GET /v1/models */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[11px] font-bold">GET</span>
-                      <code className="text-sm font-bold text-[#1c1917]">/v1/models</code>
-                    </div>
-                    <span className="text-[11px] font-mono text-[#78716c]">Live Model Catalog</span>
-                  </div>
-                  <p className="text-xs text-[#57534e]">
-                    Returns the dynamic machine-readable list of models currently available on the gateway, context windows, and pricing metadata.
-                  </p>
-                </div>
-
-                {/* Endpoint 4: GET /api/key-status */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[11px] font-bold">GET</span>
-                      <code className="text-sm font-bold text-[#1c1917]">/api/key-status</code>
-                    </div>
-                    <span className="text-[11px] font-mono text-[#78716c]">Live Key Balance &amp; Telemetry</span>
-                  </div>
-                  <p className="text-xs text-[#57534e]">
-                    Inspect active balance, current 5-hour rolling pool usage, remaining credits, and rate limits without authenticating to dashboard.
-                  </p>
-                  <CodeSnippetBlock
-                    language="json"
-                    code={`{
-  "valid": true,
-  "keyPrefix": "sk_live_a1b2...",
-  "planName": "MAX 20X",
-  "billingType": "window",
-  "rollingLimit": 20000000,
-  "windowUsage": 4350120,
-  "remainingInWindow": 15649880,
-  "windowDuration": "5h"
-}`}
-                  />
-                </div>
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 5: IDE & CLIENT CONFIGURATION                       */}
-              {/* ----------------------------------------------------------- */}
-              <section id="client-config" className="mb-16 scroll-mt-24 space-y-4">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <Wrench className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 05</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">IDE &amp; CLIENT CONFIGURATION</span>
-                </div>
-
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  Connecting Your Development Tools (Zero Supplier Exposure)
-                </h2>
-
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  Select your client environment below to inspect exact verified setup instructions and environment variables.
-                </p>
-
-                {/* Client Selector Tabs */}
-                <div className="flex flex-wrap gap-2 pt-1 border-b border-[#e7e5e4] pb-3">
-                  {[
-                    { id: 'claude-code', label: 'Claude Code CLI' },
-                    { id: 'cursor', label: 'Cursor Composer' },
-                    { id: 'windsurf', label: 'Windsurf Cascade' },
-                    { id: 'vscode', label: 'VS Code (Cline / Roo)' },
-                    { id: 'python', label: 'Python SDK' },
-                    { id: 'node', label: 'TypeScript / Node' },
-                    { id: 'curl', label: 'cURL Commands' },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveClientTab(tab.id as any)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
-                        activeClientTab === tab.id
-                          ? 'bg-[#1c1917] text-white shadow-xs'
-                          : 'bg-white text-[#57534e] border border-[#e7e5e4] hover:bg-[#f5f2eb]'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Tab 1: Claude Code CLI */}
-                {activeClientTab === 'claude-code' && (
-                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
-                    <h3 className="text-sm font-bold text-[#1c1917]">Claude Code CLI Configuration</h3>
-                    <p className="text-xs text-[#57534e] leading-relaxed">
-                      Claude Code connects directly to LightningAPI using standard Anthropic environment variables in your terminal session or <code className="font-mono text-[#1c1917]">~/.zshrc</code> / <code className="font-mono text-[#1c1917]">~/.bashrc</code>:
-                    </p>
-                    <CodeSnippetBlock
-                      language="bash"
-                      code={`# Set Base URL directly to LightningAPI (SDK appends /v1/messages)
-export ANTHROPIC_BASE_URL="https://lightningapi.pro"
-
-# Set your active LightningAPI key
-export ANTHROPIC_AUTH_TOKEN="sk_live_your_key_here"
-
-# (Optional) Select default model
-export ANTHROPIC_MODEL="claude-sonnet-5.5"
-
-# Launch Claude Code agent
-claude`}
-                    />
-                    <div className="p-3.5 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-1.5">
-                      <p className="text-xs font-bold text-[#1c1917] flex items-center gap-1.5">
-                        <Sliders className="h-3.5 w-3.5 text-[#6d28d9]" />
-                        <span>Switching Models in Claude Code</span>
-                      </p>
-                      <p className="text-[11px] text-[#57534e]">
-                        Run <code className="font-mono text-[#1c1917] font-semibold">npx lightningdeals model</code> to pick from models interactively, or launch with <code className="font-mono text-[#1c1917] font-semibold">claude --model &lt;model-id&gt;</code>.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 2: Cursor */}
-                {activeClientTab === 'cursor' && (
-                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
-                    <h3 className="text-sm font-bold text-[#1c1917]">Cursor Composer Configuration</h3>
-                    <p className="text-xs text-[#57534e] leading-relaxed">
-                      Configure Cursor to route Claude models via Anthropic settings, or OpenAI/Local models via OpenAI settings:
-                    </p>
-                    <div className="space-y-3 text-xs">
-                      <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-2">
-                        <strong className="text-[#1c1917]">Method A: Claude Models (Anthropic Native)</strong>
-                        <ol className="list-decimal list-inside space-y-1 text-[#57534e] pl-1">
-                          <li>Open <strong className="text-[#1c1917]">Cursor Settings &rarr; Models</strong>.</li>
-                          <li>In <strong className="text-[#1c1917]">Anthropic API Key</strong>, paste your key: <code className="font-mono text-[#1c1917]">sk_live_your_key_here</code>.</li>
-                          <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> on and set: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code>.</li>
-                        </ol>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-2">
-                        <strong className="text-[#1c1917]">Method B: OpenAI &amp; Local Models (OpenAI Compatible)</strong>
-                        <ol className="list-decimal list-inside space-y-1 text-[#57534e] pl-1">
-                          <li>In <strong className="text-[#1c1917]">OpenAI API Key</strong>, paste: <code className="font-mono text-[#1c1917]">sk_live_your_key_here</code>.</li>
-                          <li>Toggle <strong className="text-[#1c1917]">Override Base URL</strong> and set: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro/v1</code>.</li>
-                          <li>Add model: <code className="font-mono">deepseek-ai/deepseek-v3</code> or <code className="font-mono">gpt-4o</code>.</li>
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 3: Windsurf */}
-                {activeClientTab === 'windsurf' && (
-                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
-                    <h3 className="text-sm font-bold text-[#1c1917]">Windsurf Cascade Configuration</h3>
-                    <p className="text-xs text-[#57534e] leading-relaxed">
-                      Configure Codeium Windsurf Cascade to route all model families:
-                    </p>
-                    <ol className="list-decimal list-inside space-y-2 text-xs text-[#57534e] pl-1">
-                      <li>Open <strong className="text-[#1c1917]">Windsurf Settings &rarr; AI Providers</strong>.</li>
-                      <li>Select <strong className="text-[#1c1917]">Anthropic</strong> or <strong className="text-[#1c1917]">Custom OpenAI Provider</strong>.</li>
-                      <li>Set <strong className="text-[#1c1917]">Base URL</strong>: <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro</code> (for Anthropic) or <code className="font-mono font-bold text-[#1c1917]">https://lightningapi.pro/v1</code> (for OpenAI).</li>
-                      <li>Set <strong className="text-[#1c1917]">API Key</strong>: <code className="font-mono text-[#1c1917]">sk_live_your_key_here</code>.</li>
-                    </ol>
-                  </div>
-                )}
-
-                {/* Tab 4: VS Code (Cline / Roo) */}
-                {activeClientTab === 'vscode' && (
-                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
-                    <h3 className="text-sm font-bold text-[#1c1917]">VS Code (Cline / Roo Code / Continue)</h3>
-                    <p className="text-xs text-[#57534e] leading-relaxed">
-                      Configure popular VS Code autonomous extensions:
-                    </p>
-                    <div className="space-y-2 text-xs">
-                      <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] font-mono space-y-1">
-                        <div><strong>API Provider:</strong> Anthropic (or OpenAI Compatible)</div>
-                        <div><strong>Base URL:</strong> https://lightningapi.pro/v1</div>
-                        <div><strong>API Key:</strong> sk_live_your_key_here</div>
-                        <div><strong>Model ID:</strong> claude-sonnet-5.5 (or deepseek-ai/deepseek-v3)</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 5: Python */}
-                {activeClientTab === 'python' && (
-                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
-                    <h3 className="text-sm font-bold text-[#1c1917]">Python SDK Integration (Anthropic &amp; OpenAI)</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <span className="text-xs font-bold text-[#1c1917]">1. Official Anthropic Python Client</span>
-                        <CodeSnippetBlock
-                          language="python"
-                          code={`import anthropic
-
-client = anthropic.Anthropic(
-    api_key="sk_live_your_key_here",
-    base_url="https://lightningapi.pro"
+client = Anthropic(
+    base_url="https://lightningapi.pro",
+    api_key="ld_live_your_api_key_here"
 )
 
 response = client.messages.create(
     model="claude-sonnet-5.5",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Explain raft consensus algorithm succinctly."}]
+    messages=[{"role": "user", "content": "Explain microservices in two sentences."}]
 )
-print(response.content[0].text)`}
-                        />
-                      </div>
+print(response.content[0].text)`,
+                  },
+                  {
+                    label: 'Node.js (@anthropic-ai/sdk)',
+                    language: 'typescript',
+                    code: `import Anthropic from '@anthropic-ai/sdk';
 
-                      <div>
-                        <span className="text-xs font-bold text-[#1c1917]">2. Official OpenAI Python Client (OpenAI &amp; Local Models)</span>
-                        <CodeSnippetBlock
-                          language="python"
-                          code={`import openai
+const client = new Anthropic({
+  baseURL: 'https://lightningapi.pro',
+  apiKey: 'ld_live_your_api_key_here',
+});
 
-client = openai.OpenAI(
-    api_key="sk_live_your_key_here",
-    base_url="https://lightningapi.pro/v1"
+const response = await client.messages.create({
+  model: 'claude-sonnet-5.5',
+  max_tokens: 1024,
+  messages: [{ role: 'user', content: 'Explain microservices in two sentences.' }],
+});
+console.log(response.content[0].text);`,
+                  },
+                ]}
+              />
+            </article>
+
+            {/* E3: Chat Completions Endpoint */}
+            <article id="api-chat-completions" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-800 font-mono text-xs font-bold">POST</span>
+                  <span>/v1/chat/completions</span>
+                </h3>
+                <span className="text-xs text-[#78716c] font-mono">OpenAI Compatible Protocol</span>
+              </div>
+              <MultiOsCodeBlock
+                title="POST /v1/chat/completions Example"
+                tabs={[
+                  {
+                    label: 'cURL',
+                    language: 'bash',
+                    code: `curl -X POST "https://lightningapi.pro/v1/chat/completions" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ld_live_your_api_key_here" \\
+  -d '{
+    "model": "gpt-4o",
+    "messages": [
+      {"role": "user", "content": "Explain idempotent API design."}
+    ]
+  }'`,
+                  },
+                  {
+                    label: 'Python (openai SDK)',
+                    language: 'python',
+                    code: `from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://lightningapi.pro/v1",
+    api_key="ld_live_your_api_key_here"
 )
 
 response = client.chat.completions.create(
-    model="deepseek-ai/deepseek-v3",
-    messages=[{"role": "user", "content": "Write a high-performance LRU cache in Rust."}]
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Explain idempotent API design."}]
 )
-print(response.choices[0].message.content)`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+print(response.choices[0].message.content)`,
+                  },
+                ]}
+              />
+            </article>
+          </section>
 
-                {/* Tab 6: Node / TypeScript */}
-                {activeClientTab === 'node' && (
-                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
-                    <h3 className="text-sm font-bold text-[#1c1917]">TypeScript &amp; Node.js SDK</h3>
-                    <CodeSnippetBlock
-                      language="typescript"
-                      code={`import Anthropic from '@anthropic-ai/sdk';
+          {/* ============================================================== */}
+          {/* CHAPTER F: USAGE & BILLING */}
+          {/* ============================================================== */}
+          <section id="sec-usage-billing" className="scroll-mt-24 space-y-8 pt-4">
+            <div className="border-b border-[#ede8e1] pb-3">
+              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
+                Section F
+              </span>
+              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
+                Usage, Billing & Quotas
+              </h2>
+            </div>
 
-const anthropic = new Anthropic({
-  apiKey: process.env.LIGHTNING_API_KEY || 'sk_live_your_key_here',
-  baseURL: 'https://lightningapi.pro',
-});
-
-const response = await anthropic.messages.create({
-  model: 'claude-sonnet-5.5',
-  max_tokens: 1024,
-  messages: [{ role: 'user', content: 'Generate high-throughput Express proxy' }],
-});
-
-console.log(response.content[0]);`}
-                    />
-                  </div>
-                )}
-
-                {/* Tab 7: cURL */}
-                {activeClientTab === 'curl' && (
-                  <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3 animate-in fade-in">
-                    <h3 className="text-sm font-bold text-[#1c1917]">cURL Terminal Commands</h3>
-                    <CodeSnippetBlock
-                      language="bash"
-                      code={`# Anthropic Messages format
-curl https://lightningapi.pro/v1/messages \\
-  -H "x-api-key: sk_live_your_key_here" \\
-  -H "anthropic-version: 2023-06-01" \\
-  -H "content-type: application/json" \\
-  -d '{
-    "model": "claude-sonnet-5.5",
-    "max_tokens": 100,
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-
-# OpenAI Chat Completions format
-curl https://lightningapi.pro/v1/chat/completions \\
-  -H "Authorization: Bearer sk_live_your_key_here" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "deepseek-ai/deepseek-v3",
-    "messages": [{"role": "user", "content": "Hello!"}],
-    "max_tokens": 100
-  }'`}
-                    />
-                  </div>
-                )}
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 6: STREAMING & SSE LIFECYCLE                        */}
-              {/* ----------------------------------------------------------- */}
-              <section id="streaming" className="mb-16 scroll-mt-24 space-y-4">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <Layers className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 06</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">STREAMING &amp; SSE LIFECYCLE</span>
+            <article id="billing-architectures" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <Layers className="w-5 h-5 text-violet-600" />
+                <span>The Six Billing Architectures Explained</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                LightningAPI routes all requests through immutable ledger accounting. Depending on your purchase, your key operates under one of these models:
+              </p>
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#ede8e1]">
+                  <span className="font-bold text-[#1c1917]">1. Claude Max (5-Hour Rolling Window):</span>
+                  <span className="text-[#64607d] ml-1">Tokens continuously replenish every minute as older usage rolls past the 5-hour boundary.</span>
                 </div>
-
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  Real-Time Server-Sent Events (SSE)
-                </h2>
-
-                <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                  When <code className="font-mono text-[#1c1917]">"stream": true</code> is specified, the gateway forwards tokens chunk-by-chunk using standard SSE formatting adhering strictly to Anthropic and OpenAI protocols.
-                </p>
-
-                <div className="space-y-2 text-xs">
-                  <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
-                    <span className="font-mono font-bold text-[#6d28d9]">event: message_start</span>
-                    <p className="text-[11px] text-[#57534e]">Emits initial metadata, message ID, role, and usage initialization.</p>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
-                    <span className="font-mono font-bold text-[#6d28d9]">event: content_block_delta</span>
-                    <p className="text-[11px] text-[#57534e]">Carries incremental token text deltas or JSON argument snippets.</p>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
-                    <span className="font-mono font-bold text-[#6d28d9]">event: message_delta &amp; message_stop</span>
-                    <p className="text-[11px] text-[#57534e]">Signals completion, output stop reason (<code className="font-mono">end_turn</code> | <code className="font-mono">max_tokens</code>), and final token accounting.</p>
-                  </div>
+                <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#ede8e1]">
+                  <span className="font-bold text-[#1c1917]">2. OpenAI (5-Hour Rolling Window):</span>
+                  <span className="text-[#64607d] ml-1">Rolling window access dedicated to OpenAI Frontier workloads.</span>
                 </div>
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 7: MODEL CATALOG & ALIASES                          */}
-              {/* ----------------------------------------------------------- */}
-              <section id="models" className="mb-16 scroll-mt-24 space-y-8">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <Cpu className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 07</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">MODEL CATALOG (74 FRONTIER &amp; OPEN MODELS)</span>
+                <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#ede8e1]">
+                  <span className="font-bold text-[#1c1917]">3. Prepaid Credit Wallet:</span>
+                  <span className="text-[#64607d] ml-1">USD balance valid for 365 days across all models. Top up anytime.</span>
                 </div>
+                <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#ede8e1]">
+                  <span className="font-bold text-[#1c1917]">4. Consumable Token Packs (Claude / OpenAI / Local):</span>
+                  <span className="text-[#64607d] ml-1">Bulk token blocks with zero time pressure.</span>
+                </div>
+              </div>
+            </article>
+          </section>
 
-                <div className="space-y-2">
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                    Comprehensive Model Lineup &amp; Protocols
-                  </h2>
-                  <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                    LightningAPI provides unified access to 74+ frontier and open-weights models across 13 families. Connect Anthropic models via standard Messages API, OpenAI and open-weights models via Chat Completions, and dedicated multimodal endpoints for embeddings, image, and video generation.
+          {/* ============================================================== */}
+          {/* CHAPTER G: TROUBLESHOOTING */}
+          {/* ============================================================== */}
+          <section id="sec-troubleshooting" className="scroll-mt-24 space-y-8 pt-4">
+            <div className="border-b border-[#ede8e1] pb-3">
+              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
+                Section G
+              </span>
+              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
+                Troubleshooting & Error Library
+              </h2>
+            </div>
+
+            <article id="troubleshooting-intro" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+                <span>Common Error Codes & Verified Solutions</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                If your tool encounters an error, use this reference to diagnose the exact cause immediately:
+              </p>
+
+              <div className="space-y-3 text-xs">
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-1">
+                  <div className="font-bold text-amber-950 font-mono">HTTP 429 — 5-Hour Rolling Allowance Reached</div>
+                  <p className="text-amber-900 leading-relaxed">
+                    <strong>Cause:</strong> Your active token allowance has been consumed for the current 5-hour rolling cycle.
+                  </p>
+                  <p className="text-amber-800 leading-relaxed">
+                    <strong>Fix:</strong> Wait for window regeneration (allowance restores continuously) or add a Pay-As-You-Go Credit pack on the Plans page to continue immediately without waiting.
                   </p>
                 </div>
 
-                {/* Live Discovery cURL */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1c1917] font-mono">
-                      Runtime Model Discovery (OpenAI Compatible)
-                    </h3>
-                    <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">GET /api/v1/models</span>
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Query the live model repertoire dynamically from your IDE, agent loops, or scripts using standard Bearer authorization:
+                <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200 space-y-1">
+                  <div className="font-bold text-rose-950 font-mono">HTTP 402 — Credit Wallet Depleted ($0.00 Remaining)</div>
+                  <p className="text-rose-900 leading-relaxed">
+                    <strong>Cause:</strong> Your credit balance has reached $0.00.
                   </p>
-                  <CodeSnippetBlock
-                    language="bash"
-                    code={`curl https://lightningapi.pro/api/v1/models \\
-  -H "Authorization: Bearer sk_live_your_key_here"`}
-                  />
-                </div>
-
-                {/* Table 1: Anthropic Claude Family */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-purple-700 font-mono">
-                      1. Anthropic Claude Lineup (12 Models)
-                    </h3>
-                    <span className="text-[10px] font-mono text-[#78716c]">Anthropic Messages Protocol</span>
-                  </div>
-                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs font-sans">
-                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
-                          <tr>
-                            <th className="py-3 px-4">Model &amp; Canonical ID</th>
-                            <th className="py-3 px-4">Context Window</th>
-                            <th className="py-3 px-4">Base Rate (In/Out)</th>
-                            <th className="py-3 px-4">Cached Read</th>
-                            <th className="py-3 px-4">Eligible Plans</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Opus 5.5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-opus-5.5</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$5.00 / $25.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$1.25 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Sonnet 5.5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-sonnet-5.5</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$3.00 / $15.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.75 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Opus 5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-opus-5</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$4.00 / $20.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$1.00 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Sonnet 5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-sonnet-5</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$2.50 / $12.50</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.62 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Haiku 5.5</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-haiku-5.5</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">500,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.20 / $1.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.05 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Fable 5 &amp; 5.1</span><code className="text-[11px] font-mono text-[#6d28d9]">fable-5, fable-5.1</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$2.00 / $10.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.50 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Claude Opus 4.8 / 4.7 / 4.6</span><code className="text-[11px] font-mono text-[#6d28d9]">claude-opus-4-8, claude-opus-4-7</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$4.50 / $22.50</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$1.12 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-violet-100 text-[#6d28d9] font-bold text-[10px]">Rolling, Credits, Tokens</span></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Table 2: OpenAI Frontier Family */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 font-mono">
-                      2. OpenAI Frontier Lineup (9 Models)
-                    </h3>
-                    <span className="text-[10px] font-mono text-[#78716c]">OpenAI Chat Completions Protocol</span>
-                  </div>
-                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs font-sans">
-                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
-                          <tr>
-                            <th className="py-3 px-4">Model &amp; Canonical ID</th>
-                            <th className="py-3 px-4">Context Window</th>
-                            <th className="py-3 px-4">Base Rate (In/Out)</th>
-                            <th className="py-3 px-4">Cached Read</th>
-                            <th className="py-3 px-4">Eligible Plans</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT 6.1 Sol</span><code className="text-[11px] font-mono text-emerald-700">gpt-6.1-sol</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$4.50 / $20.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$1.12 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT 6.1 Terra</span><code className="text-[11px] font-mono text-emerald-700">gpt-6.1-terra</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$3.00 / $12.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.75 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT 6 Sol &amp; Luna</span><code className="text-[11px] font-mono text-emerald-700">gpt-6-sol, gpt-6-luna</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$3.50 / $15.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.87 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT 5.6 Sol / Terra / Luna</span><code className="text-[11px] font-mono text-emerald-700">gpt-5.6-sol, gpt-5.6-terra</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">500,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$2.00 / $8.00</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.50 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GPT OSS 120B</span><code className="text-[11px] font-mono text-emerald-700">gpt-oss-120b</code></td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">256,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.80 / $2.40</td>
-                            <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">$0.20 / 1M</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Credits, Token Packs</span></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Table 3: DeepSeek, GLM, Grok, Gemini, Qwen, Kimi, MiniMax */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-sky-700 font-mono">
-                      3. Global &amp; Open-Weights Lineup (DeepSeek, GLM, Grok, Gemini, Qwen, Kimi, MiniMax)
-                    </h3>
-                    <span className="text-[10px] font-mono text-[#78716c]">OpenAI Compatible API</span>
-                  </div>
-                  <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs font-sans">
-                        <thead className="bg-[#fbf9f5] border-b border-[#e7e5e4] text-[#78716c] font-mono text-[10px] uppercase">
-                          <tr>
-                            <th className="py-3 px-4">Model &amp; Canonical ID</th>
-                            <th className="py-3 px-4">Maker / Family</th>
-                            <th className="py-3 px-4">Context Window</th>
-                            <th className="py-3 px-4">Base Rate (In/Out)</th>
-                            <th className="py-3 px-4">Eligible Plans</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#f5f2eb] text-[#57534e]">
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">DeepSeek V4 Flash &amp; Pro</span><code className="text-[11px] font-mono text-sky-700">deepseek-v4-flash, deepseek-v4-pro</code></td>
-                            <td className="py-3 px-4 font-mono text-sky-700">DeepSeek</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">200k / 1M tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.14 / $0.28</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">GLM 5.3 Flash &amp; V2</span><code className="text-[11px] font-mono text-indigo-700">glm-5.3-flash, glm-5.3-v2</code></td>
-                            <td className="py-3 px-4 font-mono text-indigo-700">Zhipu AI</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">200k tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.10 / $0.20</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">xAI Grok 4.6 &amp; Build</span><code className="text-[11px] font-mono text-zinc-800">grok-4.6, grok-build</code></td>
-                            <td className="py-3 px-4 font-mono text-zinc-800">xAI</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">256k tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$1.50 / $6.00</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Google Gemini 3.8 Flash</span><code className="text-[11px] font-mono text-blue-700">gemini-3.8-flash</code></td>
-                            <td className="py-3 px-4 font-mono text-blue-700">Google</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.25 / $1.00</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Alibaba Qwen 3.8 Max</span><code className="text-[11px] font-mono text-amber-800">qwen3.8-max</code></td>
-                            <td className="py-3 px-4 font-mono text-amber-800">Alibaba</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">256k tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$1.20 / $4.80</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">Moonshot Kimi K2.7 Code</span><code className="text-[11px] font-mono text-teal-700">kimi-k2.7-code</code></td>
-                            <td className="py-3 px-4 font-mono text-teal-700">Moonshot</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">256k tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.45 / $1.80</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 px-4"><span className="font-bold text-[#1c1917] block">MiniMax M3 Frontier</span><code className="text-[11px] font-mono text-rose-700">minimax-m3</code></td>
-                            <td className="py-3 px-4 font-mono text-rose-700">MiniMax</td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-700">1,000,000 tokens</td>
-                            <td className="py-3 px-4 font-mono text-[#1c1917]">$0.80 / $3.20</td>
-                            <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px]">Credits (7x), Local Tokens</span></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Prompt Caching & Cached Read Input Rates Table */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 font-mono">
-                    4. Prompt Caching &amp; Cached Read Rates (Up to 90% Savings)
-                  </h3>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    When sending prompts with repeated context (system prompts, repository indexes, documentation blocks), our gateway automatically recognizes cached tokens. Cached read requests are billed at substantially reduced input rates:
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs font-mono">
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="font-bold text-[#1c1917]">Anthropic Prompt Cache</span>
-                      <p className="text-[11px] text-[#57534e]">Haiku: $0.05 / 1M</p>
-                      <p className="text-[11px] text-[#57534e]">Sonnet: $0.75 / 1M</p>
-                      <p className="text-[11px] text-[#57534e]">Opus: $1.25 / 1M</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="font-bold text-[#1c1917]">OpenAI Prefix Cache</span>
-                      <p className="text-[11px] text-[#57534e]">GPT-5.6: $0.50 / 1M</p>
-                      <p className="text-[11px] text-[#57534e]">GPT-6 Terra: $0.75 / 1M</p>
-                      <p className="text-[11px] text-[#57534e]">GPT-6.1 Sol: $1.12 / 1M</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="font-bold text-[#1c1917]">DeepSeek Cache</span>
-                      <p className="text-[11px] text-[#57534e]">V4 Flash: $0.028 / 1M</p>
-                      <p className="text-[11px] text-[#57534e]">V4 Pro: $0.056 / 1M</p>
-                      <p className="text-[11px] text-[#57534e]">V3.2: $0.028 / 1M</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Long Context Handling (> 272k tokens) */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[#6d28d9]" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1c1917] font-mono">
-                      5. Long Context Tier Processing (&gt;272,000 Tokens)
-                    </h3>
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Models supporting 1,000,000 token context windows (<code className="font-mono text-[#1c1917]">claude-opus-5.5</code>, <code className="font-mono text-[#1c1917]">claude-sonnet-5.5</code>, <code className="font-mono text-[#1c1917]">gpt-6.1-sol</code>, <code className="font-mono text-[#1c1917]">gemini-3.8-flash</code>, <code className="font-mono text-[#1c1917]">minimax-m3</code>) handle massive codebases, multi-PDF audits, and historical logs without truncation. Requests exceeding 272,000 input tokens are processed continuously through our dedicated high-memory inference gateways.
+                  <p className="text-rose-800 leading-relaxed">
+                    <strong>Fix:</strong> Recharge your credit balance from the Plans page. Your key resumes instantly without editing your editor settings.
                   </p>
                 </div>
 
-                {/* Multimodal & Vector Endpoints */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6d28d9] font-mono">
-                    6. Multimodal Endpoints (Embeddings, Image, Video)
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="font-bold text-[#1c1917] font-mono">POST /api/v1/embeddings</span>
-                      <p className="text-[11px] text-[#57534e]">1536 &amp; 3072 dimension vectors for RAG and semantic search.</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="font-bold text-[#1c1917] font-mono">POST /api/v1/images/generations</span>
-                      <p className="text-[11px] text-[#57534e]">Lightning Image 1.5, gpt-image-2, grok-imagine-image up to 1792x1024.</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="font-bold text-[#1c1917] font-mono">POST /api/v1/videos/generations</span>
-                      <p className="text-[11px] text-[#57534e]">grok-imagine-video in 720p and 1080p with temporal consistency.</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 8: BILLING MODES & QUOTA ENGINES                    */}
-              {/* ----------------------------------------------------------- */}
-              <section id="quotas" className="mb-16 scroll-mt-24 space-y-6">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <RefreshCw className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 08</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">BILLING MODES &amp; QUOTA ENGINES</span>
-                </div>
-
-                <div className="space-y-2">
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                    How Quotas &amp; Replenishment Work Across All 3 Architectures
-                  </h2>
-                  <p className="text-xs sm:text-sm text-[#57534e] leading-relaxed">
-                    Compare how token deduction, rolling renewal, and credit balances operate mathematically.
+                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-1">
+                  <div className="font-bold text-purple-950 font-mono">HTTP 403 — Model Not Permitted on Current Plan</div>
+                  <p className="text-purple-900 leading-relaxed">
+                    <strong>Cause:</strong> The requested model is not authorized for your key's provisioned plan.
+                  </p>
+                  <p className="text-purple-800 leading-relaxed">
+                    <strong>Fix:</strong> In your editor settings, switch your model to one supported by your plan (e.g. Claude Sonnet 5.5 or GPT-4o), or upgrade to Universal access.
                   </p>
                 </div>
 
-                {/* 1. Rolling Window Detailed Explanation */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#6d28d9]">
-                    <RefreshCw className="w-4 h-4" />
-                    <span>1. 5-Hour Continuous Rolling Window (Claude Exclusive)</span>
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Unlike traditional monthly plans with hard cutoffs, LightningAPI implements an intelligent <strong className="text-[#1c1917]">5-hour continuous sliding window</strong>:
+                <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-1">
+                  <div className="font-bold text-sky-950 font-mono">HTTP 500 / 503 — Temporary Cluster Congestion</div>
+                  <p className="text-sky-900 leading-relaxed">
+                    <strong>Cause:</strong> Transient cluster traffic surge or network timeout.
                   </p>
-                  <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] font-mono text-xs text-[#6d28d9] font-bold">
-                    Quota Equation: WindowUsage(t) = ∑ Tokens[t - 5 hours &rarr; t]
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Each consumed token has a precise millisecond timestamp. Exactly 300 minutes (5 hours) after generation, those tokens roll completely out of the sum and return to your available headroom.
+                  <p className="text-sky-800 leading-relaxed">
+                    <strong>Fix:</strong> Retry in 3 to 5 seconds. Zero tokens are charged for failed attempts.
                   </p>
                 </div>
+              </div>
+            </article>
+          </section>
 
-                {/* 2. Usage Credits Detailed Explanation */}
-                <div className="p-5 rounded-2xl bg-gradient-to-r from-violet-900 via-indigo-900 to-purple-900 text-white shadow-md space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
-                      <Sparkles className="w-4 h-4" />
-                      <span>2. Usage Credits — 7x Purchasing Power Multiplier</span>
-                    </div>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-400 text-neutral-950">
-                      7X VALUE MULTIPLIER
-                    </span>
-                  </div>
-                  <p className="text-xs text-violet-200 leading-relaxed">
-                    Deposit funds in INR and unlock up to <strong>8.75x</strong> in API Credits (e.g. Pay ₹100 → Receive ₹700 API Credits, Pay ₹499 → Receive ₹3,850 API Credits, Pay ₹1,999 → Receive ₹16,000 API Credits, Pay ₹3,999 → Receive ₹35,000 API Credits).
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono pt-1">
-                    <div className="p-2.5 rounded-xl bg-white/10 border border-white/15">
-                      <span className="text-violet-300 block">Deduction Model:</span>
-                      <strong className="text-white">Atomic per-token</strong>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-white/10 border border-white/15">
-                      <span className="text-violet-300 block">Model Scope:</span>
-                      <strong className="text-white">Universal (Claude, OpenAI, Local)</strong>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-white/10 border border-white/15">
-                      <span className="text-violet-300 block">Expiration:</span>
-                      <strong className="text-amber-300">365 Days</strong>
-                    </div>
-                  </div>
-                </div>
+          {/* ============================================================== */}
+          {/* CHAPTER H: SECURITY & SUPPORT */}
+          {/* ============================================================== */}
+          <section id="sec-security-support" className="scroll-mt-24 space-y-8 pt-4 pb-12">
+            <div className="border-b border-[#ede8e1] pb-3">
+              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
+                Section H
+              </span>
+              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
+                Security & Support
+              </h2>
+            </div>
 
-                {/* 3. Token Packs Detailed Explanation */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
-                      <Coins className="w-4 h-4" />
-                      <span>3. Prepaid Consumable Tokens (No 5-Hour Resets)</span>
-                    </div>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                      FIXED CONSUMABLE QUOTA
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    A fixed allowance of 10M to 1B tokens that does <strong>NOT</strong> reset every 5 hours. Spend as fast or slow as needed over 365 full days. Ideal for bulk batch processing, evaluation suites, and project bursts.
-                  </p>
-                </div>
+            <article id="key-security" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <span>API Key Hygiene & Security Standards</span>
+              </h3>
+              <ul className="list-disc list-inside text-sm text-[#44403c] space-y-2 leading-relaxed">
+                <li>Never commit keys to public GitHub or GitLab repositories.</li>
+                <li>Store keys in local <code className="font-mono text-xs bg-stone-100 px-1 py-0.5 rounded">.env</code> files and add them to your <code className="font-mono text-xs bg-stone-100 px-1 py-0.5 rounded">.gitignore</code>.</li>
+                <li>If you suspect your key was compromised, immediately revoke it in your Customer Dashboard and generate a fresh key.</li>
+              </ul>
+            </article>
 
-                {/* Comprehensive Architecture Comparison Matrix */}
-                <div className="overflow-x-auto rounded-2xl border border-[#e7e5e4] bg-white shadow-xs">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-[#faf8f5] border-b border-[#e7e5e4] font-mono text-[11px] uppercase tracking-wider text-[#78716c]">
-                        <th className="p-3.5 font-bold">Architecture</th>
-                        <th className="p-3.5 font-bold">Primary Ecosystem</th>
-                        <th className="p-3.5 font-bold">Billing Mechanism</th>
-                        <th className="p-3.5 font-bold">Deduction Model</th>
-                        <th className="p-3.5 font-bold">Best Suited For</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#e7e5e4] text-[#57534e]">
-                      <tr className="hover:bg-[#fbf9f5] transition-colors">
-                        <td className="p-3.5 font-bold text-[#1c1917] flex items-center gap-2">
-                          <RefreshCw className="w-3.5 h-3.5 text-[#6d28d9]" />
-                          <span>5-Hour Rolling Pool</span>
-                        </td>
-                        <td className="p-3.5 font-medium text-[#6d28d9]">Claude Exclusive</td>
-                        <td className="p-3.5 font-mono">Sliding 300-min window refill</td>
-                        <td className="p-3.5 font-mono">Rolling sum with continuous aging</td>
-                        <td className="p-3.5">Full-time interactive coding (Cursor, Claude Code, Windsurf)</td>
-                      </tr>
-                      <tr className="hover:bg-[#fbf9f5] transition-colors">
-                        <td className="p-3.5 font-bold text-[#1c1917] flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                          <span>API Usage Credits</span>
-                        </td>
-                        <td className="p-3.5 font-medium text-emerald-700">Claude + OpenAI + Local</td>
-                        <td className="p-3.5 font-mono">Prepaid balance with 7x–8.75x value</td>
-                        <td className="p-3.5 font-mono">Atomic debit per request at published model rates</td>
-                        <td className="p-3.5">Multi-model workflows, variable load, budget stretch on lighter models</td>
-                      </tr>
-                      <tr className="hover:bg-[#fbf9f5] transition-colors">
-                        <td className="p-3.5 font-bold text-[#1c1917] flex items-center gap-2">
-                          <Coins className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Prepaid Token Packs</span>
-                        </td>
-                        <td className="p-3.5 font-medium text-[#1c1917]">Scoped by provider family</td>
-                        <td className="p-3.5 font-mono">Fixed consumable token allowance</td>
-                        <td className="p-3.5 font-mono">1:1 token balance decrement until zero</td>
-                        <td className="p-3.5">Predictable heavy model utilization (Opus, Sonnet, o1) without time limits</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Deep Dive: Credit Multiplier Economics */}
-                <div className="p-5 rounded-2xl bg-[#faf8f5] border border-[#e7e5e4] space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#1c1917]">
-                    <DollarSign className="w-4 h-4 text-[#6d28d9]" />
-                    <span>How the Credit Multiplier Delivers 85%+ Net Savings</span>
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    LightningAPI credit plans do not charge retail dollar-for-dollar. Instead, an operator purchasing power multiplier is applied immediately upon deposit. For example:
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
-                      <div className="font-bold text-[#1c1917]">Starter Tier (₹100 Retail)</div>
-                      <p className="text-[#57534e]">You pay ₹100 and receive <strong className="text-emerald-700">₹700 in API Credits</strong> (7.0x multiplier). Equivalent to an effective 85% discount on all Claude, OpenAI, and Local models.</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-white border border-[#e7e5e4] space-y-1">
-                      <div className="font-bold text-[#1c1917]">Scale Tier (₹3,999 Retail)</div>
-                      <p className="text-[#57534e]">You pay ₹3,999 and receive <strong className="text-emerald-700">₹35,000 in API Credits</strong> (8.75x multiplier). Unlocks maximum runway for large-scale production deployments.</p>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-[#78716c] leading-relaxed">
-                    Cheaper models stretch this budget exponentially: a model priced at standard wholesale rates allows tens of millions of prompt tokens from a nominal deposit.
-                  </p>
-                </div>
-
-                {/* Base URL & Protocol Matching */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#1c1917]">
-                    <Globe className="w-4 h-4 text-[#6d28d9]" />
-                    <span>Base URLs &amp; Protocol Matching</span>
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    Always configure your client with the correct base URL based on your plan type and client protocol:
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Rolling Pool &amp; Native Claude:</span>
-                      <code className="text-[#6d28d9] font-bold block text-xs">https://lightningapi.pro</code>
-                      <span className="text-[10px] text-[#78716c] block font-sans">Used with Claude Code CLI, Claude Desktop, and native Messages SDKs.</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">OpenAI &amp; Universal Credits:</span>
-                      <code className="text-emerald-700 font-bold block text-xs">https://lightningapi.pro/v1</code>
-                      <span className="text-[10px] text-[#78716c] block font-sans">Used with Cursor, Roo Code, Python OpenAI SDK, and LangChain.</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Token Packs (Native Claude):</span>
-                      <code className="text-[#6d28d9] font-bold block text-xs">https://lightningapi.pro/token</code>
-                      <span className="text-[10px] text-[#78716c] block font-sans">Appends /v1/messages automatically for native Anthropic protocol.</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#faf8f5] border border-[#e7e5e4] space-y-1">
-                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block font-bold">Token Packs (OpenAI &amp; Local):</span>
-                      <code className="text-emerald-700 font-bold block text-xs">https://lightningapi.pro/token/v1</code>
-                      <span className="text-[10px] text-[#78716c] block font-sans">Direct drop-in for OpenAI-compatible chat completions and reasoning.</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Renewal & Key Identity Rules */}
-                <div className="p-5 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#1c1917]">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Account Top-Ups &amp; Key Preservation</span>
-                  </div>
-                  <p className="text-xs text-[#57534e] leading-relaxed">
-                    When you top up or renew your account, your existing API key is preserved. New credits or token allowances are atomically credited to your existing key profile without requiring you to update configuration files or environment variables in your IDEs.
-                  </p>
-                </div>
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 9: ERRORS & TROUBLESHOOTING                         */}
-              {/* ----------------------------------------------------------- */}
-              <section id="errors" className="mb-16 scroll-mt-24 space-y-4">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <AlertTriangle className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 09</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">ERRORS &amp; TROUBLESHOOTING</span>
-                </div>
-
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  Status Codes, JSON Error Schemas &amp; Fixes
-                </h2>
-
-                <div className="space-y-4">
-                  {/* Error 401 */}
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-rose-600">401 Unauthorized</span>
-                      <span className="text-[10px] font-mono text-[#78716c]">authentication_error</span>
-                    </div>
-                    <p className="text-xs text-[#57534e]">
-                      Occurs when the <code className="font-mono text-[#1c1917]">x-api-key</code> or Bearer token is missing, expired, or invalid.
-                    </p>
-                    <CodeSnippetBlock
-                      language="json"
-                      code={`{
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key provided. Verify your key starts with sk_live_ or sk_trial_."
-  }
-}`}
-                    />
-                  </div>
-
-                  {/* Error 429 */}
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-amber-600">429 Rate Limit Exceeded</span>
-                      <span className="text-[10px] font-mono text-[#78716c]">rate_limit_error</span>
-                    </div>
-                    <p className="text-xs text-[#57534e]">
-                      Occurs when rolling window capacity is reached or credit balance is fully consumed. Usage automatically replenishes as consumed tokens age out of the 5-hour window.
-                    </p>
-                  </div>
-
-                  {/* Error 502 / 520 Upstream Vendor Recovery */}
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-violet-600">502 / 520 Upstream Service Notice</span>
-                      <span className="text-[10px] font-mono text-[#78716c]">upstream_vendor_error</span>
-                    </div>
-                    <p className="text-xs text-[#57534e]">
-                      Occurs if an upstream foundational AI provider experiences a transient incident. Failed requests are never deducted from your token capacity or credit balance. Our gateway maintains multi-supplier failover backbones to automatically recover traffic.
-                    </p>
-                  </div>
-
-                  {/* Latency & Extended Thinking Optimization Guide */}
-                  <div className="p-4 rounded-2xl bg-violet-50/70 border border-violet-200 shadow-xs space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-[#6d28d9]" />
-                      <span className="text-xs font-bold text-[#1c1917]">Latency Optimization &amp; Extended Thinking Advice</span>
-                    </div>
-                    <p className="text-xs text-[#57534e] leading-relaxed">
-                      Our Claude base TTFB is <strong>420ms to 620ms</strong>. If you experience response times around 10–12s in Claude Code CLI:
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 text-xs text-[#57534e] pl-1">
-                      <li><strong>Extended Thinking (<code className="font-mono text-[11px] text-[#1c1917]">xhigh</code>):</strong> In Claude Code CLI, setting thinking mode to <code className="font-mono text-[11px] text-[#1c1917]">xhigh</code> prompts the model to compute thousands of internal reasoning tokens before generating text. For rapid terminal edits, toggle thinking to normal or off via <code className="font-mono text-[11px]">/config</code>.</li>
-                      <li><strong>Use Claude Sonnet 5.5:</strong> Switch to Sonnet 5.5 for iterative terminal coding to achieve sub-2s response velocity.</li>
-                      <li><strong>Prompt Caching:</strong> Repeat queries in the same project automatically utilize prompt caching (<code className="font-mono text-[11px]">anthropic-beta: prompt-caching-2024-07-31</code>), bypassing token re-ingestion and reducing latency to &lt;2s.</li>
-                    </ul>
-                  </div>
-                </div>
-              </section>
-
-              <hr className="my-10 border-[#e7e5e4]" />
-
-              {/* ----------------------------------------------------------- */}
-              {/* SECTION 10: SUPPORT & DIAGNOSTICS                           */}
-              {/* ----------------------------------------------------------- */}
-              <section id="support" className="mb-16 scroll-mt-24 space-y-4">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#e7e5e4] shadow-xs text-xs font-mono font-medium text-[#57534e]">
-                  <LifeBuoy className="h-3.5 w-3.5 text-[#6d28d9]" />
-                  <span>SECTION 10</span>
-                  <span className="text-[#d6d3d1]">·</span>
-                  <span className="text-[#6d28d9] font-bold">SUPPORT &amp; DIAGNOSTICS</span>
-                </div>
-
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">
-                  Developer Support &amp; Key Verification
-                </h2>
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <h4 className="text-xs font-bold text-[#1c1917]">Official Contact Channels</h4>
-                    <ul className="space-y-1.5 text-xs text-[#57534e]">
-                      <li>
-                        <strong>Support Email:</strong>{' '}
-                        <a href="mailto:support@lightningapi.pro" className="text-[#6d28d9] underline">
-                          support@lightningapi.pro
-                        </a>
-                      </li>
-                      <li>
-                        <strong>Key Status Checker:</strong>{' '}
-                        <Link to="/check-key" className="text-[#6d28d9] underline">
-                          /check-key
-                        </Link>
-                      </li>
-                      <li>
-                        <strong>Platform Status:</strong>{' '}
-                        <Link to="/status" className="text-[#6d28d9] underline">
-                          /status
-                        </Link>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-white border border-[#e7e5e4] shadow-xs space-y-2">
-                    <h4 className="text-xs font-bold text-[#1c1917]">Safe Issue Reporting Rules</h4>
-                    <p className="text-xs text-[#57534e] leading-relaxed">
-                      To safeguard your account security, <strong className="text-rose-600">never share your full API key or proprietary source code</strong> in emails or support tickets.
-                    </p>
-                    <p className="text-[11px] text-[#78716c]">
-                      Please include only: (1) Masked key prefix (<code className="font-mono">sk_live_a1b2...</code>), (2) Timestamp, (3) Model ID, and (4) HTTP status code.
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-            </main>
-          </div>
-        </div>
+            <article id="contact-support" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
+              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
+                <LifeBuoy className="w-5 h-5 text-violet-600" />
+                <span>Engineering & Account Support</span>
+              </h3>
+              <p className="text-sm text-[#44403c] leading-relaxed">
+                Our engineering team is available 24/7. Reach out via email or submit a ticket from your dashboard:
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <a
+                  href="mailto:support@lightningapi.pro"
+                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-xs transition-colors"
+                >
+                  Email support@lightningapi.pro
+                </a>
+                <Link
+                  to="/check-key"
+                  className="px-4 py-2 rounded-xl border border-[#ede8e1] bg-white hover:bg-stone-50 text-[#1c1917] font-bold text-xs transition-colors"
+                >
+                  Verify Key Status
+                </Link>
+              </div>
+            </article>
+          </section>
+        </main>
       </div>
 
       <SiteFooter />

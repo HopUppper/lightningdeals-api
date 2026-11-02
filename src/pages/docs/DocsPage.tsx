@@ -11,6 +11,7 @@ import {
   Wrench,
   LifeBuoy,
   Copy,
+  Check,
   Check as CheckIcon,
   AlertTriangle,
   ChevronDown,
@@ -190,6 +191,13 @@ export const DocsPage: React.FC = () => {
     'sec-troubleshooting': false,
     'sec-security-support': false,
   });
+  const [copiedNpx, setCopiedNpx] = useState(false);
+
+  const handleCopyNpx = () => {
+    navigator.clipboard.writeText('npx lightningdeals');
+    setCopiedNpx(true);
+    setTimeout(() => setCopiedNpx(false), 2000);
+  };
 
   const isManualScrollingRef = useRef(false);
   const manualScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -460,6 +468,78 @@ export const DocsPage: React.FC = () => {
 
         {/* CENTRAL DOCUMENTATION CONTENT COLUMN */}
         <main className="flex-1 min-w-0 space-y-12">
+          {/* ============================================================== */}
+          {/* 1-COMMAND QUICK CONFIGURATION HIGHLIGHT (NPX LIGHTNINGDEALS)   */}
+          {/* ============================================================== */}
+          <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-violet-900 via-indigo-950 to-zinc-950 text-white border border-violet-700/60 shadow-lg relative overflow-hidden space-y-4">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+            
+            <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 text-violet-200 text-xs font-bold border border-violet-400/40">
+                <Terminal className="w-3.5 h-3.5 text-violet-300" />
+                <span>Instant 1-Command Configuration</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
+                <span className="inline-flex items-center gap-1.5 text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Windows PowerShell · macOS Terminal · Linux Bash</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 relative z-10 text-left">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex flex-wrap items-center gap-2">
+                <span>Configure Everything in 1 Command:</span>
+                <span className="text-emerald-400 font-mono text-lg sm:text-xl">npx lightningdeals</span>
+              </h2>
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-3xl">
+                Skip manual JSON editing! Run <code className="font-mono font-bold text-violet-200 bg-violet-900/60 px-1.5 py-0.5 rounded border border-violet-700/50">npx lightningdeals</code> in your terminal or PowerShell. The interactive CLI installer auto-detects your editors (Cursor, Claude Code, Codex, VS Code), creates configuration backups, injects your API key, sets endpoints, and tests connectivity in seconds.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/60 border border-zinc-800 backdrop-blur-md relative z-10 font-mono text-xs">
+              <div className="flex items-center gap-2 text-zinc-300 overflow-x-auto">
+                <span className="text-violet-400 font-bold select-none">$</span>
+                <span className="text-emerald-400 font-bold text-sm sm:text-base select-all tracking-wide">npx lightningdeals</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCopyNpx}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-sans text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title="Copy 1-command installer"
+                >
+                  {copiedNpx ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Copied to Clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Command</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-1 text-[11.5px] text-zinc-400 relative z-10">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Zero manual JSON editing</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Auto config file backups</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Immediate connection test</span>
+              </span>
+            </div>
+          </div>
+
           {/* ============================================================== */}
           {/* CHAPTER C: INTERACTIVE SETUP WIZARD (EMBEDDED HERO FEATURE) */}
           {/* ============================================================== */}

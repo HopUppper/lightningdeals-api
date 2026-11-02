@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowRight, CheckCircle2, Terminal, Copy, Check, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface IntegrationItem {
@@ -9,9 +9,19 @@ interface IntegrationItem {
   howToConnect: string;
   status: 'Verified';
   notes: string;
+  isFeatured?: boolean;
 }
 
 const VERIFIED_INTEGRATIONS: IntegrationItem[] = [
+  {
+    name: 'Lightningdeals CLI (1-Command Setup)',
+    category: 'Official Universal Installer',
+    protocol: 'Automated Environment & IDE Configuration',
+    howToConnect: 'npx lightningdeals',
+    status: 'Verified',
+    notes: 'Configures Claude Code, Cursor, Codex, and VS Code automatically. Creates backups and tests connectivity.',
+    isFeatured: true,
+  },
   {
     name: 'Anthropic Official SDKs',
     category: 'TypeScript & Python',
@@ -24,7 +34,7 @@ const VERIFIED_INTEGRATIONS: IntegrationItem[] = [
     name: 'OpenAI Official SDKs',
     category: 'Python & Node.js',
     protocol: 'base_url parameter',
-    howToConnect: "OpenAI(base_url='https://lightningapi.pro/v1', api_key='sk_live_...')",
+    howToConnect: "OpenAI(base_url='https://lightningapi.pro/v1', api_key='ld_live_...')",
     status: 'Verified',
     notes: 'Direct compatibility for chat completions, reasoning tokens (o1, o3-mini), and tool calling.',
   },
@@ -34,7 +44,7 @@ const VERIFIED_INTEGRATIONS: IntegrationItem[] = [
     protocol: 'Environment variables',
     howToConnect: 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"',
     status: 'Verified',
-    notes: 'Runs natively with your sk_live_ key set as ANTHROPIC_API_KEY.',
+    notes: 'Runs natively with your ld_live_ key set as ANTHROPIC_API_KEY.',
   },
   {
     name: 'Cursor & Windsurf IDEs',
@@ -52,17 +62,16 @@ const VERIFIED_INTEGRATIONS: IntegrationItem[] = [
     status: 'Verified',
     notes: 'Compatible with any language that can make an HTTPS POST request.',
   },
-  {
-    name: 'Lightningdeals CLI',
-    category: 'Official Developer Tool',
-    protocol: 'Automated configuration',
-    howToConnect: 'Run npx lightningdeals in your terminal',
-    status: 'Verified',
-    notes: 'Configures your local environment, tests connectivity, and verifies key quota.',
-  },
 ];
 
 export const CompatibilitySection: React.FC = () => {
+  const [copiedCli, setCopiedCli] = useState(false);
+
+  const handleCopyCli = () => {
+    navigator.clipboard.writeText('npx lightningdeals');
+    setCopiedCli(true);
+    setTimeout(() => setCopiedCli(false), 2000);
+  };
   return (
     <section className="relative py-16 sm:py-24 bg-[#fafaf9] text-zinc-950 font-sans overflow-hidden border-b border-zinc-200">
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -95,21 +104,68 @@ export const CompatibilitySection: React.FC = () => {
           </Link>
         </div>
 
+        {/* 1-Command Universal Configuration Banner */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-violet-900 via-indigo-900 to-zinc-950 text-white border border-violet-700/50 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-2xl text-left">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-violet-500/20 text-violet-200 text-[11px] font-bold border border-violet-400/30">
+              <Sparkles className="w-3.5 h-3.5 text-violet-300" />
+              <span>Recommended Setup · Zero Manual Configuration</span>
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              Configure Everything in 1 Single Command
+            </h3>
+            <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+              Run <code className="text-violet-300 font-mono font-bold bg-violet-950/60 px-1.5 py-0.5 rounded border border-violet-700/40">npx lightningdeals</code> in your terminal or PowerShell. It auto-detects your installed AI editors (Cursor, Claude Code, Codex, VS Code), backs up configurations, sets base URLs, and verifies your key instantly.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 bg-zinc-900/90 border border-violet-500/40 p-2.5 rounded-xl shrink-0 shadow-inner">
+            <div className="font-mono text-xs flex items-center gap-1.5 px-2">
+              <span className="text-violet-400 select-none">$</span>
+              <span className="text-emerald-400 font-bold select-all">npx lightningdeals</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyCli}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              title="Copy 1-command setup"
+            >
+              {copiedCli ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Integration Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {VERIFIED_INTEGRATIONS.map((item) => (
             <div
               key={item.name}
-              className="p-6 rounded-2xl bg-white border border-zinc-200 shadow-xs flex flex-col justify-between space-y-4 hover:border-zinc-300 transition-colors"
+              className={`p-6 rounded-2xl shadow-xs flex flex-col justify-between space-y-4 transition-colors ${
+                item.isFeatured
+                  ? 'bg-violet-50/50 border-2 border-violet-400 shadow-sm hover:border-violet-500'
+                  : 'bg-white border border-zinc-200 hover:border-zinc-300'
+              }`}
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono font-medium text-zinc-500 uppercase">
+                  <span className={`text-[11px] font-mono font-bold uppercase ${item.isFeatured ? 'text-violet-700' : 'text-zinc-500'}`}>
                     {item.category}
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>{item.status}</span>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                    item.isFeatured ? 'bg-violet-100 text-violet-800 border-violet-300 font-bold' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  }`}>
+                    <CheckCircle2 className={`w-3 h-3 ${item.isFeatured ? 'text-violet-700' : 'text-emerald-600'}`} />
+                    <span>{item.isFeatured ? '1-Command' : item.status}</span>
                   </span>
                 </div>
 
@@ -117,9 +173,11 @@ export const CompatibilitySection: React.FC = () => {
                 <p className="text-xs text-zinc-600 leading-relaxed">{item.notes}</p>
               </div>
 
-              <div className="pt-3 border-t border-zinc-100 font-mono text-[11px] text-zinc-600 bg-zinc-50 p-2.5 rounded-lg border border-zinc-200/80 truncate">
+              <div className={`pt-3 border-t font-mono text-[11px] p-2.5 rounded-lg border truncate ${
+                item.isFeatured ? 'bg-zinc-950 text-emerald-400 border-zinc-800 font-bold' : 'bg-zinc-50 text-zinc-600 border-zinc-200/80'
+              }`}>
                 <span className="text-zinc-400 select-none">$ </span>
-                <span className="select-all font-medium text-zinc-900">{item.howToConnect}</span>
+                <span className="select-all font-medium">{item.howToConnect}</span>
               </div>
             </div>
           ))}

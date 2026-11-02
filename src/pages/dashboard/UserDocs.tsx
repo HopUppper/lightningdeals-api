@@ -206,6 +206,54 @@ console.log(completion.choices[0].message.content);`;
         </Link>
       </div>
 
+      {/* 1-Command Universal Configuration Banner */}
+      <div className="p-6 rounded-3xl bg-gradient-to-br from-violet-900 via-indigo-950 to-zinc-950 text-white border border-violet-700/60 shadow-lg relative overflow-hidden space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 text-violet-200 text-xs font-bold border border-violet-400/40">
+            <Terminal className="w-3.5 h-3.5 text-violet-300" />
+            <span>1-Command Auto Configuration</span>
+          </div>
+          <div className="text-[11px] font-mono text-emerald-400">
+            Windows PowerShell · macOS Terminal · Linux Bash
+          </div>
+        </div>
+
+        <div className="space-y-1.5 relative z-10 text-left">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex flex-wrap items-center gap-2">
+            <span>Configure Everything in 1 Command:</span>
+            <span className="text-emerald-400 font-mono text-lg sm:text-xl">npx lightningdeals</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-3xl">
+            Automatically detect your installed AI tools (Claude Code, Cursor, Codex, VS Code), back up configurations, inject your personal API key, and test connectivity in seconds:
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/60 border border-zinc-800 font-mono text-xs relative z-10">
+          <div className="flex items-center gap-2 text-zinc-300">
+            <span className="text-violet-400 font-bold select-none">$</span>
+            <span className="text-emerald-400 font-bold text-sm sm:text-base select-all">npx lightningdeals</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => copyCode('npx lightningdeals', 'npx-hero')}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-sans text-xs font-bold transition-all shadow-xs cursor-pointer"
+            title="Copy 1-command installer"
+          >
+            {copiedId === 'npx-hero' ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-300" />
+                <span>Copied to Clipboard!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy Command</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Interactive Setup Wizard */}
       <SetupWizard />
 

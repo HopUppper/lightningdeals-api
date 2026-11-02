@@ -49,6 +49,7 @@ export const SetupWizard: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<string>('claude-sonnet-5.5');
   const [apiKeyInput, setApiKeyInput] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [copiedCli, setCopiedCli] = useState(false);
 
   const activeApp = APPS.find((a) => a.id === selectedApp) || APPS[0];
   const userKey = apiKeyInput.trim() || 'ld_live_your_api_key_here';
@@ -343,6 +344,42 @@ main();`;
         <p className="text-xs sm:text-sm text-[#64607d] max-w-2xl leading-relaxed">
           Select your tool, operating system, and plan. The assistant generates the exact file paths and validated configurations tailored for your environment.
         </p>
+      </div>
+
+      {/* 1-Command Automatic Setup Callout */}
+      <div className="mx-6 mt-6 p-4 rounded-2xl bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Terminal className="w-4 h-4" />
+          </div>
+          <div className="text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-violet-950">Prefer 1-Command Automatic Setup?</span>
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-violet-200/60 text-violet-800">
+                Terminal / PowerShell
+              </span>
+            </div>
+            <p className="text-[11.5px] text-zinc-600 mt-0.5">
+              Run <code className="font-mono font-bold text-violet-900 bg-white px-1.5 py-0.5 rounded border border-violet-200">npx lightningdeals</code> to auto-configure Cursor, Claude Code, Codex, and environment variables.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 bg-zinc-950 text-white font-mono text-xs px-3 py-1.5 rounded-xl shrink-0 border border-zinc-800 shadow-inner">
+          <span className="text-emerald-400 font-bold select-all">npx lightningdeals</span>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText('npx lightningdeals');
+              setCopiedCli(true);
+              setTimeout(() => setCopiedCli(false), 2000);
+            }}
+            className="text-zinc-400 hover:text-white transition-colors cursor-pointer pl-1"
+            title="Copy 1-command installer"
+          >
+            {copiedCli ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+        </div>
       </div>
 
       <div className="p-6 space-y-6">

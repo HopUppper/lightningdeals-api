@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 
 export const EditorialHero: React.FC = () => {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'cursor' | 'claude_cli' | 'python' | 'curl'>('cursor');
+  const [copiedCli, setCopiedCli] = useState(false);
+  const [activeTab, setActiveTab] = useState<'cli' | 'cursor' | 'claude_cli' | 'python' | 'curl'>('cli');
   const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyEndpoint = () => {
@@ -13,7 +14,22 @@ export const EditorialHero: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyCli = () => {
+    navigator.clipboard.writeText('npx lightningdeals');
+    setCopiedCli(true);
+    setTimeout(() => setCopiedCli(false), 2000);
+  };
+
   const codeSnippets: Record<string, { title: string; filename: string; code: string }> = {
+    cli: {
+      title: '⭐ 1-Command Setup',
+      filename: 'PowerShell / Terminal',
+      code: `# Configure everything in 1 command (Windows, macOS & Linux):
+npx lightningdeals
+
+# Auto-detects Cursor, Claude Code, Codex, VS Code & Continue
+# Injects API key, sets custom base URLs, and runs health verification!`,
+    },
     cursor: {
       title: 'VS Code & Cursor',
       filename: 'Settings > Models > Custom OpenAI / Anthropic',
@@ -22,7 +38,7 @@ export const EditorialHero: React.FC = () => {
 Base URL: https://lightningapi.pro
 
 // 3. Set API Key:
-API Key:  sk_live_your_key_here
+API Key:  ld_live_your_key_here
 
 // 4. Enable any supported model:
 // claude-sonnet-5.5, claude-opus-5.5, gpt-4o, o3-mini, deepseek-v3`,
@@ -32,7 +48,7 @@ API Key:  sk_live_your_key_here
       filename: '~/.bashrc or terminal',
       code: `# Use Claude Code CLI with up to 80% lower cost
 export ANTHROPIC_BASE_URL="https://lightningapi.pro"
-export ANTHROPIC_API_KEY="sk_live_your_key_here"
+export ANTHROPIC_API_KEY="ld_live_your_key_here"
 
 # Start coding instantly
 claude`,
@@ -44,7 +60,7 @@ claude`,
 
 client = OpenAI(
     base_url="https://lightningapi.pro/v1",
-    api_key="sk_live_your_key_here"
+    api_key="ld_live_your_key_here"
 )
 
 response = client.chat.completions.create(
@@ -57,7 +73,7 @@ print(response.choices[0].message.content)`,
       title: 'cURL / REST API',
       filename: 'terminal',
       code: `curl https://lightningapi.pro/v1/chat/completions \\
-  -H "Authorization: Bearer sk_live_your_key_here" \\
+  -H "Authorization: Bearer ld_live_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "claude-sonnet-5.5",
@@ -149,9 +165,49 @@ print(response.choices[0].message.content)`,
               </Link>
             </div>
 
-            {/* Quick Ingress Copy Pill */}
-            <div className="pt-2 max-w-md">
-              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-zinc-200 shadow-2xs font-mono text-xs">
+            {/* 1-Command Setup Callout */}
+            <div className="pt-2 max-w-lg space-y-2.5">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-violet-50/90 via-purple-50/80 to-white border border-violet-200/90 shadow-xs space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-950">
+                    <Terminal className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>Configure in 1 Command</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-violet-700 bg-violet-200/60 px-2 py-0.5 rounded font-semibold">
+                    Terminal / PowerShell
+                  </span>
+                </div>
+                <p className="text-[11.5px] text-zinc-600 leading-snug">
+                  Auto-configures Claude Code, Cursor, Codex, VS Code &amp; environment variables:
+                </p>
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-zinc-950 text-white font-mono text-xs border border-zinc-800 shadow-inner">
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="text-violet-400 font-bold select-none">$</span>
+                    <span className="text-emerald-400 font-bold text-xs sm:text-sm truncate select-all">npx lightningdeals</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyCli}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-sans text-[11px] font-bold transition-colors shrink-0 cursor-pointer"
+                    title="Copy 1-command installer"
+                  >
+                    {copiedCli ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Ingress Copy Pill */}
+              <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-white border border-zinc-200 shadow-2xs font-mono text-xs">
                 <div className="flex items-center gap-2 truncate">
                   <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
                   <span className="text-zinc-500 font-semibold">BASE URL:</span>
@@ -217,7 +273,7 @@ print(response.choices[0].message.content)`,
 
               {/* Client Selector Tabs */}
               <div className="flex border-b border-zinc-800 bg-zinc-900/60 overflow-x-auto text-[11px]">
-                {(['cursor', 'claude_cli', 'python', 'curl'] as const).map((tab) => (
+                {(['cli', 'cursor', 'claude_cli', 'python', 'curl'] as const).map((tab) => (
                   <button
                     key={tab}
                     type="button"

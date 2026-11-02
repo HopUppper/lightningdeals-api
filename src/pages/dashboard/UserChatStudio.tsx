@@ -26,6 +26,7 @@ import {
   Terminal,
   Activity,
   ChevronDown,
+  ChevronRight,
   Layers,
   Search,
   ExternalLink,
@@ -64,10 +65,13 @@ import {
   Info,
   MoreHorizontal,
   MoreVertical,
+  MessageSquare,
+  Monitor,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { userFetch, getAuthHeaders } from '../../utils/api';
 import { MarkdownBlock } from '../../components/chat/MarkdownBlock';
+import { StudioDocumentWorkspace } from '../../components/chat/StudioDocumentWorkspace';
 import { ArtifactCanvas, ArtifactData } from '../../components/chat/ArtifactCanvas';
 import { ContextManagerDrawer, ProjectMemoryItem } from '../../components/chat/ContextManagerDrawer';
 import { WorkspaceSkillsModal } from '../../components/chat/WorkspaceSkillsModal';
@@ -716,6 +720,13 @@ export const UserChatStudio: React.FC = () => {
   const [isDocGenOpen, setIsDocGenOpen] = useState(false);
   const [isMediaGenOpen, setIsMediaGenOpen] = useState(false);
   const [sidebarSection, setSidebarSection] = useState<'workspace' | 'library'>('workspace');
+
+  // Unified 3-Workspace Architecture: 'chat' | 'document' | 'builder'
+  const [workspaceMode, setWorkspaceMode] = useState<'chat' | 'document' | 'builder'>('chat');
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
+  const [quotaPopoverOpen, setQuotaPopoverOpen] = useState(false);
+  const [sidebarView, setSidebarView] = useState<'chats' | 'documents' | 'projects'>('chats');
+  const [mobileDocTab, setMobileDocTab] = useState<'chat' | 'document'>('document');
 
   // Upgrade Modal
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -1633,7 +1644,25 @@ export const UserChatStudio: React.FC = () => {
     }
 
     return { pinned, today, yesterday, previous7Days, older };
-  }, [threads, threadSearch]);
+  }, [threads, threadSearch, archiveView, selectedProjectId, sidebarView]);
+
+  // Active document resolution for dedicated Document Workspace
+  const activeDocumentMessage = useMemo(() => {
+    if (activeDocumentId) {
+      const found = activeThread.messages.find((m) => m.id === activeDocumentId);
+      if (found) return found;
+    }
+    const assistantMsgs = activeThread.messages.filter((m) => m.role === 'assistant' && m.content);
+    return assistantMsgs[assistantMsgs.length - 1] || null;
+  }, [activeThread.messages, activeDocumentId]);
+
+  const activeDocumentContent = activeDocumentMessage?.content || '';
+  const activeDocumentTitle = useMemo(() => {
+    if (!activeDocumentContent) return activeThread.title || 'Untitled Document';
+    const match = activeDocumentContent.match(/^#+\s+(.+)$/m);
+    if (match) return match[1].replace(/[*_`]/g, '').trim();
+    return activeThread.title || 'Untitled Document';
+  }, [activeDocumentContent, activeThread.title]);
 
   // Text to Speech
   const handleToggleSpeak = (msgId: string, text: string) => {
@@ -2785,21 +2814,60 @@ export const UserChatStudio: React.FC = () => {
 
         {/* Right: Model Selector Pill, Context Meter, API Key Pill, Tools Menu ▾, Theme Toggle */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Mode Switcher: Chat vs Website Builder */}
-          <div className="hidden lg:flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-xl border border-black/10 dark:border-white/10 text-xs font-semibold">
-            <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 shadow-2xs flex items-center gap-1.5">
+          {/* Segmented Workspace Switcher: Chat | Document | Builder */}
+          <div className="flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-xl border border-black/10 dark:border-white/10 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setWorkspaceMode('chat')}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                workspaceMode === 'chat'
+                  ? 'bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Chat Workspace (General conversations & code)"
+            >
               <Bot className="w-3.5 h-3.5" />
-              <span>Chat</span>
-            </span>
-            <Link
-              to="/dashboard/builder"
-              className="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition-colors"
-              title="Open AI Website & App Builder"
+              <span className="hidden sm:inline">Chat</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkspaceMode('document')}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                workspaceMode === 'document'
+                  ? 'bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Document Workspace (Dedicated SRS, reports & Word/PDF canvas)"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Document</span>
+              {activeDocumentContent && (
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkspaceMode('builder')}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                workspaceMode === 'builder'
+                  ? 'bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="AI Website & App Builder Workspace"
             >
               <Globe className="w-3.5 h-3.5 text-violet-500" />
-              <span>Builder</span>
-            </Link>
+              <span className="hidden sm:inline">Builder</span>
+            </button>
           </div>
+
+          {/* Active Generation State Indicator (Only displays when request is active) */}
+          {generating && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-600 dark:text-violet-400 font-mono text-[11px] font-semibold animate-pulse shrink-0">
+              <Loader2 className="w-3 h-3 animate-spin text-violet-500" />
+              <span className="hidden sm:inline">Generating</span>
+              <span>({Math.round(elapsedMs / 1000)}s)</span>
+            </div>
+          )}
 
           {/* Model Selector Pill */}
           <button
@@ -2813,7 +2881,7 @@ export const UserChatStudio: React.FC = () => {
             title="Change AI model & inspect capabilities"
           >
             <Sparkles className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-violet-400' : 'text-violet-700'}`} />
-            <span className="truncate max-w-[120px] sm:max-w-none">{getModelDisplayName(activeThread.model)}</span>
+            <span className="truncate max-w-[110px] sm:max-w-none">{getModelDisplayName(activeThread.model)}</span>
             {activeModelMeta?.supportsThinking && (
               <span className={`hidden xl:inline text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${
                 isDark
@@ -2826,53 +2894,109 @@ export const UserChatStudio: React.FC = () => {
             <ChevronDown className="w-3 h-3 opacity-60 ml-0.5" />
           </button>
 
-          {/* Context Meter Gauge */}
-          <div
-            className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono ${c.pillBg}`}
-            title={`Context Window: ${threadTokenStats.totalContextTokens.toLocaleString()} of ${threadTokenStats.contextLimit.toLocaleString()} tokens (${threadTokenStats.contextPercent}%)`}
-          >
-            <div className="w-10 sm:w-14 h-1.5 rounded-full bg-black/20 dark:bg-white/10 overflow-hidden">
-              <div
-                className={`h-full transition-all ${
-                  threadTokenStats.contextPercent > 80
-                    ? 'bg-rose-500'
-                    : threadTokenStats.contextPercent > 50
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-400'
-                }`}
-                style={{ width: `${Math.max(4, Math.min(100, threadTokenStats.contextPercent))}%` }}
-              />
-            </div>
-            <span className={threadTokenStats.contextPercent > 80 ? 'text-rose-400 font-bold' : c.textSecondary}>
-              {threadTokenStats.contextPercent}%
-            </span>
-          </div>
+          {/* Compact Quota & Account Popover Pill */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setQuotaPopoverOpen(!quotaPopoverOpen)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer shadow-2xs ${
+                isKeyDepleted
+                  ? isDark
+                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
+                    : 'bg-rose-100 border-rose-300 text-rose-900 hover:bg-rose-200 font-bold'
+                  : isDark
+                  ? 'bg-emerald-950/30 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/50'
+                  : 'bg-emerald-100/80 text-emerald-950 border-emerald-300 hover:bg-emerald-200/80 font-bold'
+              }`}
+              title="Click to view live usage, quota & key breakdown"
+            >
+              <Zap className="w-3 h-3 text-emerald-500 shrink-0" />
+              <span className="font-bold text-[11px]">
+                {activeKeyPlanCategory === 'credit'
+                  ? `${activeCreditBalance.toFixed(2)}`
+                  : activeKeyPlanCategory === 'window'
+                  ? `${remainingQuotaDisplay} / 5h`
+                  : `${remainingQuotaDisplay}`}
+              </span>
+              <ChevronDown className={`w-2.5 h-2.5 opacity-60 transition-transform ${quotaPopoverOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-          {/* API Key Selector Pill */}
-          <button
-            type="button"
-            onClick={() => setKeyPickerOpen(true)}
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer ${
-              isKeyDepleted
-                ? isDark
-                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
-                  : 'bg-rose-100 border-rose-300 text-rose-900 hover:bg-rose-200 font-bold'
-                : isDark
-                ? 'bg-emerald-950/30 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/50'
-                : 'bg-emerald-100/80 text-emerald-950 border-emerald-300 hover:bg-emerald-200/80 font-bold'
-            }`}
-            title={`Active API key: ${activeKey?.name || 'API Key'} (${activeKeyPlanCategory === 'credit' ? 'USD Credit Wallet' : activeKeyPlanCategory === 'window' ? '5h Rolling Window' : 'Consumable Token Pack'})`}
-          >
-            <Key className="w-3 h-3 opacity-80" />
-            <span className="font-sans font-semibold max-w-[80px] truncate text-[11px]">
-              {keys.length === 0 ? 'No Key' : activeKey?.name || activeKey?.displayKey || 'API Key'}
-            </span>
-            <span className="opacity-40">|</span>
-            <span className="font-bold text-[11px]">
-              {remainingQuotaDisplay}
-              {activeKeyPlanCategory === 'window' && Number(remainingTokens) > 0 ? ' / 5h' : ''}
-            </span>
-          </button>
+            {/* Transparent Account & Quota Popover */}
+            {quotaPopoverOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setQuotaPopoverOpen(false)} />
+                <div className={`absolute right-0 mt-2 z-40 w-72 rounded-2xl border shadow-2xl p-3.5 space-y-3 ${c.cardBg} ${c.border} animate-fadeIn`}>
+                  <div className="flex items-center justify-between pb-2 border-b border-black/5 dark:border-white/5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
+                        <Zap className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs">
+                          {activeKeyPlanCategory === 'credit'
+                            ? 'Prepaid Credit Wallet'
+                            : activeKeyPlanCategory === 'window'
+                            ? '5-Hour Rolling Window'
+                            : 'Consumable Token Pack'}
+                        </h4>
+                        <p className={`text-[10px] ${c.textMuted}`}>Live Account Quota</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setQuotaPopoverOpen(false)}
+                      className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 text-slate-400"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className={`p-2.5 rounded-xl border ${c.pillBg} space-y-1`}>
+                    <div className="text-[10px] font-sans text-slate-400">Available Balance</div>
+                    <div className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                      {activeKeyPlanCategory === 'credit'
+                        ? `${activeCreditBalance.toFixed(2)} USD credits`
+                        : activeKeyPlanCategory === 'window'
+                        ? `${remainingQuotaDisplay} tokens / 5h`
+                        : `${remainingQuotaDisplay} tokens remaining`}
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-500 truncate">
+                      Key: {activeKey?.name || 'Default Key'} ({activeKey?.displayKey || activeKey?.id?.slice(0, 8)})
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuotaPopoverOpen(false);
+                        setKeyPickerOpen(true);
+                      }}
+                      className="w-full py-1.5 px-2.5 rounded-xl border bg-black/5 dark:bg-white/5 hover:bg-violet-500/10 hover:border-violet-500/30 text-violet-600 dark:text-violet-400 font-semibold flex items-center justify-between transition-colors cursor-pointer text-xs"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5" />
+                        <span>Switch API Key</span>
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                    </button>
+
+                    <Link
+                      to="/dashboard/plan"
+                      onClick={() => setQuotaPopoverOpen(false)}
+                      className="w-full py-1.5 px-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold flex items-center justify-between transition-colors shadow-2xs text-xs"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Recharge / Upgrade Plan</span>
+                      </span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Consolidated Tools Menu ▾ */}
           <div className="relative">
@@ -3367,43 +3491,65 @@ export const UserChatStudio: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. WORKSPACE & LIBRARY SECTION */}
+            {/* 2. NAVIGATION SEGMENT (Chats / Documents / Projects) */}
             <div className="p-2.5 border-b border-black/5 dark:border-white/5 shrink-0 space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
-                  <FolderKanban className="w-3 h-3 text-violet-500" />
-                  <span>Workspace</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setArchiveView(false);
-                      setSidebarSection('workspace');
-                    }}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
-                      !archiveView
-                        ? 'bg-violet-600 text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 font-semibold'
-                    }`}
-                  >
-                    Active
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setArchiveView(true);
-                      setSidebarSection('library');
-                    }}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
-                      archiveView
-                        ? 'bg-violet-600 text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 font-semibold'
-                    }`}
-                  >
-                    Library ({threads.filter((t) => t.archived).length})
-                  </button>
-                </div>
+              <div className="flex items-center bg-black/5 dark:bg-white/5 p-0.5 rounded-xl text-[11px] font-semibold border border-black/5 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSidebarView('chats');
+                    setArchiveView(false);
+                  }}
+                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    sidebarView === 'chats' && !archiveView
+                      ? 'bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Chats
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSidebarView('documents');
+                    setArchiveView(false);
+                  }}
+                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    sidebarView === 'documents' && !archiveView
+                      ? 'bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Docs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSidebarView('projects');
+                    setArchiveView(false);
+                  }}
+                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    sidebarView === 'projects' && !archiveView
+                      ? 'bg-white dark:bg-slate-800 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Projects
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setArchiveView(!archiveView);
+                  }}
+                  className={`px-1.5 py-1 rounded-lg transition-all text-center cursor-pointer ${
+                    archiveView
+                      ? 'bg-violet-600 text-white shadow-2xs font-bold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Archived Conversations"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               {/* Search Bar */}
@@ -3650,8 +3796,184 @@ export const UserChatStudio: React.FC = () => {
           </>
         )}
 
-        {/* Center: Main Conversational Column */}
-        <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden relative min-w-0">
+        {/* Collapsed Icon Rail for Desktop (When sidebarOpen is false) */}
+        {!sidebarOpen && (
+          <aside className={`hidden md:flex flex-col items-center py-3 w-14 border-r shrink-0 ${c.sidebarBorder} ${c.sidebarBg} space-y-3.5 select-none z-10`}>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${c.pillBg}`}
+              title="Expand Sidebar"
+            >
+              <PanelLeft className="w-4 h-4 text-violet-400" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleCreateNewThread()}
+              className="p-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-2xs cursor-pointer transition-all"
+              title="New Chat"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+
+            <div className="w-6 border-t border-black/5 dark:border-white/5 my-1" />
+
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarView('chats');
+                setSidebarOpen(true);
+              }}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                sidebarView === 'chats' ? 'bg-violet-600/10 border-violet-500/30 text-violet-600 dark:text-violet-400' : c.pillBg
+              }`}
+              title="Chats"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarView('documents');
+                setSidebarOpen(true);
+              }}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                sidebarView === 'documents' ? 'bg-violet-600/10 border-violet-500/30 text-violet-600 dark:text-violet-400' : c.pillBg
+              }`}
+              title="Documents"
+            >
+              <FileText className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarView('projects');
+                setSidebarOpen(true);
+              }}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                sidebarView === 'projects' ? 'bg-violet-600/10 border-violet-500/30 text-violet-600 dark:text-violet-400' : c.pillBg
+              }`}
+              title="Projects"
+            >
+              <Folder className="w-4 h-4" />
+            </button>
+
+            <div className="flex-1" />
+
+            <button
+              type="button"
+              onClick={() => setKeyPickerOpen(true)}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${c.pillBg}`}
+              title="API Keys"
+            >
+              <Key className="w-4 h-4 text-violet-400" />
+            </button>
+          </aside>
+        )}
+
+        {/* Mobile Tab Switcher when in Document Workspace Mode */}
+        {workspaceMode === 'document' && (
+          <div className="lg:hidden absolute top-0 inset-x-0 z-20 flex items-center justify-around border-b border-black/10 dark:border-white/10 p-1.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setMobileDocTab('chat')}
+              className={`flex-1 py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                mobileDocTab === 'chat' ? 'bg-violet-600 text-white shadow-xs font-bold' : 'text-slate-500'
+              }`}
+            >
+              <Bot className="w-3.5 h-3.5" />
+              <span>Prompt & Instructions</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileDocTab('document')}
+              className={`flex-1 py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                mobileDocTab === 'document' ? 'bg-violet-600 text-white shadow-xs font-bold' : 'text-slate-500'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Document Canvas</span>
+            </button>
+          </div>
+        )}
+
+        {/* Builder Mode Full View */}
+        {workspaceMode === 'builder' && (
+          <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-10 flex flex-col items-center justify-center text-center space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-violet-500/25">
+              <Globe className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2 max-w-xl mx-auto">
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                AI Website & Application Studio
+              </h2>
+              <p className={`text-sm leading-relaxed ${c.textMuted}`}>
+                Generate responsive web apps, SaaS dashboards, and production landing pages with live sandboxed preview, multi-file code tree, and validated ZIP exports.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Link
+                to="/dashboard/builder"
+                className="px-6 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm shadow-md shadow-violet-500/30 flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <span>Launch Full Builder Studio</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkspaceMode('chat');
+                  setPrompt('Build a responsive web application in HTML, Tailwind CSS, and JavaScript with interactive state for: ');
+                  textareaRef.current?.focus();
+                }}
+                className={`px-5 py-2.5 rounded-2xl border text-sm font-semibold transition-all cursor-pointer ${c.pillBg}`}
+              >
+                <span>Build via Chat with Artifact Preview</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 max-w-3xl w-full text-left pt-6">
+              <div className={`p-4 rounded-2xl border ${c.cardBg} ${c.border} space-y-1`}>
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold mb-2">
+                  <Monitor className="w-4 h-4" />
+                </div>
+                <h4 className="font-bold text-xs">Live Sandbox Preview</h4>
+                <p className={`text-[11px] ${c.textMuted}`}>Instant hot-reloaded iframe supporting desktop, tablet, and mobile viewports.</p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${c.cardBg} ${c.border} space-y-1`}>
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold mb-2">
+                  <FileCode className="w-4 h-4" />
+                </div>
+                <h4 className="font-bold text-xs">Multi-File Code Tree</h4>
+                <p className={`text-[11px] ${c.textMuted}`}>Clean separation of components, styles, data fixtures, and scripts.</p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${c.cardBg} ${c.border} space-y-1`}>
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold mb-2">
+                  <Download className="w-4 h-4" />
+                </div>
+                <h4 className="font-bold text-xs">Production ZIP Export</h4>
+                <p className={`text-[11px] ${c.textMuted}`}>1-click ZIP export ready for deployment to Vercel, Netlify, or AWS.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Center: Main Conversational Column (visible in Chat mode, or split in Document mode) */}
+        {workspaceMode !== 'builder' && (
+          <div className={`min-h-0 flex flex-col h-full overflow-hidden relative min-w-0 transition-all ${
+            workspaceMode === 'document'
+              ? mobileDocTab === 'chat'
+                ? 'flex-1 lg:w-[420px] xl:w-[460px] lg:flex-none border-r ' + c.border
+                : 'hidden lg:flex lg:w-[420px] xl:w-[460px] lg:flex-none border-r ' + c.border
+              : 'flex-1'
+          }`}>
           {/* Scrollable Message Area */}
           <div
             ref={chatScrollContainerRef}
@@ -4066,6 +4388,22 @@ export const UserChatStudio: React.FC = () => {
                           </div>
 
                           <div className="flex items-center gap-1 text-xs">
+                            {/* Open in Dedicated Document Workspace button */}
+                            {msg.content && (msg.content.length > 250 || msg.content.includes('#')) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDocumentId(msg.id);
+                                  setWorkspaceMode('document');
+                                }}
+                                className={`px-2 py-1 rounded-lg border transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-medium ${c.pillBg}`}
+                                title="Open in dedicated Document Workspace with Table of Contents & Word/PDF export"
+                              >
+                                <FileText className="w-3 h-3 text-violet-500" />
+                                <span className="hidden sm:inline">Open in Document</span>
+                              </button>
+                            )}
+
                             {/* Read aloud TTS */}
                             <button
                               type="button"
@@ -4602,36 +4940,27 @@ export const UserChatStudio: React.FC = () => {
               </div>
             </div>
 
-            {/* Live Token Intelligence Bar */}
-            <div className={`mt-2 px-2 flex items-center justify-between text-[11px] font-mono ${
-              isDark ? 'text-slate-400' : 'text-slate-700 font-medium'
+            {/* Clean, Discreet Status Bar */}
+            <div className={`mt-2 px-3 flex items-center justify-between text-[11px] font-mono ${
+              isDark ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
-                <span className="hidden sm:inline-flex items-center gap-1">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-                  <span>~{threadTokenStats.inputTokens.toLocaleString()} in</span>
+                  <span className="text-[10px] font-sans font-medium">Ready</span>
                 </span>
-                <span>·</span>
-                <span className="hidden sm:inline">{threadTokenStats.outputTokens.toLocaleString()} out</span>
-                <span>·</span>
-                <span className={isKeyDepleted ? 'text-rose-500 font-bold' : ''}>
-                  {isKeyDepleted
-                    ? '0 remaining'
-                    : activeKeyPlanCategory === 'credit'
-                    ? `${activeCreditBalance.toFixed(2)} credits available`
-                    : activeKeyPlanCategory === 'window'
-                    ? `${remainingTokensM}M in 5h window`
-                    : `${remainingTokensM}M tokens remaining`}
-                </span>
-                <span>·</span>
-                <span className="truncate">~{threadTokenStats.contextPercent}% context</span>
-                <span className="hidden sm:inline">({Math.round(threadTokenStats.contextLimit / 1000)}k)</span>
-                <span>·</span>
-                <span className="hidden md:inline text-violet-600 dark:text-violet-400 font-semibold">{activeModelMeta?.tokenMultiplier || 1.0}x rate</span>
-                {threadTokenStats.savingsTokens > 0 && (
+                <span className="opacity-40">·</span>
+                <span className="text-[10px] font-mono truncate max-w-[140px]">{activeModelMeta?.name}</span>
+                {activeThread.thinkingEnabled && (
                   <>
-                    <span>·</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">⚡ ~{threadTokenStats.savingsTokens.toLocaleString()} saved</span>
+                    <span className="opacity-40">·</span>
+                    <span className="text-[10px] text-amber-500 font-mono">Thinking Active</span>
+                  </>
+                )}
+                {researchMode === 'web_search' && (
+                  <>
+                    <span className="opacity-40">·</span>
+                    <span className="text-[10px] text-blue-500 font-mono">Web Search</span>
                   </>
                 )}
               </div>
@@ -4640,16 +4969,37 @@ export const UserChatStudio: React.FC = () => {
                 type="button"
                 onClick={() => setContextManagerOpen(true)}
                 className={`hover:text-violet-500 flex items-center gap-1 text-[10px] cursor-pointer transition-colors ${
-                  isDark ? 'text-slate-400' : 'text-slate-700 font-bold'
+                  isDark ? 'text-slate-400' : 'text-slate-600'
                 }`}
                 title="View full token & quota inspector"
               >
-                <span>Details</span>
+                <span>Context & Limits</span>
                 <Info className="w-3 h-3" />
               </button>
             </div>
           </div>
         </div>
+        )}
+
+        {/* Document Workspace Right Canvas (Active in Document mode) */}
+        {workspaceMode === 'document' && (
+          <div className={`flex-1 min-h-0 flex flex-col h-full overflow-hidden relative transition-all ${
+            mobileDocTab === 'document' ? 'flex' : 'hidden lg:flex'
+          }`}>
+            <StudioDocumentWorkspace
+              content={activeDocumentContent}
+              title={activeDocumentTitle}
+              isDarkTheme={isDark}
+              isGenerating={generating}
+              onClose={() => setWorkspaceMode('chat')}
+              onTriggerAiAction={(actionPrompt) => {
+                setPrompt(actionPrompt);
+                setMobileDocTab('chat');
+                textareaRef.current?.focus();
+              }}
+            />
+          </div>
+        )}
 
         {/* Right: Split-Pane Artifact Canvas */}
         {activeArtifact && (

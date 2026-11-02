@@ -61,3 +61,24 @@ Full step-by-step setup guides, exact filesystem paths, and configuration snippe
 - **Zero Claude 3 Mentions:** Confirmed zero references to Claude 3, Claude 3.5, or Claude 3.7 models. Only permitted showcase models (`Claude Sonnet 5.5`, `Claude Opus 5.5`, `Claude Fable 5`, `Gemini 4 Argon`, `GPT-4o`) are documented.
 - **Zero Vendor Leaks:** Confirmed zero references to ScaleMax, LotusAI, OpusMax, or internal supplier URLs.
 - **Preservation of 6 Billing Architectures:** All 6 plan types are documented accurately according to their ledger mechanics.
+
+---
+
+## 5. Visual Verification & Responsive Screenshots
+
+Live browser validation was executed across desktop (1440x900) and mobile (375x812) viewports.
+
+### 5.1 Desktop Documentation Centre Viewport (1440x900)
+- **Hero & Triage Cards:** Clean light aesthetic, restrained violet brand accents, sticky chapter navigation tree on the left, instant search modal (`Ctrl+K`), and 3 clear onboarding paths.
+- **Screenshot:** Saved to [`docs-screenshots/desktop-hero.png`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/docs-screenshots/desktop-hero.png).
+
+### 5.2 Interactive Setup Assistant (Desktop)
+- **Step 1–4 Selection Flow:** Dynamic multi-client selector (Claude Code, Cursor, Codex, Windsurf, Cline, Roo Code, Continue, TRAE, Claude Desktop, Cherry Studio, n8n, Python, Node.js, cURL).
+- **Target OS Tabs:** Windows (PowerShell / CMD), macOS (Zsh / Terminal), and Linux (Bash / Shell).
+- **Automatic Path Generation:** Renders exact filesystem paths (e.g. `%USERPROFILE%\.claude\settings.json` on Windows vs `~/.claude/settings.json` on Unix) and executable configuration snippets.
+- **Screenshot:** Saved to [`docs-screenshots/desktop-wizard.png`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/docs-screenshots/desktop-wizard.png).
+
+### 5.3 Mobile Documentation Centre Viewport (375x812)
+- **Responsive Layout:** Zero horizontal overflow, full-width single-column cards, touch-optimized search trigger, collapsible chapter accordion, and clean typography hierarchy.
+- **Screenshot:** Saved to [`docs-screenshots/mobile-hero.png`](file:///c:/Users/irons/OneDrive/Desktop/Lightning%20Deal%20API/docs-screenshots/mobile-hero.png).
+

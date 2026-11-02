@@ -11,12 +11,12 @@ import {
   LayoutDashboard,
   LogOut,
   ShoppingBag,
-  User as UserIcon,
   Settings,
   CreditCard,
   Activity,
   LifeBuoy,
-  Sparkles,
+  Cpu,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -34,7 +34,7 @@ export const SiteHeader: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
+      setScrolled(window.scrollY > 15);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -63,13 +63,13 @@ export const SiteHeader: React.FC = () => {
     navigate('/');
   };
 
-  // Primary Navigation Hierarchy (First 5 options, Why Us & FAQ moved to footer)
+  // Primary Navigation Hierarchy (Streamlined 5 options, Why Us & FAQ moved to footer)
   const navLinks = [
     { name: 'Models', href: '/models' },
-    { name: 'Pricing', href: '/pricing' },
-    { name: 'AI Builder', href: '/builder', badge: 'New' },
-    { name: 'How It Works', href: '/how-it-works' },
+    { name: 'Plans', href: '/pricing' },
+    { name: 'Verify Key', href: '/check-key' },
     { name: 'Docs', href: '/docs' },
+    { name: 'AI Builder', href: '/builder', badge: 'Studio' },
   ];
 
   // User initials calculation
@@ -96,8 +96,8 @@ export const SiteHeader: React.FC = () => {
     <header
       className={`sticky top-0 z-50 font-sans transition-all duration-200 ${
         scrolled
-          ? 'bg-[#F8F6F2]/95 backdrop-blur-md border-b border-[#E6E1E8] shadow-xs'
-          : 'bg-[#F8F6F2] border-b border-[#E6E1E8]/60'
+          ? 'bg-white/95 backdrop-blur-md border-b border-zinc-200/90 shadow-xs'
+          : 'bg-[#fafaf9]/95 backdrop-blur-xs border-b border-zinc-200/70'
       }`}
     >
       <ReferralAnnouncementBanner />
@@ -110,10 +110,10 @@ export const SiteHeader: React.FC = () => {
           <div className="flex items-center gap-3 shrink-0">
             <Link
               to="/"
-              className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7136E8] rounded-lg p-0.5"
+              className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 rounded-lg p-0.5"
               aria-label="LightningAPI Homepage"
             >
-              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-[#7136E8] text-white shadow-xs group-hover:scale-105 transition-transform duration-200">
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600 text-white shadow-xs group-hover:scale-105 transition-transform duration-200">
                 <Zap className="w-4 h-4 fill-current text-white" />
                 <span className="absolute -top-1 -right-1 flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -122,10 +122,10 @@ export const SiteHeader: React.FC = () => {
               </div>
 
               <div className="flex items-baseline">
-                <span className="text-base font-bold tracking-tight text-[#191719] font-display">
+                <span className="text-base font-bold tracking-tight text-zinc-950 font-display">
                   LightningAPI
                 </span>
-                <span className="text-xs font-semibold text-[#68636B] ml-0.5">
+                <span className="text-xs font-semibold text-zinc-500 ml-0.5">
                   .pro
                 </span>
               </div>
@@ -142,10 +142,10 @@ export const SiteHeader: React.FC = () => {
                 <Link
                   key={link.name}
                   to={link.href}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                     isActive
-                      ? 'text-[#7136E8] bg-[#EEE6FF] font-semibold'
-                      : 'text-[#68636B] hover:text-[#191719] hover:bg-black/[0.03]'
+                      ? 'text-violet-700 bg-violet-50 font-semibold'
+                      : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/70'
                   }`}
                 >
                   <span>{link.name}</span>
@@ -168,25 +168,16 @@ export const SiteHeader: React.FC = () => {
               <button
                 type="button"
                 onClick={openCart}
-                className="relative p-2 rounded-lg text-[#68636B] hover:text-[#191719] hover:bg-black/[0.03] border border-[#E6E1E8] transition-colors cursor-pointer"
+                className="relative p-2 rounded-lg text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 border border-zinc-200 transition-colors cursor-pointer"
                 title="View cart"
                 aria-label={`Cart with ${cartItems.length} items`}
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 bg-[#7136E8] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-mono font-bold">
+                <span className="absolute -top-1 -right-1 bg-violet-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-mono font-bold">
                   {cartItems.length}
                 </span>
               </button>
             )}
-
-            {/* Verify Key Link */}
-            <Link
-              to="/check-key"
-              className="text-xs font-medium text-[#68636B] hover:text-[#191719] px-2.5 py-1.5 transition-colors whitespace-nowrap flex items-center gap-1.5"
-            >
-              <Key className="w-3.5 h-3.5 text-[#68636B]" />
-              <span className="hidden md:inline">Verify Key</span>
-            </Link>
 
             {/* Authenticated Profile Experience vs Logged-Out State */}
             {user ? (
@@ -194,21 +185,21 @@ export const SiteHeader: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-full bg-white hover:bg-[#F3F0E8] border border-[#E6E1E8] text-[#191719] transition-all cursor-pointer shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#7136E8]/30"
+                  className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-full bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-950 transition-all cursor-pointer shadow-2xs focus:outline-none focus:ring-2 focus:ring-violet-500/30"
                   aria-expanded={profileDropdownOpen}
                   aria-haspopup="true"
                 >
                   {/* Customer Initials Avatar */}
-                  <div className="w-7 h-7 rounded-full bg-[#EEE6FF] text-[#7136E8] font-bold text-xs flex items-center justify-center border border-[#7136E8]/20 shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-violet-50 text-violet-700 font-bold text-xs flex items-center justify-center border border-violet-200 shrink-0">
                     {getUserInitials()}
                   </div>
 
                   {/* Customer Identifier */}
-                  <span className="text-xs font-semibold text-[#191719] max-w-[120px] truncate hidden md:inline">
+                  <span className="text-xs font-semibold text-zinc-900 max-w-[120px] truncate hidden md:inline">
                     {user.name || user.email.split('@')[0]}
                   </span>
 
-                  <ChevronDown className={`w-3.5 h-3.5 text-[#68636B] transition-transform duration-200 ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform duration-200 ${profileDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Profile Dropdown Menu */}
@@ -219,19 +210,19 @@ export const SiteHeader: React.FC = () => {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.98 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white border border-[#E6E1E8] shadow-xl py-2 z-50 font-sans"
+                      className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white border border-zinc-200 shadow-xl py-2 z-50 font-sans"
                     >
                       {/* User Header Summary */}
-                      <div className="px-4 py-3 border-b border-[#E6E1E8]/70 bg-[#F8F6F2]/50">
+                      <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/60">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-full bg-[#EEE6FF] text-[#7136E8] font-bold text-sm flex items-center justify-center border border-[#7136E8]/30 shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-violet-50 text-violet-700 font-bold text-sm flex items-center justify-center border border-violet-200 shrink-0">
                             {getUserInitials()}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-[#191719] truncate">
+                            <p className="text-xs font-bold text-zinc-950 truncate">
                               {user.name || 'LightningAPI User'}
                             </p>
-                            <p className="text-[11px] text-[#68636B] truncate font-mono">
+                            <p className="text-[11px] text-zinc-500 truncate font-mono">
                               {user.email}
                             </p>
                           </div>
@@ -240,7 +231,7 @@ export const SiteHeader: React.FC = () => {
                           <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
                             Signed In
                           </span>
-                          <span className="text-[#68636B] uppercase">
+                          <span className="text-zinc-500 uppercase">
                             {user.role === 'admin' ? 'Administrator' : 'Customer'}
                           </span>
                         </div>
@@ -250,55 +241,55 @@ export const SiteHeader: React.FC = () => {
                       <div className="py-1">
                         <Link
                           to={user.role === 'admin' ? '/admin' : '/dashboard'}
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#191719] hover:bg-[#EEE6FF]/50 hover:text-[#7136E8] transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-900 hover:bg-violet-50 hover:text-violet-700 transition-colors"
                         >
-                          <LayoutDashboard className="w-4 h-4 text-[#7136E8]" />
+                          <LayoutDashboard className="w-4 h-4 text-violet-600" />
                           <span>Control Dashboard</span>
                         </Link>
 
                         <Link
                           to="/dashboard/keys"
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#191719] hover:bg-[#EEE6FF]/50 hover:text-[#7136E8] transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-900 hover:bg-violet-50 hover:text-violet-700 transition-colors"
                         >
-                          <Key className="w-4 h-4 text-[#68636B]" />
+                          <Key className="w-4 h-4 text-zinc-500" />
                           <span>API Keys</span>
                         </Link>
 
                         <Link
                           to="/dashboard/plan"
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#191719] hover:bg-[#EEE6FF]/50 hover:text-[#7136E8] transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-900 hover:bg-violet-50 hover:text-violet-700 transition-colors"
                         >
-                          <CreditCard className="w-4 h-4 text-[#68636B]" />
+                          <CreditCard className="w-4 h-4 text-zinc-500" />
                           <span>My Plans & Subscriptions</span>
                         </Link>
 
                         <Link
                           to="/dashboard/usage"
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#191719] hover:bg-[#EEE6FF]/50 hover:text-[#7136E8] transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-900 hover:bg-violet-50 hover:text-violet-700 transition-colors"
                         >
-                          <Activity className="w-4 h-4 text-[#68636B]" />
+                          <Activity className="w-4 h-4 text-zinc-500" />
                           <span>Usage & Quota</span>
                         </Link>
 
                         <Link
                           to="/dashboard/settings"
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#191719] hover:bg-[#EEE6FF]/50 hover:text-[#7136E8] transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-900 hover:bg-violet-50 hover:text-violet-700 transition-colors"
                         >
-                          <Settings className="w-4 h-4 text-[#68636B]" />
+                          <Settings className="w-4 h-4 text-zinc-500" />
                           <span>Account Settings</span>
                         </Link>
 
                         <Link
                           to="/dashboard/support"
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#191719] hover:bg-[#EEE6FF]/50 hover:text-[#7136E8] transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-900 hover:bg-violet-50 hover:text-violet-700 transition-colors"
                         >
-                          <LifeBuoy className="w-4 h-4 text-[#68636B]" />
+                          <LifeBuoy className="w-4 h-4 text-zinc-500" />
                           <span>Help & Support</span>
                         </Link>
                       </div>
 
                       {/* Sign Out Divider & Button */}
-                      <div className="pt-1 mt-1 border-t border-[#E6E1E8]/70">
+                      <div className="pt-1 mt-1 border-t border-zinc-100">
                         <button
                           type="button"
                           onClick={handleLogout}
@@ -315,7 +306,7 @@ export const SiteHeader: React.FC = () => {
             ) : (
               <Link
                 to="/login"
-                className="text-xs font-medium text-[#68636B] hover:text-[#191719] px-2.5 py-1.5 transition-colors whitespace-nowrap"
+                className="text-xs font-medium text-zinc-600 hover:text-zinc-950 px-2.5 py-1.5 transition-colors whitespace-nowrap"
               >
                 Sign In
               </Link>
@@ -324,7 +315,7 @@ export const SiteHeader: React.FC = () => {
             {/* Primary Contextual CTA */}
             <Link
               to={ctaDestination}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[11px] bg-[#7136E8] hover:bg-[#4F21B5] text-white text-xs font-semibold shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <span>{ctaLabel}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -339,11 +330,11 @@ export const SiteHeader: React.FC = () => {
               <button
                 type="button"
                 onClick={openCart}
-                className="relative p-2 rounded-lg text-[#68636B] hover:text-[#191719] border border-[#E6E1E8] transition-colors"
+                className="relative p-2 rounded-lg text-zinc-600 hover:text-zinc-950 border border-zinc-200 transition-colors"
                 aria-label="View cart"
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 bg-[#7136E8] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-mono font-bold">
+                <span className="absolute -top-1 -right-1 bg-violet-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-mono font-bold">
                   {cartItems.length}
                 </span>
               </button>
@@ -352,7 +343,7 @@ export const SiteHeader: React.FC = () => {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-[#191719] hover:bg-black/[0.04] transition-colors focus:outline-none focus:ring-2 focus:ring-[#7136E8] cursor-pointer"
+              className="p-2 rounded-lg text-zinc-900 hover:bg-zinc-100 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-600 cursor-pointer"
               aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
               aria-expanded={mobileMenuOpen}
             >
@@ -373,32 +364,32 @@ export const SiteHeader: React.FC = () => {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="lg:hidden border-b border-[#E6E1E8] bg-[#F8F6F2] overflow-hidden"
+            className="lg:hidden border-b border-zinc-200 bg-white overflow-hidden"
             id="mobile-navigation"
           >
             <div className="max-w-[1360px] mx-auto px-4 py-4 space-y-3">
               {/* Signed-In Mobile Account Card */}
               {user ? (
-                <div className="p-3 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs space-y-2">
+                <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 shadow-2xs space-y-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#EEE6FF] text-[#7136E8] font-bold text-sm flex items-center justify-center border border-[#7136E8]/30 shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-violet-50 text-violet-700 font-bold text-sm flex items-center justify-center border border-violet-200 shrink-0">
                       {getUserInitials()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-[#191719] truncate">{user.name || 'LightningAPI User'}</p>
-                      <p className="text-[11px] text-[#68636B] truncate font-mono">{user.email}</p>
+                      <p className="text-xs font-bold text-zinc-950 truncate">{user.name || 'LightningAPI User'}</p>
+                      <p className="text-[11px] text-zinc-500 truncate font-mono">{user.email}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E6E1E8]/70 text-[11px] font-medium">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-200 text-[11px] font-medium">
                     <Link
                       to="/dashboard/keys"
-                      className="px-2.5 py-1.5 rounded-lg bg-[#F8F6F2] text-[#191719] hover:bg-[#EEE6FF] transition-colors text-center"
+                      className="px-2.5 py-1.5 rounded-lg bg-white text-zinc-950 hover:bg-violet-50 transition-colors text-center border border-zinc-200"
                     >
                       API Keys
                     </Link>
                     <Link
                       to="/dashboard/plan"
-                      className="px-2.5 py-1.5 rounded-lg bg-[#F8F6F2] text-[#191719] hover:bg-[#EEE6FF] transition-colors text-center"
+                      className="px-2.5 py-1.5 rounded-lg bg-white text-zinc-950 hover:bg-violet-50 transition-colors text-center border border-zinc-200"
                     >
                       My Plan
                     </Link>
@@ -406,8 +397,8 @@ export const SiteHeader: React.FC = () => {
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-between pb-2 border-b border-[#E6E1E8]/60">
-                <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#68636B]">
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-zinc-500">
                   Navigation
                 </span>
                 <Link
@@ -424,7 +415,7 @@ export const SiteHeader: React.FC = () => {
                   <Link
                     key={link.name}
                     to={link.href}
-                    className="flex items-center justify-between px-3 py-2 text-sm font-medium text-[#191719] hover:bg-black/[0.04] rounded-lg transition-colors"
+                    className="flex items-center justify-between px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors"
                   >
                     <span className="flex items-center gap-2">
                       <span>{link.name}</span>
@@ -434,26 +425,19 @@ export const SiteHeader: React.FC = () => {
                         </span>
                       )}
                     </span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#68636B]" />
+                    <ArrowRight className="w-3.5 h-3.5 text-zinc-400" />
                   </Link>
                 ))}
-                <Link
-                  to="/check-key"
-                  className="flex items-center justify-between px-3 py-2 text-sm font-medium text-[#68636B] hover:text-[#191719] hover:bg-black/[0.04] rounded-lg transition-colors"
-                >
-                  <span>Verify Key Balance</span>
-                  <Key className="w-3.5 h-3.5 text-[#68636B]" />
-                </Link>
               </div>
 
-              <div className="pt-3 border-t border-[#E6E1E8] flex flex-col gap-2">
+              <div className="pt-3 border-t border-zinc-200 flex flex-col gap-2">
                 {user ? (
                   <div className="flex items-center justify-between">
                     <Link
                       to={user.role === 'admin' ? '/admin' : '/dashboard'}
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-black/[0.05] text-[#191719]"
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-zinc-100 text-zinc-950"
                     >
-                      <LayoutDashboard className="w-4 h-4 text-[#7136E8]" />
+                      <LayoutDashboard className="w-4 h-4 text-violet-600" />
                       <span>Control Dashboard</span>
                     </Link>
                     <button
@@ -467,7 +451,7 @@ export const SiteHeader: React.FC = () => {
                 ) : (
                   <Link
                     to="/login"
-                    className="w-full text-center py-2 text-sm font-medium text-[#191719] hover:bg-black/[0.04] rounded-lg transition-colors"
+                    className="w-full text-center py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors"
                   >
                     Sign In
                   </Link>
@@ -475,7 +459,7 @@ export const SiteHeader: React.FC = () => {
 
                 <Link
                   to={ctaDestination}
-                  className="w-full text-center py-2.5 rounded-[11px] bg-[#7136E8] text-white text-sm font-semibold shadow-xs"
+                  className="w-full text-center py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold shadow-xs hover:bg-violet-700 transition-colors"
                 >
                   {ctaLabel}
                 </Link>
@@ -487,3 +471,5 @@ export const SiteHeader: React.FC = () => {
     </header>
   );
 };
+
+export default SiteHeader;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Key, Lock, Activity, Server, Database, ArrowRight, ExternalLink } from 'lucide-react';
+import { ShieldCheck, Key, Lock, Activity, Server, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface TransparencyPillar {
@@ -36,10 +36,10 @@ const TRANSPARENCY_PILLARS: TransparencyPillar[] = [
     title: 'Tri-Modal Quota, Credit & Token Pack Accounting',
     category: 'Accounting Engine',
     summary:
-      'Supports continuous 5-hour rolling pool refills (Claude exclusive), universal pay-as-you-go credits with 7x–8.75x bonus value, and non-expiring prepaid token packs.',
+      'Supports continuous 5-hour rolling pool refills (Claude & OpenAI), universal pay-as-you-go credits with 7x bonus value, and non-expiring prepaid token packs.',
     technicalDetails: [
       'Continuous 5-hour sliding-window ledger',
-      'Universal USD credit debit engine with 7x–8.75x bonus value',
+      'Universal USD credit debit engine with 7x purchasing value',
       'Prepaid token pack consumable ledger with real-time telemetry at /check-key',
     ],
   },
@@ -47,7 +47,7 @@ const TRANSPARENCY_PILLARS: TransparencyPillar[] = [
     title: 'Strict Ingress Architecture',
     category: 'Infrastructure',
     summary:
-      'All traffic enters through an encrypted gateway operating under sub-50ms latency overhead, proxying requests to upstream Anthropic, OpenAI, and DeepSeek inference.',
+      'All traffic enters through an encrypted gateway operating under sub-15ms latency overhead, proxying requests to upstream Anthropic, OpenAI, and DeepSeek inference.',
     technicalDetails: [
       'TLS 1.3 with strict modern cipher suites',
       'Direct HTTP/2 & HTTP/1.1 keep-alive connections',
@@ -89,76 +89,58 @@ export const TrustAndTransparency: React.FC = () => {
           setGatewayStatus('Operational');
         }
       })
-      .catch(() => {
-        // Keep neutral fallback
-      });
+      .catch(() => {});
   }, []);
 
   return (
-    <section className="relative py-20 sm:py-28 lg:py-36 bg-[#F8F6F2] text-[#191719] font-sans overflow-hidden border-b border-[#E6E1E8]">
-      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16">
+    <section className="relative py-16 sm:py-24 bg-white text-zinc-950 font-sans overflow-hidden border-b border-zinc-200">
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
-        {/* ============================================================ */}
-        {/* SECTION HEADER                                               */}
-        {/* ============================================================ */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b border-[#E6E1E8]/70">
-          <div className="space-y-4 max-w-2xl text-left">
+        {/* Section Header */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b border-zinc-200">
+          <div className="space-y-3 max-w-2xl text-left">
             <div className="inline-flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#7136E8]" />
-              <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#7136E8] font-semibold">
-                TRUST & TECHNICAL TRANSPARENCY
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-600" />
+              <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-violet-700 font-semibold">
+                TRUST &amp; ARCHITECTURE
               </span>
             </div>
 
-            <h2 className="section-headline text-[#191719] font-display">
-              Know what sits between your code and the model.
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-zinc-950 font-display tracking-tight">
+              Enterprise-grade privacy and infrastructure.
             </h2>
 
-            <p className="text-base sm:text-lg text-[#68636B] leading-relaxed">
-              Clear technical commitments backed by verifiable engineering implementations.
-              No vague marketing claims.
+            <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+              We operate under strict zero-data-retention principles. Your prompts are never stored, logged, or used for AI training.
             </p>
           </div>
 
-          {/* Status Badge */}
-          <Link
-            to="/status"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs text-xs font-mono text-[#191719] hover:bg-[#F8F6F2] transition-colors self-start lg:self-end"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#087F5B] animate-pulse" />
-            <span>Gateway Status: {gatewayStatus}</span>
-            <ExternalLink className="w-3.5 h-3.5 text-[#68636B]" />
-          </Link>
+          <div className="flex items-center gap-2 text-xs font-mono self-start lg:self-end">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+            <span className="text-zinc-600">Gateway Status:</span>
+            <span className="font-bold text-zinc-950">{gatewayStatus}</span>
+          </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* SIX TECHNICAL TRANSPARENCY PILLARS                           */}
-        {/* ============================================================ */}
+        {/* Pillars Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {TRANSPARENCY_PILLARS.map((pillar) => (
+          {TRANSPARENCY_PILLARS.map((p) => (
             <div
-              key={pillar.title}
-              className="p-6 sm:p-7 rounded-[18px] bg-white border border-[#E6E1E8] shadow-2xs space-y-4 flex flex-col justify-between hover:border-[#7136E8]/40 transition-colors"
+              key={p.title}
+              className="p-6 rounded-2xl bg-zinc-50 border border-zinc-200 shadow-xs flex flex-col justify-between space-y-4 hover:border-zinc-300 transition-colors"
             >
               <div className="space-y-3">
-                <span className="text-[11px] font-mono font-bold text-[#7136E8] uppercase tracking-wider">
-                  {pillar.category}
+                <span className="text-[11px] font-mono font-medium text-violet-700 uppercase">
+                  {p.category}
                 </span>
-
-                <h3 className="text-lg font-bold text-[#191719] font-display">
-                  {pillar.title}
-                </h3>
-
-                <p className="text-xs text-[#68636B] leading-relaxed">
-                  {pillar.summary}
-                </p>
+                <h3 className="text-base font-bold text-zinc-950">{p.title}</h3>
+                <p className="text-xs text-zinc-600 leading-relaxed">{p.summary}</p>
               </div>
 
-              {/* Technical Specifications Checklist */}
-              <div className="space-y-1.5 pt-3 border-t border-[#E6E1E8]/70 text-[11px] font-mono text-[#191719]">
-                {pillar.technicalDetails.map((detail) => (
-                  <div key={detail} className="flex items-center gap-2">
-                    <span className="w-1 h-1 rounded-full bg-[#7136E8] shrink-0" />
+              <div className="space-y-1.5 pt-3 border-t border-zinc-200/80 text-[11px] text-zinc-500 font-mono">
+                {p.technicalDetails.map((detail, idx) => (
+                  <div key={idx} className="flex items-start gap-1.5">
+                    <span className="text-violet-600 shrink-0">✓</span>
                     <span>{detail}</span>
                   </div>
                 ))}
@@ -167,22 +149,9 @@ export const TrustAndTransparency: React.FC = () => {
           ))}
         </div>
 
-        {/* Legal Policies Reference Strip */}
-        <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-xl bg-white border border-[#E6E1E8] shadow-2xs text-xs text-[#68636B]">
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-            <span className="font-semibold text-[#191719]">Published Legal Policies:</span>
-            <Link to="/terms" className="hover:text-[#191719] hover:underline">Terms of Service</Link>
-            <Link to="/privacy" className="hover:text-[#191719] hover:underline">Privacy & Data Handling</Link>
-            <Link to="/refund" className="hover:text-[#191719] hover:underline">Refund Policy</Link>
-            <Link to="/faq" className="hover:text-[#191719] hover:underline">Developer FAQ</Link>
-          </div>
-
-          <span className="font-mono text-[11px] text-[#68636B]">
-            Support: support@lightningapi.pro
-          </span>
-        </div>
-
       </div>
     </section>
   );
 };
+
+export default TrustAndTransparency;

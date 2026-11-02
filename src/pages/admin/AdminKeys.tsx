@@ -58,6 +58,7 @@ export const AdminKeys: React.FC = () => {
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [trialCustomerName, setTrialCustomerName] = useState('');
   const [trialCustomerEmail, setTrialCustomerEmail] = useState('');
+  const [trialSelectedUser, setTrialSelectedUser] = useState('');
   const [trialTokens, setTrialTokens] = useState('200000'); // 200k default
   const [trialExpiryDays, setTrialExpiryDays] = useState('7');
   const [trialRpm, setTrialRpm] = useState('100');
@@ -314,6 +315,7 @@ export const AdminKeys: React.FC = () => {
       const res = await adminFetch('/api/admin/keys/trial', {
         method: 'POST',
         body: JSON.stringify({
+          userId: trialSelectedUser || undefined,
           customerName: trialCustomerName,
           customerEmail: trialCustomerEmail,
           providerId: trialProvider || undefined,
@@ -1180,6 +1182,33 @@ export const AdminKeys: React.FC = () => {
                 )}
 
                 <form onSubmit={handleCreateTrialKey} className="space-y-4 overflow-y-auto flex-1 pr-1">
+
+                  <div>
+                    <label className="block text-xs font-semibold text-fg mb-1">Assign to Customer (Registered Users)</label>
+                    <select
+                      value={trialSelectedUser}
+                      onChange={(e) => {
+                        const uid = e.target.value;
+                        setTrialSelectedUser(uid);
+                        const selectedU = users.find((u) => u.id === uid);
+                        if (selectedU) {
+                          setTrialCustomerName(selectedU.name || '');
+                          setTrialCustomerEmail(selectedU.email || '');
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-xs bg-bg border border-border rounded-control focus:outline-none focus:border-accent text-fg"
+                    >
+                      <option value="">Unassigned / Direct Key (Or enter custom name/email below)</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name || 'Unnamed'} ({u.email})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-muted mt-1">
+                      Selecting a registered customer automatically links this trial key to their personal dashboard.
+                    </p>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>

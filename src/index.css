@@ -3,18 +3,18 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-bg: #fbf9f5;
+  --color-bg: #fafaf9;
   --color-card: #ffffff;
-  --color-fg: #1c1917;
-  --color-muted: #57534e;
+  --color-fg: #09090b;
+  --color-muted: #71717a;
   --color-subtle-text: #78716c;
   
-  --color-accent: #6d28d9;
-  --color-accent-hover: #581c87;
+  --color-accent: #7c3aed;
+  --color-accent-hover: #6d28d9;
   --color-accent-secondary: #1c1917;
   --color-accent-light: #f5f3ff;
   
-  --color-border: #e7e5e4;
+  --color-border: #e4e4e7;
   --color-border-strong: #d6d3d1;
   --color-subtle: #f5f2eb;
   
@@ -38,7 +38,7 @@
   --font-display: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Intelligence Layer Design Tokens */
-  --color-intel-bg: #F8F6F2;
+  --color-intel-bg: #fafaf9;
   --color-intel-text: #191719;
   --color-intel-violet: #7136E8;
   --color-intel-deep: #4F21B5;
@@ -51,7 +51,7 @@
 
 :root {
   /* Intelligence Layer Specific Root Variables */
-  --intel-bg: #F8F6F2;
+  --intel-bg: #fafaf9;
   --intel-text: #191719;
   --intel-violet: #7136E8;
   --intel-deep: #4F21B5;
@@ -60,15 +60,15 @@
   --intel-muted: #68636B;
   --intel-border: #E6E1E8;
   --intel-success: #087F5B;
-  --ui-bg: #fbf9f5;
+  --ui-bg: #fafaf9;
   --ui-surface: #ffffff;
   --ui-surface-subtle: #f5f2eb;
   --ui-text: #1c1917;
   --ui-text-muted: #57534e;
   --ui-text-subtle: #78716c;
-  --ui-border: #e7e5e4;
+  --ui-border: #e4e4e7;
   --ui-border-strong: #d6d3d1;
-  --ui-accent: #6d28d9;
+  --ui-accent: #7c3aed;
   --ui-accent-hover: #581c87;
   --ui-accent-light: #f5f3ff;
   --ui-radius-control: 8px;

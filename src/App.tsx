@@ -219,13 +219,13 @@ const AdminScaleMaxLive = safeLazy(() => import('./pages/admin/AdminScaleMaxLive
 
 export const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#F8F6F2] text-[#191719] selection:bg-[#7136E8]/10 selection:text-[#7136E8] font-sans antialiased">
+    <div className="min-h-screen bg-[#fafaf9] text-zinc-950 selection:bg-violet-500/10 selection:text-violet-700 font-sans antialiased">
       <SiteHeader />
       <main id="main-content">
         <EditorialHero />
         <CapabilitySection />
-        <ModelUniverse />
-        <GatewayDemo />
+
+
         <PricingTeaserCard />
         <CompatibilitySection />
         <TrustAndTransparency />

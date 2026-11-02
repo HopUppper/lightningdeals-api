@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Key, AlertCircle, CheckCircle2, Clock, Sparkles, DollarSign, Coins } from 'lucide-react';
-import { ElectricNavbar } from '../components/ElectricNavbar';
-import { ElectricFooter } from '../components/ElectricFooter';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 
 export const CheckKeyPage: React.FC = () => {
   const [keyInput, setKeyInput] = useState('');
@@ -93,8 +93,8 @@ export const CheckKeyPage: React.FC = () => {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#fbf9f5] text-[#1c1917] flex flex-col font-sans antialiased selection:bg-[#6d28d9]/10 selection:text-[#6d28d9]">
-      <ElectricNavbar />
+    <div className="min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans antialiased selection:bg-violet-500/10 selection:text-violet-700">
+      <SiteHeader />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div className="text-center max-w-2xl mx-auto space-y-2.5">
@@ -546,7 +546,7 @@ export const CheckKeyPage: React.FC = () => {
         )}
       </main>
 
-      <ElectricFooter />
+      <SiteFooter />
     </div>
   );
 };

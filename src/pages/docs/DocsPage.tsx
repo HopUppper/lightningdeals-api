@@ -28,8 +28,8 @@ import {
   Sparkles,
   Code2,
 } from 'lucide-react';
-import { ElectricNavbar } from '../../components/ElectricNavbar';
-import { ElectricFooter } from '../../components/ElectricFooter';
+import { SiteHeader } from '../../components/SiteHeader';
+import { SiteFooter } from '../../components/SiteFooter';
 
 // Uniform Developer Workbench Code Snippet
 const CodeSnippetBlock: React.FC<{
@@ -249,8 +249,8 @@ export const DocsPage: React.FC = () => {
   const activeSectionItem = sidebarNav.flatMap((g) => g.items).find((i) => i.id === activeSection);
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] text-[#1c1917] flex flex-col font-sans selection:bg-[#6d28d9]/10 selection:text-[#6d28d9]">
-      <ElectricNavbar />
+    <div className="min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans selection:bg-violet-500/10 selection:text-violet-700">
+      <SiteHeader />
 
       <div className="flex-1 border-b border-[#e7e5e4]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1757,7 +1757,7 @@ curl https://lightningapi.pro/v1/chat/completions \\
         </div>
       </div>
 
-      <ElectricFooter />
+      <SiteFooter />
     </div>
   );
 };

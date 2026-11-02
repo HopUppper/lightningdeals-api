@@ -45,6 +45,7 @@ interface ApiKeyItem {
   lastUsedAt?: string | null;
   expiresAt?: string | null;
   createdAt: string;
+  canReveal?: boolean;
 }
 
 export const UserKeys: React.FC = () => {
@@ -383,28 +384,66 @@ export const UserKeys: React.FC = () => {
                         )}
                       </td>
                       <td className="py-4 px-5">
-                        <div className="flex items-center gap-1.5 bg-[#faf8f5] px-3 py-1.5 rounded-2xl border border-[#ede8e1] max-w-sm">
-                          <span className="font-mono text-xs font-semibold text-[#1e1b2e] select-all break-all flex-1">
-                            {k.displayKey}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyKey(k.displayKey, k.id)}
-                            className="px-2.5 py-1 rounded-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-[10.5px] flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
-                            title="Copy Key Identifier"
-                          >
-                            {copiedKeyId === k.id ? (
-                              <>
-                                <Check className="w-3 h-3 text-white" />
-                                <span>Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
+                        <div className="space-y-1.5 max-w-sm">
+                          <div className="flex items-center gap-1.5 bg-[#faf8f5] px-3 py-1.5 rounded-2xl border border-[#ede8e1]">
+                            <span className="font-mono text-xs font-semibold text-[#1e1b2e] select-all break-all flex-1">
+                              {k.displayKey}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyKey(k.displayKey, k.id)}
+                              className="px-2.5 py-1 rounded-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-[10.5px] flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                              title="Copy Key Identifier"
+                            >
+                              {copiedKeyId === k.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-white" />
+                                  <span>Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          {k.canReveal ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const res = await userFetch(`/api/user/keys/${k.id}/reveal`, { method: 'POST' });
+                                  if (res.ok) {
+                                    const data = await res.json();
+                                    if (data.success && data.key?.rawKeySecret) {
+                                      setRevealedSecretModal({
+                                        secretKey: data.key.rawKeySecret,
+                                        keyName: k.name,
+                                        displayKey: k.displayKey,
+                                        billingType: k.billingType,
+                                      });
+                                      await fetchKeys();
+                                    }
+                                  } else {
+                                    const data = await res.json();
+                                    alert(data.error?.message || 'Key cannot be revealed.');
+                                  }
+                                } catch (e) {
+                                  console.error('Failed to reveal key:', e);
+                                }
+                              }}
+                              className="w-full py-1.5 px-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-[1.01]"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View Full Key (One-Time Option)</span>
+                            </button>
+                          ) : (
+                            <div className="text-[10px] font-mono text-zinc-500 flex items-center gap-1 pl-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>Partially Hashed • Secret Secured</span>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-5">
@@ -727,7 +766,10 @@ export const UserKeys: React.FC = () => {
             <div className="flex items-center justify-end pt-2 border-t border-[#ede8e1]">
               <button
                 type="button"
-                onClick={() => setRevealedSecretModal(null)}
+                onClick={async () => {
+                  setRevealedSecretModal(null);
+                  await fetchKeys();
+                }}
                 className="ui-button-primary text-xs px-6 py-2.5 font-bold shadow-xs cursor-pointer"
               >
                 I Have Saved My Secret Key

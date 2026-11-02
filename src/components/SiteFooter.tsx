@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { Zap, ShieldCheck } from 'lucide-react';
 
 export const SiteFooter: React.FC = () => {
   const [systemStatus, setSystemStatus] = useState<'OPERATIONAL' | 'DEGRADED'>('OPERATIONAL');
@@ -16,8 +16,9 @@ export const SiteFooter: React.FC = () => {
       })
       .catch(() => setSystemStatus('OPERATIONAL'));
   }, []);
+
   return (
-    <footer className="border-t border-[#E6E1E8] bg-[#F8F6F2] pt-16 pb-12 text-xs text-[#68636B] font-sans">
+    <footer className="border-t border-zinc-200 bg-white pt-16 pb-12 text-xs text-zinc-500 font-sans">
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
         {/* Main Footer Directory Grid */}
@@ -26,30 +27,30 @@ export const SiteFooter: React.FC = () => {
           {/* Brand & Mission (Col 1 & 2 on mobile) */}
           <div className="col-span-2 space-y-4">
             <Link to="/" className="flex items-center gap-2.5 group w-fit">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#7136E8] text-white shadow-xs">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-white shadow-xs">
                 <Zap className="w-3.5 h-3.5 fill-current text-white" />
               </div>
               <div className="flex items-baseline">
-                <span className="text-base font-bold text-[#191719] tracking-tight font-display">
+                <span className="text-base font-bold text-zinc-950 tracking-tight font-display">
                   LightningAPI
                 </span>
-                <span className="font-semibold text-xs text-[#68636B] ml-0.5">
+                <span className="font-semibold text-xs text-zinc-400 ml-0.5">
                   .pro
                 </span>
               </div>
             </Link>
 
-            <p className="text-[#68636B] leading-relaxed max-w-sm text-xs">
-              High-performance AI API Gateway delivering wholesale token economics and multi-provider models with drop-in IDE and SDK compatibility.
+            <p className="text-zinc-500 leading-relaxed max-w-sm text-xs">
+              Unified AI API Gateway delivering wholesale token economics and leading multi-provider models with drop-in IDE and SDK compatibility.
             </p>
 
             {/* Operational Telemetry Badge */}
             <div className="pt-1">
               <Link
                 to="/status"
-                className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white border border-[#E6E1E8] text-xs font-medium text-[#087F5B] hover:bg-emerald-50/50 transition-colors shadow-2xs"
+                className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-50 border border-zinc-200 text-xs font-medium text-emerald-700 hover:bg-emerald-50/50 transition-colors shadow-2xs"
               >
-                <span className={`w-2 h-2 rounded-full ${systemStatus === 'DEGRADED' ? 'bg-amber-500' : 'bg-[#087F5B] animate-pulse'}`} />
+                <span className={`w-2 h-2 rounded-full ${systemStatus === 'DEGRADED' ? 'bg-amber-500' : 'bg-emerald-600 animate-pulse'}`} />
                 <span>{systemStatus === 'DEGRADED' ? 'Partial System Degradation' : 'All Systems Operational'}</span>
               </Link>
             </div>
@@ -57,32 +58,32 @@ export const SiteFooter: React.FC = () => {
 
           {/* Col 3: Gateway Resources */}
           <div className="space-y-3">
-            <span className="text-[11px] font-mono font-bold tracking-wider text-[#191719] uppercase">
+            <span className="text-[11px] font-mono font-bold tracking-wider text-zinc-950 uppercase">
               Gateway
             </span>
             <ul className="space-y-2">
               <li>
-                <Link to="/models" className="hover:text-[#191719] transition-colors">
+                <Link to="/models" className="hover:text-zinc-950 transition-colors">
                   Supported Models
                 </Link>
               </li>
               <li>
-                <Link to="/pricing" className="hover:text-[#191719] transition-colors">
+                <Link to="/pricing" className="hover:text-zinc-950 transition-colors">
                   Capacity Plans
                 </Link>
               </li>
               <li>
-                <Link to="/trial" className="hover:text-[#191719] transition-colors">
+                <Link to="/trial" className="hover:text-zinc-950 transition-colors">
                   Free 200k Trial
                 </Link>
               </li>
               <li>
-                <Link to="/check-key" className="hover:text-[#191719] transition-colors">
+                <Link to="/check-key" className="hover:text-zinc-950 transition-colors">
                   Verify Key Balance
                 </Link>
               </li>
               <li>
-                <Link to="/status" className="hover:text-[#191719] transition-colors">
+                <Link to="/status" className="hover:text-zinc-950 transition-colors">
                   Gateway Telemetry
                 </Link>
               </li>
@@ -91,32 +92,32 @@ export const SiteFooter: React.FC = () => {
 
           {/* Col 4: Developers */}
           <div className="space-y-3">
-            <span className="text-[11px] font-mono font-bold tracking-wider text-[#191719] uppercase">
+            <span className="text-[11px] font-mono font-bold tracking-wider text-zinc-950 uppercase">
               Developers
             </span>
             <ul className="space-y-2">
               <li>
-                <Link to="/docs" className="hover:text-[#191719] transition-colors">
+                <Link to="/docs" className="hover:text-zinc-950 transition-colors">
                   Documentation
                 </Link>
               </li>
               <li>
-                <Link to="/docs#integration" className="hover:text-[#191719] transition-colors">
+                <Link to="/docs#claude-cli" className="hover:text-zinc-950 transition-colors">
                   Claude Code Guide
                 </Link>
               </li>
               <li>
-                <Link to="/docs#cursor" className="hover:text-[#191719] transition-colors">
+                <Link to="/docs#cursor" className="hover:text-zinc-950 transition-colors">
                   Cursor & Windsurf Setup
                 </Link>
               </li>
               <li>
-                <Link to="/how-it-works" className="hover:text-[#191719] transition-colors">
+                <Link to="/how-it-works" className="hover:text-zinc-950 transition-colors">
                   5-Hour Rolling Engine
                 </Link>
               </li>
               <li>
-                <Link to="/builder" className="hover:text-[#191719] transition-colors">
+                <Link to="/builder" className="hover:text-zinc-950 transition-colors">
                   Website Builder
                 </Link>
               </li>
@@ -125,39 +126,39 @@ export const SiteFooter: React.FC = () => {
 
           {/* Col 5: Company & Legal */}
           <div className="space-y-3">
-            <span className="text-[11px] font-mono font-bold tracking-wider text-[#191719] uppercase">
-              Legal & Support
+            <span className="text-[11px] font-mono font-bold tracking-wider text-zinc-950 uppercase">
+              Company & Legal
             </span>
             <ul className="space-y-2">
               <li>
-                <Link to="/terms" className="hover:text-[#191719] transition-colors">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link to="/privacy" className="hover:text-[#191719] transition-colors">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link to="/refund" className="hover:text-[#191719] transition-colors">
-                  Refund Policy
-                </Link>
-              </li>
-              <li>
-                <Link to="/why-us" className="hover:text-[#191719] transition-colors">
+                <Link to="/why-us" className="hover:text-zinc-950 transition-colors">
                   Why LightningAPI
                 </Link>
               </li>
               <li>
-                <Link to="/faq" className="hover:text-[#191719] transition-colors">
-                  Frequently Asked Questions (FAQ)
+                <Link to="/faq" className="hover:text-zinc-950 transition-colors">
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms" className="hover:text-zinc-950 transition-colors">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link to="/privacy" className="hover:text-zinc-950 transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link to="/refund" className="hover:text-zinc-950 transition-colors">
+                  Refund Policy
                 </Link>
               </li>
               <li>
                 <a
                   href="mailto:support@lightningapi.pro"
-                  className="hover:text-[#191719] transition-colors"
+                  className="hover:text-zinc-950 transition-colors"
                 >
                   Contact Support
                 </a>
@@ -168,18 +169,18 @@ export const SiteFooter: React.FC = () => {
         </div>
 
         {/* Bottom Bar: Copyright & Privacy SLA */}
-        <div className="border-t border-[#E6E1E8] pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[#68636B]">
+        <div className="border-t border-zinc-200 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-400">
           <p>© {new Date().getFullYear()} LightningAPI.pro. All rights reserved.</p>
 
           <div className="flex flex-wrap items-center gap-4">
             <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#087F5B]" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Zero Prompt Logging SLA</span>
             </span>
             <span>·</span>
             <span>Encrypted In-Stream Routing (TLS 1.3)</span>
             <span>·</span>
-            <span>Drop-In Anthropic Messages Compatible</span>
+            <span>Drop-In Anthropic &amp; OpenAI Compatible</span>
           </div>
         </div>
 
@@ -187,3 +188,5 @@ export const SiteFooter: React.FC = () => {
     </footer>
   );
 };
+
+export default SiteFooter;

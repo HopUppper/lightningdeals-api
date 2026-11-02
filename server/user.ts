@@ -2397,6 +2397,7 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           lastPlatform: k.lastPlatform || null,
           lastUsedAt: k.lastUsedAt || null,
           createdAt: k.createdAt,
+          canReveal: Boolean(k.keyEncrypted && k.keyEncrypted.trim().length > 0),
         };
       })
     );
@@ -2458,6 +2459,12 @@ router.post('/keys/:id/reveal', authenticateJwt, async (req: AuthRequest, res: R
     }
 
     const rawKeySecret = decryptText(key.keyEncrypted);
+
+    // ONE-TIME VIEW OPTION: Permanently clear keyEncrypted so it can never be viewed again
+    await prisma.apiKey.update({
+      where: { id: key.id },
+      data: { keyEncrypted: null },
+    });
 
     await recordSecurityLog({
       userId: user.id,

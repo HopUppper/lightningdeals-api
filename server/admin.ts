@@ -2987,6 +2987,25 @@ router.get('/keys/:id/usage', async (req: AuthRequest, res: Response) => {
 
 
 
+// GET /api/admin/users - List all registered customers for key assignment
+router.get('/users', async (req: AuthRequest, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(users);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 router.post('/keys', async (req: AuthRequest, res: Response) => {
   const {
     name,
@@ -3137,8 +3156,16 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
 });
 
 router.post('/keys/trial', async (req: AuthRequest, res: Response) => {
-  const { customerName, customerEmail, tokenAllowance, expiryDays, rateLimitRpm, providerId } = req.body;
+  const { userId, customerName, customerEmail, tokenAllowance, expiryDays, rateLimitRpm, providerId } = req.body;
   try {
+    let resolvedUserId = userId || null;
+    if (!resolvedUserId && customerEmail) {
+      const matchedUser = await prisma.user.findUnique({
+        where: { email: customerEmail.toLowerCase().trim() },
+      });
+      if (matchedUser) resolvedUserId = matchedUser.id;
+    }
+
     const keyMaterial = await generateProviderApiKey({
       providerId: providerId || undefined,
       isTrial: true,
@@ -3154,6 +3181,7 @@ router.post('/keys/trial', async (req: AuthRequest, res: Response) => {
 
     const apiKey = await prisma.apiKey.create({
       data: {
+        userId: resolvedUserId,
         providerId: keyMaterial.providerId,
         keyPrefix: keyMaterial.keyPrefix,
         keyHash: keyMaterial.keyHash,

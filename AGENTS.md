@@ -55,3 +55,17 @@
 - **Clear Identification**:
   - Always identify test entities via sandbox tracking arrays (`userIds`, `keyIds`, `orderIds`).
   - Never delete by generic unbounded queries that could touch live customer rows.
+
+
+## Strict Vendor Confidentiality & Zero Supplier Leaks (CRITICAL & PERMANENT)
+
+### 5. Absolute Prohibition on Supplier & Vendor Names Across All Surfaces
+- **NEVER mention, display, or leak any supplier/vendor names or proxy details anywhere on the platform:**
+  - Prohibited names/details: ScaleMax, LotusAI, OpusMax, OpenPipe, internal vendor hostnames/IPs, technical proxy headers, or hardware gateway strings.
+  - LightningAPI stands 100% white-labeled and independent.
+  - Applies universally across:
+    - Main public marketing pages (`/`, `/models`, `/pricing`, `/how-it-works`, `/why-us`, `/demo`, `/faq`, `/check-key`)
+    - Customer dashboard pages (`/dashboard/models`, `/dashboard/studio`, `/dashboard/api-test`, `/dashboard/overview`, `/dashboard/plan`, `/dashboard/docs`, `/dashboard/migration`)
+    - API gateway responses, error payloads, and model completion outputs (streaming and non-streaming)
+  - Customer keys and model responses must strictly pass through `StreamChunkSanitizer` and `sanitizeModelResponse` with zero vendor leakage.
+  - Never display technical leakage strings such as "Zero vendor leak", "vendor leak", or "hardware isolated gateway" on any customer-facing UI (the customer must simply experience a pristine, enterprise service).

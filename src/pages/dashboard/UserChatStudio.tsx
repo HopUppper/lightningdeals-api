@@ -123,6 +123,32 @@ export interface ComparisonResult {
   };
 }
 
+export type KeyPlanCategory = 'credit' | 'window' | 'token';
+
+export function getKeyPlanCategory(key?: {
+  billingType?: string | null;
+  plan?: string | null;
+  creditBalanceUsd?: number | null;
+  type?: string | null;
+} | null): KeyPlanCategory {
+  if (!key) return 'window';
+  if (key.billingType === 'credit') return 'credit';
+  if (key.billingType === 'token') return 'token';
+  if (key.billingType === 'window') return 'window';
+
+  const planLower = (key.plan || '').toLowerCase();
+  if (
+    planLower.includes('credit') ||
+    (key.creditBalanceUsd !== null && key.creditBalanceUsd !== undefined && Number(key.creditBalanceUsd) > 0)
+  ) {
+    return 'credit';
+  }
+  if (planLower.includes('token') || planLower.includes('pack')) {
+    return 'token';
+  }
+  return 'window';
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -135,6 +161,7 @@ export interface ChatMessage {
     input_tokens: number;
     output_tokens: number;
     total_tokens: number;
+    cost_usd?: number;
     cached_tokens?: number;
     reasoning_tokens?: number;
     first_token_ms?: number;
@@ -143,6 +170,9 @@ export interface ChatMessage {
     estimated_savings_tokens?: number;
     is_savings_estimated?: boolean;
   };
+  costUsd?: number;
+  billingType?: string;
+  remainingBalance?: string | number;
   multiplier?: number;
   latencyMs?: number;
   modelUsed?: string;
@@ -426,6 +456,160 @@ const SLASH_COMMANDS = [
   { cmd: '/explain', desc: 'Provide step-by-step technical breakdown' },
   { cmd: '/compress', desc: 'Summarize conversation history to save tokens' },
 ];
+
+// Sleek Post-Response Telemetry & Credit/Token Breakdown Dropdown Box
+interface ResponseTelemetryDropdownProps {
+  message: ChatMessage;
+  isDark: boolean;
+  activeKey?: any;
+}
+
+const ResponseTelemetryDropdown: React.FC<ResponseTelemetryDropdownProps> = ({ message, isDark, activeKey }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const usage = message.usage;
+  if (!usage) return null;
+
+  const bType = message.billingType || (activeKey ? getKeyPlanCategory(activeKey) : 'window');
+  const isCredit = bType === 'credit';
+  const isWindow = bType === 'window';
+
+  // Compute cost display
+  const cost = message.costUsd !== undefined ? message.costUsd : usage.cost_usd;
+  const costFormatted = cost !== undefined ? Number(cost).toFixed(4) : null;
+  const latencySec = message.latencyMs ? (message.latencyMs / 1000).toFixed(1) : null;
+
+  return (
+    <div className="mt-2 text-xs">
+      {/* Dropdown Toggle Trigger */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-mono transition-all cursor-pointer ${
+          isOpen
+            ? isDark
+              ? 'bg-violet-950/40 border-violet-500/50 text-violet-300 shadow-sm'
+              : 'bg-violet-50 border-violet-300 text-violet-900 shadow-sm'
+            : isDark
+            ? 'bg-slate-900/50 hover:bg-slate-800/60 border-slate-800 text-slate-300 hover:text-white'
+            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
+        }`}
+        title="Click to view detailed token and credit consumption breakdown for this response"
+      >
+        <span className="flex items-center gap-1.5 font-semibold">
+          {isCredit ? (
+            <>
+              <span className="text-emerald-500">✦</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                ${costFormatted || '0.0000'} USD consumed
+              </span>
+            </>
+          ) : isWindow ? (
+            <>
+              <span className="text-violet-500">✦</span>
+              <span className="text-violet-600 dark:text-violet-400 font-bold">
+                {usage.total_tokens.toLocaleString()} tokens in 5h window
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-indigo-500">✦</span>
+              <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                {usage.total_tokens.toLocaleString()} tokens consumed
+              </span>
+            </>
+          )}
+          <span className="opacity-40">·</span>
+          <span className="opacity-80">{usage.total_tokens.toLocaleString()} tokens</span>
+          {latencySec && (
+            <>
+              <span className="opacity-40">·</span>
+              <span className="opacity-80">{latencySec}s</span>
+            </>
+          )}
+        </span>
+
+        {/* Plan badge */}
+        <span className={`text-[9px] font-sans font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+          isCredit
+            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+            : isWindow
+            ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400'
+            : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+        }`}>
+          {isCredit ? 'Credit Key' : isWindow ? '5h Window' : 'Token Pack'}
+        </span>
+
+        <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-violet-500' : ''}`} />
+      </button>
+
+      {/* Expanded Breakdown Drawer */}
+      {isOpen && (
+        <div className={`mt-2 p-3.5 rounded-2xl border text-xs max-w-xl animate-fadeIn space-y-2.5 shadow-lg ${
+          isDark ? 'bg-slate-900/90 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+        }`}>
+          <div className="flex items-center justify-between pb-2 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center gap-1.5 font-bold text-[12px]">
+              <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+              <span>Response Usage & Cost Breakdown</span>
+            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold">
+              ✓ Verified & Settled
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-[11px] font-mono">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+              <div className="text-[10px] font-sans text-slate-400">Plan Model</div>
+              <div className="font-bold text-violet-600 dark:text-violet-400 font-sans truncate">
+                {isCredit ? 'Prepaid Credit Wallet' : isWindow ? '5h Rolling Window' : 'Consumable Token Pack'}
+              </div>
+            </div>
+
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+              <div className="text-[10px] font-sans text-slate-400">Cost Consumed</div>
+              <div className="font-bold text-emerald-600 dark:text-emerald-400 truncate">
+                {isCredit ? `${costFormatted || '0.0000'} USD` : `${usage.total_tokens.toLocaleString()} tok`}
+              </div>
+            </div>
+
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+              <div className="text-[10px] font-sans text-slate-400">Remaining Balance</div>
+              <div className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                {message.remainingBalance || (activeKey ? (isCredit ? `${Number(activeKey.creditBalanceUsd || 0).toFixed(2)}` : `${(Number(activeKey.tokensRemaining || 0) / 1000000).toFixed(2)}M`) : 'Active')}
+              </div>
+            </div>
+
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+              <div className="text-[10px] font-sans text-slate-400">Prompt (Input)</div>
+              <div className="font-semibold text-slate-600 dark:text-slate-300">
+                {usage.input_tokens.toLocaleString()} tokens
+              </div>
+            </div>
+
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+              <div className="text-[10px] font-sans text-slate-400">Completion (Output)</div>
+              <div className="font-semibold text-slate-600 dark:text-slate-300">
+                {usage.output_tokens.toLocaleString()} tokens
+              </div>
+            </div>
+
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-black/30' : 'bg-slate-50'}`}>
+              <div className="text-[10px] font-sans text-slate-400">Response Latency</div>
+              <div className="font-semibold text-slate-600 dark:text-slate-300">
+                {message.latencyMs ? `${message.latencyMs} ms` : 'N/A'}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-1.5 flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400 font-sans">
+            <span>Model: <strong className="font-mono text-slate-700 dark:text-slate-300">{message.modelUsed || 'active'}</strong></span>
+            <span>Zero vendor leak • Hardware isolated gateway</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const UserChatStudio: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
@@ -886,8 +1070,12 @@ export const UserChatStudio: React.FC = () => {
           if (savedKeyId && keyList.some((k: any) => k.id === savedKeyId)) {
             setSelectedKeyId(savedKeyId);
           } else {
-            // Prefer an active key that has available tokens (> 0)
-            const positiveKey = keyList.find((k: any) => BigInt(k.tokensRemaining || 0) > 0n);
+            // Prefer an active key that has available quota (> 0 tokens or > $0 credits)
+            const positiveKey = keyList.find((k: any) => {
+              const cat = getKeyPlanCategory(k);
+              if (cat === 'credit') return Number(k.creditBalanceUsd || 0) > 0;
+              return BigInt(k.tokensRemaining || 0) > 0n;
+            });
             const initialKey = positiveKey || keyList[0];
             if (initialKey) {
               setSelectedKeyId(initialKey.id);
@@ -1477,8 +1665,12 @@ export const UserChatStudio: React.FC = () => {
       return;
     }
 
-    if (Number(remainingTokens) <= 0) {
-      setUpgradeReason('Your API key has depleted its token balance (0 tokens remaining). Please upgrade your capacity plan or switch to an active key with tokens.');
+    if (isKeyDepleted) {
+      if (activeKeyPlanCategory === 'credit') {
+        setUpgradeReason('Your API key has depleted its USD credit balance ($0.00 remaining). Please top up credits or switch to an active key.');
+      } else {
+        setUpgradeReason('Your API key has depleted its token balance (0 tokens remaining). Please upgrade your capacity plan or switch to an active key with tokens.');
+      }
       setShowUpgradeModal(true);
       return;
     }
@@ -1678,8 +1870,12 @@ export const UserChatStudio: React.FC = () => {
       return;
     }
 
-    if (Number(remainingTokens) <= 0) {
-      setUpgradeReason('Your API key has depleted its token balance (0 tokens remaining). Please upgrade your capacity plan or switch to an active key.');
+    if (isKeyDepleted) {
+      if (activeKeyPlanCategory === 'credit') {
+        setUpgradeReason('Your API key has depleted its USD credit balance ($0.00 remaining). Please top up credits in your dashboard or switch to an active key.');
+      } else {
+        setUpgradeReason('Your API key has depleted its token balance (0 tokens remaining). Please upgrade your capacity plan or switch to an active key.');
+      }
       setShowUpgradeModal(true);
       return;
     }
@@ -2133,7 +2329,13 @@ export const UserChatStudio: React.FC = () => {
                   setKeys((prev) =>
                     prev.map((k) =>
                       k.id === parsed.activeKey.id
-                        ? { ...k, tokensRemaining: parsed.activeKey.tokensRemaining }
+                        ? {
+                            ...k,
+                            tokensRemaining: parsed.activeKey.tokensRemaining ?? k.tokensRemaining,
+                            creditBalanceUsd: parsed.activeKey.creditBalanceUsd !== undefined ? parsed.activeKey.creditBalanceUsd : k.creditBalanceUsd,
+                            totalCreditsUsedUsd: parsed.activeKey.totalCreditsUsedUsd !== undefined ? parsed.activeKey.totalCreditsUsedUsd : k.totalCreditsUsedUsd,
+                            billingType: parsed.activeKey.billingType || k.billingType,
+                          }
                         : k
                     )
                   );
@@ -2168,6 +2370,11 @@ export const UserChatStudio: React.FC = () => {
                                     sources: parsed.sources || m.sources,
                                     activities: parsed.activities || m.activities,
                                     usage: parsed.usage,
+                                    costUsd: parsed.costUsd,
+                                    billingType: parsed.billingType,
+                                    remainingBalance: parsed.billingType === 'credit'
+                                      ? `${Number(parsed.remainingCreditUsd ?? (parsed.activeKey?.creditBalanceUsd || 0)).toFixed(2)}`
+                                      : `${(Number(parsed.tokensRemaining ?? 0) / 1000000).toFixed(2)}M`,
                                     latencyMs: parsed.latencyMs,
                                     multiplier: parsed.multiplier,
                                     modelUsed: parsed.modelUsed || parsed.model || activeThread.model,
@@ -2260,17 +2467,32 @@ export const UserChatStudio: React.FC = () => {
     handleSendMessage(editContent.trim(), previousMessages);
   };
 
-  // Calculate remaining tokens from active key
+  // Calculate plan category, remaining tokens or credits from active key
   const activeKey = keys.find((k) => k.id === selectedKeyId) || keys[0];
+  const activeKeyPlanCategory: KeyPlanCategory = getKeyPlanCategory(activeKey);
   const remainingTokens = activeKey ? BigInt(activeKey.tokensRemaining || 0) : 0n;
+  const activeCreditBalance = activeKey ? Number(activeKey.creditBalanceUsd || 0) : 0;
   const isTrialKey = activeKey?.type === 'trial' || activeKey?.plan === 'Free Trial';
   const remainingTokensM = (Number(remainingTokens) / 1000000).toFixed(2);
-  const remainingTokensDisplay = useMemo(() => {
+
+  const isKeyDepleted = useMemo(() => {
+    if (!activeKey) return true;
+    if (activeKeyPlanCategory === 'credit') {
+      return activeCreditBalance <= 0;
+    }
+    return Number(remainingTokens) <= 0;
+  }, [activeKey, activeKeyPlanCategory, activeCreditBalance, remainingTokens]);
+
+  const remainingQuotaDisplay = useMemo(() => {
+    if (!activeKey) return '0';
+    if (activeKeyPlanCategory === 'credit') {
+      return `${activeCreditBalance.toFixed(2)}`;
+    }
     const num = Number(remainingTokens);
     if (num <= 0) return '0';
     if (num < 1000000) return `${Math.round(num / 1000)}k`;
     return `${(num / 1000000).toFixed(2)}M`;
-  }, [remainingTokens]);
+  }, [activeKey, activeKeyPlanCategory, activeCreditBalance, remainingTokens]);
 
 // Global window paste listener so Ctrl+V anywhere in Studio pastes screenshots
   useEffect(() => {
@@ -2536,7 +2758,7 @@ export const UserChatStudio: React.FC = () => {
             type="button"
             onClick={() => setKeyPickerOpen(true)}
             className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer ${
-              Number(remainingTokens) <= 0
+              isKeyDepleted
                 ? isDark
                   ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
                   : 'bg-rose-100 border-rose-300 text-rose-900 hover:bg-rose-200 font-bold'
@@ -2544,7 +2766,7 @@ export const UserChatStudio: React.FC = () => {
                 ? 'bg-emerald-950/30 text-emerald-300 border-emerald-500/30 hover:bg-emerald-950/50'
                 : 'bg-emerald-100/80 text-emerald-950 border-emerald-300 hover:bg-emerald-200/80 font-bold'
             }`}
-            title="Active API key and token quota"
+            title={`Active API key: ${activeKey?.name || 'API Key'} (${activeKeyPlanCategory === 'credit' ? 'USD Credit Wallet' : activeKeyPlanCategory === 'window' ? '5h Rolling Window' : 'Consumable Token Pack'})`}
           >
             <Key className="w-3 h-3 opacity-80" />
             <span className="font-sans font-semibold max-w-[80px] truncate text-[11px]">
@@ -2552,7 +2774,8 @@ export const UserChatStudio: React.FC = () => {
             </span>
             <span className="opacity-40">|</span>
             <span className="font-bold text-[11px]">
-              {remainingTokensDisplay}
+              {remainingQuotaDisplay}
+              {activeKeyPlanCategory === 'window' && Number(remainingTokens) > 0 ? ' / 5h' : ''}
             </span>
           </button>
 
@@ -3292,13 +3515,21 @@ export const UserChatStudio: React.FC = () => {
                   type="button"
                   onClick={() => setKeyPickerOpen(true)}
                   className={`font-semibold cursor-pointer px-1.5 py-0.5 rounded text-[10px] ${
-                    Number(remainingTokens) <= 0
+                    isKeyDepleted
                       ? 'bg-rose-500/20 text-rose-500 font-bold'
                       : 'text-violet-500 hover:underline'
                   }`}
                   title="Switch API Key"
                 >
-                  {keys.length === 0 ? 'No Key' : Number(remainingTokens) <= 0 ? 'Switch Key' : `${remainingTokensM}M`}
+                  {keys.length === 0
+                    ? 'No Key'
+                    : isKeyDepleted
+                    ? 'Switch Key'
+                    : activeKeyPlanCategory === 'credit'
+                    ? `${activeCreditBalance.toFixed(2)}`
+                    : activeKeyPlanCategory === 'window'
+                    ? `${remainingTokensM}M (5h)`
+                    : `${remainingTokensM}M`}
                 </button>
               </div>
               <div
@@ -3308,11 +3539,15 @@ export const UserChatStudio: React.FC = () => {
               >
                 <div
                   className={`h-full transition-all ${
-                    Number(remainingTokens) <= 0
+                    isKeyDepleted
                       ? 'bg-rose-500'
                       : 'bg-gradient-to-r from-violet-500 to-indigo-500'
                   }`}
-                  style={{ width: `${Math.max(4, Math.min(100, (Number(remainingTokens) / 5000000) * 100))}%` }}
+                  style={{
+                    width: activeKeyPlanCategory === 'credit'
+                      ? `${Math.max(4, Math.min(100, (activeCreditBalance / 10) * 100))}%`
+                      : `${Math.max(4, Math.min(100, (Number(remainingTokens) / 5000000) * 100))}%`,
+                  }}
                 />
               </div>
             </div>
@@ -3867,6 +4102,15 @@ export const UserChatStudio: React.FC = () => {
                             />
                           </div>
                         )}
+
+                        {/* 4. Small Post-Response Telemetry & Credit/Token Breakdown Box */}
+                        {Boolean(msg.content && msg.usage) && (
+                          <ResponseTelemetryDropdown
+                            message={msg}
+                            isDark={isDark}
+                            activeKey={activeKey}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
@@ -4235,8 +4479,14 @@ export const UserChatStudio: React.FC = () => {
                 <span>·</span>
                 <span className="hidden sm:inline">{threadTokenStats.outputTokens.toLocaleString()} out</span>
                 <span>·</span>
-                <span className={Number(remainingTokens) <= 0 ? 'text-rose-500 font-bold' : ''}>
-                  {Number(remainingTokens) <= 0 ? '0 remaining' : `${remainingTokensM}M remaining`}
+                <span className={isKeyDepleted ? 'text-rose-500 font-bold' : ''}>
+                  {isKeyDepleted
+                    ? '0 remaining'
+                    : activeKeyPlanCategory === 'credit'
+                    ? `${activeCreditBalance.toFixed(2)} credits available`
+                    : activeKeyPlanCategory === 'window'
+                    ? `${remainingTokensM}M in 5h window`
+                    : `${remainingTokensM}M tokens remaining`}
                 </span>
                 <span>·</span>
                 <span className="truncate">~{threadTokenStats.contextPercent}% context</span>
@@ -4369,9 +4619,11 @@ export const UserChatStudio: React.FC = () => {
               ) : (
                 keys.map((k) => {
                   const isSelected = selectedKeyId === k.id;
-                  const keyRemaining = BigInt(k.tokensRemaining || 0);
-                  const isDepleted = keyRemaining <= 0n;
-                  const remainingMillions = (Number(keyRemaining) / 1000000).toFixed(2);
+                  const cat = getKeyPlanCategory(k);
+                  const keyCreditBal = Number(k.creditBalanceUsd || 0);
+                  const keyTokensRemaining = BigInt(k.tokensRemaining || 0);
+                  const isDepleted = cat === 'credit' ? keyCreditBal <= 0 : keyTokensRemaining <= 0n;
+                  const remainingMillions = (Number(keyTokensRemaining) / 1000000).toFixed(2);
 
                   return (
                     <div
@@ -4398,16 +4650,33 @@ export const UserChatStudio: React.FC = () => {
                               {k.plan}
                             </span>
                           )}
+                          <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                            cat === 'credit'
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                              : cat === 'window'
+                              ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
+                              : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+                          }`}>
+                            {cat === 'credit' ? 'Credit Wallet' : cat === 'window' ? '5h Rolling' : 'Token Pack'}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-2 text-xs">
                           {isDepleted ? (
                             <span className="text-[11px] font-mono font-bold text-rose-500 flex items-center gap-1">
-                              ● Depleted (0 tokens remaining)
+                              ● {cat === 'credit' ? 'Depleted ($0.00 credits remaining)' : 'Depleted (0 tokens remaining)'}
+                            </span>
+                          ) : cat === 'credit' ? (
+                            <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
+                              ● ${keyCreditBal.toFixed(2)} USD credits available (${keyCreditBal.toFixed(4)})
+                            </span>
+                          ) : cat === 'window' ? (
+                            <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              ● {remainingMillions}M tokens remaining in 5h window ({Number(keyTokensRemaining).toLocaleString()})
                             </span>
                           ) : (
                             <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                              ● {remainingMillions}M tokens remaining ({Number(keyRemaining).toLocaleString()})
+                              ● {remainingMillions}M tokens remaining ({Number(keyTokensRemaining).toLocaleString()})
                             </span>
                           )}
                         </div>

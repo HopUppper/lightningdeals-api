@@ -569,7 +569,7 @@ studioRouter.get('/models', async (req: AuthRequest, res: Response) => {
           family: dbm.family || 'openai',
           category,
           badge: dbm.modelId.includes('argon') ? 'New' : dbm.supportsReasoning ? 'Reasoning' : undefined,
-          description: dbm.description || `${dbm.displayName} high-performance model via ScaleMax network.`,
+          description: dbm.description || `${dbm.displayName} high-performance model via LightningAPI ultra-low latency mesh.`,
           tokenMultiplier: dbm.inputPrice > 5 ? 2.0 : 1.0,
           contextWindow: dbm.contextWindow || 128000,
           maxOutputTokens: dbm.maxOutputTokens || 8192,
@@ -584,7 +584,7 @@ studioRouter.get('/models', async (req: AuthRequest, res: Response) => {
           speed: 4,
           intelligence: 4,
           costTier: dbm.inputPrice > 5 ? 'Premium' : 'Standard',
-          provider: dbm.provider || 'ScaleMax',
+          provider: dbm.provider || 'LightningAPI',
           contextWords: `${Math.round((dbm.contextWindow || 128000) * 0.75 / 1000)}k words`,
           upstreamModelId: dbm.upstreamModelId || dbm.modelId,
           providerRoute: dbm.protocol || 'openai-compatible',
@@ -901,6 +901,9 @@ studioRouter.get('/conversations/:id', async (req: AuthRequest, res: Response) =
       let activities: any[] = [];
       let researchMode: string | undefined = undefined;
       let inspectedUrl: string | undefined = undefined;
+      let billingType: string | undefined = undefined;
+      let remainingBalance: string | undefined = undefined;
+      let costUsd: number | undefined = m.costUsd !== null && m.costUsd !== undefined ? Number(m.costUsd) : undefined;
 
       if (m.attachmentsJson) {
         try {
@@ -913,6 +916,9 @@ studioRouter.get('/conversations/:id', async (req: AuthRequest, res: Response) =
             researchMode = parsed.researchMode;
             inspectedUrl = parsed.inspectedUrl;
             attachments = parsed.attachments || [];
+            if (parsed.billingType) billingType = parsed.billingType;
+            if (parsed.remainingBalance) remainingBalance = parsed.remainingBalance;
+            if (costUsd === undefined && parsed.costUsd !== undefined) costUsd = Number(parsed.costUsd);
           }
         } catch {}
       }
@@ -928,7 +934,11 @@ studioRouter.get('/conversations/:id', async (req: AuthRequest, res: Response) =
           input_tokens: m.inputTokens,
           output_tokens: m.outputTokens,
           total_tokens: m.totalTokens,
+          cost_usd: costUsd,
         },
+        costUsd,
+        billingType,
+        remainingBalance,
         multiplier: m.multiplier,
         latencyMs: m.latencyMs,
         attachments,
@@ -2278,10 +2288,17 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // If no specific key requested or not found, prefer an active key with available token quota
+    // If no specific key requested or not found, prefer an active key with available token quota or positive credit balance
     if (!keyRecord) {
       keyRecord = await prisma.apiKey.findFirst({
-        where: { userId, status: 'active', tokensRemaining: { gt: 0n } },
+        where: {
+          userId,
+          status: 'active',
+          OR: [
+            { tokensRemaining: { gt: 0n } },
+            { billingType: 'credit', creditBalanceUsd: { gt: 0 } },
+          ],
+        },
         include: { provider: true },
         orderBy: { createdAt: 'desc' },
       });
@@ -2842,24 +2859,84 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     // Settle studio reservation
     await settleReservation(studioRequestId);
 
-    // Deduct tokens from user API key in database
-    const isRolling = isRollingPlan(keyRecord);
-    const remainingAfter = isRolling
-      ? keyRecord.tokensRemaining
-      : (keyRecord.tokensRemaining > billedTokens ? keyRecord.tokensRemaining - billedTokens : 0n);
+    const bType = keyRecord.billingType || (isRollingPlan(keyRecord) ? 'window' : 'token');
+    const isRolling = bType === 'window';
+    let remainingAfter = keyRecord.tokensRemaining;
+    let costUsd = 0;
+    let newCreditBal = Number(keyRecord.creditBalanceUsd || 0);
 
-    await prisma.apiKey.update({
-      where: { id: keyRecord.id },
-      data: {
-        tokensUsed: { increment: billedTokens },
-        tokensRemaining: remainingAfter,
-        totalRequests: { increment: 1 },
-        totalInputTokens: { increment: BigInt(inputTokens) },
-        totalOutputTokens: { increment: BigInt(outputTokens) },
-        lastUsedAt: new Date(),
-        lastPlatform: 'AI Chat Studio 2.0',
-      },
-    }).catch((e) => console.error('[STUDIO KEY UPDATE ERROR]', e));
+    if (bType === 'credit') {
+      // 1. Credit Plan: Calculate accurate USD cost based on registered model pricing
+      let inPrice = 3.00;
+      let outPrice = 15.00;
+      try {
+        const modelRecord = await prisma.model.findFirst({
+          where: {
+            OR: [{ modelId: selectedModel }, { upstreamModelId: selectedModel }],
+          },
+        });
+        if (modelRecord?.inputPrice) inPrice = Number(modelRecord.inputPrice);
+        if (modelRecord?.outputPrice) outPrice = Number(modelRecord.outputPrice);
+      } catch {}
+
+      costUsd = Math.max(0.0001, Math.round(((inputTokens * inPrice + outputTokens * outPrice) / 1000000) * 100000) / 100000);
+      const curBal = Number(keyRecord.creditBalanceUsd || 0);
+      newCreditBal = Math.max(0, Math.round((curBal - costUsd) * 100000) / 100000);
+
+      // Deduct USD credits from customer API key
+      await prisma.apiKey.update({
+        where: { id: keyRecord.id },
+        data: {
+          creditBalanceUsd: newCreditBal,
+          totalCreditsUsedUsd: { increment: costUsd },
+          tokensUsed: { increment: billedTokens },
+          totalRequests: { increment: 1 },
+          totalInputTokens: { increment: BigInt(inputTokens) },
+          totalOutputTokens: { increment: BigInt(outputTokens) },
+          lastUsedAt: new Date(),
+          lastPlatform: 'AI Chat Studio 2.0',
+        },
+      }).catch((e) => console.error('[STUDIO KEY CREDIT UPDATE ERROR]', e));
+
+      // Create CustomerUsageCreditLedger row
+      await prisma.customerUsageCreditLedger.create({
+        data: {
+          userId,
+          apiKeyId: keyRecord.id,
+          type: 'USAGE_DEDUCTION',
+          amount: -costUsd,
+          balanceBefore: curBal,
+          balanceAfter: newCreditBal,
+          currency: 'USD',
+          model: selectedModel,
+          inputTokens,
+          outputTokens,
+          cachedTokens: 0,
+          retailInputPricePerM: inPrice,
+          retailOutputPricePerM: outPrice,
+          reference: studioRequestId,
+          notes: `AI Chat Studio: ${selectedModel} (${costUsd.toFixed(4)})`,
+        },
+      }).catch((e) => console.error('[STUDIO CREDIT LEDGER ERROR]', e));
+    } else {
+      // 2. Token / Window Plan
+      remainingAfter = isRolling
+        ? keyRecord.tokensRemaining
+        : (keyRecord.tokensRemaining > billedTokens ? keyRecord.tokensRemaining - billedTokens : 0n);
+
+      await prisma.apiKey.update({
+        where: { id: keyRecord.id },
+        data: {
+          tokensUsed: { increment: billedTokens },
+          tokensRemaining: remainingAfter,
+          totalRequests: { increment: 1 },
+          totalInputTokens: { increment: BigInt(inputTokens) },
+          totalOutputTokens: { increment: BigInt(outputTokens) },
+          lastUsedAt: new Date(),
+          lastPlatform: 'AI Chat Studio 2.0',
+        },
+      }).catch((e) => console.error('[STUDIO KEY UPDATE ERROR]', e));
+    }
 
     // Create ApiRequest telemetry row
     await prisma.apiRequest.create({
@@ -2876,6 +2953,9 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         providerId: vendor.id,
         streaming: true,
         usageSource: 'PROVIDER_REPORTED',
+        billingPlanType: bType,
+        costDeductedUsd: bType === 'credit' ? costUsd : 0,
+        retailCreditDeductedUsd: bType === 'credit' ? costUsd : 0,
         clientPlatform: 'AI Chat Studio 2.0',
         userAgent: req.headers['user-agent']?.toString() || 'AI Chat Studio',
         ipAddress: (req.ip || req.headers['x-forwarded-for']?.toString() || '').split(',')[0].trim() || null,
@@ -2913,11 +2993,17 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
           totalTokens,
           multiplier,
           latencyMs,
+          costUsd: bType === 'credit' ? costUsd : undefined,
           attachmentsJson: JSON.stringify({
             sources: researchSources,
             researchMode,
             inspectedUrl: analyzedUrl,
             activities: activityTracker.getActivities(),
+            billingType: bType,
+            costUsd: bType === 'credit' ? costUsd : undefined,
+            remainingBalance: bType === 'credit'
+              ? `${newCreditBal.toFixed(2)}`
+              : `${(Number(remainingAfter) / 1000000).toFixed(2)}M`,
           }),
         },
       }).catch((e) => console.error('[STUDIO ASSISTANT MSG SAVE ERROR]', e));
@@ -2951,17 +3037,23 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         total_tokens: totalTokens,
+        cost_usd: bType === 'credit' ? costUsd : undefined,
         estimated_savings_tokens: estimatedSavingsTokens,
         is_savings_estimated: true,
         savings_tokens: estimatedSavingsTokens,
       },
       multiplier,
       latencyMs,
+      billingType: bType,
+      costUsd: bType === 'credit' ? costUsd : undefined,
+      remainingCreditUsd: bType === 'credit' ? newCreditBal : undefined,
       tokensRemaining: remainingAfter.toString(),
       activeKey: {
         id: keyRecord.id,
         name: keyRecord.name,
         displayKey: keyRecord.displayKey,
+        billingType: bType,
+        creditBalanceUsd: bType === 'credit' ? newCreditBal : (keyRecord.creditBalanceUsd ? Number(keyRecord.creditBalanceUsd) : 0),
         tokensRemaining: remainingAfter.toString(),
       },
       isPaidCustomer,

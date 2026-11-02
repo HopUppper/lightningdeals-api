@@ -21,6 +21,9 @@ export interface StudioEntitlement {
     isExpired: boolean;
     isQuotaExhausted: boolean;
     allowedModels: string;
+    billingType?: string;
+    creditBalanceUsd?: number;
+    totalCreditsUsedUsd?: number;
   } | null;
   allowedModels: string[];
   paidOnlyModels: string[];
@@ -184,25 +187,37 @@ export async function resolveStudioEntitlement(
     });
   }
 
-  // Preferred key not given or invalid: prefer active key with tokens and not expired
+  // Preferred key not given or invalid: prefer active key with tokens or positive credit balance and not expired
   if (!keyRecord) {
     const now = new Date();
     keyRecord = await prisma.apiKey.findFirst({
       where: {
         userId,
         status: 'active',
-        tokensRemaining: { gt: 0n },
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        OR: [
+          { tokensRemaining: { gt: 0n } },
+          { billingType: 'credit', creditBalanceUsd: { gt: 0 } },
+        ],
+        AND: [
+          { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+        ],
       },
       include: { provider: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  // Fallback to any active key with remaining tokens
+  // Fallback to any active key with remaining tokens or positive credit balance
   if (!keyRecord) {
     keyRecord = await prisma.apiKey.findFirst({
-      where: { userId, status: 'active', tokensRemaining: { gt: 0n } },
+      where: {
+        userId,
+        status: 'active',
+        OR: [
+          { tokensRemaining: { gt: 0n } },
+          { billingType: 'credit', creditBalanceUsd: { gt: 0 } },
+        ],
+      },
       include: { provider: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -240,15 +255,28 @@ export async function resolveStudioEntitlement(
   let isExpired = false;
   let isQuotaExhausted = false;
   let hasValidActiveKey = false;
-
   let effectiveTokensRemaining = 0n;
+  let bType = 'window';
+
   if (keyRecord) {
+    bType = keyRecord.billingType || (isRollingPlan(keyRecord) ? 'window' : 'token');
     if (keyRecord.expiresAt) {
       isExpired = new Date(keyRecord.expiresAt).getTime() <= Date.now();
     }
-    const metrics = await calculateCustomerRollingWindow(keyRecord);
-    effectiveTokensRemaining = BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
-    isQuotaExhausted = effectiveTokensRemaining <= 0n;
+
+    if (bType === 'credit') {
+      const creditBal = Number(keyRecord.creditBalanceUsd || 0);
+      isQuotaExhausted = creditBal <= 0;
+      effectiveTokensRemaining = BigInt(Math.max(0, Math.floor(creditBal * 200000)));
+    } else if (bType === 'window') {
+      const metrics = await calculateCustomerRollingWindow(keyRecord);
+      effectiveTokensRemaining = BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
+      isQuotaExhausted = effectiveTokensRemaining <= 0n;
+    } else {
+      effectiveTokensRemaining = keyRecord.tokensRemaining || 0n;
+      isQuotaExhausted = effectiveTokensRemaining <= 0n;
+    }
+
     hasValidActiveKey = keyRecord.status === 'active' && !isExpired && !isQuotaExhausted;
   }
 
@@ -293,10 +321,17 @@ export async function resolveStudioEntitlement(
       message: `Your API key "${keyRecord.name || keyRecord.displayKey}" has expired. Please upgrade or generate a new key to continue prompting.`,
     };
   } else if (isQuotaExhausted) {
-    rejectionReason = {
-      code: 'QUOTA_EXHAUSTED',
-      message: `Your API key "${keyRecord.name || keyRecord.displayKey}" has depleted its token balance (0 tokens remaining). Please upgrade or switch to a key with available quota.`,
-    };
+    if (bType === 'credit') {
+      rejectionReason = {
+        code: 'QUOTA_EXHAUSTED',
+        message: `Your API key "${keyRecord.name || keyRecord.displayKey}" has depleted its credit balance ($0.00 remaining). Please top up credits in your dashboard or switch to an active key.`,
+      };
+    } else {
+      rejectionReason = {
+        code: 'QUOTA_EXHAUSTED',
+        message: `Your API key "${keyRecord.name || keyRecord.displayKey}" has depleted its token balance (0 tokens remaining). Please upgrade or switch to a key with available quota.`,
+      };
+    }
   } else {
     canChat = true;
   }
@@ -324,6 +359,9 @@ export async function resolveStudioEntitlement(
           isExpired,
           isQuotaExhausted,
           allowedModels: keyRecord.allowedModels || 'all',
+          billingType: bType,
+          creditBalanceUsd: keyRecord.creditBalanceUsd !== null && keyRecord.creditBalanceUsd !== undefined ? Number(keyRecord.creditBalanceUsd) : 0,
+          totalCreditsUsedUsd: keyRecord.totalCreditsUsedUsd !== null && keyRecord.totalCreditsUsedUsd !== undefined ? Number(keyRecord.totalCreditsUsedUsd) : 0,
         }
       : null,
     allowedModels,

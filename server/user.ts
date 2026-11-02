@@ -1671,29 +1671,86 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
     const outputTokens = Number(responseJson.usage?.output_tokens) || Math.max(1, Math.ceil(responseText.length / 4));
     const totalTokens = inputTokens + outputTokens;
 
-    // Deduct tokens from user's key and record request in db
+    // Deduct tokens or credits from user's key and record request in db
     await settleReservation(testRequestId);
 
-    const isRolling = isRollingPlan(keyRecord);
-    const remainingAfter = isRolling
-      ? keyRecord.tokensRemaining
-      : (keyRecord.tokensRemaining > BigInt(totalTokens) ? keyRecord.tokensRemaining - BigInt(totalTokens) : 0n);
-
+    const bType = keyRecord.billingType || (isRollingPlan(keyRecord) ? 'window' : 'token');
+    const isRolling = bType === 'window';
+    let remainingAfter = keyRecord.tokensRemaining;
+    let costUsd = 0;
+    let newCreditBal = Number(keyRecord.creditBalanceUsd || 0);
     const platformTag = (typeof clientPlatform === 'string' && clientPlatform.trim()) ? clientPlatform.trim() : 'Interactive Playground';
 
-    await prisma.apiKey.update({
-      where: { id: keyRecord.id },
-      data: {
-        tokensUsed: { increment: BigInt(totalTokens) },
-        tokensRemaining: remainingAfter,
-        totalRequests: { increment: 1 },
-        totalInputTokens: { increment: BigInt(inputTokens) },
-        totalOutputTokens: { increment: BigInt(outputTokens) },
-        lastUsedAt: new Date(),
-        lastPlatform: platformTag,
-        firstUsedAt: keyRecord.firstUsedAt || new Date(),
-      },
-    });
+    if (bType === 'credit') {
+      let inPrice = 3.00;
+      let outPrice = 15.00;
+      try {
+        const modelRecord = await prisma.model.findFirst({
+          where: {
+            OR: [{ modelId: selectedModel }, { upstreamModelId: selectedModel }],
+          },
+        });
+        if (modelRecord?.inputPrice) inPrice = Number(modelRecord.inputPrice);
+        if (modelRecord?.outputPrice) outPrice = Number(modelRecord.outputPrice);
+      } catch {}
+
+      costUsd = Math.max(0.0001, Math.round(((inputTokens * inPrice + outputTokens * outPrice) / 1000000) * 100000) / 100000);
+      const curBal = Number(keyRecord.creditBalanceUsd || 0);
+      newCreditBal = Math.max(0, Math.round((curBal - costUsd) * 100000) / 100000);
+
+      await prisma.apiKey.update({
+        where: { id: keyRecord.id },
+        data: {
+          creditBalanceUsd: newCreditBal,
+          totalCreditsUsedUsd: { increment: costUsd },
+          tokensUsed: { increment: BigInt(totalTokens) },
+          totalRequests: { increment: 1 },
+          totalInputTokens: { increment: BigInt(inputTokens) },
+          totalOutputTokens: { increment: BigInt(outputTokens) },
+          lastUsedAt: new Date(),
+          lastPlatform: platformTag,
+          firstUsedAt: keyRecord.firstUsedAt || new Date(),
+        },
+      });
+
+      await prisma.customerUsageCreditLedger.create({
+        data: {
+          userId: req.user!.id,
+          apiKeyId: keyRecord.id,
+          type: 'USAGE_DEDUCTION',
+          amount: -costUsd,
+          balanceBefore: curBal,
+          balanceAfter: newCreditBal,
+          currency: 'USD',
+          model: selectedModel,
+          inputTokens,
+          outputTokens,
+          cachedTokens: 0,
+          retailInputPricePerM: inPrice,
+          retailOutputPricePerM: outPrice,
+          reference: testRequestId,
+          notes: `Test Console: ${selectedModel} (${costUsd.toFixed(4)})`,
+        },
+      }).catch((e) => console.error('[TEST KEY CREDIT LEDGER ERROR]', e));
+    } else {
+      remainingAfter = isRolling
+        ? keyRecord.tokensRemaining
+        : (keyRecord.tokensRemaining > BigInt(totalTokens) ? keyRecord.tokensRemaining - BigInt(totalTokens) : 0n);
+
+      await prisma.apiKey.update({
+        where: { id: keyRecord.id },
+        data: {
+          tokensUsed: { increment: BigInt(totalTokens) },
+          tokensRemaining: remainingAfter,
+          totalRequests: { increment: 1 },
+          totalInputTokens: { increment: BigInt(inputTokens) },
+          totalOutputTokens: { increment: BigInt(outputTokens) },
+          lastUsedAt: new Date(),
+          lastPlatform: platformTag,
+          firstUsedAt: keyRecord.firstUsedAt || new Date(),
+        },
+      });
+    }
 
     await prisma.apiRequest.create({
       data: {
@@ -1709,6 +1766,9 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         providerId: currentVendor.id,
         streaming: false,
         usageSource: 'PROVIDER_REPORTED',
+        billingPlanType: bType,
+        costDeductedUsd: bType === 'credit' ? costUsd : 0,
+        retailCreditDeductedUsd: bType === 'credit' ? costUsd : 0,
         clientPlatform: platformTag,
         userAgent: req.headers['user-agent']?.toString() || 'Browser / Interactive Playground',
         ipAddress: (req.ip || req.headers['x-forwarded-for']?.toString() || '').split(',')[0].trim() || null,
@@ -1725,7 +1785,11 @@ router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Respons
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         total_tokens: totalTokens,
+        cost_usd: bType === 'credit' ? costUsd : undefined,
       },
+      billingType: bType,
+      costUsd: bType === 'credit' ? costUsd : undefined,
+      creditBalanceUsd: bType === 'credit' ? newCreditBal : undefined,
       modelTested: selectedModel,
       latencyMs,
       tokensRemaining: remainingAfter.toString(),

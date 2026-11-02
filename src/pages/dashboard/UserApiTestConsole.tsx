@@ -275,11 +275,21 @@ export const UserApiTestConsole: React.FC = () => {
               onChange={(e) => setSelectedKey(e.target.value)}
               className="w-full px-3.5 py-2.5 text-xs font-mono bg-[#faf8f5] border border-[#ede8e1] rounded-2xl focus:outline-none focus:border-violet-500 text-[#1e1b2e]"
             >
-              {keys.map((k) => (
-                <option key={k.id} value={k.displayKey || k.id}>
-                  {k.name} ({k.displayKey || k.id})
-                </option>
-              ))}
+              {keys.map((k) => {
+                const isCredit = k.billingType === 'credit' || (k.creditBalanceUsd !== null && k.creditBalanceUsd !== undefined && Number(k.creditBalanceUsd) > 0);
+                const isWindow = k.billingType === 'window';
+                const balDisplay = isCredit
+                  ? `${(Number(k.creditBalanceUsd) || 0).toFixed(2)} USD Credits`
+                  : isWindow
+                  ? `${(Number(k.tokensRemaining || 0) / 1000000).toFixed(2)}M in 5h`
+                  : `${(Number(k.tokensRemaining || 0) / 1000000).toFixed(2)}M tokens`;
+
+                return (
+                  <option key={k.id} value={k.displayKey || k.id}>
+                    {k.name} · {balDisplay} ({k.displayKey || k.id})
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -465,7 +475,7 @@ export const UserApiTestConsole: React.FC = () => {
                 </div>
 
                 {/* Telemetry pill */}
-                <div className="p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] grid grid-cols-4 gap-2 text-center text-xs">
                   <div>
                     <span className="text-[10px] text-[#64607d] block">Tokens In</span>
                     <strong className="text-[#1e1b2e] font-mono">{response?.usage?.input_tokens || 14}</strong>
@@ -475,8 +485,16 @@ export const UserApiTestConsole: React.FC = () => {
                     <strong className="text-[#1e1b2e] font-mono">{response?.usage?.output_tokens || 48}</strong>
                   </div>
                   <div>
+                    <span className="text-[10px] text-[#64607d] block">Cost / Deducted</span>
+                    <strong className="text-emerald-700 font-mono">
+                      {response?.billingType === 'credit' || response?.costUsd !== undefined
+                        ? `${Number(response?.costUsd || 0).toFixed(4)} USD`
+                        : `${(response?.usage?.total_tokens || 0).toLocaleString()} tok`}
+                    </strong>
+                  </div>
+                  <div>
                     <span className="text-[10px] text-[#64607d] block">Latency</span>
-                    <strong className="text-emerald-700 font-mono">{response?.latencyMs || 42}ms</strong>
+                    <strong className="text-violet-700 font-mono">{response?.latencyMs || 42}ms</strong>
                   </div>
                 </div>
               </div>

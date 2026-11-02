@@ -12,7 +12,12 @@ import {
   FolderArchive,
   Folder,
   Loader2,
-  ExternalLink,
+  Info,
+  AlertTriangle,
+  AlertCircle,
+  ShieldAlert,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { ArtifactData } from './ArtifactCanvas';
 import { WebSourceItem } from './WebResearchSources';
@@ -22,7 +27,6 @@ import {
   getExtensionForLanguage,
   triggerFileDownload,
   downloadAllAsZip,
-  ExtractedCodeFile,
 } from '../../utils/fileExport';
 
 interface MarkdownBlockProps {
@@ -72,8 +76,10 @@ export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
     }
   };
 
-  // Split content by code blocks ```lang ... ```
-  const parts = cleanContent.split(/(```[\s\S]*?```)/g);
+  // Split content cleanly into text segments and code blocks (including unclosed blocks during streaming)
+  const parts = useMemo(() => {
+    return splitMarkdownCodeBlocks(cleanContent);
+  }, [cleanContent]);
 
   return (
     <div className="space-y-3 leading-relaxed text-[13.5px] text-[#111827] dark:text-slate-100 font-normal">
@@ -157,10 +163,13 @@ export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
 
       {/* Main Formatted Text & Code Blocks */}
       {parts.map((part, index) => {
-        if (part.startsWith('```') && part.endsWith('```')) {
+        if (part.startsWith('```')) {
+          const hasClosing = part.length >= 6 && part.endsWith('```');
           const firstLineBreak = part.indexOf('\n');
-          const rawHeader = part.slice(3, firstLineBreak).trim();
-          const code = part.slice(firstLineBreak + 1, -3);
+          const rawHeader = firstLineBreak !== -1 ? part.slice(3, firstLineBreak).trim() : '';
+          const code = firstLineBreak !== -1
+            ? (hasClosing ? part.slice(firstLineBreak + 1, -3) : part.slice(firstLineBreak + 1))
+            : '';
           const lang = rawHeader.split(/[:\s]/)[0].toLowerCase() || 'text';
           const explicitName = extractFilenameFromCode(rawHeader, code);
 
@@ -180,6 +189,36 @@ export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
     </div>
   );
 };
+
+// Splits markdown content safely into code blocks and prose text blocks
+function splitMarkdownCodeBlocks(content: string): string[] {
+  const segments: string[] = [];
+  let remaining = content;
+
+  while (remaining.length > 0) {
+    const startIdx = remaining.indexOf('```');
+    if (startIdx === -1) {
+      segments.push(remaining);
+      break;
+    }
+
+    if (startIdx > 0) {
+      segments.push(remaining.slice(0, startIdx));
+    }
+
+    const endIdx = remaining.indexOf('```', startIdx + 3);
+    if (endIdx === -1) {
+      // Unclosed code block extending to the end (e.g. while streaming)
+      segments.push(remaining.slice(startIdx));
+      break;
+    } else {
+      segments.push(remaining.slice(startIdx, endIdx + 3));
+      remaining = remaining.slice(endIdx + 3);
+    }
+  }
+
+  return segments;
+}
 
 interface CodeBlockProps {
   language: string;
@@ -230,7 +269,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   const displayedLines = isLong && !expanded ? lines.slice(0, 24) : lines;
 
   return (
-    <div className="my-3 rounded-xl overflow-hidden border border-[#e5e7eb] dark:border-[#28334B] bg-[#0d131f] text-slate-200 shadow-sm">
+    <div className="my-3.5 rounded-xl overflow-hidden border border-[#e5e7eb] dark:border-[#28334B] bg-[#0d131f] text-slate-200 shadow-xs">
       {/* Code Header Bar */}
       <div className="px-3.5 py-2 bg-[#161f30] border-b border-[#28334B] flex items-center justify-between text-xs select-none">
         <div className="flex items-center gap-2 min-w-0">
@@ -330,113 +369,474 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   );
 };
 
-const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text, sources }) => {
-  if (!text.trim()) return null;
+interface TableData {
+  headers: string[];
+  alignments: ('left' | 'center' | 'right')[];
+  rows: string[][];
+}
 
-  const paragraphs = text.split(/\n\n+/);
+interface ParsedBlock {
+  type: 'heading' | 'table' | 'hr' | 'blockquote' | 'alert' | 'list' | 'paragraph';
+  level?: number;
+  content?: string;
+  table?: TableData;
+  alertType?: string;
+  items?: { text: string; indent: number; isTask?: boolean; checked?: boolean; num?: string }[];
+}
+
+const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text, sources }) => {
+  const blocks = useMemo(() => parseBlocks(text), [text]);
+
+  if (blocks.length === 0) return null;
 
   return (
-    <>
-      {paragraphs.map((p, pIdx) => {
-        const trimmed = p.trim();
-        if (!trimmed) return null;
+    <div className="space-y-3.5">
+      {blocks.map((block, idx) => {
+        // 1. Heading Elements H1 - H6
+        if (block.type === 'heading') {
+          const content = block.content || '';
+          switch (block.level) {
+            case 1:
+              return (
+                <h1
+                  key={idx}
+                  className="text-xl sm:text-2xl font-black text-[#111827] dark:text-white mt-6 mb-3 tracking-tight leading-tight"
+                >
+                  {formatInline(content, sources)}
+                </h1>
+              );
+            case 2:
+              return (
+                <h2
+                  key={idx}
+                  className="text-lg sm:text-xl font-bold text-[#111827] dark:text-white mt-5 mb-2.5 pb-1.5 border-b border-[#e5e7eb] dark:border-[#28334B] leading-tight"
+                >
+                  {formatInline(content, sources)}
+                </h2>
+              );
+            case 3:
+              return (
+                <h3
+                  key={idx}
+                  className="text-base font-bold text-[#111827] dark:text-white mt-4 mb-2 leading-snug"
+                >
+                  {formatInline(content, sources)}
+                </h3>
+              );
+            case 4:
+              return (
+                <h4
+                  key={idx}
+                  className="text-sm font-bold text-[#111827] dark:text-white mt-3.5 mb-1.5 leading-snug"
+                >
+                  {formatInline(content, sources)}
+                </h4>
+              );
+            case 5:
+              return (
+                <h5
+                  key={idx}
+                  className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mt-3 mb-1"
+                >
+                  {formatInline(content, sources)}
+                </h5>
+              );
+            case 6:
+            default:
+              return (
+                <h6
+                  key={idx}
+                  className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-2.5 mb-1"
+                >
+                  {formatInline(content, sources)}
+                </h6>
+              );
+          }
+        }
 
-        // Header checks
-        if (trimmed.startsWith('#### ')) {
+        // 2. Responsive GFM Table
+        if (block.type === 'table' && block.table) {
+          const { headers, alignments, rows } = block.table;
           return (
-            <h5 key={pIdx} className="text-xs font-bold text-[#111827] dark:text-white uppercase tracking-wider mt-3 mb-1">
-              {formatInline(trimmed.replace('#### ', ''), sources)}
-            </h5>
-          );
-        }
-        if (trimmed.startsWith('### ')) {
-          return (
-            <h4 key={pIdx} className="text-sm font-bold text-[#111827] dark:text-white mt-4 mb-1">
-              {formatInline(trimmed.replace('### ', ''), sources)}
-            </h4>
-          );
-        }
-        if (trimmed.startsWith('## ')) {
-          return (
-            <h3 key={pIdx} className="text-base font-extrabold text-[#111827] dark:text-white mt-5 mb-1.5 pb-1 border-b border-[#e5e7eb] dark:border-[#28334B]">
-              {formatInline(trimmed.replace('## ', ''), sources)}
-            </h3>
-          );
-        }
-        if (trimmed.startsWith('# ')) {
-          return (
-            <h2 key={pIdx} className="text-lg font-black text-[#111827] dark:text-white mt-6 mb-2">
-              {formatInline(trimmed.replace('# ', ''), sources)}
-            </h2>
+            <div
+              key={idx}
+              className="my-4 overflow-x-auto rounded-xl border border-[#e5e7eb] dark:border-[#28334B] bg-white dark:bg-[#0f172a] shadow-xs"
+            >
+              <table className="w-full border-collapse text-[13px] text-left">
+                <thead className="bg-[#f8f9fa] dark:bg-[#161f30] border-b border-[#e5e7eb] dark:border-[#28334B]">
+                  <tr>
+                    {headers.map((h, hIdx) => {
+                      const align = alignments[hIdx] || 'left';
+                      const alignClass =
+                        align === 'center'
+                          ? 'text-center'
+                          : align === 'right'
+                          ? 'text-right'
+                          : 'text-left';
+                      return (
+                        <th
+                          key={hIdx}
+                          className={`px-4 py-3 font-semibold text-[#111827] dark:text-white select-text ${alignClass}`}
+                        >
+                          {formatInline(h, sources)}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f0f0eb] dark:divide-[#1f293d]">
+                  {rows.map((row, rIdx) => (
+                    <tr
+                      key={rIdx}
+                      className="even:bg-[#fafaf8] dark:even:bg-[#131b2c] hover:bg-violet-50/40 dark:hover:bg-violet-950/20 transition-colors"
+                    >
+                      {headers.map((_, cIdx) => {
+                        const cell = row[cIdx] !== undefined ? row[cIdx] : '';
+                        const align = alignments[cIdx] || 'left';
+                        const alignClass =
+                          align === 'center'
+                            ? 'text-center'
+                            : align === 'right'
+                            ? 'text-right'
+                            : 'text-left';
+                        return (
+                          <td
+                            key={cIdx}
+                            className={`px-4 py-2.5 text-slate-700 dark:text-slate-200 select-text leading-relaxed ${alignClass}`}
+                          >
+                            {formatInline(cell, sources)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           );
         }
 
-        // Blockquote
-        if (trimmed.startsWith('> ')) {
+        // 3. Horizontal Rule
+        if (block.type === 'hr') {
+          return (
+            <hr
+              key={idx}
+              className="my-5 border-t border-[#e5e7eb] dark:border-[#28334B]"
+            />
+          );
+        }
+
+        // 4. Alert / Callout Block
+        if (block.type === 'alert') {
+          const type = block.alertType || 'NOTE';
+          let borderClass = 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/20 text-violet-900 dark:text-violet-200';
+          let icon = <Info className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />;
+
+          if (type === 'TIP') {
+            borderClass = 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200';
+            icon = <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+          } else if (type === 'IMPORTANT') {
+            borderClass = 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200';
+            icon = <AlertCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />;
+          } else if (type === 'WARNING') {
+            borderClass = 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200';
+            icon = <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />;
+          } else if (type === 'CAUTION') {
+            borderClass = 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200';
+            icon = <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />;
+          }
+
+          return (
+            <div
+              key={idx}
+              className={`my-3.5 p-3.5 rounded-xl border-l-4 ${borderClass} space-y-1`}
+            >
+              <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider">
+                {icon}
+                <span>{type}</span>
+              </div>
+              <div className="text-[13px] leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap pl-6">
+                {formatInline(block.content || '', sources)}
+              </div>
+            </div>
+          );
+        }
+
+        // 5. Standard Blockquote
+        if (block.type === 'blockquote') {
           return (
             <blockquote
-              key={pIdx}
-              className="my-2 border-l-3 border-violet-500 pl-3.5 py-1 text-slate-700 dark:text-slate-300 bg-violet-50/60 dark:bg-violet-950/20 rounded-r-xl italic text-[12.5px]"
+              key={idx}
+              className="my-3 border-l-4 border-violet-500 pl-4 py-1.5 text-slate-700 dark:text-slate-300 bg-violet-50/50 dark:bg-violet-950/20 rounded-r-xl italic text-[13px] leading-relaxed"
             >
-              {formatInline(trimmed.replace(/^>\s*/, ''), sources)}
+              {formatInline(block.content || '', sources)}
             </blockquote>
           );
         }
 
-        // Check if paragraph contains bullet or numbered lists
-        const lines = trimmed.split('\n');
-        const hasListItems = lines.some((l) => /^[-*]\s+/.test(l.trim()) || /^\d+\.\s+/.test(l.trim()));
-
-        if (hasListItems) {
+        // 6. Ordered or Unordered Lists
+        if (block.type === 'list' && block.items) {
           return (
-            <div key={pIdx} className="space-y-1.5 my-2">
-              {lines.map((l, lIdx) => {
-                const trimmedLine = l.trim();
-                if (/^[-*]\s+/.test(trimmedLine)) {
+            <div key={idx} className="space-y-1.5 my-2.5">
+              {block.items.map((item, itemIdx) => {
+                const indentPadding = item.indent > 0 ? `${Math.min(item.indent * 12, 48)}px` : '0px';
+
+                // Task list item with checkbox
+                if (item.isTask) {
                   return (
-                    <div key={lIdx} className="flex items-start gap-2 text-[13.5px] text-[#1f2937] dark:text-slate-200 pl-1 leading-relaxed">
-                      <span className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-2 shrink-0" />
-                      <div>{formatInline(trimmedLine.replace(/^[-*]\s+/, ''), sources)}</div>
+                    <div
+                      key={itemIdx}
+                      style={{ paddingLeft: indentPadding }}
+                      className="flex items-start gap-2 text-[13.5px] text-[#1f2937] dark:text-slate-200 leading-relaxed"
+                    >
+                      {item.checked ? (
+                        <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                      )}
+                      <div className={item.checked ? 'line-through text-slate-400 dark:text-slate-500' : ''}>
+                        {formatInline(item.text, sources)}
+                      </div>
                     </div>
                   );
                 }
-                if (/^\d+\.\s+/.test(trimmedLine)) {
-                  const numMatch = trimmedLine.match(/^(\d+)\.\s+(.*)/);
-                  const num = numMatch ? numMatch[1] : `${lIdx + 1}`;
-                  const rest = numMatch ? numMatch[2] : trimmedLine;
+
+                // Ordered list item with number badge
+                if (item.num) {
                   return (
-                    <div key={lIdx} className="flex items-start gap-2 text-[13.5px] text-[#1f2937] dark:text-slate-200 pl-1 leading-relaxed">
-                      <span className="font-mono font-bold text-violet-600 dark:text-violet-400 text-xs shrink-0 mt-0.5 min-w-[16px]">
-                        {num}.
+                    <div
+                      key={itemIdx}
+                      style={{ paddingLeft: indentPadding }}
+                      className="flex items-start gap-2 text-[13.5px] text-[#1f2937] dark:text-slate-200 leading-relaxed"
+                    >
+                      <span className="font-mono font-bold text-violet-600 dark:text-violet-400 text-xs shrink-0 mt-0.5 min-w-[18px]">
+                        {item.num}.
                       </span>
-                      <div>{formatInline(rest, sources)}</div>
+                      <div>{formatInline(item.text, sources)}</div>
                     </div>
                   );
                 }
+
+                // Standard unordered bullet item
                 return (
-                  <p key={lIdx} className="text-[13.5px] text-[#1f2937] dark:text-slate-200 leading-relaxed">
-                    {formatInline(trimmedLine, sources)}
-                  </p>
+                  <div
+                    key={itemIdx}
+                    style={{ paddingLeft: indentPadding }}
+                    className="flex items-start gap-2 text-[13.5px] text-[#1f2937] dark:text-slate-200 leading-relaxed"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-2 shrink-0" />
+                    <div>{formatInline(item.text, sources)}</div>
+                  </div>
                 );
               })}
             </div>
           );
         }
 
-        // Standard paragraph
+        // 7. Standard Paragraph
         return (
-          <p key={pIdx} className="text-[13.5px] text-[#1f2937] dark:text-slate-200 leading-relaxed">
-            {formatInline(trimmed, sources)}
+          <p
+            key={idx}
+            className="text-[13.5px] text-[#1f2937] dark:text-slate-200 leading-relaxed select-text"
+          >
+            {formatInline(block.content || '', sources)}
           </p>
         );
       })}
-    </>
+    </div>
   );
 };
 
+// Parses markdown prose into semantic, structured blocks
+function parseBlocks(text: string): ParsedBlock[] {
+  const blocks: ParsedBlock[] = [];
+  const lines = text.split('\n');
+  let i = 0;
+
+  function isTableDelimiter(line: string): boolean {
+    const trimmed = line.trim();
+    if (!trimmed.includes('|')) return false;
+    const parts = trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|');
+    return parts.length >= 1 && parts.every((p) => /^:?-+:?$/.test(p.trim()));
+  }
+
+  function parseTableAlignments(delimiterLine: string): ('left' | 'center' | 'right')[] {
+    const parts = delimiterLine.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+    return parts.map((p) => {
+      const s = p.trim();
+      const left = s.startsWith(':');
+      const right = s.endsWith(':');
+      if (left && right) return 'center';
+      if (right) return 'right';
+      return 'left';
+    });
+  }
+
+  function splitTableRow(line: string): string[] {
+    const trimmed = line.trim();
+    const inner = trimmed.replace(/^\|/, '').replace(/\|$/, '');
+    return inner.split('|').map((cell) => cell.trim());
+  }
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // 1. Horizontal Rule: ---, ***, or ___
+    if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) {
+      blocks.push({ type: 'hr' });
+      i++;
+      continue;
+    }
+
+    // 2. Heading: # through ######
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      blocks.push({
+        type: 'heading',
+        level: headingMatch[1].length,
+        content: headingMatch[2].trim(),
+      });
+      i++;
+      continue;
+    }
+
+    // 3. Table: Current line has pipes, and next line is delimiter
+    if (trimmed.includes('|') && i + 1 < lines.length && isTableDelimiter(lines[i + 1])) {
+      const headerLine = trimmed;
+      const delimiterLine = lines[i + 1];
+      const headers = splitTableRow(headerLine);
+      const alignments = parseTableAlignments(delimiterLine);
+      const rows: string[][] = [];
+      i += 2;
+
+      while (i < lines.length && lines[i].trim().includes('|')) {
+        rows.push(splitTableRow(lines[i]));
+        i++;
+      }
+
+      blocks.push({
+        type: 'table',
+        table: { headers, alignments, rows },
+      });
+      continue;
+    }
+
+    // 4. Blockquote or Alert (> ...)
+    if (/^>\s*/.test(trimmed)) {
+      const quoteLines: string[] = [];
+      while (
+        i < lines.length &&
+        (/^>\s*/.test(lines[i].trim()) || (quoteLines.length > 0 && lines[i].trim() === ''))
+      ) {
+        if (lines[i].trim() === '') {
+          quoteLines.push('');
+        } else {
+          quoteLines.push(lines[i].trim().replace(/^>\s*/, ''));
+        }
+        i++;
+      }
+
+      const firstLine = quoteLines[0] || '';
+      const alertMatch = firstLine.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i);
+      if (alertMatch) {
+        const alertType = alertMatch[1].toUpperCase();
+        const alertContent = [
+          firstLine.replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i, ''),
+          ...quoteLines.slice(1),
+        ]
+          .join('\n')
+          .trim();
+        blocks.push({
+          type: 'alert',
+          alertType,
+          content: alertContent,
+        });
+      } else {
+        blocks.push({
+          type: 'blockquote',
+          content: quoteLines.join('\n').trim(),
+        });
+      }
+      continue;
+    }
+
+    // 5. List items (ordered or unordered, task lists)
+    const listMatch = line.match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
+    if (listMatch) {
+      const items: { text: string; indent: number; isTask?: boolean; checked?: boolean; num?: string }[] = [];
+      while (i < lines.length) {
+        const itemLine = lines[i];
+        const match = itemLine.match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
+        if (!match) break;
+        const indent = match[1].length;
+        const marker = match[2];
+        let textContent = match[3];
+        const isOrdered = /^\d+\./.test(marker);
+        let isTask = false;
+        let checked = false;
+
+        const taskMatch = textContent.match(/^\[([ xX])\]\s+(.*)$/);
+        if (taskMatch) {
+          isTask = true;
+          checked = taskMatch[1].toLowerCase() === 'x';
+          textContent = taskMatch[2];
+        }
+
+        items.push({
+          text: textContent,
+          indent,
+          isTask,
+          checked,
+          num: isOrdered ? marker.replace('.', '') : undefined,
+        });
+        i++;
+      }
+
+      blocks.push({
+        type: 'list',
+        items,
+      });
+      continue;
+    }
+
+    // 6. Regular Paragraph (accumulate until next block boundary)
+    const paraLines: string[] = [];
+    while (i < lines.length) {
+      const cur = lines[i];
+      const curTrimmed = cur.trim();
+      if (!curTrimmed) break;
+      if (/^(?:---|\*\*\*|___)\s*$/.test(curTrimmed)) break;
+      if (/^#{1,6}\s+/.test(curTrimmed)) break;
+      if (curTrimmed.includes('|') && i + 1 < lines.length && isTableDelimiter(lines[i + 1])) break;
+      if (/^>\s*/.test(curTrimmed)) break;
+      if (/^\s*([-*]|\d+\.)\s+/.test(cur)) break;
+
+      paraLines.push(curTrimmed);
+      i++;
+    }
+
+    if (paraLines.length > 0) {
+      blocks.push({
+        type: 'paragraph',
+        content: paraLines.join(' '),
+      });
+    }
+  }
+
+  return blocks;
+}
+
+// Formats inline markdown elements (bold, italic, code, links, citations, strikethrough)
 function formatInline(text: string, sources?: WebSourceItem[]): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`|\[\^(\d+)\]|\[.*?\]\(.*?\))/g;
+  const regex = /(\*\*\*.*?\*\*\*|___.*?___|\*\*.*?\*\*|__.*?__|\*.*?\*|_.*?_|~~.*?~~|`.*?`|\[\^(\d+)\]|\[.*?\]\(.*?\))/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -447,16 +847,32 @@ function formatInline(text: string, sources?: WebSourceItem[]): React.ReactNode[
 
     const token = match[0];
 
-    // Bold **text**
-    if (token.startsWith('**') && token.endsWith('**')) {
+    // Bold-Italic ***text*** or ___text___
+    if ((token.startsWith('***') && token.endsWith('***')) || (token.startsWith('___') && token.endsWith('___'))) {
+      parts.push(
+        <strong key={match.index} className="font-bold italic text-[#111827] dark:text-white">
+          {token.slice(3, -3)}
+        </strong>
+      );
+    }
+    // Bold **text** or __text__
+    else if ((token.startsWith('**') && token.endsWith('**')) || (token.startsWith('__') && token.endsWith('__'))) {
       parts.push(
         <strong key={match.index} className="font-bold text-[#111827] dark:text-white">
           {token.slice(2, -2)}
         </strong>
       );
     }
-    // Italic *text*
-    else if (token.startsWith('*') && token.endsWith('*')) {
+    // Strikethrough ~~text~~
+    else if (token.startsWith('~~') && token.endsWith('~~')) {
+      parts.push(
+        <span key={match.index} className="line-through text-slate-400 dark:text-slate-500">
+          {token.slice(2, -2)}
+        </span>
+      );
+    }
+    // Italic *text* or _text_
+    else if ((token.startsWith('*') && token.endsWith('*')) || (token.startsWith('_') && token.endsWith('_'))) {
       parts.push(
         <em key={match.index} className="italic">
           {token.slice(1, -1)}

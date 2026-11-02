@@ -20,6 +20,8 @@ import {
   ArrowRight,
   Download,
   AlertCircle,
+  AlertTriangle,
+  Play,
   Clock,
   Terminal,
   Activity,
@@ -176,6 +178,12 @@ export interface ChatMessage {
   remainingBalance?: string | number;
   multiplier?: number;
   latencyMs?: number;
+  firstTokenMs?: number;
+  tokensPerSec?: number;
+  isTruncated?: boolean;
+  stopReason?: string;
+  isInterrupted?: boolean;
+  interruptionReason?: string;
   modelUsed?: string;
   isError?: boolean;
   sources?: WebSourceItem[];
@@ -1857,7 +1865,17 @@ export const UserChatStudio: React.FC = () => {
   };
 
   // ── CORE REAL-TIME SSE STREAMING HANDLER ──
-  const handleSendMessage = async (customPrompt?: string, overrideMessages?: ChatMessage[]) => {
+  interface SendMessageOptions {
+    isContinuation?: boolean;
+    continuationMessageId?: string;
+    initialContent?: string;
+  }
+
+  const handleSendMessage = async (
+    customPrompt?: string,
+    overrideMessages?: ChatMessage[],
+    options?: SendMessageOptions
+  ) => {
     const promptToSend = customPrompt !== undefined ? customPrompt : inputMessage;
     if ((!promptToSend.trim() && attachments.length === 0) || generating) return;
 
@@ -1904,16 +1922,16 @@ export const UserChatStudio: React.FC = () => {
     let boundThreadId = targetThreadId;
 
     let newTitle = activeThread.title;
-    if (activeThread.messages.length === 0 || activeThread.title === 'New Session') {
+    if (!options?.isContinuation && (activeThread.messages.length === 0 || activeThread.title === 'New Session')) {
       newTitle = promptToSend.trim().slice(0, 36) || 'Coding Task';
       if (promptToSend.trim().length > 36) newTitle += '...';
     }
 
     const baseMessages = overrideMessages || activeThread.messages;
-    const updatedMessages = [...baseMessages, userMessage];
+    const updatedMessages = options?.isContinuation ? baseMessages : [...baseMessages, userMessage];
 
     // Placeholder assistant message for live token streaming
-    const assistantMsgId = `msg_asst_${Date.now()}`;
+    const assistantMsgId = options?.continuationMessageId || `msg_asst_${Date.now()}`;
     const initialAssistantMsg: ChatMessage = {
       id: assistantMsgId,
       role: 'assistant',
@@ -1947,7 +1965,9 @@ export const UserChatStudio: React.FC = () => {
             ? {
                 ...t,
                 title: newTitle,
-                messages: [...updatedMessages, initialAssistantMsg],
+                messages: options?.isContinuation
+                  ? t.messages.map((m) => m.id === options.continuationMessageId ? { ...m, isTruncated: false, isInterrupted: false } : m)
+                  : [...updatedMessages, initialAssistantMsg],
                 messagesLoaded: true,
                 updatedAt: Date.now(),
               }
@@ -1959,7 +1979,9 @@ export const UserChatStudio: React.FC = () => {
           ...activeThread,
           id: targetThreadId,
           title: newTitle,
-          messages: [...updatedMessages, initialAssistantMsg],
+          messages: options?.isContinuation
+            ? activeThread.messages.map((m) => m.id === options.continuationMessageId ? { ...m, isTruncated: false, isInterrupted: false } : m)
+            : [...updatedMessages, initialAssistantMsg],
           messagesLoaded: true,
           updatedAt: Date.now(),
         },
@@ -1967,8 +1989,10 @@ export const UserChatStudio: React.FC = () => {
       ];
     });
 
-    setPrompt('');
-    setAttachments([]);
+    if (!options?.isContinuation) {
+      setPrompt('');
+      setAttachments([]);
+    }
     setShowSlashMenu(false);
     setGenerating(true);
     isNearBottomRef.current = true;
@@ -1990,7 +2014,7 @@ export const UserChatStudio: React.FC = () => {
           conversationId: targetThreadId.startsWith('thread_') ? undefined : targetThreadId,
           apiKeyId: selectedKeyId || undefined,
           model: activeThread.model,
-          prompt: promptToSend.trim(),
+          prompt: options?.isContinuation ? 'Continue' : promptToSend.trim(),
           messages: baseMessages,
           systemPrompt: activeThread.systemPrompt,
           thinkingEnabled: activeThread.thinkingEnabled,
@@ -1998,9 +2022,11 @@ export const UserChatStudio: React.FC = () => {
           memoryEnabled: memoryEnabled,
           activeSkills: activeSkillIds,
           temperature: activeThread.temperature,
-          attachments: userMessage.attachments || [],
+          attachments: options?.isContinuation ? [] : (userMessage.attachments || []),
           researchMode,
           targetUrl: targetUrlToAnalyze || undefined,
+          isContinuation: Boolean(options?.isContinuation),
+          continuationMessageId: options?.continuationMessageId,
         }),
         signal: ctrl.signal,
       });
@@ -2253,6 +2279,9 @@ export const UserChatStudio: React.FC = () => {
                 );
               } else if (eventType === 'content_delta') {
                 accumulatedContent += parsed.text || '';
+                const totalStreamContent = options?.initialContent
+                  ? options.initialContent + accumulatedContent
+                  : accumulatedContent;
                 setThreads((prev) =>
                   prev.map((t) =>
                     t.id === boundThreadId
@@ -2267,11 +2296,11 @@ export const UserChatStudio: React.FC = () => {
                                       ...m.comparison,
                                       modelA: {
                                         ...m.comparison.modelA,
-                                        content: accumulatedContent,
+                                        content: totalStreamContent,
                                       },
                                     },
                                   }
-                                : { ...m, content: accumulatedContent }
+                                : { ...m, content: totalStreamContent }
                               : m
                           ),
                         }
@@ -2368,7 +2397,7 @@ export const UserChatStudio: React.FC = () => {
                                   }
                                 : {
                                     ...m,
-                                    content: parsed.result || accumulatedContent,
+                                    content: parsed.fullResult || (options?.initialContent ? options.initialContent + accumulatedContent : (parsed.result || accumulatedContent)),
                                     thinking: parsed.thinking || accumulatedThinking || undefined,
                                     sources: parsed.sources || m.sources,
                                     activities: parsed.activities || m.activities,
@@ -2379,6 +2408,12 @@ export const UserChatStudio: React.FC = () => {
                                       ? `${Number(parsed.remainingCreditUsd ?? (parsed.activeKey?.creditBalanceUsd || 0)).toFixed(2)}`
                                       : `${(Number(parsed.tokensRemaining ?? 0) / 1000000).toFixed(2)}M`,
                                     latencyMs: parsed.latencyMs,
+                                    firstTokenMs: parsed.firstTokenMs,
+                                    tokensPerSec: parsed.tokensPerSec,
+                                    isTruncated: parsed.isTruncated,
+                                    stopReason: parsed.stopReason,
+                                    isInterrupted: parsed.isInterrupted,
+                                    interruptionReason: parsed.interruptionReason,
                                     multiplier: parsed.multiplier,
                                     modelUsed: parsed.modelUsed || parsed.model || activeThread.model,
                                   }
@@ -2489,6 +2524,32 @@ export const UserChatStudio: React.FC = () => {
   // Retry after error
   const handleRetry = () => {
     handleRegenerate();
+  };
+
+  // Continue truncated generation seamlessly
+  const handleContinueGeneration = (messageId: string) => {
+    if (generating) return;
+    const msg = activeThread.messages.find((m) => m.id === messageId);
+    if (!msg) return;
+
+    setThreads((prev) =>
+      prev.map((t) =>
+        t.id === activeThread.id
+          ? {
+              ...t,
+              messages: t.messages.map((m) =>
+                m.id === messageId ? { ...m, isTruncated: false, isInterrupted: false } : m
+              ),
+            }
+          : t
+      )
+    );
+
+    handleSendMessage('Continue', activeThread.messages, {
+      isContinuation: true,
+      continuationMessageId: messageId,
+      initialContent: msg.content,
+    });
   };
 
   // Edit and resubmit previous prompt
@@ -3926,11 +3987,6 @@ export const UserChatStudio: React.FC = () => {
                             <span className="font-bold text-xs">
                               {getModelDisplayName(msg.modelUsed || activeThread.model)}
                             </span>
-                            {msg.latencyMs ? (
-                              <span className={`text-[10px] font-mono ${c.textMuted}`}>
-                                {msg.latencyMs}ms
-                              </span>
-                            ) : null}
                             {msg.usage ? (
                               <div className="relative inline-block">
                                 <button
@@ -3946,6 +4002,7 @@ export const UserChatStudio: React.FC = () => {
                                   <Zap className="w-2.5 h-2.5" />
                                   <span>{msg.usage.total_tokens.toLocaleString()} tokens</span>
                                   {msg.latencyMs ? <span>• {(msg.latencyMs / 1000).toFixed(1)}s</span> : null}
+                                  {msg.tokensPerSec ? <span className="opacity-75">({msg.tokensPerSec} tok/s)</span> : null}
                                   <span className="text-[9px] uppercase px-1 rounded bg-teal-500/20 text-teal-300">
                                     {msg.usage.usage_source === 'PROVIDER_REPORTED' ? 'Verified' : 'Tracked'}
                                   </span>
@@ -4085,6 +4142,44 @@ export const UserChatStudio: React.FC = () => {
                               </span>
                             </div>
                           ) : null}
+
+                          {/* Output Limit Truncation Banner */}
+                          {msg.isTruncated && (
+                            <div className="mt-3.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs flex-wrap">
+                              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-medium">
+                                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                                <span>Generation reached the output token limit before completing.</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleContinueGeneration(msg.id)}
+                                disabled={generating}
+                                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50 text-xs"
+                              >
+                                <Play className="w-3 h-3 fill-current" />
+                                <span>Continue Generation</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Stream Interruption Banner */}
+                          {msg.isInterrupted && (
+                            <div className="mt-3.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3 text-xs flex-wrap">
+                              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-medium">
+                                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                                <span>Stream was interrupted unexpectedly ({msg.interruptionReason || msg.stopReason || 'connection closed'}).</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleRetry}
+                                disabled={generating}
+                                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50 text-xs"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Retry Response</span>
+                              </button>
+                            </div>
+                          )}
 
                           {msg.isError && (
                             <div className="mt-3 pt-2 border-t border-rose-500/20 flex items-center justify-between gap-2 flex-wrap">

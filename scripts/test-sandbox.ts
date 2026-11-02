@@ -83,6 +83,16 @@ export async function cleanupSandbox(ctx: SandboxContext) {
   const { userIds, keyIds, orderIds } = ctx;
 
   try {
+    // 0. Delete Studio Messages & Studio Conversations for test users
+    if (userIds.length > 0) {
+      await prisma.studioMessage.deleteMany({
+        where: { conversation: { userId: { in: userIds } } },
+      }).catch(() => {});
+      await prisma.studioConversation.deleteMany({
+        where: { userId: { in: userIds } },
+      }).catch(() => {});
+    }
+
     // 1. Delete all ApiRequests generated during testing (prevent "Deleted Key" residue)
     if (keyIds.length > 0 || userIds.length > 0) {
       await prisma.apiRequest.deleteMany({

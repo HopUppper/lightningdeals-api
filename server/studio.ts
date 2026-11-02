@@ -905,6 +905,10 @@ studioRouter.get('/conversations/:id', async (req: AuthRequest, res: Response) =
       let billingType: string | undefined = undefined;
       let remainingBalance: string | undefined = undefined;
       let costUsd: number | undefined = m.costUsd !== null && m.costUsd !== undefined ? Number(m.costUsd) : undefined;
+      let isTruncated = false;
+      let stopReason: string | undefined = undefined;
+      let isInterrupted = false;
+      let interruptionReason: string | undefined = undefined;
 
       if (m.attachmentsJson) {
         try {
@@ -920,6 +924,10 @@ studioRouter.get('/conversations/:id', async (req: AuthRequest, res: Response) =
             if (parsed.billingType) billingType = parsed.billingType;
             if (parsed.remainingBalance) remainingBalance = parsed.remainingBalance;
             if (costUsd === undefined && parsed.costUsd !== undefined) costUsd = Number(parsed.costUsd);
+            if (parsed.isTruncated !== undefined) isTruncated = Boolean(parsed.isTruncated);
+            if (parsed.stopReason) stopReason = parsed.stopReason;
+            if (parsed.isInterrupted !== undefined) isInterrupted = Boolean(parsed.isInterrupted);
+            if (parsed.interruptionReason) interruptionReason = parsed.interruptionReason;
           }
         } catch {}
       }
@@ -942,6 +950,12 @@ studioRouter.get('/conversations/:id', async (req: AuthRequest, res: Response) =
         remainingBalance,
         multiplier: m.multiplier,
         latencyMs: m.latencyMs,
+        firstTokenMs: m.firstTokenMs || undefined,
+        tokensPerSec: m.latencyMs > 0 && m.outputTokens > 0 ? Number(((m.outputTokens / (m.latencyMs / 1000))).toFixed(1)) : undefined,
+        isTruncated,
+        stopReason,
+        isInterrupted,
+        interruptionReason,
         attachments,
         sources: sources.length > 0 ? sources : undefined,
         activities: activities.length > 0 ? activities : undefined,
@@ -2264,6 +2278,9 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     attachments = [],
     researchMode = 'standard', // 'standard' | 'web_search' | 'deep_research' | 'open_link' | 'browser_task'
     targetUrl,
+    isContinuation = false,
+    continuationMessageId,
+    maxTokensOverride,
   } = req.body;
 
   try {
@@ -2439,6 +2456,9 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     }
 
     let effectiveSystemPrompt = customSystemPrompt || conversation.systemPrompt || '';
+    if (isContinuation) {
+      effectiveSystemPrompt += `\n\n[SYSTEM DIRECTIVE - SEAMLESS CONTINUATION]:\nYou are continuing a generation that was cut off at the output token limit. Resume EXACTLY from where the response ended. Do NOT repeat previous words, sections, or headings. Do NOT add conversational pleasantries (e.g. 'Certainly!', 'Continuing where I left off...'). Output ONLY the direct continuation.`;
+    }
 
     // Ingest Project Directives if conversation belongs to a Project
     if (conversation.projectId) {
@@ -2680,6 +2700,15 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         content: formatTurnContent(prompt?.trim() || '', attachments),
       });
     }
+    if (isContinuation) {
+      const lastTurn = outboundMessages[outboundMessages.length - 1];
+      if (lastTurn && lastTurn.role === 'assistant') {
+        outboundMessages.push({
+          role: 'user',
+          content: 'Continue generating from the exact point where the response was cut off. Do not repeat previous text or add introductory filler.',
+        });
+      }
+    }
 
     // Strict turn-alternation normalization for Anthropic & OpenAI compliance
     const normalizedMessages: any[] = [];
@@ -2719,7 +2748,8 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       return res.end();
     }
 
-    const maxOutputLimit = modelMeta?.maxOutputTokens || 4096;
+    const defaultLimit = modelMeta?.maxOutputTokens || 8192;
+    const maxOutputLimit = maxTokensOverride ? Math.min(Number(maxTokensOverride), defaultLimit) : defaultLimit;
     const payload: any = {
       messages: normalizedMessages,
       max_tokens: maxOutputLimit,
@@ -2792,6 +2822,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     let accumulatedThinking = '';
     let reportedInputTokens: number | null = null;
     let reportedOutputTokens: number | null = null;
+    let stopReason: string | null = null;
+    let streamInterrupted = false;
+    let interruptionReason: string | null = null;
+    let firstTokenTime: number | null = null;
+    let ttftMs: number | null = null;
 
     if (reader) {
       try {
@@ -2812,11 +2847,17 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
                 try {
                   const data = JSON.parse(jsonStr);
 
+                  // 1. Anthropic message_start
                   if (data.type === 'message_start' && data.message?.usage) {
                     reportedInputTokens = Number(data.message.usage.input_tokens || 0);
                   }
 
+                  // 2. Anthropic content_block_delta
                   if (data.type === 'content_block_delta') {
+                    if (firstTokenTime === null) {
+                      firstTokenTime = Date.now();
+                      ttftMs = firstTokenTime - startTime;
+                    }
                     if (data.delta?.type === 'thinking_delta' && data.delta.thinking) {
                       const cleanThinking = sanitizeModelResponse(data.delta.thinking, friendlyModel);
                       accumulatedThinking += cleanThinking;
@@ -2828,8 +2869,42 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
                     }
                   }
 
-                  if (data.type === 'message_delta' && data.usage?.output_tokens) {
-                    reportedOutputTokens = Number(data.usage.output_tokens || 0);
+                  // 3. Anthropic message_delta
+                  if (data.type === 'message_delta') {
+                    if (data.usage?.output_tokens) {
+                      reportedOutputTokens = Number(data.usage.output_tokens || 0);
+                    }
+                    if (data.delta?.stop_reason) {
+                      stopReason = data.delta.stop_reason;
+                    }
+                  }
+
+                  // 4. OpenAI / Google / DeepSeek choices delta & finish_reason
+                  if (data.choices && Array.isArray(data.choices) && data.choices.length > 0) {
+                    const choice = data.choices[0];
+                    if (firstTokenTime === null && (choice.delta?.content || choice.delta?.reasoning_content)) {
+                      firstTokenTime = Date.now();
+                      ttftMs = firstTokenTime - startTime;
+                    }
+                    if (choice.delta?.reasoning_content) {
+                      const cleanThinking = sanitizeModelResponse(choice.delta.reasoning_content, friendlyModel);
+                      accumulatedThinking += cleanThinking;
+                      res.write(`event: thinking_delta\ndata: ${JSON.stringify({ thinking: cleanThinking })}\n\n`);
+                    }
+                    if (choice.delta?.content) {
+                      const cleanText = sanitizeModelResponse(choice.delta.content, friendlyModel);
+                      accumulatedText += cleanText;
+                      res.write(`event: content_delta\ndata: ${JSON.stringify({ text: cleanText })}\n\n`);
+                    }
+                    if (choice.finish_reason) {
+                      stopReason = choice.finish_reason;
+                    }
+                  }
+
+                  // 5. OpenAI usage object
+                  if (data.usage) {
+                    if (data.usage.prompt_tokens) reportedInputTokens = Number(data.usage.prompt_tokens);
+                    if (data.usage.completion_tokens) reportedOutputTokens = Number(data.usage.completion_tokens);
                   }
                 } catch {
                   // Non-JSON or SSE heartbeat
@@ -2841,6 +2916,8 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       } catch (streamErr: any) {
         if (!clientDisconnected) {
           console.warn('[STUDIO STREAMING INTERRUPTED]', streamErr.message);
+          streamInterrupted = true;
+          interruptionReason = streamErr.message || 'Stream connection closed unexpectedly';
         }
       }
     }
@@ -2964,8 +3041,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       },
     }).catch((e) => console.error('[STUDIO APIREQUEST LOG ERROR]', e));
 
-    // Persist User Message to StudioMessage
-    if (prompt) {
+    const isTruncated = stopReason === 'max_tokens' || stopReason === 'length';
+    const isInterrupted = streamInterrupted || (!clientDisconnected && !stopReason && !reportedOutputTokens && accumulatedText.length === 0);
+
+    // Persist User Message to StudioMessage (only if not a continuation request)
+    if (prompt && !isContinuation) {
       await prisma.studioMessage.create({
         data: {
           conversationId: conversation.id,
@@ -2981,9 +3061,52 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       }).catch((e) => console.error('[STUDIO USER MSG SAVE ERROR]', e));
     }
 
-    // Persist Assistant Message to StudioMessage
-    if (accumulatedText.trim() || accumulatedThinking.trim()) {
-      await prisma.studioMessage.create({
+    // Persist or Seamlessly Glue Assistant Message
+    let savedAssistantId = continuationMessageId;
+    let finalCombinedContent = accumulatedText.trim();
+
+    if (isContinuation && continuationMessageId) {
+      const existingMsg = await prisma.studioMessage.findUnique({
+        where: { id: continuationMessageId },
+      }).catch(() => null);
+
+      if (existingMsg) {
+        finalCombinedContent = (existingMsg.content || '') + accumulatedText;
+        let existingMeta: any = {};
+        try { existingMeta = JSON.parse(existingMsg.attachmentsJson || '{}'); } catch {}
+
+        const updatedInputTokens = existingMsg.inputTokens + inputTokens;
+        const updatedOutputTokens = existingMsg.outputTokens + outputTokens;
+        const updatedTotal = updatedInputTokens + updatedOutputTokens;
+        const updatedLatency = existingMsg.latencyMs + latencyMs;
+
+        await prisma.studioMessage.update({
+          where: { id: continuationMessageId },
+          data: {
+            content: finalCombinedContent,
+            inputTokens: updatedInputTokens,
+            outputTokens: updatedOutputTokens,
+            totalTokens: updatedTotal,
+            latencyMs: updatedLatency,
+            costUsd: bType === 'credit' ? (Number(existingMsg.costUsd || 0) + costUsd) : undefined,
+            attachmentsJson: JSON.stringify({
+              ...existingMeta,
+              sources: researchSources.length > 0 ? researchSources : existingMeta.sources,
+              billingType: bType,
+              costUsd: bType === 'credit' ? (Number(existingMsg.costUsd || 0) + costUsd) : undefined,
+              remainingBalance: bType === 'credit'
+                ? `${newCreditBal.toFixed(2)}`
+                : `${(Number(remainingAfter) / 1000000).toFixed(2)}M`,
+              isTruncated,
+              stopReason: stopReason || (isTruncated ? 'max_tokens' : 'end_turn'),
+              isInterrupted,
+              continuationCount: (existingMeta.continuationCount || 0) + 1,
+            }),
+          },
+        }).catch((e) => console.error('[STUDIO ASSISTANT CONTINUATION UPDATE ERROR]', e));
+      }
+    } else if (accumulatedText.trim() || accumulatedThinking.trim()) {
+      const saved = await prisma.studioMessage.create({
         data: {
           conversationId: conversation.id,
           role: 'assistant',
@@ -2995,6 +3118,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
           totalTokens,
           multiplier,
           latencyMs,
+          firstTokenMs: ttftMs || 0,
           costUsd: bType === 'credit' ? costUsd : undefined,
           attachmentsJson: JSON.stringify({
             sources: researchSources,
@@ -3006,12 +3130,19 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
             remainingBalance: bType === 'credit'
               ? `${newCreditBal.toFixed(2)}`
               : `${(Number(remainingAfter) / 1000000).toFixed(2)}M`,
+            isTruncated,
+            stopReason: stopReason || (isTruncated ? 'max_tokens' : (isInterrupted ? 'interrupted' : 'end_turn')),
+            isInterrupted,
           }),
         },
-      }).catch((e) => console.error('[STUDIO ASSISTANT MSG SAVE ERROR]', e));
+      }).catch((e) => {
+        console.error('[STUDIO ASSISTANT MSG SAVE ERROR]', e);
+        return null;
+      });
+      if (saved) savedAssistantId = saved.id;
 
       // Auto-update conversation title if it was New Session
-      if (conversation.title === 'New Session' && prompt) {
+      if (conversation.title === 'New Session' && prompt && !isContinuation) {
         const autoTitle = prompt.trim().slice(0, 36) + (prompt.trim().length > 36 ? '...' : '');
         await prisma.studioConversation.update({
           where: { id: conversation.id },
@@ -3020,17 +3151,34 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       }
 
       // Automatic Contextual Memory Extraction (non-blocking, secrets-filtered)
-      if (memoryEnabled !== false && prompt) {
+      if (memoryEnabled !== false && prompt && !isContinuation) {
         extractAndSavePreferences(userId, prompt).catch((e) => console.error('[STUDIO AUTO-MEMORY EXTRACT ERROR]', e));
       }
     }
 
-    activityTracker.completeAll('Response completed');
+    if (isTruncated) {
+      activityTracker.completeAll('Output limit reached (continuation available)');
+    } else if (isInterrupted) {
+      activityTracker.failCurrentStep(`Stream interrupted: ${interruptionReason || 'Socket closed unexpectedly'}`);
+    } else if (clientDisconnected) {
+      activityTracker.failCurrentStep('Generation stopped by user');
+    } else {
+      activityTracker.completeAll('Response completed');
+    }
 
     // Send final completion SSE payload
     res.write(`event: done\ndata: ${JSON.stringify({
+      messageId: savedAssistantId,
       result: accumulatedText,
-      thinking: accumulatedThinking || null,
+      fullResult: finalCombinedContent,
+      isContinuation,
+      continuationMessageId,
+      isTruncated,
+      stopReason: stopReason || (isTruncated ? 'max_tokens' : (isInterrupted ? 'interrupted' : 'end_turn')),
+      isInterrupted,
+      interruptionReason,
+      firstTokenMs: ttftMs || 0,
+      tokensPerSec: latencyMs > 0 && outputTokens > 0 ? Number(((outputTokens / (latencyMs / 1000))).toFixed(1)) : 0,
       modelUsed: selectedModel,
       friendlyModelName: friendlyModel,
       sources: researchSources.length > 0 ? researchSources : undefined,
@@ -3039,6 +3187,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         total_tokens: totalTokens,
+        first_token_ms: ttftMs || 0,
         cost_usd: bType === 'credit' ? costUsd : undefined,
         estimated_savings_tokens: estimatedSavingsTokens,
         is_savings_estimated: true,

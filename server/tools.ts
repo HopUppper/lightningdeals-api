@@ -6,6 +6,7 @@ import { hashApiKey, detectModelFamily } from './gateway';
 import { isLocalModelFamily, isClaudeOrOpenAIModelFamily } from './providers/credentialResolver';
 import { calculateKeyRollingWindow } from './window';
 import { ALL_SUPPORTED_MODELS } from '../src/data/modelsData';
+import { computeFriendlyError, computeKeyResolution } from './friendlyErrors';
 
 // 1. Key Status Verification (/api/key-status)
 export async function handleCheckKeyStatus(req: Request, res: Response) {
@@ -70,10 +71,10 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
 
         const isTokenKey = isKey1 || isKey2;
         const planName = isKey1
-          ? 'ScaleMax Claude & OpenAI Frontier Wholesale Token Pool'
+          ? 'LightningAPI Claude & OpenAI Frontier Wholesale Token Pool'
           : isKey2
-          ? 'ScaleMax Local & Open-Weights Wholesale Token Pool'
-          : (uData.key?.mode === 'credit' ? 'ScaleMax Credit Master' : 'ScaleMax Token Pack');
+          ? 'LightningAPI Local & Open-Weights Wholesale Token Pool'
+          : (uData.key?.mode === 'credit' ? 'LightningAPI Credit Master' : 'LightningAPI Token Pack');
 
         const allowedFamilies = isKey1
           ? ['claude', 'openai']
@@ -83,11 +84,11 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
 
         return res.json({
           valid: true,
-          provider: 'ScaleMax',
+          provider: 'LightningAPI',
           key: rawKey.slice(0, 12) + '••••••••',
-          label: isKey1 ? 'Claude & OpenAI Frontier Key (Wholesale Token Pool)' : isKey2 ? 'Local Models Key (Wholesale Token Pool)' : 'ScaleMax Upstream Key',
+          label: isKey1 ? 'Claude & OpenAI Frontier Key (Wholesale Token Pool)' : isKey2 ? 'Local Models Key (Wholesale Token Pool)' : 'LightningAPI Upstream Key',
           status: uData.key?.status || 'active',
-          plan: planName,
+          plan: planName.replace(/ScaleMax/gi, 'LightningAPI'),
           billingType: isTokenKey ? 'token' : (uData.key?.mode || 'credit'),
           keyArchitecture: isTokenKey ? 'token_pool' : 'credit_wallet',
           allowedModelFamilies: allowedFamilies,
@@ -104,7 +105,7 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
           availableModels: modelsList.map((id) => ({
             id,
             name: id,
-            description: `Upstream model via ScaleMax ${isKey1 ? 'Claude/OpenAI' : 'Local'} Token Key`,
+            description: `Upstream model via LightningAPI ${isKey1 ? 'Claude/OpenAI' : 'Local'} Token Key`,
             contextWindow: 128000,
             ownedBy: isKey1 ? (id.includes('claude') ? 'anthropic' : 'openai') : 'open-weights',
           })),
@@ -362,11 +363,48 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     nextResetAt: isWindow ? windowMetrics?.nextResetAt : null,
     windowResetSeconds: isWindow ? windowMetrics?.windowResetSeconds : null,
     consumptionPercent,
-    recentRequests: recentRequests.map((r) => ({
-      ...r,
-      exactFailureReason: r.statusCode >= 400 ? (r.errorMessage || r.errorCode || `HTTP ${r.statusCode} Request Failed`) : null,
-    })),
+    keyFailureResolution: computeKeyResolution({
+      status: keyRecord.status,
+      isExpired: Boolean(isExpired),
+      isExhausted,
+      billingType,
+      plan: computedPlan,
+      creditBalanceUsd: isCredit ? Number((keyRecord as any).creditBalanceUsd || 0) : undefined,
+      tokensRemaining: tokensRemainingStr,
+      nextResetAt: windowMetrics?.nextResetAt || null,
+    }),
+    recentRequests: recentRequests.map((r) => {
+      const friendly = r.statusCode >= 400 ? computeFriendlyError({
+        statusCode: r.statusCode,
+        errorCode: r.errorCode,
+        errorMessage: r.errorMessage,
+        model: r.model,
+        billingPlanType: billingType,
+      }) : null;
+      return {
+        ...r,
+        exactFailureReason: r.statusCode >= 400 ? (friendly?.simpleReason || r.errorMessage || r.errorCode || `HTTP ${r.statusCode} Request Failed`) : null,
+        friendlyError: friendly,
+      };
+    }),
   });
+}
+
+// 1b. Backend-Verified Error Diagnostic & Resolution Helper (/api/tools/resolve-error)
+export async function handleResolveError(req: Request, res: Response) {
+  try {
+    const { statusCode, errorCode, errorMessage, model, billingPlanType } = req.body || {};
+    const resolution = computeFriendlyError({
+      statusCode: Number(statusCode) || 500,
+      errorCode,
+      errorMessage,
+      model,
+      billingPlanType,
+    });
+    return res.json({ success: true, resolution });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 }
 
 

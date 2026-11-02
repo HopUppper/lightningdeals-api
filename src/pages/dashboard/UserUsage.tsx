@@ -15,8 +15,12 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  HelpCircle,
+  Wrench,
 } from 'lucide-react';
 import { userFetch } from '../../utils/api';
+import { ErrorSolutionModal } from '../../components/ErrorSolutionModal';
+import { getFriendlyError, FriendlyErrorInfo } from '../../utils/friendlyErrors';
 
 export const UserUsage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
@@ -26,6 +30,10 @@ export const UserUsage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'requests' | 'ledger' | 'transactions'>('requests');
   const [timeLeft, setTimeLeft] = useState<string>('00:00:00');
+  const [selectedSolution, setSelectedSolution] = useState<{
+    error: FriendlyErrorInfo;
+    rawEvent?: any;
+  } | null>(null);
 
   // Pagination for Requests
   const [page, setPage] = useState(1);
@@ -365,6 +373,17 @@ export const UserUsage: React.FC = () => {
             <span className="text-xs text-[#64607d]">Showing up to 50 recent events</span>
           </div>
 
+          {recentRequests.some((r: any) => r.statusCode >= 400) && (
+            <div className="p-3 bg-amber-50/80 border-b border-amber-200/60 text-xs text-amber-900 flex items-center justify-between gap-3 px-4.5 font-sans">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  One or more recent requests encountered an issue. Click <strong>"How to Resolve"</strong> next to any failed request for an instant step-by-step fix.
+                </span>
+              </div>
+            </div>
+          )}
+
           {recentRequests.length === 0 ? (
             <div className="py-16 text-center text-xs text-[#64607d] space-y-2">
               <p className="font-bold text-[#1e1b2e]">No API requests logged yet.</p>
@@ -423,13 +442,37 @@ export const UserUsage: React.FC = () => {
                             {req.latencyMs ? `${req.latencyMs}ms` : '—'}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              req.statusCode >= 200 && req.statusCode < 300
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}>
-                              {req.statusCode || 200}
-                            </span>
+                            {req.statusCode >= 200 && req.statusCode < 300 ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                {req.statusCode || 200}
+                              </span>
+                            ) : (
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-sans font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                  {req.friendlyError?.simpleTitle || `Failed (${req.statusCode})`}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedSolution({
+                                      error:
+                                        req.friendlyError ||
+                                        getFriendlyError({
+                                          statusCode: req.statusCode,
+                                          errorCode: req.errorCode,
+                                          errorMessage: req.errorMessage,
+                                          model: req.model,
+                                        }),
+                                      rawEvent: req,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-sans font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors shadow-2xs cursor-pointer"
+                                >
+                                  <Wrench className="w-3 h-3 text-rose-500" />
+                                  <span>How to Resolve</span>
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -654,6 +697,13 @@ export const UserUsage: React.FC = () => {
           )}
         </div>
       )}
+
+      <ErrorSolutionModal
+        isOpen={Boolean(selectedSolution)}
+        onClose={() => setSelectedSolution(null)}
+        error={selectedSolution?.error || null}
+        rawEvent={selectedSolution?.rawEvent || null}
+      />
     </div>
   );
 };

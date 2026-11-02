@@ -6,7 +6,7 @@ import cors from 'cors';
 import crypto from 'crypto';
 
 import { handleMessagesEndpoint, handleChatCompletionsEndpoint, handleResponsesEndpoint } from './gateway';
-import { handleCheckKeyStatus, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
+import { handleCheckKeyStatus, handleResolveError, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
 import { authenticateJwt, requireAdmin } from './auth';
 import adminRouter from './admin';
 import adminAuthRouter from './adminAuth';
@@ -221,6 +221,7 @@ import { keyCheckLimiter } from './rateLimit';
 
 // 3. Public System & Key Status Tools
 app.get('/api/key-status', keyCheckLimiter, handleCheckKeyStatus);
+app.post('/api/tools/resolve-error', handleResolveError);
 app.get('/api/system/status', handleSystemStatus);
 app.get('/api/models/sync-status', (_req, res) => {
   res.json(getModelSyncStatus());

@@ -27,6 +27,7 @@ import { reserveCustomerQuota, settleReservation, releaseReservation, isRollingP
 import { calculateCustomerRollingWindow } from './accounting/customerAccounting';
 import { resolveCustomerEntitlements } from './subscriptions/subscriptionEngine';
 import { invalidateKeyCache } from './cache/authCache';
+import { computeFriendlyError, computeKeyResolution } from './friendlyErrors';
 
 const router = Router();
 
@@ -2372,6 +2373,18 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           isOverAllocated = k.tokensRemaining <= 0n;
         }
 
+        const isExpired = Boolean(k.expiresAt && new Date(k.expiresAt) < new Date());
+        const isExhausted = isOverAllocated || (k.billingType === 'credit' && Number(k.creditBalanceUsd || 0) <= 0);
+        const keyFailureResolution = computeKeyResolution({
+          status: k.status,
+          isExpired,
+          isExhausted,
+          billingType: k.billingType || 'window',
+          plan: k.plan || undefined,
+          creditBalanceUsd: k.creditBalanceUsd !== null ? Number(k.creditBalanceUsd) : undefined,
+          tokensRemaining: effectiveRemaining.toString(),
+        });
+
         return {
           id: k.id,
           name: k.name,
@@ -2388,6 +2401,7 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           rawTokensRemaining: k.tokensRemaining?.toString() ?? '0',
           activeReservations: activeReservations.toString(),
           isOverAllocated,
+          keyFailureResolution,
           totalInputTokens: k.totalInputTokens?.toString() ?? '0',
           totalOutputTokens: k.totalOutputTokens?.toString() ?? '0',
           billingType: k.billingType || 'window',
@@ -2561,7 +2575,11 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
         select: {
           id: true,
           model: true,
+          endpoint: true,
           statusCode: true,
+          errorCode: true,
+          errorMessage: true,
+          billingPlanType: true,
           inputTokens: true,
           outputTokens: true,
           totalTokens: true,
@@ -2643,20 +2661,48 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
       totalCreditsUsedUsd: Math.round(totalCreditsUsedUsd * 100) / 100,
       creditLedgerEntries: rawCreditLedgerEntries,
       activeKeysCount: keys.filter(k => k.status === 'active').length,
-      recentRequests: recentRequests.map(r => ({
-        ...r,
-        inputTokens: (r.inputTokens ?? 0).toString(),
-        outputTokens: (r.outputTokens ?? 0).toString(),
-        promptTokens: (r.inputTokens ?? 0).toString(),
-        completionTokens: (r.outputTokens ?? 0).toString(),
-        totalTokens: (r.totalTokens ?? 0).toString(),
-      })),
+      recentRequests: recentRequests.map(r => {
+        const friendly = r.statusCode >= 400 ? computeFriendlyError({
+          statusCode: r.statusCode,
+          errorCode: (r as any).errorCode,
+          errorMessage: (r as any).errorMessage,
+          model: r.model,
+          billingPlanType: (r as any).billingPlanType,
+        }) : null;
+        return {
+          ...r,
+          exactFailureReason: r.statusCode >= 400 ? (friendly?.simpleReason || (r as any).errorMessage || (r as any).errorCode || `HTTP ${r.statusCode} Request Failed`) : null,
+          friendlyError: friendly,
+          inputTokens: (r.inputTokens ?? 0).toString(),
+          outputTokens: (r.outputTokens ?? 0).toString(),
+          promptTokens: (r.inputTokens ?? 0).toString(),
+          completionTokens: (r.outputTokens ?? 0).toString(),
+          totalTokens: (r.totalTokens ?? 0).toString(),
+        };
+      }),
       ledgerEntries: ledgerEntries.map(l => ({
         ...l,
         amount: (l.amount ?? 0n).toString(),
         balanceAfter: (l.balanceAfter ?? 0n).toString(),
       })),
     });
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// POST /api/user/resolve-error — Verified Error Diagnostic & Resolution Helper
+router.post('/resolve-error', authenticateJwt, async (req: AuthRequest, res: Response) => {
+  try {
+    const { statusCode, errorCode, errorMessage, model, billingPlanType } = req.body || {};
+    const resolution = computeFriendlyError({
+      statusCode: Number(statusCode) || 500,
+      errorCode,
+      errorMessage,
+      model,
+      billingPlanType,
+    });
+    res.json({ success: true, resolution });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
   }

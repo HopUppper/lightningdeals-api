@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Key, AlertCircle, CheckCircle2, Clock, Sparkles, DollarSign, Coins } from 'lucide-react';
+import { Key, AlertCircle, CheckCircle2, Clock, Sparkles, DollarSign, Coins, HelpCircle, Wrench } from 'lucide-react';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
+import { ErrorSolutionModal } from '../components/ErrorSolutionModal';
+import { getFriendlyError, FriendlyErrorInfo } from '../utils/friendlyErrors';
 
 export const CheckKeyPage: React.FC = () => {
   const [keyInput, setKeyInput] = useState('');
@@ -9,6 +11,10 @@ export const CheckKeyPage: React.FC = () => {
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [selectedSolution, setSelectedSolution] = useState<{
+    error: FriendlyErrorInfo;
+    rawEvent?: any;
+  } | null>(null);
 
   const handleCheckKey = async (e?: React.FormEvent, keyOverride?: string) => {
     if (e) e.preventDefault();
@@ -166,12 +172,34 @@ export const CheckKeyPage: React.FC = () => {
               <div className="space-y-6">
                 {/* Attention Required Banner */}
                 {result.exactFailureReason && (
-                  <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-mono flex items-start gap-3 shadow-xs">
-                    <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="font-bold text-rose-900 text-sm font-sans">API Key Attention Required</p>
-                      <p className="text-rose-700 font-mono text-xs">{result.exactFailureReason}</p>
+                  <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-rose-900 text-sm font-sans">API Key Attention Required</p>
+                        <p className="text-rose-700 font-sans text-xs">
+                          {result.keyFailureResolution?.simpleReason || result.exactFailureReason}
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedSolution({
+                          error:
+                            result.keyFailureResolution ||
+                            getFriendlyError({
+                              statusCode: result.status !== 'active' ? 403 : 429,
+                              errorMessage: result.exactFailureReason,
+                              billingPlanType: isCredit ? 'credit' : isToken ? 'token' : 'window',
+                            }),
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors shadow-2xs cursor-pointer self-start sm:self-center shrink-0"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      <span>How to Resolve</span>
+                    </button>
                   </div>
                 )}
 
@@ -493,22 +521,39 @@ export const CheckKeyPage: React.FC = () => {
                                       <span>Success</span>
                                     </span>
                                   ) : (
-                                    <div className="flex flex-col" title={req.errorMessage || req.errorCode || 'Failed'}>
+                                    <div className="flex flex-col gap-1 items-start">
                                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1 w-fit">
                                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                                         <span>
-                                          {req.statusCode === 503
-                                            ? '503 (Upstream Outage)'
-                                            : req.statusCode === 429
-                                            ? '429 (Rate Limit)'
-                                            : `${req.statusCode} (${req.errorCode || 'Failed'})`}
+                                          {req.friendlyError?.simpleTitle ||
+                                            (req.statusCode === 503
+                                              ? '503 (Cluster Busy)'
+                                              : req.statusCode === 429
+                                              ? '429 (Quota Limit)'
+                                              : `${req.statusCode} (${req.errorCode || 'Failed'})`)}
                                         </span>
                                       </span>
-                                      {req.errorMessage && (
-                                        <span className="text-[9px] text-rose-500 truncate max-w-[200px] mt-0.5 font-normal">
-                                          {req.errorMessage}
-                                        </span>
-                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setSelectedSolution({
+                                            error:
+                                              req.friendlyError ||
+                                              getFriendlyError({
+                                                statusCode: req.statusCode,
+                                                errorCode: req.errorCode,
+                                                errorMessage: req.errorMessage,
+                                                model: req.model,
+                                                billingPlanType: result.billingType,
+                                              }),
+                                            rawEvent: req,
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors shadow-2xs cursor-pointer"
+                                      >
+                                        <Wrench className="w-3 h-3 text-rose-500" />
+                                        <span>How to Resolve</span>
+                                      </button>
                                     </div>
                                   )}
                                 </td>
@@ -544,6 +589,13 @@ export const CheckKeyPage: React.FC = () => {
             )}
           </div>
         )}
+
+        <ErrorSolutionModal
+          isOpen={Boolean(selectedSolution)}
+          onClose={() => setSelectedSolution(null)}
+          error={selectedSolution?.error || null}
+          rawEvent={selectedSolution?.rawEvent || null}
+        />
       </main>
 
       <SiteFooter />

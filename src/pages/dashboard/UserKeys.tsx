@@ -21,9 +21,12 @@ import {
   Layers,
   Zap,
   Lock,
+  Wrench,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { userFetch } from '../../utils/api';
+import { ErrorSolutionModal } from '../../components/ErrorSolutionModal';
+import { getFriendlyError, FriendlyErrorInfo } from '../../utils/friendlyErrors';
 
 interface ApiKeyItem {
   id: string;
@@ -46,6 +49,8 @@ interface ApiKeyItem {
   expiresAt?: string | null;
   createdAt: string;
   canReveal?: boolean;
+  isOverAllocated?: boolean;
+  keyFailureResolution?: FriendlyErrorInfo | null;
 }
 
 export const UserKeys: React.FC = () => {
@@ -53,6 +58,10 @@ export const UserKeys: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+  const [selectedSolution, setSelectedSolution] = useState<{
+    error: FriendlyErrorInfo;
+    rawEvent?: any;
+  } | null>(null);
   const [copiedEnvId, setCopiedEnvId] = useState<string | null>(null);
 
   // Create Key Modal State
@@ -452,15 +461,37 @@ export const UserKeys: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-4 px-5">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            k.status === 'active'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-rose-100 text-rose-800 border border-rose-200'
-                          }`}
-                        >
-                          {k.status}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              k.status === 'active' && !k.isOverAllocated
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : 'bg-rose-100 text-rose-800 border border-rose-200'
+                            }`}
+                          >
+                            {k.isOverAllocated ? 'Quota Exhausted' : k.status}
+                          </span>
+                          {(k.status !== 'active' || k.isOverAllocated || (isCredit && (Number(k.creditBalanceUsd) || 0) <= 0)) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedSolution({
+                                  error:
+                                    k.keyFailureResolution ||
+                                    getFriendlyError({
+                                      statusCode: k.status !== 'active' ? 403 : 429,
+                                      errorMessage: k.isOverAllocated ? 'Quota exhausted' : `Key status is ${k.status}`,
+                                      billingPlanType: k.billingType,
+                                    }),
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-sans font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors shadow-2xs cursor-pointer"
+                            >
+                              <Wrench className="w-3 h-3 text-rose-500" />
+                              <span>How to Resolve</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-5 text-amber-600 font-semibold font-mono">
                         {isCredit
@@ -858,6 +889,13 @@ export const UserKeys: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ErrorSolutionModal
+        isOpen={Boolean(selectedSolution)}
+        onClose={() => setSelectedSolution(null)}
+        error={selectedSolution?.error || null}
+        rawEvent={selectedSolution?.rawEvent || null}
+      />
     </div>
   );
 };

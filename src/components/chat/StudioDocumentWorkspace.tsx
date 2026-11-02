@@ -441,11 +441,7 @@ export const StudioDocumentWorkspace: React.FC<StudioDocumentWorkspaceProps> = (
                   href={`#${item.id}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    // Scroll to heading line
-                    const element = document.getElementById(item.id);
-                    if (element) {
-                      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
+                    handleScrollToSection(item.slug, item.text);
                   }}
                   className={`block py-1 rounded-md transition-colors truncate hover:text-violet-600 dark:hover:text-violet-400 ${
                     item.level === 1
@@ -464,8 +460,7 @@ export const StudioDocumentWorkspace: React.FC<StudioDocumentWorkspaceProps> = (
         )}
 
         {/* Dedicated Document Canvas (Comfortable Reading Width, Paper Aesthetic) */}
-        <div
-          className={`flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 md:px-12 py-8 overscroll-contain ${
+        <div ref={scrollContainerRef} className={`flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 md:px-12 py-8 overscroll-contain ${
             isDarkTheme ? 'bg-[#060913]' : 'bg-[#F2EFE9]'
           }`}
         >

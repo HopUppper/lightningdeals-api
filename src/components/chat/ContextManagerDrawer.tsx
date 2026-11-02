@@ -148,8 +148,6 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
   const [editFact, setEditFact] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  if (!open) return null;
-
   const contextLimit = 200000;
   const contextPercent = Math.min(100, Math.round((totalContextTokens / contextLimit) * 100));
 
@@ -240,6 +238,8 @@ export const ContextManagerDrawer: React.FC<ContextManagerDrawerProps> = ({
       systemPrompt: p.prompt || systemPrompt,
     });
   };
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-xs animate-fadeIn font-sans">

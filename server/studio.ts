@@ -485,7 +485,7 @@ export const VERIFIED_STUDIO_MODELS = [
 // GET /api/user/studio/entitlement - Authoritative Studio Entitlement & Key Resolution
 studioRouter.get('/entitlement', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user?.id || 'anonymous';
     const apiKeyId = req.query.apiKeyId as string | undefined;
     const entitlement = await resolveStudioEntitlement(userId, apiKeyId);
     return res.json({
@@ -1724,13 +1724,13 @@ studioRouter.post('/documents/generate', async (req: AuthRequest, res: Response)
     return res.json({
       success: true,
       document: {
-        id: artifact.id,
+        id: artifactId,
         filename: safeFilename,
         extension: generated.extension,
         mimeType: generated.mimeType,
         sizeBytes: generated.buffer.length,
         base64: generated.buffer.toString('base64'),
-        downloadUrl: `/api/user/studio/artifacts/${artifact.id}/download`,
+        downloadUrl: `/api/user/studio/artifacts/${artifactId}/download`,
       },
     });
   } catch (err: any) {

@@ -3,38 +3,33 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   BookOpen,
   Terminal,
-  FileCode,
   Globe,
   Cpu,
-  Zap,
-  KeyRound,
   Wrench,
   LifeBuoy,
   Copy,
   Check,
-  Check as CheckIcon,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
   ArrowRight,
-  ExternalLink,
   ShieldCheck,
-  RefreshCw,
   Layers,
-  HelpCircle,
   Sparkles,
   Search,
   CheckCircle2,
-  Lock,
-  Clock,
-  CreditCard,
-  Laptop,
 } from 'lucide-react';
 import { SiteHeader } from '../../components/SiteHeader';
 import { SiteFooter } from '../../components/SiteFooter';
-import { MultiOsCodeBlock } from '../../components/docs/MultiOsCodeBlock';
-import { SetupWizard } from '../../components/docs/SetupWizard';
 import { DocSearchModal } from '../../components/docs/DocSearchModal';
+import { DocsSectionA } from '../../components/docs/sections/DocsSectionA';
+import { DocsSectionB } from '../../components/docs/sections/DocsSectionB';
+import { DocsSectionC } from '../../components/docs/sections/DocsSectionC';
+import { DocsSectionD } from '../../components/docs/sections/DocsSectionD';
+import { DocsSectionE } from '../../components/docs/sections/DocsSectionE';
+import { DocsSectionF } from '../../components/docs/sections/DocsSectionF';
+import { DocsSectionG } from '../../components/docs/sections/DocsSectionG';
+import { DocsSectionH } from '../../components/docs/sections/DocsSectionH';
 
 interface NavItem {
   id: string;
@@ -179,19 +174,23 @@ const SIDEBAR_NAV: NavSection[] = [
 export const DocsPage: React.FC = () => {
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('overview');
+  const [activeCategory, setActiveCategory] = useState('sec-getting-started');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     'sec-getting-started': true,
     'sec-quick-setup': true,
     'sec-connect-apps': true,
-    'sec-models': false,
-    'sec-api-reference': false,
-    'sec-usage-billing': false,
-    'sec-troubleshooting': false,
-    'sec-security-support': false,
+    'sec-models': true,
+    'sec-api-reference': true,
+    'sec-usage-billing': true,
+    'sec-troubleshooting': true,
+    'sec-security-support': true,
   });
   const [copiedNpx, setCopiedNpx] = useState(false);
+
+  const isManualScrollingRef = useRef(false);
+  const manualScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleCopyNpx = () => {
     navigator.clipboard.writeText('npx lightningdeals');
@@ -199,15 +198,18 @@ export const DocsPage: React.FC = () => {
     setTimeout(() => setCopiedNpx(false), 2000);
   };
 
-  const isManualScrollingRef = useRef(false);
-  const manualScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const toggleSectionExpand = (secId: string) => {
     setExpandedSections((prev) => ({ ...prev, [secId]: !prev[secId] }));
   };
 
   const scrollToSection = (id: string) => {
     setActiveSection(id);
+    const parentSec = SIDEBAR_NAV.find((sec) => sec.items.some((item) => item.id === id));
+    if (parentSec) {
+      setActiveCategory(parentSec.id);
+      setExpandedSections((prev) => ({ ...prev, [parentSec.id]: true }));
+    }
+
     setMobileMenuOpen(false);
     isManualScrollingRef.current = true;
 
@@ -217,17 +219,77 @@ export const DocsPage: React.FC = () => {
 
     const element = document.getElementById(id);
     if (element) {
-      const yOffset = -90;
-      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-      window.history.replaceState(null, '', `#${id}`);
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     manualScrollTimerRef.current = setTimeout(() => {
+      window.history.replaceState(null, '', `#${id}`);
       isManualScrollingRef.current = false;
-    }, 800);
+    }, 700);
   };
 
+  // ScrollSpy listener: track active section and category on scroll
+  useEffect(() => {
+    let ticking = false;
+
+    const onScroll = () => {
+      if (isManualScrollingRef.current) return;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const allItemIds: string[] = [];
+          SIDEBAR_NAV.forEach((sec) => {
+            sec.items.forEach((item) => allItemIds.push(item.id));
+          });
+
+          // Offset from viewport top to trigger active state
+          const scrollPosition = window.scrollY + 130;
+
+          let currentActiveId = allItemIds[0];
+          for (let i = 0; i < allItemIds.length; i++) {
+            const el = document.getElementById(allItemIds[i]);
+            if (el) {
+              const top = el.offsetTop;
+              if (scrollPosition >= top) {
+                currentActiveId = allItemIds[i];
+              }
+            }
+          }
+
+          if (currentActiveId) {
+            setActiveSection(currentActiveId);
+            const parentSec = SIDEBAR_NAV.find((sec) =>
+              sec.items.some((item) => item.id === currentActiveId)
+            );
+            if (parentSec) {
+              setActiveCategory(parentSec.id);
+              // Ensure the active category is expanded in the sidebar
+              setExpandedSections((prev) =>
+                prev[parentSec.id] ? prev : { ...prev, [parentSec.id]: true }
+              );
+            }
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll(); // Run initially
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Bring active category into view within sidebar
+  useEffect(() => {
+    if (activeCategory) {
+      const navEl = document.getElementById('nav-' + activeCategory);
+      if (navEl) {
+        navEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }, [activeCategory]);
+
+  // Handle URL hash on initial load
   useEffect(() => {
     const hash = location.hash.replace('#', '');
     if (hash) {
@@ -241,7 +303,11 @@ export const DocsPage: React.FC = () => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setSearchOpen((prev) => !prev);
-      } else if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      } else if (
+        e.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
         e.preventDefault();
         setSearchOpen(true);
       }
@@ -344,7 +410,7 @@ export const DocsPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => scrollToSection('api-reference')}
+              onClick={() => scrollToSection('api-base-urls')}
               className="p-4 rounded-2xl border border-[#ede8e1] bg-white hover:border-violet-300 hover:bg-[#faf8f5] transition-all text-left group shadow-xs cursor-pointer flex flex-col justify-between"
             >
               <div className="space-y-1.5">
@@ -355,7 +421,7 @@ export const DocsPage: React.FC = () => {
                   3. Developer Reference
                 </h2>
                 <p className="text-xs text-[#78716c] leading-relaxed">
-                  Full API specifications, cURL, Python & Node.js code snippets, endpoints, and streaming.
+                  Full API specifications, cURL, Python &amp; Node.js code snippets, endpoints, and streaming.
                 </p>
               </div>
               <div className="pt-3 text-[11px] font-bold text-purple-700 flex items-center gap-1">
@@ -380,7 +446,9 @@ export const DocsPage: React.FC = () => {
               <BookOpen className="w-4 h-4 text-violet-600" />
               <span>Browse Documentation Sections</span>
             </div>
-            <ChevronDown className={`w-4 h-4 transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              className={`w-4 h-4 transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`}
+            />
           </button>
         </div>
 
@@ -393,23 +461,54 @@ export const DocsPage: React.FC = () => {
           <div className="space-y-3">
             {SIDEBAR_NAV.map((sec) => {
               const isExpanded = expandedSections[sec.id] ?? true;
+              const isCategoryActive = activeCategory === sec.id;
               const SecIcon = sec.icon;
+
               return (
-                <div key={sec.id} className="rounded-2xl border border-[#ede8e1] bg-white overflow-hidden shadow-2xs">
+                <div
+                  key={sec.id}
+                  id={'nav-' + sec.id}
+                  className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-2xs ${
+                    isCategoryActive
+                      ? 'border-violet-400 ring-2 ring-violet-500/20 bg-white'
+                      : 'border-[#ede8e1] bg-white'
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => toggleSectionExpand(sec.id)}
-                    className="w-full p-3 flex items-center justify-between bg-[#faf8f5] hover:bg-stone-100/60 transition-colors cursor-pointer text-left"
+                    className={`w-full p-3 flex items-center justify-between transition-colors cursor-pointer text-left ${
+                      isCategoryActive
+                        ? 'bg-violet-50/80 text-violet-950 font-bold'
+                        : 'bg-[#faf8f5] hover:bg-stone-100/60 text-[#1c1917]'
+                    }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <SecIcon className="w-3.5 h-3.5 text-violet-600 shrink-0" />
-                      <span className="text-[11px] font-bold text-[#1c1917] tracking-wider uppercase font-mono">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <SecIcon
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          isCategoryActive ? 'text-violet-600' : 'text-[#78716c]'
+                        }`}
+                      />
+                      <span
+                        className={`text-[11px] tracking-wider uppercase font-mono truncate ${
+                          isCategoryActive
+                            ? 'font-extrabold text-violet-900'
+                            : 'font-bold text-[#1c1917]'
+                        }`}
+                      >
                         {sec.title}
                       </span>
                     </div>
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 text-[#78716c] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isCategoryActive && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-violet-600 animate-pulse" />
+                      )}
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform ${
+                          isCategoryActive ? 'text-violet-600' : 'text-[#78716c]'
+                        } ${isExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </button>
 
                   {isExpanded && (
@@ -421,10 +520,10 @@ export const DocsPage: React.FC = () => {
                             key={item.id}
                             type="button"
                             onClick={() => scrollToSection(item.id)}
-                            className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center justify-between ${
+                            className={`w-full text-left px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer flex items-center justify-between ${
                               isActive
                                 ? 'bg-violet-600 text-white font-bold shadow-xs'
-                                : 'text-[#78716c] hover:text-[#1c1917] hover:bg-[#faf8f5]'
+                                : 'text-[#78716c] hover:text-[#1c1917] hover:bg-[#faf8f5] font-medium'
                             }`}
                           >
                             <span className="truncate">{item.label}</span>
@@ -473,7 +572,7 @@ export const DocsPage: React.FC = () => {
           {/* ============================================================== */}
           <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-violet-900 via-indigo-950 to-zinc-950 text-white border border-violet-700/60 shadow-lg relative overflow-hidden space-y-4">
             <div className="absolute top-0 right-0 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-            
+
             <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 text-violet-200 text-xs font-bold border border-violet-400/40">
                 <Terminal className="w-3.5 h-3.5 text-violet-300" />
@@ -490,17 +589,25 @@ export const DocsPage: React.FC = () => {
             <div className="space-y-1.5 relative z-10 text-left">
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex flex-wrap items-center gap-2">
                 <span>Configure Everything in 1 Command:</span>
-                <span className="text-emerald-400 font-mono text-lg sm:text-xl">npx lightningdeals</span>
+                <span className="text-emerald-400 font-mono text-lg sm:text-xl">
+                  npx lightningdeals
+                </span>
               </h2>
               <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-3xl">
-                Skip manual JSON editing! Run <code className="font-mono font-bold text-violet-200 bg-violet-900/60 px-1.5 py-0.5 rounded border border-violet-700/50">npx lightningdeals</code> in your terminal or PowerShell. The interactive CLI installer auto-detects your editors (Cursor, Claude Code, Codex, VS Code), creates configuration backups, injects your API key, sets endpoints, and tests connectivity in seconds.
+                Skip manual JSON editing! Run{' '}
+                <code className="font-mono font-bold text-violet-200 bg-violet-900/60 px-1.5 py-0.5 rounded border border-violet-700/50">
+                  npx lightningdeals
+                </code>{' '}
+                in your terminal or PowerShell. The interactive CLI installer auto-detects your editors (Cursor, Claude Code, Codex, VS Code), creates configuration backups, injects your API key, sets endpoints, and tests connectivity in seconds.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/60 border border-zinc-800 backdrop-blur-md relative z-10 font-mono text-xs">
               <div className="flex items-center gap-2 text-zinc-300 overflow-x-auto">
                 <span className="text-violet-400 font-bold select-none">$</span>
-                <span className="text-emerald-400 font-bold text-sm sm:text-base select-all tracking-wide">npx lightningdeals</span>
+                <span className="text-emerald-400 font-bold text-sm sm:text-base select-all tracking-wide">
+                  npx lightningdeals
+                </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -540,902 +647,15 @@ export const DocsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ============================================================== */}
-          {/* CHAPTER C: INTERACTIVE SETUP WIZARD (EMBEDDED HERO FEATURE) */}
-          {/* ============================================================== */}
-          <section id="interactive-wizard" className="scroll-mt-24 space-y-4">
-            <SetupWizard />
-          </section>
-
-          {/* ============================================================== */}
-          {/* CHAPTER A: GETTING STARTED */}
-          {/* ============================================================== */}
-          <section id="sec-getting-started" className="space-y-8 pt-4">
-            <div className="border-b border-[#ede8e1] pb-3">
-              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
-                Section A
-              </span>
-              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
-                Getting Started with LightningAPI
-              </h2>
-            </div>
-
-            {/* A1: Overview */}
-            <article id="overview" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-violet-600" />
-                <span>1. Introduction & System Overview</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                LightningAPI is a modern, unified AI API gateway that provides high-speed, enterprise-grade access to frontier intelligence models—including Anthropic Claude, OpenAI, and Google Gemini—through a single, highly available endpoint.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                <div className="p-3.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1">
-                  <div className="text-xs font-bold text-[#1c1917]">Unified Endpoints</div>
-                  <p className="text-[11.5px] text-[#78716c]">One key connects Claude Code, Cursor, Codex, and custom scripts.</p>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1">
-                  <div className="text-xs font-bold text-[#1c1917]">Sub-50ms Routing</div>
-                  <p className="text-[11.5px] text-[#78716c]">Edge-optimized reverse proxy with automatic health failovers.</p>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1">
-                  <div className="text-xs font-bold text-[#1c1917]">Fair Accounting</div>
-                  <p className="text-[11.5px] text-[#78716c]">Zero tokens or credits billed for failed or interrupted requests.</p>
-                </div>
-              </div>
-            </article>
-
-            {/* A2: What is an API key */}
-            <article id="what-is-api-key" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-violet-600" />
-                <span>2. What is an API Key?</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                An API key is a unique, secret password that your coding assistant (like Cursor, Claude Code, or VS Code) uses to authenticate with LightningAPI on your behalf.
-              </p>
-              <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-2 text-xs">
-                <div className="font-bold text-[#1c1917] flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Key Anatomy at LightningAPI</span>
-                </div>
-                <p className="text-[#64607d] leading-relaxed">
-                  Every active LightningAPI key begins with the prefix <code className="font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">ld_live_</code> (or <code className="font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">ld_trial_</code> for free trials). Treat your key like a credit card: never share it in public repositories or client-side browser code.
-                </p>
-              </div>
-            </article>
-
-            {/* A3: How it works */}
-            <article id="how-it-works" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Zap className="w-5 h-5 text-violet-600" />
-                <span>3. How LightningAPI Works</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                When your tool sends a prompt, it connects to LightningAPI's gateway. The gateway verifies your key's quota, translates the protocol if necessary, routes to the healthiest cluster, streams tokens back in real-time, and settles usage in an immutable ledger.
-              </p>
-              <div className="p-4 rounded-2xl bg-[#0c0d14] text-[#f4f4f5] font-mono text-xs border border-neutral-800 space-y-2">
-                <div className="text-neutral-400 text-[11px] uppercase tracking-wider font-bold">Request Pipeline</div>
-                <div className="text-violet-400">Your Client (Cursor / Claude Code)</div>
-                <div className="text-neutral-500 pl-4">↳ HTTPS POST with ld_live_...</div>
-                <div className="text-emerald-400 pl-8">↳ LightningAPI Gateway (Authentication & Rate Limiting)</div>
-                <div className="text-neutral-500 pl-12">↳ Intelligent Model Cluster Routing</div>
-                <div className="text-amber-300 pl-16">↳ Server-Sent Events (SSE) Stream Completion</div>
-              </div>
-            </article>
-
-            {/* A4: Getting your key */}
-            <article id="getting-your-key" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-violet-600" />
-                <span>4. How to Get Your API Key</span>
-              </h3>
-              <ol className="space-y-3 text-sm text-[#44403c] list-decimal list-inside leading-relaxed">
-                <li>
-                  <strong>Create an Account:</strong> Register at <Link to="/register" className="text-violet-700 underline font-semibold">lightningapi.pro/register</Link>.
-                </li>
-                <li>
-                  <strong>Choose a Plan:</strong> Select a 5-Hour Rolling Window plan, Credit Wallet top-up, or Token Pack.
-                </li>
-                <li>
-                  <strong>Copy Your Key:</strong> Go to <Link to="/dashboard/keys" className="text-violet-700 underline font-semibold">Dashboard → API Keys</Link> and copy your active key.
-                </li>
-              </ol>
-            </article>
-
-            {/* A5: Plan types */}
-            <article id="plan-types-overview" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Layers className="w-5 h-5 text-violet-600" />
-                <span>5. Understanding Your Plan Architecture</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                LightningAPI supports three distinct billing structures so you only pay for what you actually use:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200/70 space-y-1.5">
-                  <div className="font-bold text-purple-900 text-sm">5-Hour Rolling Window</div>
-                  <p className="text-purple-800 leading-relaxed">
-                    Designed for heavy coding. Your token allowance automatically regenerates continuously over every 5-hour rolling cycle.
-                  </p>
-                </div>
-                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 space-y-1.5">
-                  <div className="font-bold text-emerald-900 text-sm">Prepaid Credit Wallet</div>
-                  <p className="text-emerald-800 leading-relaxed">
-                    Deposit credits (e.g. $15, $35, $75). Credits never expire for 365 days and work across all supported models.
-                  </p>
-                </div>
-                <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/70 space-y-1.5">
-                  <div className="font-bold text-amber-900 text-sm">Consumable Token Packs</div>
-                  <p className="text-amber-800 leading-relaxed">
-                    Buy high-volume token blocks (10M, 50M, 100M). Ideal for continuous agent runs and automated scripts.
-                  </p>
-                </div>
-              </div>
-            </article>
-
-            {/* A6: First request */}
-            <article id="first-request" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Terminal className="w-5 h-5 text-violet-600" />
-                <span>6. Your First Successful Request</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                Copy and paste this command into your terminal to test your key immediately:
-              </p>
-              <MultiOsCodeBlock
-                title="First API Request (Native cURL)"
-                tabs={[
-                  {
-                    label: 'macOS / Linux (cURL)',
-                    language: 'bash',
-                    code: `curl -X POST "https://lightningapi.pro/v1/messages" \\
-  -H "Content-Type: application/json" \\
-  -H "x-api-key: ld_live_your_api_key_here" \\
-  -H "anthropic-version: 2023-06-01" \\
-  -d '{
-    "model": "claude-sonnet-5.5",
-    "max_tokens": 1024,
-    "messages": [
-      {"role": "user", "content": "Explain binary search in two sentences."}
-    ]
-  }'`,
-                  },
-                  {
-                    label: 'Windows (PowerShell)',
-                    language: 'powershell',
-                    code: `$headers = @{
-  "Content-Type" = "application/json"
-  "x-api-key" = "ld_live_your_api_key_here"
-  "anthropic-version" = "2023-06-01"
-}
-$body = @{
-  model = "claude-sonnet-5.5"
-  max_tokens = 1024
-  messages = @(
-    @{ role = "user"; content = "Explain binary search in two sentences." }
-  )
-} | ConvertTo-Json
-
-Invoke-RestMethod -Uri "https://lightningapi.pro/v1/messages" -Method Post -Headers $headers -Body $body`,
-                  },
-                ]}
-              />
-            </article>
-
-            {/* A7: Check key status */}
-            <article id="check-key-status" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-violet-600" />
-                <span>7. Checking Your Key Status & Live Consumption</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                You can inspect your remaining tokens, active rolling quota, and recent request activity at any time using our dedicated verification tool:
-              </p>
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Link
-                  to="/check-key"
-                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-1.5"
-                >
-                  <span>Open Verify Key Tool</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-                <span className="text-xs text-[#78716c] font-mono">lightningapi.pro/check-key</span>
-              </div>
-            </article>
-          </section>
-
-          {/* ============================================================== */}
-          {/* CHAPTER B: QUICK SETUP */}
-          {/* ============================================================== */}
-          <section id="sec-quick-setup" className="space-y-8 pt-4">
-            <div className="border-b border-[#ede8e1] pb-3">
-              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
-                Section B
-              </span>
-              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
-                Quick Setup by Operating System
-              </h2>
-            </div>
-
-            {/* B1: Windows Setup */}
-            <article id="windows-setup" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Laptop className="w-5 h-5 text-blue-600" />
-                <span>1. Windows Setup (PowerShell & Command Prompt)</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                On Windows, configure persistent environment variables so all terminal sessions and applications recognize your LightningAPI key:
-              </p>
-              <MultiOsCodeBlock
-                title="Windows Environment Variable Setup"
-                tabs={[
-                  {
-                    label: 'PowerShell (Current User)',
-                    language: 'powershell',
-                    code: `[Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", "https://lightningapi.pro", "User")
-[Environment]::SetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN", "ld_live_your_api_key_here", "User")
-[Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "https://lightningapi.pro/v1", "User")
-[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "ld_live_your_api_key_here", "User")
-Write-Host "Configuration saved to Windows User Environment!" -ForegroundColor Green`,
-                  },
-                  {
-                    label: 'PowerShell (Session Only)',
-                    language: 'powershell',
-                    code: `$env:ANTHROPIC_BASE_URL = "https://lightningapi.pro"
-$env:ANTHROPIC_AUTH_TOKEN = "ld_live_your_api_key_here"
-$env:OPENAI_BASE_URL = "https://lightningapi.pro/v1"
-$env:OPENAI_API_KEY = "ld_live_your_api_key_here"`,
-                  },
-                ]}
-              />
-            </article>
-
-            {/* B2: macOS Setup */}
-            <article id="macos-setup" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Laptop className="w-5 h-5 text-violet-600" />
-                <span>2. macOS Setup (Terminal / Zsh)</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                On macOS (default Zsh shell), add your environment variables to <code className="font-mono text-xs bg-stone-100 px-1 py-0.5 rounded">~/.zshrc</code>:
-              </p>
-              <MultiOsCodeBlock
-                title="macOS Persistent Setup (~/.zshrc)"
-                tabs={[
-                  {
-                    label: 'macOS Zsh (~/.zshrc)',
-                    language: 'bash',
-                    code: `echo 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"' >> ~/.zshrc
-echo 'export ANTHROPIC_AUTH_TOKEN="ld_live_your_api_key_here"' >> ~/.zshrc
-echo 'export OPENAI_BASE_URL="https://lightningapi.pro/v1"' >> ~/.zshrc
-echo 'export OPENAI_API_KEY="ld_live_your_api_key_here"' >> ~/.zshrc
-source ~/.zshrc`,
-                  },
-                ]}
-              />
-            </article>
-
-            {/* B3: Linux Setup */}
-            <article id="linux-setup" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Terminal className="w-5 h-5 text-emerald-600" />
-                <span>3. Linux Setup (Ubuntu / Debian / Fedora)</span>
-              </h3>
-              <MultiOsCodeBlock
-                title="Linux Persistent Setup (~/.bashrc)"
-                tabs={[
-                  {
-                    label: 'Linux Bash (~/.bashrc)',
-                    language: 'bash',
-                    code: `echo 'export ANTHROPIC_BASE_URL="https://lightningapi.pro"' >> ~/.bashrc
-echo 'export ANTHROPIC_AUTH_TOKEN="ld_live_your_api_key_here"' >> ~/.bashrc
-source ~/.bashrc`,
-                  },
-                ]}
-              />
-            </article>
-
-            {/* B4: Automatic setup */}
-            <article id="automatic-setup" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-violet-600" />
-                <span>4. Automatic Setup (1-Command CLI Installer)</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                LightningAPI provides a one-command interactive setup tool that detects your installed AI editors, creates backups, and configures everything automatically:
-              </p>
-              <MultiOsCodeBlock
-                title="1-Command CLI Installer"
-                tabs={[
-                  {
-                    label: 'Universal NPX',
-                    language: 'bash',
-                    code: `npx lightningdeals`,
-                  },
-                  {
-                    label: 'macOS / Linux Shell',
-                    language: 'bash',
-                    code: `curl -fsSL https://lightningapi.pro/setup.sh | bash`,
-                  },
-                  {
-                    label: 'Windows PowerShell',
-                    language: 'powershell',
-                    code: `irm https://lightningapi.pro/setup.ps1 | iex`,
-                  },
-                ]}
-              />
-            </article>
-          </section>
-
-          {/* ============================================================== */}
-          {/* CHAPTER C: CONNECT YOUR APPLICATION (DETAILED GUIDES) */}
-          {/* ============================================================== */}
-          <section id="sec-connect-apps" className="space-y-8 pt-4">
-            <div className="border-b border-[#ede8e1] pb-3">
-              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
-                Section C
-              </span>
-              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
-                Connect Your Application (14+ Verified Guides)
-              </h2>
-            </div>
-
-            {/* C1: Claude Code */}
-            <article id="guide-claude-code" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                  <Terminal className="w-5 h-5 text-violet-600" />
-                  <span>1. Claude Code CLI</span>
-                </h3>
-                <span className="text-[10px] font-bold font-mono bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full">
-                  Native Anthropic Protocol
-                </span>
-              </div>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                Claude Code is Anthropic's agentic command-line assistant. Configure your settings file or terminal environment to route requests through LightningAPI:
-              </p>
-              <div className="text-xs font-mono text-[#78716c] bg-stone-100 p-2.5 rounded-xl border border-stone-200">
-                Configuration File: <strong>~/.claude/settings.json</strong> (macOS/Linux) or <strong>%USERPROFILE%\.claude\settings.json</strong> (Windows)
-              </div>
-              <MultiOsCodeBlock
-                filename="~/.claude/settings.json"
-                tabs={[
-                  {
-                    label: 'Configuration JSON',
-                    language: 'json',
-                    code: `{
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://lightningapi.pro",
-    "ANTHROPIC_AUTH_TOKEN": "ld_live_your_api_key_here",
-    "ANTHROPIC_MODEL": "claude-sonnet-5.5",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5.5",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5.5",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-5.5"
-  },
-  "model": "claude-sonnet-5.5"
-}`,
-                  },
-                ]}
-              />
-              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Verify by running <code className="font-mono font-bold">claude</code> in your terminal.</span>
-              </div>
-            </article>
-
-            {/* C2: Cursor IDE */}
-            <article id="guide-cursor" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                  <Wrench className="w-5 h-5 text-violet-600" />
-                  <span>2. Cursor IDE</span>
-                </h3>
-                <span className="text-[10px] font-bold font-mono bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
-                  Anthropic & OpenAI Compatible
-                </span>
-              </div>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                In Cursor, open Settings (<kbd className="px-1.5 py-0.5 rounded bg-stone-100 border text-[11px] font-mono">Ctrl+,</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-stone-100 border text-[11px] font-mono">Cmd+,</kbd>) → Models:
-              </p>
-              <ul className="list-disc list-inside text-xs text-[#44403c] space-y-1.5">
-                <li>Toggle on <strong>"Override Anthropic Base URL"</strong> and enter: <code className="font-mono font-bold text-violet-700">https://lightningapi.pro</code></li>
-                <li>Enter your LightningAPI key in <strong>Anthropic API Key</strong>: <code className="font-mono font-bold text-violet-700">ld_live_...</code></li>
-                <li>Add Model Name: <code className="font-mono font-bold text-violet-700">claude-sonnet-5.5</code> or <code className="font-mono font-bold text-violet-700">claude-opus-5.5</code></li>
-              </ul>
-              <MultiOsCodeBlock
-                filename="settings.json (Cursor User Settings)"
-                tabs={[
-                  {
-                    label: 'Cursor settings.json',
-                    language: 'json',
-                    code: `{
-  "cursor.cpp.overrideAnthropicApiKey": "ld_live_your_api_key_here",
-  "cursor.cpp.anthropicBaseUrl": "https://lightningapi.pro",
-  "cursor.general.model": "claude-sonnet-5.5"
-}`,
-                  },
-                ]}
-              />
-            </article>
-
-            {/* C3: Codex */}
-            <article id="guide-codex" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                  <Terminal className="w-5 h-5 text-blue-600" />
-                  <span>3. Codex CLI</span>
-                </h3>
-                <span className="text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
-                  OpenAI Compatible (/v1)
-                </span>
-              </div>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                Codex connects via OpenAI compatibility mode. Set your environment variables:
-              </p>
-              <MultiOsCodeBlock
-                tabs={[
-                  {
-                    label: 'macOS / Linux',
-                    language: 'bash',
-                    code: `export OPENAI_BASE_URL="https://lightningapi.pro/v1"
-export OPENAI_API_KEY="ld_live_your_api_key_here"
-codex "Create a React modal component"`,
-                  },
-                  {
-                    label: 'Windows PowerShell',
-                    language: 'powershell',
-                    code: `$env:OPENAI_BASE_URL="https://lightningapi.pro/v1"
-$env:OPENAI_API_KEY="ld_live_your_api_key_here"
-codex "Create a React modal component"`,
-                  },
-                ]}
-              />
-            </article>
-
-            {/* C4: Cline & Roo Code */}
-            <article id="guide-cline" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                  <Cpu className="w-5 h-5 text-purple-600" />
-                  <span>4. Cline & Roo Code (VS Code Autonomous Coding)</span>
-                </h3>
-                <span className="text-[10px] font-bold font-mono bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
-                  Autonomous Agent
-                </span>
-              </div>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                In VS Code, install the Cline or Roo Code extension. Open extension settings:
-              </p>
-              <ul className="list-disc list-inside text-xs text-[#44403c] space-y-1.5">
-                <li>API Provider: <strong>Anthropic</strong></li>
-                <li>Base URL: <code className="font-mono font-bold text-violet-700">https://lightningapi.pro</code></li>
-                <li>API Key: <code className="font-mono font-bold text-violet-700">ld_live_your_api_key_here</code></li>
-                <li>Model ID: <code className="font-mono font-bold text-violet-700">claude-sonnet-5.5</code></li>
-              </ul>
-            </article>
-
-            {/* C5: Continue.dev */}
-            <article id="guide-continue" className="scroll-mt-24 bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <FileCode className="w-5 h-5 text-violet-600" />
-                <span>5. Continue.dev</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                Add this model definition to your <code className="font-mono text-xs bg-stone-100 px-1 py-0.5 rounded">~/.continue/config.json</code>:
-              </p>
-              <MultiOsCodeBlock
-                filename="~/.continue/config.json"
-                tabs={[
-                  {
-                    label: 'config.json',
-                    language: 'json',
-                    code: `{
-  "models": [
-    {
-      "title": "Claude Sonnet 5.5 (LightningAPI)",
-      "provider": "anthropic",
-      "model": "claude-sonnet-5.5",
-      "apiKey": "ld_live_your_api_key_here",
-      "apiBase": "https://lightningapi.pro"
-    }
-  ]
-}`,
-                  },
-                ]}
-              />
-            </article>
-          </section>
-
-          {/* ============================================================== */}
-          {/* CHAPTER D: MODELS & PROVIDERS */}
-          {/* ============================================================== */}
-          <section id="sec-models" className="scroll-mt-24 space-y-8 pt-4">
-            <div className="border-b border-[#ede8e1] pb-3">
-              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
-                Section D
-              </span>
-              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
-                Models & Providers
-              </h2>
-            </div>
-
-            <article id="models-claude" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-violet-600" />
-                <span>Showcase Frontier Models Catalog</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                LightningAPI routes to leading frontier intelligence clusters. Use the exact technical model IDs in your configuration:
-              </p>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-[#ede8e1] bg-[#faf8f5] text-[10px] font-bold uppercase text-[#78716c]">
-                      <th className="py-2.5 px-3">Technical Model ID</th>
-                      <th className="py-2.5 px-3">Display Name</th>
-                      <th className="py-2.5 px-3">Provider</th>
-                      <th className="py-2.5 px-3">Context Window</th>
-                      <th className="py-2.5 px-3">Vision</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#ede8e1]">
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold text-violet-700">claude-sonnet-5.5</td>
-                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Claude Sonnet 5.5</td>
-                      <td className="py-2.5 px-3 text-[#78716c]">Anthropic</td>
-                      <td className="py-2.5 px-3">1,000,000</td>
-                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold text-violet-700">claude-opus-5.5</td>
-                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Claude Opus 5.5</td>
-                      <td className="py-2.5 px-3 text-[#78716c]">Anthropic</td>
-                      <td className="py-2.5 px-3">1,000,000</td>
-                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold text-violet-700">claude-fable-5</td>
-                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Claude Fable 5</td>
-                      <td className="py-2.5 px-3 text-[#78716c]">Anthropic</td>
-                      <td className="py-2.5 px-3">1,000,000</td>
-                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold text-violet-700">claude-haiku-5.5</td>
-                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Claude Haiku 5.5</td>
-                      <td className="py-2.5 px-3 text-[#78716c]">Anthropic</td>
-                      <td className="py-2.5 px-3">500,000</td>
-                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold text-blue-700">gpt-4o</td>
-                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">GPT-4o</td>
-                      <td className="py-2.5 px-3 text-[#78716c]">OpenAI</td>
-                      <td className="py-2.5 px-3">128,000</td>
-                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 px-3 font-bold text-emerald-700">gemini-4-argon</td>
-                      <td className="py-2.5 px-3 font-sans text-[#1c1917]">Gemini 4 Argon</td>
-                      <td className="py-2.5 px-3 text-[#78716c]">Google</td>
-                      <td className="py-2.5 px-3">1,000,000</td>
-                      <td className="py-2.5 px-3 text-emerald-600 font-bold">Yes</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </article>
-          </section>
-
-          {/* ============================================================== */}
-          {/* CHAPTER E: API REFERENCE */}
-          {/* ============================================================== */}
-          <section id="sec-api-reference" className="scroll-mt-24 space-y-8 pt-4">
-            <div className="border-b border-[#ede8e1] pb-3">
-              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
-                Section E
-              </span>
-              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
-                API Reference Specification
-              </h2>
-            </div>
-
-            {/* E1: Base URLs */}
-            <article id="api-base-urls" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Globe className="w-5 h-5 text-violet-600" />
-                <span>Base URLs & Protocols</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                LightningAPI hosts dual protocol endpoints. Choose based on your SDK or tool:
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
-                <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1.5">
-                  <div className="text-xs font-bold text-violet-700 font-sans">Anthropic Native Base URL</div>
-                  <div className="font-bold text-[#1c1917] select-all">https://lightningapi.pro</div>
-                  <p className="text-[11px] text-[#78716c] font-sans">Used for Claude Code, Cursor Anthropic mode, and @anthropic-ai/sdk.</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#ede8e1] space-y-1.5">
-                  <div className="text-xs font-bold text-blue-700 font-sans">OpenAI Compatible Base URL</div>
-                  <div className="font-bold text-[#1c1917] select-all">https://lightningapi.pro/v1</div>
-                  <p className="text-[11px] text-[#78716c] font-sans">Used for Codex, Windsurf, LangChain, and openai official SDKs.</p>
-                </div>
-              </div>
-            </article>
-
-            {/* E2: Messages Endpoint */}
-            <article id="api-messages" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-lg bg-violet-100 text-violet-800 font-mono text-xs font-bold">POST</span>
-                  <span>/v1/messages</span>
-                </h3>
-                <span className="text-xs text-[#78716c] font-mono">Native Anthropic Protocol</span>
-              </div>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                Sends a structured message sequence to Claude Frontier models with streaming, tool execution, and vision support.
-              </p>
-              <MultiOsCodeBlock
-                title="POST /v1/messages Example"
-                tabs={[
-                  {
-                    label: 'cURL',
-                    language: 'bash',
-                    code: `curl -X POST "https://lightningapi.pro/v1/messages" \\
-  -H "Content-Type: application/json" \\
-  -H "x-api-key: ld_live_your_api_key_here" \\
-  -H "anthropic-version: 2023-06-01" \\
-  -d '{
-    "model": "claude-sonnet-5.5",
-    "max_tokens": 1024,
-    "messages": [
-      {"role": "user", "content": "Explain microservices in two sentences."}
-    ]
-  }'`,
-                  },
-                  {
-                    label: 'Python (anthropic SDK)',
-                    language: 'python',
-                    code: `from anthropic import Anthropic
-
-client = Anthropic(
-    base_url="https://lightningapi.pro",
-    api_key="ld_live_your_api_key_here"
-)
-
-response = client.messages.create(
-    model="claude-sonnet-5.5",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Explain microservices in two sentences."}]
-)
-print(response.content[0].text)`,
-                  },
-                  {
-                    label: 'Node.js (@anthropic-ai/sdk)',
-                    language: 'typescript',
-                    code: `import Anthropic from '@anthropic-ai/sdk';
-
-const client = new Anthropic({
-  baseURL: 'https://lightningapi.pro',
-  apiKey: 'ld_live_your_api_key_here',
-});
-
-const response = await client.messages.create({
-  model: 'claude-sonnet-5.5',
-  max_tokens: 1024,
-  messages: [{ role: 'user', content: 'Explain microservices in two sentences.' }],
-});
-console.log(response.content[0].text);`,
-                  },
-                ]}
-              />
-            </article>
-
-            {/* E3: Chat Completions Endpoint */}
-            <article id="api-chat-completions" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-800 font-mono text-xs font-bold">POST</span>
-                  <span>/v1/chat/completions</span>
-                </h3>
-                <span className="text-xs text-[#78716c] font-mono">OpenAI Compatible Protocol</span>
-              </div>
-              <MultiOsCodeBlock
-                title="POST /v1/chat/completions Example"
-                tabs={[
-                  {
-                    label: 'cURL',
-                    language: 'bash',
-                    code: `curl -X POST "https://lightningapi.pro/v1/chat/completions" \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ld_live_your_api_key_here" \\
-  -d '{
-    "model": "gpt-4o",
-    "messages": [
-      {"role": "user", "content": "Explain idempotent API design."}
-    ]
-  }'`,
-                  },
-                  {
-                    label: 'Python (openai SDK)',
-                    language: 'python',
-                    code: `from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://lightningapi.pro/v1",
-    api_key="ld_live_your_api_key_here"
-)
-
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Explain idempotent API design."}]
-)
-print(response.choices[0].message.content)`,
-                  },
-                ]}
-              />
-            </article>
-          </section>
-
-          {/* ============================================================== */}
-          {/* CHAPTER F: USAGE & BILLING */}
-          {/* ============================================================== */}
-          <section id="sec-usage-billing" className="scroll-mt-24 space-y-8 pt-4">
-            <div className="border-b border-[#ede8e1] pb-3">
-              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
-                Section F
-              </span>
-              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
-                Usage, Billing & Quotas
-              </h2>
-            </div>
-
-            <article id="billing-architectures" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <Layers className="w-5 h-5 text-violet-600" />
-                <span>The Six Billing Architectures Explained</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                LightningAPI routes all requests through immutable ledger accounting. Depending on your purchase, your key operates under one of these models:
-              </p>
-              <div className="space-y-3 text-xs">
-                <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#ede8e1]">
-                  <span className="font-bold text-[#1c1917]">1. Claude Max (5-Hour Rolling Window):</span>
-                  <span className="text-[#64607d] ml-1">Tokens continuously replenish every minute as older usage rolls past the 5-hour boundary.</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#ede8e1]">
-                  <span className="font-bold text-[#1c1917]">2. OpenAI (5-Hour Rolling Window):</span>
-                  <span className="text-[#64607d] ml-1">Rolling window access dedicated to OpenAI Frontier workloads.</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#ede8e1]">
-                  <span className="font-bold text-[#1c1917]">3. Prepaid Credit Wallet:</span>
-                  <span className="text-[#64607d] ml-1">USD balance valid for 365 days across all models. Top up anytime.</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-[#faf8f5] border border-[#ede8e1]">
-                  <span className="font-bold text-[#1c1917]">4. Consumable Token Packs (Claude / OpenAI / Local):</span>
-                  <span className="text-[#64607d] ml-1">Bulk token blocks with zero time pressure.</span>
-                </div>
-              </div>
-            </article>
-          </section>
-
-          {/* ============================================================== */}
-          {/* CHAPTER G: TROUBLESHOOTING */}
-          {/* ============================================================== */}
-          <section id="sec-troubleshooting" className="scroll-mt-24 space-y-8 pt-4">
-            <div className="border-b border-[#ede8e1] pb-3">
-              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
-                Section G
-              </span>
-              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
-                Troubleshooting & Error Library
-              </h2>
-            </div>
-
-            <article id="troubleshooting-intro" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-rose-600" />
-                <span>Common Error Codes & Verified Solutions</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                If your tool encounters an error, use this reference to diagnose the exact cause immediately:
-              </p>
-
-              <div className="space-y-3 text-xs">
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-1">
-                  <div className="font-bold text-amber-950 font-mono">HTTP 429 — 5-Hour Rolling Allowance Reached</div>
-                  <p className="text-amber-900 leading-relaxed">
-                    <strong>Cause:</strong> Your active token allowance has been consumed for the current 5-hour rolling cycle.
-                  </p>
-                  <p className="text-amber-800 leading-relaxed">
-                    <strong>Fix:</strong> Wait for window regeneration (allowance restores continuously) or add a Pay-As-You-Go Credit pack on the Plans page to continue immediately without waiting.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200 space-y-1">
-                  <div className="font-bold text-rose-950 font-mono">HTTP 402 — Credit Wallet Depleted ($0.00 Remaining)</div>
-                  <p className="text-rose-900 leading-relaxed">
-                    <strong>Cause:</strong> Your credit balance has reached $0.00.
-                  </p>
-                  <p className="text-rose-800 leading-relaxed">
-                    <strong>Fix:</strong> Recharge your credit balance from the Plans page. Your key resumes instantly without editing your editor settings.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-1">
-                  <div className="font-bold text-purple-950 font-mono">HTTP 403 — Model Not Permitted on Current Plan</div>
-                  <p className="text-purple-900 leading-relaxed">
-                    <strong>Cause:</strong> The requested model is not authorized for your key's provisioned plan.
-                  </p>
-                  <p className="text-purple-800 leading-relaxed">
-                    <strong>Fix:</strong> In your editor settings, switch your model to one supported by your plan (e.g. Claude Sonnet 5.5 or GPT-4o), or upgrade to Universal access.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-1">
-                  <div className="font-bold text-sky-950 font-mono">HTTP 500 / 503 — Temporary Cluster Congestion</div>
-                  <p className="text-sky-900 leading-relaxed">
-                    <strong>Cause:</strong> Transient cluster traffic surge or network timeout.
-                  </p>
-                  <p className="text-sky-800 leading-relaxed">
-                    <strong>Fix:</strong> Retry in 3 to 5 seconds. Zero tokens are charged for failed attempts.
-                  </p>
-                </div>
-              </div>
-            </article>
-          </section>
-
-          {/* ============================================================== */}
-          {/* CHAPTER H: SECURITY & SUPPORT */}
-          {/* ============================================================== */}
-          <section id="sec-security-support" className="scroll-mt-24 space-y-8 pt-4 pb-12">
-            <div className="border-b border-[#ede8e1] pb-3">
-              <span className="text-xs font-bold text-violet-700 uppercase tracking-widest font-mono">
-                Section H
-              </span>
-              <h2 className="text-2xl font-bold text-[#1c1917] tracking-tight">
-                Security & Support
-              </h2>
-            </div>
-
-            <article id="key-security" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <span>API Key Hygiene & Security Standards</span>
-              </h3>
-              <ul className="list-disc list-inside text-sm text-[#44403c] space-y-2 leading-relaxed">
-                <li>Never commit keys to public GitHub or GitLab repositories.</li>
-                <li>Store keys in local <code className="font-mono text-xs bg-stone-100 px-1 py-0.5 rounded">.env</code> files and add them to your <code className="font-mono text-xs bg-stone-100 px-1 py-0.5 rounded">.gitignore</code>.</li>
-                <li>If you suspect your key was compromised, immediately revoke it in your Customer Dashboard and generate a fresh key.</li>
-              </ul>
-            </article>
-
-            <article id="contact-support" className="bg-white p-6 rounded-3xl border border-[#ede8e1] shadow-2xs space-y-4">
-              <h3 className="text-lg font-bold text-[#1c1917] flex items-center gap-2">
-                <LifeBuoy className="w-5 h-5 text-violet-600" />
-                <span>Engineering & Account Support</span>
-              </h3>
-              <p className="text-sm text-[#44403c] leading-relaxed">
-                Our engineering team is available 24/7. Reach out via email or submit a ticket from your dashboard:
-              </p>
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <a
-                  href="mailto:support@lightningapi.pro"
-                  className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-xs transition-colors"
-                >
-                  Email support@lightningapi.pro
-                </a>
-                <Link
-                  to="/check-key"
-                  className="px-4 py-2 rounded-xl border border-[#ede8e1] bg-white hover:bg-stone-50 text-[#1c1917] font-bold text-xs transition-colors"
-                >
-                  Verify Key Status
-                </Link>
-              </div>
-            </article>
-          </section>
+          {/* ALL 8 DOCUMENTATION SECTIONS (EVERY SINGLE ITEM GUARANTEED DEDICATED ARTICLE) */}
+          <DocsSectionA />
+          <DocsSectionB />
+          <DocsSectionC />
+          <DocsSectionD />
+          <DocsSectionE />
+          <DocsSectionF />
+          <DocsSectionG />
+          <DocsSectionH />
         </main>
       </div>
 

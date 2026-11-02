@@ -1,3 +1,4 @@
+import { normalizeErrorResponse } from './friendlyErrors';
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma, decryptText } from './db';
@@ -1622,7 +1623,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
   // Observability Response Headers
   res.setHeader('x-lightning-trace-id', requestId);
-  res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+  res.setHeader('x-lightning-engine', 'neural-mesh');
   res.setHeader('x-lightning-routed-model', effectiveModel);
   res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
 
@@ -1909,12 +1910,14 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         }
 
         const errorText = await upstreamRes.text();
-        let parsedError: any = { message: 'Upstream vendor service reported an error.' };
+        let parsedError: any = {};
         try { parsedError = JSON.parse(errorText); } catch (e) {}
 
-        const rawMessage = parsedError?.error?.message || parsedError?.message || errorText || 'Upstream vendor error.';
-        const safeMessage = sanitizeErrorMessage(rawMessage);
-        const errType = parsedError?.error?.type || parsedError?.type || 'upstream_error';
+        const normalized = normalizeErrorResponse(
+          upstreamRes.status,
+          parsedError?.error?.message ? parsedError : errorText,
+          { model, billingPlanType: keyRecord.billingType, retryAfterSec: retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined }
+        );
 
         await prisma.apiRequest.create({
           data: {
@@ -1922,9 +1925,9 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
             userId: keyRecord.userId,
             model,
             endpoint: '/v1/messages',
-            statusCode: upstreamRes.status,
-            errorCode: String(errType).substring(0, 100),
-            errorMessage: safeMessage,
+            statusCode: normalized.statusCode,
+            errorCode: normalized.error.code,
+            errorMessage: normalized.error.message,
             inputTokens: 0,
             outputTokens: 0,
             totalTokens: 0,
@@ -1939,12 +1942,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           },
         });
 
-        return res.status(upstreamRes.status).json({
-          error: {
-            type: errType,
-            message: safeMessage,
-            code: `UPSTREAM_${upstreamRes.status}`,
-          },
+        return res.status(normalized.statusCode).json({
+          error: normalized.error,
         });
       }
 
@@ -1955,7 +1954,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       if (stream) {
         res.setHeader('x-gateway-model', model);
         res.setHeader('x-selected-model', model);
-        res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+        res.setHeader('x-lightning-engine', 'neural-mesh');
         res.setHeader('x-lightning-routed-model', effectiveModel);
         res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
         res.setHeader('x-lightning-overhead-ms', String(Math.max(1, (Date.now() - startTime) - (totalAttemptLatency))));
@@ -2239,7 +2238,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
 
         res.setHeader('x-gateway-model', model);
         res.setHeader('x-selected-model', model);
-        res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+        res.setHeader('x-lightning-engine', 'neural-mesh');
         res.setHeader('x-lightning-routed-model', effectiveModel);
         res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
         res.setHeader('x-lightning-overhead-ms', String(Math.max(1, (Date.now() - startTime) - (totalAttemptLatency))));
@@ -2766,7 +2765,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
 
   // Set smart infrastructure observability headers
   res.setHeader('x-lightning-trace-id', requestId);
-  res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+  res.setHeader('x-lightning-engine', 'neural-mesh');
   res.setHeader('x-lightning-routed-model', effectiveModel);
   res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
 
@@ -3021,11 +3020,13 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     const errText = await upstreamRes.text();
     let parsedErr: any = {};
     try { parsedErr = JSON.parse(errText); } catch {}
-    if (parsedErr?.error?.message) {
-      parsedErr.error.message = sanitizeErrorMessage(parsedErr.error.message);
-    }
-    return res.status(upstreamRes.status).json(parsedErr?.error ? parsedErr : {
-      error: { message: sanitizeErrorMessage(errText), type: 'upstream_error' },
+    const normalized = normalizeErrorResponse(
+      upstreamRes.status,
+      parsedErr?.error?.message ? parsedErr : errText,
+      { model, billingPlanType: keyRecord?.billingType, retryAfterSec: retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined }
+    );
+    return res.status(normalized.statusCode).json({
+      error: normalized.error,
     });
   }
 
@@ -3037,7 +3038,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       res.setHeader('X-Accel-Buffering', 'no');
       res.setHeader('X-No-Buffer', '1');
       res.setHeader('x-gateway-model', model);
-      res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+      res.setHeader('x-lightning-engine', 'neural-mesh');
       res.setHeader('x-lightning-routed-model', effectiveModel);
       res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
       res.socket?.setNoDelay(true);
@@ -3159,7 +3160,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
         }
       }
       res.setHeader('x-gateway-model', model);
-      res.setHeader('x-lightning-routed-provider', routeResolution.providerSlug || 'unknown');
+      res.setHeader('x-lightning-engine', 'neural-mesh');
       res.setHeader('x-lightning-routed-model', effectiveModel);
       res.setHeader('x-lightning-circuit-state', routeResolution.circuitState || 'CLOSED');
       
@@ -3237,7 +3238,7 @@ export async function handleResponsesEndpoint(req: Request, res: Response) {
     return res.status(503).json({
       error: {
         type: 'service_unavailable',
-        message: 'LotusAI provider is currently unconfigured or offline.',
+        message: 'Dedicated AI ingress is currently unconfigured or undergoing maintenance.',
         code: 'PROVIDER_UNAVAILABLE',
       },
     });
@@ -3306,8 +3307,13 @@ export async function handleResponsesEndpoint(req: Request, res: Response) {
       const errText = await upstreamRes.text();
       let parsedErr: any = {};
       try { parsedErr = JSON.parse(errText); } catch {}
-      return res.status(upstreamRes.status).json(parsedErr?.error ? parsedErr : {
-        error: { message: sanitizeErrorMessage(errText), type: 'upstream_error' },
+      const normalized = normalizeErrorResponse(
+        upstreamRes.status,
+        parsedErr?.error?.message ? parsedErr : errText,
+        { model: requestedModel, billingPlanType: keyRecord?.billingType }
+      );
+      return res.status(normalized.statusCode).json({
+        error: normalized.error,
       });
     }
 
@@ -3318,7 +3324,7 @@ export async function handleResponsesEndpoint(req: Request, res: Response) {
       res.setHeader('X-Accel-Buffering', 'no');
       res.setHeader('X-No-Buffer', '1');
       res.setHeader('x-lightning-trace-id', requestId);
-      res.setHeader('x-lightning-routed-provider', 'lotusai');
+      res.setHeader('x-lightning-engine', 'neural-mesh');
       res.setHeader('x-lightning-routed-model', requestedModel);
       res.socket?.setNoDelay(true);
       res.flushHeaders();
@@ -3416,7 +3422,7 @@ export async function handleResponsesEndpoint(req: Request, res: Response) {
     const isTimeout = err?.name === 'AbortError' || clientDisconnected;
     return res.status(isTimeout ? 504 : 502).json({
       error: {
-        message: isTimeout ? 'Request timed out waiting for LotusAI upstream response.' : `Upstream connection failure: ${sanitizeErrorMessage(err.message)}`,
+        message: isTimeout ? 'The AI model took too long to complete the request. Please retry in a moment.' : `Gateway connection failure: ${sanitizeErrorMessage(err.message)}`,
         type: isTimeout ? 'gateway_timeout' : 'upstream_error',
       },
     });

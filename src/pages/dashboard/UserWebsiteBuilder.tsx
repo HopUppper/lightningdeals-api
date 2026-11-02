@@ -1,3 +1,4 @@
+import { sanitizeText } from '../../utils/friendlyErrors';
 /**
  * src/pages/dashboard/UserWebsiteBuilder.tsx
  * ============================================================================
@@ -289,15 +290,20 @@ export const UserWebsiteBuilder: React.FC = () => {
   // Helper: Format error cleanly to prevent [object Object]
   const formatErrorMessage = (err: any): string => {
     if (!err) return 'An unexpected error occurred. Please try again.';
-    if (typeof err === 'string') return err;
-    if (typeof err.message === 'string') return err.message;
-    if (typeof err.error === 'string') return err.error;
-    if (typeof err.error === 'object' && err.error?.message) return err.error.message;
-    try {
-      return JSON.stringify(err);
-    } catch {
-      return 'An unexpected error occurred.';
+    let raw = '';
+    if (typeof err === 'string') raw = err;
+    else if (typeof err.message === 'string') raw = err.message;
+    else if (typeof err.error === 'string') raw = err.error;
+    else if (typeof err.error === 'object' && err.error?.message) raw = err.error.message;
+    else {
+      try { raw = JSON.stringify(err); } catch { raw = 'An unexpected error occurred.'; }
     }
+
+    if (/\b(?:502|503|504)\b/i.test(raw) || /bad gateway|gateway timeout|service unavailable/i.test(raw)) {
+      return 'Our AI service is temporarily unavailable. Please retry in a moment.';
+    }
+
+    return sanitizeText(raw);
   };
 
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {

@@ -1,3 +1,4 @@
+import { sanitizeText } from '../../utils/friendlyErrors';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Bot,
@@ -183,6 +184,8 @@ export interface ChatMessage {
   provider?: string;
   activities?: StudioActivityEvent[];
   currentActivity?: StudioActivityEvent;
+  errorCode?: string;
+  errorAction?: 'retry' | 'switch_key' | 'switch_model' | 'recharge' | 'view_plans';
 }
 
 export interface ChatThread {
@@ -2386,7 +2389,12 @@ export const UserChatStudio: React.FC = () => {
                   )
                 );
               } else if (eventType === 'error') {
-                throw new Error(parsed.message || 'Stream processing error.');
+                const errObj: any = new Error(parsed.message || 'Stream processing error.');
+                errObj.code = parsed.code;
+                errObj.action = parsed.action;
+                errObj.actionLabel = parsed.actionLabel;
+                errObj.statusCode = parsed.statusCode || 502;
+                throw errObj;
               }
             } catch (jsonErr: any) {
               if (jsonErr.message && !jsonErr.message.includes('JSON')) {
@@ -2416,10 +2424,30 @@ export const UserChatStudio: React.FC = () => {
           )
         );
       } else {
-        const errorMsg = err.message || 'Network stream error.';
-        if (errorMsg.includes('QUOTA_EXHAUSTED') || errorMsg.includes('depleted')) {
+        const errorMsg = sanitizeText(err.message || 'Network stream error.');
+        const isAuthOrQuota =
+          err.code === 'INVALID_API_KEY' ||
+          err.code === 'QUOTA_EXHAUSTED' ||
+          err.code === 'KEY_SUSPENDED' ||
+          err.code === 'CREDITS_DEPLETED' ||
+          err.action === 'switch_key' ||
+          errorMsg.includes('QUOTA_EXHAUSTED') ||
+          errorMsg.includes('depleted');
+
+        if (isAuthOrQuota) {
           setKeyPickerOpen(true);
         }
+
+        const isUpstreamOutage =
+          err.statusCode >= 500 ||
+          err.action === 'retry' ||
+          err.code === 'UPSTREAM_UNAVAILABLE' ||
+          err.code === 'GATEWAY_TIMEOUT' ||
+          err.code === 'CAPACITY_BUSY' ||
+          errorMsg.includes('temporarily unavailable') ||
+          errorMsg.includes('gateway') ||
+          errorMsg.includes('timed out');
+
         setThreads((prev) =>
           prev.map((t) =>
             t.id === boundThreadId
@@ -2427,7 +2455,13 @@ export const UserChatStudio: React.FC = () => {
                   ...t,
                   messages: t.messages.map((m) =>
                     m.id === assistantMsgId
-                      ? { ...m, content: `⚠️ ${errorMsg}`, isError: true }
+                      ? {
+                          ...m,
+                          content: `⚠️ ${errorMsg}`,
+                          isError: true,
+                          errorCode: err.code,
+                          errorAction: isUpstreamOutage ? 'retry' : (isAuthOrQuota ? 'switch_key' : 'retry'),
+                        }
                       : m
                   ),
                 }
@@ -4054,17 +4088,23 @@ export const UserChatStudio: React.FC = () => {
 
                           {msg.isError && (
                             <div className="mt-3 pt-2 border-t border-rose-500/20 flex items-center justify-between gap-2 flex-wrap">
-                              <span className="text-xs text-rose-500">Request failed or limit reached.</span>
+                              <span className="text-xs text-rose-500">
+                                {msg.errorAction === 'switch_key'
+                                  ? 'API key quota exhausted or inactive.'
+                                  : 'Temporary network congestion or upstream interruption.'}
+                              </span>
                               <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setKeyPickerOpen(true)}
-                                  className="px-2.5 py-1 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 font-semibold text-xs flex items-center gap-1 cursor-pointer"
-                                  title="Switch to another active API key"
-                                >
-                                  <Key className="w-3 h-3" />
-                                  <span>Switch Key</span>
-                                </button>
+                                {msg.errorAction === 'switch_key' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setKeyPickerOpen(true)}
+                                    className="px-2.5 py-1 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 font-semibold text-xs flex items-center gap-1 cursor-pointer"
+                                    title="Switch to another active API key"
+                                  >
+                                    <Key className="w-3 h-3" />
+                                    <span>Switch Key</span>
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={handleRetry}

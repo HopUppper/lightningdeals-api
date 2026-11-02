@@ -18,7 +18,8 @@ export function sanitizeModelResponse(text: string, friendlyModelName?: string, 
     .replace(/Other ScaleMax [^\n\r]+/gi, '')
     .replace(/served by ScaleMax(?:\.pro)?/gi, 'powered by LightningAPI')
     .replace(/served by Opus\s*Max/gi, 'powered by LightningAPI')
-    .replace(/served by [a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*/gi, 'powered by LightningAPI')
+    .replace(/served by Lotus\s*AI/gi, 'powered by LightningAPI')
+    .replace(/served by [a-zA-Z0-9.-]*(?:scalemax|opusmax|lotusai)[a-zA-Z0-9.-]*/gi, 'powered by LightningAPI')
     .replace(/Auto by ScaleMax/gi, friendlyModelName || 'Claude Opus 5.5')
     .replace(/Under the hood I run on Claude[^.]*\. I don't have reliable information about which specific Claude version this deployment uses\.?/gi, `Under the hood I run on ${friendlyModelName || 'Claude Opus 5.5'}, powered by Anthropic and LightningAPI.`)
     .replace(/I don't have reliable information about which specific Claude version this deployment uses\.?/gi, `I am running on ${friendlyModelName || 'Claude Opus 5.5'}.`)
@@ -30,13 +31,16 @@ export function sanitizeModelResponse(text: string, friendlyModelName?: string, 
     .replace(/\bOpusMax(?:\.pro)?\b/gi, friendlyModelName || 'Claude Opus 5.5')
     .replace(/OpusLive/gi, 'LightningAPI')
     .replace(/\bopusmax(?:\.pro)?\b/gi, 'lightningapi')
+    .replace(/\bLotus\s*AI(?:\.pro)?\b/gi, 'LightningAPI')
+    .replace(/\blotusai(?:\.pro)?\b/gi, 'lightningapi')
 
     // 2. Remove supplier URLs and hostnames
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
-    .replace(/https?:\/\/api2?\.opusmax\.pro(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*(?:scalemax|opusmax|lotusai)[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
+    .replace(/[a-zA-Z0-9.-]*\.(?:scalemax|opusmax|lotusai)\.pro(?:\/[^\s"']*)?/gi, 'lightningapi.pro')
     .replace(/api2?\.scalemax\.pro/gi, 'lightningapi.pro')
-    .replace(/dashboard\.(?:scalemax|opusmax)\.pro(?:\/[^\s"']*)?/gi, 'lightningapi.pro')
+    .replace(/dashboard\.(?:scalemax|opusmax|lotusai)\.pro(?:\/[^\s"']*)?/gi, 'lightningapi.pro')
     .replace(/api2?\.opusmax\.pro/gi, 'lightningapi.pro')
+    .replace(/api\.lotusai\.pro/gi, 'lightningapi.pro')
 
     // 3. Remove master API keys and internal credentials
     .replace(/sm_live_[a-zA-Z0-9_-]+/g, '••••••••')
@@ -83,49 +87,65 @@ export function sanitizeModelResponse(text: string, friendlyModelName?: string, 
 }
 
 export function sanitizeErrorMessage(message: string, customScrubbers?: string[]): string {
-  if (!message) return 'Upstream gateway error.';
+  if (!message) return 'Our AI service is temporarily unavailable. Please retry in a moment.';
   let result = String(message);
 
-  // If HTML returned (e.g. Cloudflare 502/504 Bad Gateway page), extract clean error message
+  // 1. If HTML error page returned (e.g. Cloudflare / Nginx 502/503/504 Bad Gateway / Host Error)
+  // NEVER reflect HTML <title> or raw page content as it leaks supplier domain names!
   if (result.includes('<!DOCTYPE') || result.includes('<html') || result.includes('<head') || result.includes('<body')) {
-    const titleMatch = result.match(/<title>([^<]+)<\/title>/i);
     const codeMatch = result.match(/\b(50[0-9]|40[0-9])\b/);
-    const code = codeMatch ? codeMatch[1] : '502';
-    const title = titleMatch ? titleMatch[1].trim() : 'Bad Gateway';
-    return `Upstream provider is temporarily unavailable (HTTP ${code} ${title}). Please retry shortly.`;
+    const code = codeMatch ? parseInt(codeMatch[1], 10) : 502;
+    if (code === 504) {
+      return 'The AI gateway request timed out. Please retry in a moment.';
+    }
+    if (code === 503) {
+      return 'The model capacity is temporarily busy. Please retry shortly.';
+    }
+    if (code === 429) {
+      return 'Rate limit or concurrency capacity reached. Please wait before retrying.';
+    }
+    return 'Our AI service is temporarily unavailable. Please retry in a moment.';
   }
 
-  // Strip any accidental HTML tags
+  // 2. Strip any accidental HTML tags
   result = result.replace(/<[^>]*>/g, ' ');
 
-  // Intercept vendor balance depletion errors or top-up leak URLs
-  if (/balance is used up|top.?up at|insufficient.*balance|credits? (?:depleted|exhausted)|dashboard\.(?:scalemax|opusmax)\.pro/i.test(result)) {
+  // 3. Intercept vendor balance depletion errors or top-up leak URLs
+  if (/balance is used up|top.?up at|insufficient.*balance|credits? (?:depleted|exhausted)|dashboard\.(?:scalemax|opusmax|lotusai)\.pro/i.test(result)) {
     return 'The requested model capacity is currently undergoing scheduled replenishment. Please retry in a few moments or switch to an alternate model.';
   }
 
+  // 4. Scrub upstream supplier URLs and hostnames
   result = result
-    .replace(/ScaleMax(?:\.pro)?/gi, 'LightningAPI')
-    .replace(/scalemax(?:\.pro)?/gi, 'lightningapi')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*(?:scalemax|opusmax|lotusai)[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
+    .replace(/[a-zA-Z0-9.-]*\.(?:scalemax|opusmax|lotusai)\.pro(?:\/[^\s"']*)?/gi, 'lightningapi.pro')
+    .replace(/\b(?:api2?|dashboard)\.(?:scalemax|opusmax|lotusai)\.pro/gi, 'api.lightningapi.pro')
+
+    // 5. Scrub supplier brand and company names
+    .replace(/\b(?:ScaleMax|Scale\s*Max)(?:\.pro)?\b/gi, 'LightningAPI')
+    .replace(/\bscalemax(?:\.pro)?\b/gi, 'lightningapi')
+    .replace(/\b(?:OpusMax|Opus\s*Max)(?:\.pro)?\b/gi, 'LightningAPI')
+    .replace(/\bopusmax(?:\.pro)?\b/gi, 'lightningapi')
+    .replace(/\b(?:LotusAI|Lotus\s*AI)(?:\.pro)?\b/gi, 'LightningAPI')
+    .replace(/\blotusai(?:\.pro)?\b/gi, 'lightningapi')
+    .replace(/\bOpusLive\b/gi, 'LightningAPI')
     .replace(/MiniMax(?:-abab)?/gi, 'Anthropic')
     .replace(/abab-6\.5/gi, 'Claude Sonnet 5.5')
-    .replace(/Opus\s*Max/gi, 'LightningAPI')
-    .replace(/OpusMax/gi, 'LightningAPI')
-    .replace(/OpusLive/gi, 'LightningAPI')
-    .replace(/opusmax(?:\.pro)?/gi, 'lightningapi')
-    .replace(/api\.opusmax\.pro/gi, 'lightningapi.pro')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*scalemax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
-    .replace(/https?:\/\/[a-zA-Z0-9.-]*opusmax[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
-    .replace(/api2?\.scalemax\.pro/gi, 'lightningapi.pro')
-    .replace(/dashboard\.(?:scalemax|opusmax)\.pro(?:\/[^\s"']*)?/gi, 'lightningapi.pro')
+
+    // 6. Scrub master API keys and tokens
+    .replace(/sm_live_[a-zA-Z0-9_-]+/g, '••••••••')
     .replace(/sk-ant-opm-[a-zA-Z0-9_-]+/g, '••••••••')
-    .replace(/sm_live_[a-zA-Z0-9]+/g, '••••••••')
     .replace(/ld_live_[a-zA-Z0-9]+/g, 'ld_live_••••••••')
     .replace(/sk_live_[a-zA-Z0-9]+/g, 'sk_live_••••••••')
     .replace(/sk-ant-api[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
     .replace(/sk-ant-[a-zA-Z0-9_-]+/g, 'sk-ant-••••••••')
-    .replace(/connecting to vendor\s*\([^)]*\):?/gi, '')
-    .replace(/vendor\s*\([^)]*\)\s*error:?/gi, 'AI Gateway error:')
-    .replace(/upstream\s+vendor\s*\([^)]*\)/gi, 'AI Gateway');
+
+    // 7. Strip internal proxy / vendor diagnostic reflections
+    .replace(/connecting to (?:vendor|supplier|upstream)\s*\([^)]*\):?/gi, '')
+    .replace(/(?:vendor|supplier|upstream)\s*\([^)]*\)\s*error:?/gi, 'AI Gateway error:')
+    .replace(/upstream\s+(?:vendor|supplier|provider)\s*\([^)]*\)/gi, 'AI Gateway')
+    .replace(/\b(?:scalemax|opusmax|lotusai)\.pro\s*\|\s*50[0-9]:\s*bad\s*gateway/gi, 'Bad Gateway')
+    .replace(/\b(?:scalemax|opusmax|lotusai)\.pro\s*\|\s*50[0-9]:\s*gateway\s*time-?out/gi, 'Gateway Timeout');
 
   if (Array.isArray(customScrubbers)) {
     for (const scrub of customScrubbers) {
@@ -135,7 +155,7 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
     }
   }
 
-  return result;
+  return result.trim();
 }
 
 /**
@@ -165,7 +185,7 @@ export class StreamChunkSanitizer {
     const sanitized = sanitizeModelResponse(this.buffer, this.friendlyModel, this.customScrubbers);
 
     // Look for partial sensitive prefixes at the end of the buffer
-    const holdRegex = /(?:scale(?:m(?:a(?:x)?)?)?|opus(?:m(?:a(?:x)?)?)?|mini(?:m(?:a(?:x)?)?)?|sm_?[a-z0-9]*|sk-?[a-z0-9_-]*|api2?\.?[a-z0-9]*|dashboard\.?[a-z0-9]*|served\s+(?:b(?:y)?)?|by\s+scale[a-z]*)$/i;
+    const holdRegex = /(?:scale(?:m(?:a(?:x)?)?)?|opus(?:m(?:a(?:x)?)?)?|lotus(?:a(?:i)?)?|mini(?:m(?:a(?:x)?)?)?|sm_?[a-z0-9]*|sk-?[a-z0-9_-]*|api2?\.?[a-z0-9]*|dashboard\.?[a-z0-9]*|served\s+(?:b(?:y)?)?|by\s+(?:scale|opus|lotus)[a-z]*)$/i;
     const match = sanitized.match(holdRegex);
 
     if (match && match.index !== undefined && sanitized.length > match[0].length) {

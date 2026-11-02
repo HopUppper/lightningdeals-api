@@ -922,7 +922,7 @@ export const ALL_SUPPORTED_MODELS: ModelSpec[] = [
       "Vision",
       "Tools",
       "Reasoning",
-      "ScaleMax Live"
+      "LightningMesh Live"
     ],
     "isNew": true,
     "isPopular": true

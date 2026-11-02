@@ -142,16 +142,16 @@ function inferModelFamily(modelId: string): {
     return { family: 'minimax', provider: 'MiniMax', protocol: 'openai-compatible' };
   }
   if (lower.includes('dall-e') || lower.includes('imagen') || lower.includes('midjourney') || lower.includes('flux')) {
-    return { family: 'image_generation', provider: 'ScaleMax', protocol: 'images' };
+    return { family: 'image_generation', provider: 'LightningAPI', protocol: 'images' };
   }
   if (lower.includes('sora') || lower.includes('kling') || lower.includes('runway') || lower.includes('veo')) {
-    return { family: 'video_generation', provider: 'ScaleMax', protocol: 'videos' };
+    return { family: 'video_generation', provider: 'LightningAPI', protocol: 'videos' };
   }
   if (lower.includes('embedding')) {
     return { family: 'embeddings', provider: 'OpenAI', protocol: 'embeddings' };
   }
 
-  return { family: 'more_models', provider: 'ScaleMax', protocol: 'openai-compatible' };
+  return { family: 'more_models', provider: 'LightningAPI', protocol: 'openai-compatible' };
 }
 
 /**
@@ -211,7 +211,7 @@ async function fetchScaleMaxOperationalModels(creditKey: string): Promise<Discov
         protocol,
         description:
           item.tagline ||
-          `${item.display_name || canonicalId} frontier AI model via ScaleMax enterprise network.`,
+          `${item.display_name || canonicalId} frontier AI model via LightningAPI enterprise network.`,
         contextWindow: Number(item.context_window) || 128000,
         maxOutputTokens: Number(item.max_output_tokens || item.max_tokens) || 65536,
         supplierCostInput,
@@ -313,7 +313,7 @@ async function fetchScaleMaxPublicCatalogs(): Promise<DiscoveredModel[]> {
           family,
           provider,
           protocol,
-          description: `${displayName} high-performance AI model via ScaleMax network.`,
+          description: `${displayName} high-performance AI model via LightningAPI network.`,
           contextWindow,
           maxOutputTokens: 65536,
           supplierCostInput,
@@ -363,7 +363,7 @@ async function fetchScaleMaxPublicCatalogs(): Promise<DiscoveredModel[]> {
             family,
             provider,
             protocol,
-            description: `${displayName} high-performance AI model via ScaleMax network.`,
+            description: `${displayName} high-performance AI model via LightningAPI network.`,
             contextWindow: 128000,
             maxOutputTokens: 65536,
             supplierCostInput: 1.0,
@@ -403,7 +403,7 @@ async function fetchScaleMaxPublicCatalogs(): Promise<DiscoveredModel[]> {
       provider: 'Google',
       protocol: 'openai-compatible',
       description:
-        "Google's flagship 1M-token frontier reasoning model with native tool calling, deep multimodal vision, and ultra-high generation fidelity via ScaleMax.",
+        "Google's flagship 1M-token frontier reasoning model with native tool calling, deep multimodal vision, and ultra-high generation fidelity via LightningAPI.",
       contextWindow: 1048576,
       maxOutputTokens: 65536,
       supplierCostInput: 8.0,

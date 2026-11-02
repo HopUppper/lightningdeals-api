@@ -677,7 +677,7 @@ DEFAULT_PLANS.push(
     features: [
       '100,000,000 Tokens every 5 hours',
       'Ultimate Capacity & Maximum Concurrency',
-      'Dedicated Upstream LotusAI Ingress',
+      'Dedicated VIP Ingress Routing',
       '1,050,000 Token Context Window',
       '24/7 Dedicated Support',
     ],

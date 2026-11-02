@@ -1,5 +1,21 @@
 import { sanitizeErrorMessage } from './providers/responseSanitizer';
 
+export interface CustomerSafeError {
+  type: string;
+  message: string;
+  code: string;
+  param?: string | null;
+  action?: 'retry' | 'switch_key' | 'switch_model' | 'recharge' | 'view_plans' | 'contact_support';
+  actionLabel?: string;
+  actionUrl?: string;
+  retryAfterSec?: number;
+}
+
+export interface NormalizedErrorResponse {
+  statusCode: number;
+  error: CustomerSafeError;
+}
+
 export interface FriendlyErrorInfo {
   statusCode: number;
   category:
@@ -33,7 +49,7 @@ export interface FriendlyErrorInput {
 /**
  * Sanitizes any text to strictly ensure no vendor names or internal endpoints leak.
  */
-function cleanText(text: string): string {
+export function cleanText(text: string): string {
   if (!text) return '';
   let cleaned = sanitizeErrorMessage(text);
   // Extra layer of defence against vendor leaks
@@ -43,7 +59,8 @@ function cleanText(text: string): string {
     .replace(/lotusai(?:\.pro)?/gi, 'LightningAPI')
     .replace(/minimax(?:-abab)?/gi, 'Anthropic')
     .replace(/api\.scalemax\.pro/gi, 'api.lightningapi.pro')
-    .replace(/api\.opusmax\.pro/gi, 'api.lightningapi.pro');
+    .replace(/api\.opusmax\.pro/gi, 'api.lightningapi.pro')
+    .replace(/api\.lotusai\.pro/gi, 'api.lightningapi.pro');
   return cleaned;
 }
 
@@ -400,4 +417,220 @@ export function computeKeyResolution(keyData: {
   }
 
   return null;
+}
+
+/**
+ * Central Error Normalization Engine
+ *
+ * Enforces strict supplier isolation and deterministic customer-facing error schemas.
+ * Guarantees that:
+ * 1. Supplier hostnames (scalemax.pro, opusmax.pro, lotusai.pro), internal paths,
+ *    and HTML error bodies are completely stripped.
+ * 2. Unwhitelisted fields (provider, upstream, url, host, stack, headers, etc.) are discarded.
+ * 3. Context-aware actions are provided (e.g. 502/503/504 recommends retry with backoff, NEVER switch_key).
+ */
+export function normalizeErrorResponse(
+  rawStatus: number | string | undefined,
+  rawError: any,
+  context?: {
+    model?: string;
+    billingPlanType?: string;
+    retryAfterSec?: number;
+  }
+): NormalizedErrorResponse {
+  let statusCode = Number(rawStatus) || Number(rawError?.status) || Number(rawError?.statusCode) || 500;
+  if (isNaN(statusCode) || statusCode < 400 || statusCode > 599) {
+    statusCode = 500;
+  }
+
+  // Extract raw error message and code safely
+  let rawMsg = '';
+  if (typeof rawError === 'string') {
+    rawMsg = rawError;
+  } else if (rawError && typeof rawError === 'object') {
+    rawMsg = rawError.error?.message || rawError.message || (typeof rawError.error === 'string' ? rawError.error : '') || '';
+  }
+
+  const rawCode = String(rawError?.error?.code || rawError?.code || '').trim().toLowerCase();
+  const safeMsg = cleanText(rawMsg);
+  const planType = (context?.billingPlanType || '').toLowerCase();
+  const modelName = context?.model || 'the requested model';
+
+  // 1. Upstream Outages / Bad Gateways / Timeouts (502, 503, 504)
+  if (statusCode === 502 || statusCode === 504 || statusCode === 503 || (statusCode === 500 && (safeMsg.includes('gateway') || safeMsg.includes('econn') || safeMsg.includes('fetch') || safeMsg.includes('timeout')))) {
+    const isTimeout = statusCode === 504 || /timeout|timed out|deadline/i.test(safeMsg);
+    const isBusy = statusCode === 503 || /busy|overloaded|capacity/i.test(safeMsg);
+
+    if (isTimeout) {
+      return {
+        statusCode: 504,
+        error: {
+          type: 'timeout_error',
+          code: 'GATEWAY_TIMEOUT',
+          message: 'The AI model took too long to complete the request. Please retry in a moment.',
+          action: 'retry',
+          actionLabel: 'Retry Request',
+          retryAfterSec: context?.retryAfterSec || 3,
+        },
+      };
+    }
+
+    if (isBusy) {
+      return {
+        statusCode: 503,
+        error: {
+          type: 'service_unavailable',
+          code: 'CAPACITY_BUSY',
+          message: 'The requested AI model capacity is currently experiencing high demand. Please retry shortly.',
+          action: 'retry',
+          actionLabel: 'Retry in 5s',
+          retryAfterSec: context?.retryAfterSec || 5,
+        },
+      };
+    }
+
+    return {
+      statusCode: 502,
+      error: {
+        type: 'bad_gateway',
+        code: 'UPSTREAM_UNAVAILABLE',
+        message: 'Our AI service is temporarily unavailable. Please retry in a moment.',
+        action: 'retry',
+        actionLabel: 'Retry Request',
+        retryAfterSec: context?.retryAfterSec || 2,
+      },
+    };
+  }
+
+  // 2. Authentication Errors (401)
+  if (statusCode === 401 || rawCode.includes('invalid_key') || rawCode.includes('auth') || safeMsg.includes('invalid api key')) {
+    return {
+      statusCode: 401,
+      error: {
+        type: 'authentication_error',
+        code: 'INVALID_API_KEY',
+        message: 'The API key provided is invalid, expired, or unrecognized. Please verify your API key in your customer dashboard.',
+        action: 'switch_key',
+        actionLabel: 'Check My API Keys',
+        actionUrl: '/dashboard/keys',
+      },
+    };
+  }
+
+  // 3. Credit Balance Depleted (402)
+  if (statusCode === 402 || rawCode.includes('credit_depleted') || safeMsg.includes('credit balance') || safeMsg.includes('$0.00')) {
+    return {
+      statusCode: 402,
+      error: {
+        type: 'insufficient_quota',
+        code: 'CREDITS_DEPLETED',
+        message: 'Your account or API key has run out of usage credits ($0.00 remaining). Please deposit credits to continue processing requests.',
+        action: 'recharge',
+        actionLabel: 'Recharge Credit Balance',
+        actionUrl: '/pricing',
+      },
+    };
+  }
+
+  // 4. Permission / Model Tier / Suspended (403)
+  if (statusCode === 403) {
+    const isModelMismatch = rawCode.includes('model') || rawCode.includes('family') || safeMsg.includes('not permitted') || safeMsg.includes('tier') || safeMsg.includes('family');
+    if (isModelMismatch) {
+      return {
+        statusCode: 403,
+        error: {
+          type: 'permission_denied',
+          code: 'MODEL_NOT_PERMITTED',
+          message: `The model '${modelName}' is not included in this API key's provisioned plan.`,
+          action: 'switch_model',
+          actionLabel: 'View Supported Models',
+          actionUrl: '/models',
+        },
+      };
+    }
+
+    return {
+      statusCode: 403,
+      error: {
+        type: 'permission_denied',
+        code: 'KEY_SUSPENDED',
+        message: 'This API key is currently paused or inactive. Please reactivate it from your customer dashboard.',
+        action: 'switch_key',
+        actionLabel: 'Manage API Keys',
+        actionUrl: '/dashboard/keys',
+      },
+    };
+  }
+
+  // 5. Rate Limits & Quota Exhaustion (429)
+  if (statusCode === 429) {
+    const isRpm = rawCode.includes('rpm') || safeMsg.includes('per minute') || safeMsg.includes('speed limit');
+    if (isRpm) {
+      return {
+        statusCode: 429,
+        error: {
+          type: 'rate_limit_error',
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: 'Request rate limit reached (RPM). Please wait a few seconds before retrying.',
+          action: 'retry',
+          actionLabel: 'Retry in 5s',
+          retryAfterSec: context?.retryAfterSec || 5,
+        },
+      };
+    }
+
+    if (planType === 'token' || rawCode.includes('token_pack') || safeMsg.includes('token pack')) {
+      return {
+        statusCode: 429,
+        error: {
+          type: 'rate_limit_error',
+          code: 'TOKEN_PACK_DEPLETED',
+          message: 'All tokens in your purchased token pack have been used. Top up a new token pack to resume requests.',
+          action: 'view_plans',
+          actionLabel: 'Get New Token Pack',
+          actionUrl: '/pricing',
+        },
+      };
+    }
+
+    return {
+      statusCode: 429,
+      error: {
+        type: 'rate_limit_error',
+        code: 'WINDOW_LIMIT_REACHED',
+        message: 'You have reached your 5-hour rolling allowance for this model tier. Your quota continuously regenerates as older requests roll past 5 hours.',
+        action: 'view_plans',
+        actionLabel: 'Add Top-Up Credits',
+        actionUrl: '/pricing',
+      },
+    };
+  }
+
+  // 6. Invalid Request (400)
+  if (statusCode === 400) {
+    return {
+      statusCode: 400,
+      error: {
+        type: 'invalid_request_error',
+        code: 'INVALID_REQUEST',
+        message: safeMsg || 'Invalid request format or missing required parameters.',
+        action: 'contact_support',
+        actionLabel: 'View API Documentation',
+        actionUrl: '/docs',
+      },
+    };
+  }
+
+  // 7. Generic Internal Gateway Error (500)
+  return {
+    statusCode: 500,
+    error: {
+      type: 'api_error',
+      code: 'INTERNAL_GATEWAY_ERROR',
+      message: 'The AI gateway encountered an unexpected error processing your request. Please retry in a moment.',
+      action: 'retry',
+      actionLabel: 'Retry Request',
+      retryAfterSec: 3,
+    },
+  };
 }

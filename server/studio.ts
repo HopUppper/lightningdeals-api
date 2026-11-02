@@ -1,3 +1,4 @@
+import { normalizeErrorResponse } from './friendlyErrors';
 import { Router, Response } from 'express';
 import { prisma, decryptText } from './db';
 import { authenticateJwt, optionalAuthenticateJwt, AuthRequest } from './auth';
@@ -2764,8 +2765,9 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       await releaseReservation(studioRequestId);
       if (clientDisconnected) return;
       console.warn(`[STUDIO UPSTREAM FETCH FAILED] ${fetchErr.message}`);
-      activityTracker.failCurrentStep(`Upstream fetch failed: ${fetchErr.message}`);
-      sendSse('error', { message: sanitizeErrorMessage(fetchErr.message) });
+      const normalized = normalizeErrorResponse(502, fetchErr.message, { model });
+      activityTracker.failCurrentStep(`Model request failed: ${normalized.error.message}`);
+      sendSse('error', normalized.error);
       return res.end();
     }
 
@@ -2775,10 +2777,10 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       let parsedErr: any = {};
       try { parsedErr = JSON.parse(errText); } catch {}
       const rawErrMsg = parsedErr?.error?.message || parsedErr?.message || errText || `HTTP ${upstreamRes?.status || 502}`;
-      const safeErrMsg = sanitizeErrorMessage(rawErrMsg);
+      const normalized = normalizeErrorResponse(upstreamRes?.status || 502, parsedErr?.error?.message ? parsedErr : rawErrMsg, { model });
 
-      activityTracker.failCurrentStep(`Model request failed: ${safeErrMsg}`);
-      sendSse('error', { message: safeErrMsg });
+      activityTracker.failCurrentStep(`Model request failed: ${normalized.error.message}`);
+      sendSse('error', normalized.error);
       return res.end();
     }
 

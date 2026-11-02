@@ -31,15 +31,33 @@ export interface FriendlyErrorInput {
 /**
  * Strips any potential vendor names or internal endpoints to protect supplier isolation.
  */
-function sanitizeText(text: string): string {
+export function sanitizeText(text: string): string {
   if (!text) return '';
-  return text
-    .replace(/scalemax(?:\.pro)?/gi, 'LightningAPI')
-    .replace(/opusmax(?:\.pro)?/gi, 'LightningAPI')
-    .replace(/lotusai(?:\.pro)?/gi, 'LightningAPI')
+  let result = String(text);
+
+  if (result.includes('<!DOCTYPE') || result.includes('<html') || result.includes('<head') || result.includes('<body')) {
+    if (result.includes('504')) return 'The AI gateway request timed out. Please retry in a moment.';
+    if (result.includes('503')) return 'The model capacity is temporarily busy. Please retry shortly.';
+    return 'Our AI service is temporarily unavailable. Please retry in a moment.';
+  }
+
+  return result
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/https?:\/\/[a-zA-Z0-9.-]*(?:scalemax|opusmax|lotusai)[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
+    .replace(/[a-zA-Z0-9.-]*\.(?:scalemax|opusmax|lotusai)\.pro(?:\/[^\s"']*)?/gi, 'lightningapi.pro')
+    .replace(/\b(?:api2?|dashboard)\.(?:scalemax|opusmax|lotusai)\.pro/gi, 'api.lightningapi.pro')
+    .replace(/\b(?:ScaleMax|Scale\s*Max)(?:\.pro)?\b/gi, 'LightningAPI')
+    .replace(/\bscalemax(?:\.pro)?\b/gi, 'lightningapi')
+    .replace(/\b(?:OpusMax|Opus\s*Max)(?:\.pro)?\b/gi, 'LightningAPI')
+    .replace(/\bopusmax(?:\.pro)?\b/gi, 'lightningapi')
+    .replace(/\b(?:LotusAI|Lotus\s*AI)(?:\.pro)?\b/gi, 'LightningAPI')
+    .replace(/\blotusai(?:\.pro)?\b/gi, 'lightningapi')
     .replace(/minimax(?:-abab)?/gi, 'Anthropic')
-    .replace(/api\.scalemax\.pro/gi, 'api.lightningapi.pro')
-    .replace(/api\.opusmax\.pro/gi, 'api.lightningapi.pro')
+    .replace(/abab-6\.5/gi, 'Claude Sonnet 5.5')
+    .replace(/sm_live_[a-zA-Z0-9_-]+/g, '••••••••')
+    .replace(/sk-ant-opm-[a-zA-Z0-9_-]+/g, '••••••••')
+    .replace(/\b(?:scalemax|opusmax|lotusai)\.pro\s*\|\s*50[0-9]:\s*bad\s*gateway/gi, 'Bad Gateway')
+    .replace(/\b(?:scalemax|opusmax|lotusai)\.pro\s*\|\s*50[0-9]:\s*gateway\s*time-?out/gi, 'Gateway Timeout')
     .replace(/claude-3(?:-5|-7)?-(?:sonnet|opus|haiku)/gi, 'Claude Sonnet 5.5');
 }
 

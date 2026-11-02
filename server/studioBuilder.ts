@@ -1292,8 +1292,8 @@ Rules:
       clearTimeout(timeout);
       return {
         success: false,
-        error: `Upstream gateway returned HTTP ${res.status}: ${res.statusText}`,
-        providerName: vendor.name,
+        error: res.status >= 500 ? 'Our AI service is temporarily unavailable. Please retry in a moment.' : `Gateway returned HTTP ${res.status}`,
+        providerName: 'Lightning Gateway',
         modelUsed: modelId,
         modelRequestStarted,
       };
@@ -1372,7 +1372,7 @@ Rules:
         success: true,
         files,
         title,
-        providerName: vendor.name,
+        providerName: 'Lightning Gateway',
         modelUsed: modelId,
         modelRequestStarted,
         firstTokenReceived,
@@ -1385,7 +1385,7 @@ Rules:
     return {
       success: false,
       error: `Failed to extract valid file blocks from stream (parsed ${files.length} files)`,
-      providerName: vendor.name,
+      providerName: 'Lightning Gateway',
       modelUsed: modelId,
       modelRequestStarted,
       firstTokenReceived,

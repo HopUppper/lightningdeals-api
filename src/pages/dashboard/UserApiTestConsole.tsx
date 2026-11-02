@@ -1,3 +1,4 @@
+import { sanitizeText } from '../../utils/friendlyErrors';
 import React, { useState, useEffect } from 'react';
 import { Terminal, Play, Zap, AlertCircle, Mail, Check, Copy, Code, CheckCircle2, Sparkles, Bot, Clock, Cpu, ShieldCheck, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -156,12 +157,12 @@ export const UserApiTestConsole: React.FC = () => {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setError(data.error?.message || 'API key test failed.');
+        setError(sanitizeText(data.error?.message || 'API key test failed.'));
       } else {
         setResponse(data);
       }
     } catch (err: any) {
-      setError(err.message || 'Network error executing key test.');
+      setError(sanitizeText(err.message || 'Network error executing key test.'));
     } finally {
       setLoading(false);
     }

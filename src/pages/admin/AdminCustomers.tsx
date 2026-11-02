@@ -129,16 +129,22 @@ export const AdminCustomers: React.FC = () => {
   // Issue Key Modal State
   const [showIssueKeyModal, setShowIssueKeyModal] = useState(false);
   const [selectedKeyCustomer, setSelectedKeyCustomer] = useState<CustomerItem | null>(null);
-  const [issuePlanId, setIssuePlanId] = useState('1000000');
+  const [issueBillingType, setIssueBillingType] = useState<'window' | 'credit' | 'token'>('window');
+  const [issueCreditBalanceUsd, setIssueCreditBalanceUsd] = useState('7.00');
+  const [issuePlanId, setIssuePlanId] = useState('20000000');
   const [customTokens, setCustomTokens] = useState('');
   const [selectedProviderId, setSelectedProviderId] = useState('');
   const [providers, setProviders] = useState<any[]>([]);
+  const [issueModelScope, setIssueModelScope] = useState<'all' | 'claude' | 'openai' | 'local'>('all');
+  const [issueKeyPrefix, setIssueKeyPrefix] = useState('sk_live_');
   const [issueKeyName, setIssueKeyName] = useState('Production Key');
   const [issueRpm, setIssueRpm] = useState('100');
+  const [issueExpiryDays, setIssueExpiryDays] = useState('');
   const [issueIsTrial, setIssueIsTrial] = useState(false);
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [issuedSecretKey, setIssuedSecretKey] = useState<string | null>(null);
+  const [issuedKeyDetails, setIssuedKeyDetails] = useState<any | null>(null);
 
   // Token Adjustment Modal State
   const [showAdjustTokensModal, setShowAdjustTokensModal] = useState(false);
@@ -430,14 +436,20 @@ export const AdminCustomers: React.FC = () => {
 
   const openIssueKeyModal = (cust: CustomerItem) => {
     setSelectedKeyCustomer(cust);
-    setIssuePlanId('1000000');
+    setIssueBillingType('window');
+    setIssuePlanId('20000000');
+    setIssueCreditBalanceUsd('7.00');
     setCustomTokens('');
     setSelectedProviderId('');
+    setIssueModelScope('all');
+    setIssueKeyPrefix('sk_live_');
     setIssueKeyName(`${cust.name.split(' ')[0]}'s Production Key`);
     setIssueRpm('100');
+    setIssueExpiryDays('');
     setIssueIsTrial(false);
     setIssueError(null);
     setIssuedSecretKey(null);
+    setIssuedKeyDetails(null);
     setShowIssueKeyModal(true);
   };
 
@@ -447,31 +459,64 @@ export const AdminCustomers: React.FC = () => {
     setIssueSubmitting(true);
     setIssueError(null);
 
-    const tokenLimitNum = issuePlanId === 'custom'
-      ? Number(customTokens || 1000000)
-      : Number(issuePlanId);
-    const numM = tokenLimitNum >= 1000000
-      ? (tokenLimitNum / 1000000).toFixed(tokenLimitNum % 1000000 === 0 ? 0 : 1)
-      : (tokenLimitNum / 1000000).toFixed(2);
-    const planName = issueIsTrial ? 'Free Trial' : `${numM}M Tokens / 5h Window`;
+    let tokenLimitNum = 0;
+    let planName = '';
+
+    if (issueBillingType === 'credit') {
+      planName = `API Credits (${Number(issueCreditBalanceUsd || 7.00).toFixed(2)} USD)`;
+    } else if (issueBillingType === 'window') {
+      tokenLimitNum = issuePlanId === 'custom'
+        ? Number(customTokens || 20000000)
+        : Number(issuePlanId);
+      const numM = Math.round(tokenLimitNum / 1000000);
+      planName = issueIsTrial ? 'Free Trial' : (numM > 0 ? `Claude Max ${numM}x` : `5h Pool (${tokenLimitNum} Tokens)`);
+    } else {
+      tokenLimitNum = issuePlanId === 'custom'
+        ? Number(customTokens || 100000000)
+        : Number(issuePlanId);
+      const numM = Math.round(tokenLimitNum / 1000000);
+      planName = `Token Pack ${numM}M`;
+    }
 
     try {
+      let finalAllowedFamilies = 'all';
+      if (issueModelScope === 'claude') {
+        finalAllowedFamilies = JSON.stringify(['claude']);
+      } else if (issueModelScope === 'openai') {
+        finalAllowedFamilies = JSON.stringify(['openai']);
+      } else if (issueModelScope === 'local') {
+        finalAllowedFamilies = JSON.stringify(['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']);
+      }
+
+      const payload: any = {
+        userId: selectedKeyCustomer.id,
+        name: issueKeyName.trim(),
+        billingType: issueBillingType,
+        plan: planName,
+        rateLimitRpm: Number(issueRpm || 100),
+        isTrial: issueIsTrial,
+        providerId: selectedProviderId || undefined,
+        allowedModelFamilies: finalAllowedFamilies,
+        allowedModels: 'all',
+        keyPrefix: issueKeyPrefix,
+        expiryDays: issueExpiryDays ? Number(issueExpiryDays) : undefined,
+      };
+
+      if (issueBillingType === 'credit') {
+        payload.creditBalanceUsd = Number(issueCreditBalanceUsd || 7.00);
+      } else {
+        payload.tokenLimit = tokenLimitNum;
+      }
+
       const res = await adminFetch('/api/admin/keys', {
         method: 'POST',
-        body: JSON.stringify({
-          userId: selectedKeyCustomer.id,
-          name: issueKeyName.trim(),
-          tokenLimit: tokenLimitNum,
-          plan: planName,
-          rateLimitRpm: Number(issueRpm || 100),
-          isTrial: issueIsTrial,
-          providerId: selectedProviderId || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const resData = await res.json();
       if (res.ok && resData.rawKey) {
         setIssuedSecretKey(resData.rawKey);
+        setIssuedKeyDetails(resData);
         fetchCustomers();
       } else {
         setIssueError(resData?.error?.message || 'Failed to issue API key to customer.');
@@ -1413,16 +1458,19 @@ export const AdminCustomers: React.FC = () => {
         </div>
       )}
 
-      {/* Issue API Key Modal */}
+      {/* Issue API Key Modal (Multi-Plan & Any Provider Configurable) */}
       {showIssueKeyModal && selectedKeyCustomer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-white border border-border rounded-panel w-full max-w-md shadow-2xl p-4 sm:p-6 space-y-4 font-sans my-auto max-h-[92vh] flex flex-col overflow-hidden">
+          <div className="bg-white border border-border rounded-panel w-full max-w-xl shadow-2xl p-4 sm:p-6 space-y-4 font-sans my-auto max-h-[92vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
-              <h3 className="text-base font-extrabold text-fg flex items-center gap-2">
-                <Key className="w-4 h-4 text-violet-600" />
-                <span>Issue API Key to {selectedKeyCustomer.name}</span>
-              </h3>
-              <button onClick={() => setShowIssueKeyModal(false)} className="text-muted hover:text-fg">✕</button>
+              <div>
+                <h3 className="text-base sm:text-lg font-extrabold text-fg flex items-center gap-2">
+                  <Key className="w-5 h-5 text-violet-600" />
+                  <span>Issue API Key to {selectedKeyCustomer.name}</span>
+                </h3>
+                <p className="text-xs text-muted font-mono mt-0.5">{selectedKeyCustomer.email}</p>
+              </div>
+              <button onClick={() => setShowIssueKeyModal(false)} className="text-muted hover:text-fg text-sm font-bold">✕</button>
             </div>
 
             {issueError && (
@@ -1433,23 +1481,59 @@ export const AdminCustomers: React.FC = () => {
 
             {issuedSecretKey ? (
               <div className="space-y-4 font-mono text-xs overflow-y-auto flex-1 pr-1">
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-control space-y-2">
-                  <p className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>API Key Issued Successfully!</span>
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-control space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="font-bold text-emerald-900 flex items-center gap-1.5 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>API Key Issued Successfully!</span>
+                    </p>
+                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold uppercase">
+                      {issuedKeyDetails?.billingType === 'credit'
+                        ? '💳 Credit Wallet'
+                        : issuedKeyDetails?.billingType === 'token'
+                        ? '📦 Token Pack'
+                        : '🔄 5h Rolling Pool'}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-emerald-800 font-sans">
+                    Copy the unmasked key below now and share it with the customer. It will not be shown again.
                   </p>
-                  <p className="text-[11px] text-emerald-800">
-                    Copy the unmasked key below now. It will not be shown again.
-                  </p>
-                  <div className="p-2.5 bg-slate-900 text-emerald-400 rounded text-xs break-all select-all font-bold">
+
+                  <div className="p-3 bg-slate-900 text-emerald-400 rounded-lg text-xs break-all select-all font-mono font-bold tracking-wider shadow-inner">
                     {issuedSecretKey}
                   </div>
+
+                  {issuedKeyDetails && (
+                    <div className="grid grid-cols-2 gap-2 pt-2 text-[11px] font-mono border-t border-emerald-200/60 text-emerald-900">
+                      <div>
+                        <span className="text-emerald-700/80 uppercase text-[9px] block">Provider</span>
+                        <span className="font-bold">{issuedKeyDetails.providerName || 'Primary Vendor'}</span>
+                      </div>
+                      <div>
+                        <span className="text-emerald-700/80 uppercase text-[9px] block">Allowance / Balance</span>
+                        <span className="font-bold">
+                          {issuedKeyDetails.billingType === 'credit'
+                            ? `${Number(issuedKeyDetails.creditBalanceUsd || 0).toFixed(2)} USD`
+                            : `${Number(issuedKeyDetails.tokensRemaining || 0).toLocaleString()} Tokens`}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-emerald-700/80 uppercase text-[9px] block">Model Permissions</span>
+                        <span className="font-bold uppercase">{issuedKeyDetails.allowedModelFamilies || 'all'}</span>
+                      </div>
+                      <div>
+                        <span className="text-emerald-700/80 uppercase text-[9px] block">Status</span>
+                        <span className="font-bold text-emerald-600">ACTIVE & READY</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
                   <button
                     onClick={() => copyToClipboard(issuedSecretKey, 'issued_key')}
-                    className="flex-1 py-2 rounded-control bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                    className="flex-1 py-2.5 rounded-control bg-violet-600 hover:bg-violet-700 text-white font-bold"
                   >
                     {copiedId === 'issued_key' ? 'Copied to Clipboard!' : 'Copy Key Secret'}
                   </button>
@@ -1457,69 +1541,207 @@ export const AdminCustomers: React.FC = () => {
                     onClick={() => {
                       setShowIssueKeyModal(false);
                       setIssuedSecretKey(null);
+                      setIssuedKeyDetails(null);
                     }}
-                    className="px-4 py-2 rounded-control bg-bg border border-border text-fg font-bold"
+                    className="px-4 py-2.5 rounded-control bg-bg border border-border text-fg font-bold"
                   >
                     Done
                   </button>
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleIssueKeySubmit} className="space-y-3.5 text-xs font-mono overflow-y-auto flex-1 pr-1">
+              <form onSubmit={handleIssueKeySubmit} className="space-y-4 text-xs font-mono overflow-y-auto flex-1 pr-1">
+                {/* 1. Key Name */}
                 <div>
-                  <label className="block text-muted mb-1 font-bold uppercase">Key Name</label>
+                  <label className="block text-fg mb-1 font-bold uppercase text-[11px]">Key Name</label>
                   <input
                     type="text"
                     required
                     value={issueKeyName}
                     onChange={(e) => setIssueKeyName(e.target.value)}
+                    placeholder="e.g. Production Key, Staging Key"
                     className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-muted mb-1 font-bold uppercase">Token Allowance Plan (5-Hour Window)</label>
-                  <select
-                    value={issuePlanId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setIssuePlanId(val);
-                      if (val === '200000') {
-                        setIssueIsTrial(true);
-                        setIssueKeyName(`${selectedKeyCustomer.name.split(' ')[0]}'s Free Trial Key`);
-                      } else {
-                        setIssueIsTrial(false);
+                {/* 2. Billing Architecture Type Selector */}
+                <div className="p-3 bg-violet-500/5 border border-violet-500/20 rounded-control space-y-2">
+                  <label className="block text-xs font-mono font-bold uppercase tracking-wider text-violet-900">
+                    Key Billing Architecture / Plan Type
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIssueBillingType('window');
                         setIssueKeyName(`${selectedKeyCustomer.name.split(' ')[0]}'s Production Key`);
-                      }
-                    }}
-                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
-                  >
-                    <option value="1000000">1 Million Tokens (1M Tokens / 5h Window)</option>
-                    <option value="5000000">5 Million Tokens (Max 5x — 5M / 5h Window)</option>
-                    <option value="20000000">20 Million Tokens (MAX 20X — 20M / 5h Window)</option>
-                    <option value="40000000">40 Million Tokens (MAX 40X — 40M / 5h Window)</option>
-                    <option value="100000000">100 Million Tokens (MAX 100x — 100M / 5h Window)</option>
-                    <option value="200000">200,000 Tokens (Free Trial Pass)</option>
-                    <option value="custom">Custom Token Allowance...</option>
-                  </select>
+                      }}
+                      className={`p-2.5 rounded-control border text-left transition-all ${
+                        issueBillingType === 'window'
+                          ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                          : 'bg-bg text-fg border-border hover:bg-subtle'
+                      }`}
+                    >
+                      <div className="font-bold text-xs">🔄 Rolling Pool</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">5-Hour Sliding Window</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIssueBillingType('credit');
+                        setIssueKeyName(`${selectedKeyCustomer.name.split(' ')[0]}'s Credit Key`);
+                        // Auto-select ScaleMax if available
+                        const sm = providers.find(p => p.slug === 'scalemax');
+                        if (sm) setSelectedProviderId(sm.id);
+                      }}
+                      className={`p-2.5 rounded-control border text-left transition-all ${
+                        issueBillingType === 'credit'
+                          ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                          : 'bg-bg text-fg border-border hover:bg-subtle'
+                      }`}
+                    >
+                      <div className="font-bold text-xs">💳 Credit Wallet</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">$ USD Balance Deductions</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIssueBillingType('token');
+                        setIssueKeyName(`${selectedKeyCustomer.name.split(' ')[0]}'s Token Pack Key`);
+                        setIssuePlanId('100000000');
+                      }}
+                      className={`p-2.5 rounded-control border text-left transition-all ${
+                        issueBillingType === 'token'
+                          ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                          : 'bg-bg text-fg border-border hover:bg-subtle'
+                      }`}
+                    >
+                      <div className="font-bold text-xs">📦 Token Pack</div>
+                      <div className="text-[10px] opacity-80 mt-0.5">Consumable Lifetime Tokens</div>
+                    </button>
+                  </div>
                 </div>
 
-                {issuePlanId === 'custom' && (
-                  <div>
-                    <label className="block text-muted mb-1 font-bold uppercase">Custom Token Amount</label>
-                    <input
-                      type="number"
-                      required
-                      value={customTokens}
-                      onChange={(e) => setCustomTokens(e.target.value)}
-                      placeholder="e.g. 1000000 for 1 Million Tokens"
+                {/* 3. Dynamic Balance / Allowance Input based on Billing Type */}
+                {issueBillingType === 'credit' ? (
+                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-control space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-emerald-800">
+                        Initial Credit Balance ($ USD)
+                      </label>
+                      <span className="text-[10px] font-mono text-emerald-700 font-bold">
+                        Deducted atomized per model token
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 font-mono font-bold text-fg text-xs">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={issueCreditBalanceUsd}
+                        onChange={(e) => setIssueCreditBalanceUsd(e.target.value)}
+                        placeholder="e.g. 7.00, 15.00, 25.00, 50.00"
+                        className="w-full pl-7 pr-3 py-2 text-xs font-mono font-bold bg-bg border border-border rounded-control focus:outline-none focus:border-emerald-500 text-fg"
+                      />
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap pt-1">
+                      {['7.00', '15.00', '25.00', '35.00', '50.00', '100.00', '350.00'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setIssueCreditBalanceUsd(preset)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border transition-colors ${
+                            issueCreditBalanceUsd === preset
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-bg text-emerald-800 border-emerald-300 hover:bg-emerald-50'
+                          }`}
+                        >
+                          +${preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : issueBillingType === 'window' ? (
+                  <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-control space-y-2">
+                    <label className="block text-xs font-semibold text-fg">5-Hour Rolling Token Allowance</label>
+                    <select
+                      value={issuePlanId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setIssuePlanId(val);
+                        if (val === '200000') {
+                          setIssueIsTrial(true);
+                          setIssueKeyName(`${selectedKeyCustomer.name.split(' ')[0]}'s Free Trial Key`);
+                        } else {
+                          setIssueIsTrial(false);
+                          setIssueKeyName(`${selectedKeyCustomer.name.split(' ')[0]}'s Production Key`);
+                        }
+                      }}
                       className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
-                    />
+                    >
+                      <option value="1000000">1 Million Tokens (1M / 5h Window)</option>
+                      <option value="5000000">5 Million Tokens (MAX 5X — 5M / 5h Window)</option>
+                      <option value="10000000">10 Million Tokens (MAX 10X — 10M / 5h Window)</option>
+                      <option value="20000000">20 Million Tokens (MAX 20X — 20M / 5h Window)</option>
+                      <option value="40000000">40 Million Tokens (MAX 40X — 40M / 5h Window)</option>
+                      <option value="50000000">50 Million Tokens (MAX 50X — 50M / 5h Window)</option>
+                      <option value="100000000">100 Million Tokens (MAX 100x — 100M / 5h Window)</option>
+                      <option value="200000">200,000 Tokens (Free Trial Pass)</option>
+                      <option value="custom">Custom Token Allowance...</option>
+                    </select>
+
+                    {issuePlanId === 'custom' && (
+                      <div>
+                        <label className="block text-muted mb-1 font-bold uppercase text-[10px]">Custom Token Count</label>
+                        <input
+                          type="number"
+                          required
+                          value={customTokens}
+                          onChange={(e) => setCustomTokens(e.target.value)}
+                          placeholder="e.g. 20000000 for 20 Million Tokens"
+                          className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-control space-y-2">
+                    <label className="block text-xs font-semibold text-fg">Consumable Lifetime Token Quota</label>
+                    <select
+                      value={issuePlanId}
+                      onChange={(e) => setIssuePlanId(e.target.value)}
+                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
+                    >
+                      <option value="10000000">10 Million Tokens (10M Lifetime Pack)</option>
+                      <option value="50000000">50 Million Tokens (50M Lifetime Pack)</option>
+                      <option value="100000000">100 Million Tokens (100M Lifetime Pack)</option>
+                      <option value="500000000">500 Million Tokens (500M Lifetime Pack)</option>
+                      <option value="1000000000">1 Billion Tokens (1B Lifetime Pack)</option>
+                      <option value="custom">Custom Token Allowance...</option>
+                    </select>
+
+                    {issuePlanId === 'custom' && (
+                      <div>
+                        <label className="block text-muted mb-1 font-bold uppercase text-[10px]">Custom Lifetime Tokens</label>
+                        <input
+                          type="number"
+                          required
+                          value={customTokens}
+                          onChange={(e) => setCustomTokens(e.target.value)}
+                          placeholder="e.g. 100000000 for 100 Million Tokens"
+                          className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
+                {/* 4. Upstream Vendor Provider */}
                 <div>
-                  <label className="block text-muted mb-1 font-bold uppercase">Upstream Vendor Provider</label>
+                  <label className="block text-fg mb-1 font-bold uppercase text-[11px]">Upstream Vendor Provider</label>
                   <select
                     value={selectedProviderId}
                     onChange={(e) => setSelectedProviderId(e.target.value)}
@@ -1533,30 +1755,79 @@ export const AdminCustomers: React.FC = () => {
                     ))}
                   </select>
                   <p className="text-[10px] text-muted mt-0.5">
-                    Selects which upstream vendor will route this key's token traffic.
+                    Directly binds this key to the selected upstream vendor (ScaleMax, Opus Max, LotusAI).
                   </p>
                 </div>
 
+                {/* 5. Ecosystem & Model Scope Permissions */}
+                <div>
+                  <label className="block text-fg mb-1 font-bold uppercase text-[11px]">Ecosystem & Model Permissions</label>
+                  <select
+                    value={issueModelScope}
+                    onChange={(e) => setIssueModelScope(e.target.value as any)}
+                    className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
+                  >
+                    <option value="all">Universal (All Models: Claude, OpenAI, Local Models)</option>
+                    <option value="claude">Claude Frontier Only (Sonnet 5.5, Opus 5.5, Sonnet 5, Fable 5.1)</option>
+                    <option value="openai">OpenAI Frontier Only (GPT-4o, o1, o3-mini, GPT-4.5)</option>
+                    <option value="local">Local Models Only (DeepSeek V3/R1, Grok, Qwen, GLM)</option>
+                  </select>
+                  <p className="text-[10px] text-muted mt-0.5">
+                    Enforces gateway permission boundary. Requests to unauthorized families are blocked.
+                  </p>
+                </div>
+
+                {/* 6. Key Prefix & Key Type (2 Columns) */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-muted mb-1 font-bold uppercase">Rate Limit (RPM)</label>
+                    <label className="block text-fg mb-1 font-bold uppercase text-[11px]">Key Prefix</label>
+                    <select
+                      value={issueKeyPrefix}
+                      onChange={(e) => setIssueKeyPrefix(e.target.value)}
+                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
+                    >
+                      <option value="sk_live_">sk_live_ (Standard)</option>
+                      <option value="ld_live_">ld_live_ (Lightning Deals)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-fg mb-1 font-bold uppercase text-[11px]">Key Mode</label>
+                    <select
+                      value={issueIsTrial ? 'trial' : 'production'}
+                      onChange={(e) => setIssueIsTrial(e.target.value === 'trial')}
+                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
+                    >
+                      <option value="production">Production Key</option>
+                      <option value="trial">Free Trial Key</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 7. Rate Limits & Expiry (2 Columns) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-fg mb-1 font-bold uppercase text-[11px]">Rate Limit (RPM)</label>
                     <input
                       type="number"
                       value={issueRpm}
                       onChange={(e) => setIssueRpm(e.target.value)}
-                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
+                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-muted mb-1 font-bold uppercase">Key Type</label>
+                    <label className="block text-fg mb-1 font-bold uppercase text-[11px]">Validity / Expiry</label>
                     <select
-                      value={issueIsTrial ? 'trial' : 'production'}
-                      onChange={(e) => setIssueIsTrial(e.target.value === 'trial')}
-                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none"
+                      value={issueExpiryDays}
+                      onChange={(e) => setIssueExpiryDays(e.target.value)}
+                      className="w-full bg-bg border border-border rounded-control p-2 text-xs text-fg focus:outline-none font-mono"
                     >
-                      <option value="production">Production Key</option>
-                      <option value="trial">Free Trial Key</option>
+                      <option value="">Never (Lifetime)</option>
+                      <option value="7">7 Days</option>
+                      <option value="30">30 Days</option>
+                      <option value="90">90 Days</option>
+                      <option value="365">365 Days (1 Year)</option>
                     </select>
                   </div>
                 </div>
@@ -1572,9 +1843,9 @@ export const AdminCustomers: React.FC = () => {
                   <button
                     type="submit"
                     disabled={issueSubmitting}
-                    className="flex-1 py-2.5 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold shadow-md"
+                    className="flex-1 py-2.5 rounded-control bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold shadow-md cursor-pointer disabled:opacity-50"
                   >
-                    {issueSubmitting ? 'Generating...' : 'Issue Key Now'}
+                    {issueSubmitting ? 'Provisioning Key...' : 'Issue Key Now'}
                   </button>
                 </div>
               </form>

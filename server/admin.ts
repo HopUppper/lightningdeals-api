@@ -3033,9 +3033,28 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
     const defaultPlan = isTrial
       ? 'Trial Key'
       : isCredit
-      ? `API Credits ($${initialCreditBalance.toFixed(2)} USD)`
+      ? `API Credits (${initialCreditBalance.toFixed(2)} USD)`
+      : finalBillingType === 'token'
+      ? `Token Pack ${numM}M`
       : `Claude Max ${numM}x`;
     const finalPlan = plan || defaultPlan;
+
+    let finalFamilies = 'all';
+    if (Array.isArray(allowedModelFamilies)) {
+      finalFamilies = JSON.stringify(allowedModelFamilies);
+    } else if (typeof allowedModelFamilies === 'string') {
+      if (allowedModelFamilies.startsWith('[') && allowedModelFamilies.endsWith(']')) {
+        finalFamilies = allowedModelFamilies;
+      } else if (allowedModelFamilies === 'claude') {
+        finalFamilies = JSON.stringify(['claude']);
+      } else if (allowedModelFamilies === 'openai') {
+        finalFamilies = JSON.stringify(['openai']);
+      } else if (allowedModelFamilies === 'local') {
+        finalFamilies = JSON.stringify(['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']);
+      } else if (allowedModelFamilies !== 'all') {
+        finalFamilies = JSON.stringify([allowedModelFamilies]);
+      }
+    }
 
     const apiKey = await prisma.apiKey.create({
       data: {
@@ -3045,14 +3064,14 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
         keyHash: keyMaterial.keyHash,
         displayKey: keyMaterial.displayKey,
         keyEncrypted: encryptText(keyMaterial.rawKeySecret),
-        name: name || (isTrial ? 'Free Trial Key' : isCredit ? `API Credits ($${initialCreditBalance.toFixed(2)} USD)` : `Claude Max ${numM}x Key`),
+        name: name || (isTrial ? 'Free Trial Key' : isCredit ? `API Credits (${initialCreditBalance.toFixed(2)} USD)` : finalBillingType === 'token' ? `Token Pack ${numM}M Key` : `Claude Max ${numM}x Key`),
         type: isTrial ? 'trial' : 'production',
         status: 'active',
         billingType: finalBillingType,
         creditBalanceUsd: initialCreditBalance,
         totalCreditsUsedUsd: 0,
         allowedModels: allowedModels || 'all',
-        allowedModelFamilies: allowedModelFamilies || 'all',
+        allowedModelFamilies: finalFamilies,
         purchasedTokens: initialTokens,
         tokensUsed: BigInt(0),
         tokensRemaining: initialTokens,
@@ -3074,7 +3093,13 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
             balanceAfter: initialCreditBalance,
             currency: 'USD',
             reference: 'ADMIN-KEY-GEN',
-            notes: `Admin provisioned credit API key with $${initialCreditBalance.toFixed(2)} USD credits`,
+            notes: `Admin provisioned credit API key with ${initialCreditBalance.toFixed(2)} USD credits`,
+          },
+        });
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            availableCredits: { increment: initialCreditBalance },
           },
         });
       }

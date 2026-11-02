@@ -656,14 +656,27 @@ export function hashApiKey(key: string): string {
  * 3. Validates provider exists and is not disabled.
  * 4. NEVER falls back to prefix guessing or default_provider_id.
  */
+function parseAllowedModelFamilies(raw: string | null | undefined): string[] {
+  if (!raw || raw === 'all') return ['all'];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((f: any) => String(f).toLowerCase().trim());
+    if (typeof parsed === 'string') {
+      if (parsed === 'all') return ['all'];
+      return [parsed.toLowerCase().trim()];
+    }
+  } catch {}
+  return String(raw).split(',').map((f: string) => f.toLowerCase().trim()).filter(Boolean);
+}
+
 export async function resolveProviderForApiKey(keyRecord: any, requestedModel?: string): Promise<{
   provider?: any;
   error?: { status: number; type: string; message: string; code?: string };
 }> {
   let providerId = keyRecord?.providerId;
 
-  // 1. Dynamic Model-Level Provider Routing (Zero-code admin configurability)
-  if (requestedModel) {
+  // 1. Dynamic Model-Level Provider Routing (used ONLY if key does NOT have an explicitly assigned provider)
+  if (!providerId && requestedModel) {
     try {
       const modelRecord = await prisma.model.findFirst({
         where: {
@@ -880,7 +893,7 @@ export async function validateKeyRecordAndCheckAllowance(keyRecord: any, request
   // 1b. Enforce Model Scope & Allowed Families
   if (requestedModel && keyRecord.allowedModelFamilies) {
     try {
-      const allowed = JSON.parse(keyRecord.allowedModelFamilies);
+      const allowed = parseAllowedModelFamilies(keyRecord.allowedModelFamilies);
       if (Array.isArray(allowed) && !allowed.includes('all')) {
         let modelFamily = 'claude';
         const norm = requestedModel.toLowerCase();
@@ -889,8 +902,10 @@ export async function validateKeyRecordAndCheckAllowance(keyRecord: any, request
         else if (norm.includes('deepseek')) modelFamily = 'deepseek';
         else if (norm.includes('grok')) modelFamily = 'grok';
         else if (norm.includes('qwen')) modelFamily = 'qwen';
+        else if (norm.includes('glm') || norm.includes('minimax') || norm.includes('kimi')) modelFamily = 'local';
 
-        if (!allowed.map((f: string) => f.toLowerCase()).includes(modelFamily)) {
+        const isLocalMatch = allowed.includes('local') && ['deepseek', 'gemini', 'grok', 'qwen', 'glm', 'local'].includes(modelFamily);
+        if (!allowed.includes(modelFamily) && !isLocalMatch) {
           if (req) {
             recordAuditEvent({
               eventType: 'UNAUTHORIZED_MODEL_ACCESS',
@@ -1131,7 +1146,7 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
   // 1b. Enforce Model Scope & Allowed Families
   if (requestedModel && keyRecord.allowedModelFamilies) {
     try {
-      const allowed = JSON.parse(keyRecord.allowedModelFamilies);
+      const allowed = parseAllowedModelFamilies(keyRecord.allowedModelFamilies);
       if (Array.isArray(allowed) && !allowed.includes('all')) {
         let modelFamily = 'claude';
         const norm = requestedModel.toLowerCase();
@@ -1140,8 +1155,10 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
         else if (norm.includes('deepseek')) modelFamily = 'deepseek';
         else if (norm.includes('grok')) modelFamily = 'grok';
         else if (norm.includes('qwen')) modelFamily = 'qwen';
+        else if (norm.includes('glm') || norm.includes('minimax') || norm.includes('kimi')) modelFamily = 'local';
 
-        if (!allowed.map((f: string) => f.toLowerCase()).includes(modelFamily)) {
+        const isLocalMatch = allowed.includes('local') && ['deepseek', 'gemini', 'grok', 'qwen', 'glm', 'local'].includes(modelFamily);
+        if (!allowed.includes(modelFamily) && !isLocalMatch) {
           recordAuditEvent({
             eventType: 'UNAUTHORIZED_MODEL_ACCESS',
             severity: 'MEDIUM',

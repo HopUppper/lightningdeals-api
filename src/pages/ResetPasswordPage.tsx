@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Lock, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Mail, KeyRound, Sparkles } from 'lucide-react';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { useAuth } from '../context/AuthContext';
 
 export const ResetPasswordPage: React.FC = () => {
@@ -92,19 +92,19 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
-      <Navbar />
+    <div className="min-h-screen min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans antialiased">
+      <SiteHeader />
 
       <main className="flex-1 flex items-center justify-center p-6 my-12">
-        <div className="max-w-md w-full bg-white rounded-xl border border-[#e5e7eb] p-8 sm:p-10 shadow-xs space-y-6">
+        <div className="max-w-md w-full bg-white rounded-2xl border border-[#ede8e1] p-8 sm:p-10 shadow-xs space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-[#0f172a] text-white flex items-center justify-center mx-auto shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-700 border border-violet-200/60 flex items-center justify-center mx-auto shadow-2xs">
               <KeyRound className="w-5 h-5 text-slate-100" />
             </div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-[11px] font-medium text-slate-700 border border-slate-200">
               <span>Security Check</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827]">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 tracking-tight font-display">
               Create New Password
             </h1>
             <p className="text-xs text-[#4b5563]">
@@ -167,7 +167,7 @@ export const ResetPasswordPage: React.FC = () => {
                       value={token}
                       onChange={(e) => setToken(e.target.value)}
                       placeholder="Paste token from email link"
-                      className="w-full px-3.5 py-2.5 text-xs font-mono bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                      className="w-full px-3.5 py-2.5 text-xs font-mono bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                     />
                   </div>
                 ) : (
@@ -182,7 +182,7 @@ export const ResetPasswordPage: React.FC = () => {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="name@company.com"
-                        className="w-full px-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                        className="w-full px-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -196,7 +196,7 @@ export const ResetPasswordPage: React.FC = () => {
                         value={code}
                         onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                         placeholder="123456"
-                        className="w-full text-center tracking-widest font-mono text-base font-bold py-2 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                        className="w-full text-center tracking-widest font-mono text-base font-bold py-2 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                       />
                     </div>
                   </>
@@ -215,7 +215,7 @@ export const ResetPasswordPage: React.FC = () => {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="At least 8 characters"
-                      className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                      className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                     />
                   </div>
                 </div>
@@ -233,7 +233,7 @@ export const ResetPasswordPage: React.FC = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat password"
-                      className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                      className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                     />
                   </div>
                 </div>
@@ -241,7 +241,7 @@ export const ResetPasswordPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full ui-button-brand text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                  className="w-full w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {loading ? 'Updating Password...' : 'Save Password & Enter →'}
                 </button>
@@ -257,7 +257,7 @@ export const ResetPasswordPage: React.FC = () => {
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   );
 };

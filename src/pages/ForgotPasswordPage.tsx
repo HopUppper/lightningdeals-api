@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { KeyRound, ArrowRight, ShieldCheck, Mail, CheckCircle2, AlertCircle, Lock, Eye, EyeOff, RotateCcw, Sparkles } from 'lucide-react';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { useAuth } from '../context/AuthContext';
 
 export const ForgotPasswordPage: React.FC = () => {
@@ -177,19 +177,19 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
-      <Navbar />
+    <div className="min-h-screen min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans antialiased">
+      <SiteHeader />
 
       <main className="flex-1 flex items-center justify-center px-4 py-16">
-        <div className="w-full max-w-md bg-white border border-[#e5e7eb] rounded-xl p-8 sm:p-10 shadow-xs space-y-6">
+        <div className="w-full max-w-md bg-white border border-[#ede8e1] rounded-2xl p-8 sm:p-10 shadow-xs space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-[#0f172a] text-white flex items-center justify-center mx-auto shadow-xs">
-              <KeyRound className="w-5 h-5 text-slate-100" />
+            <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-700 border border-violet-200/60 flex items-center justify-center mx-auto shadow-2xs">
+              <KeyRound className="w-5 h-5" />
             </div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-[11px] font-medium text-slate-700 border border-slate-200">
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200/60 text-[10px] font-mono font-bold uppercase tracking-wider">
               <span>Account Recovery</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827]">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 tracking-tight font-display">
               Reset Your Password
             </h1>
             <p className="text-xs text-[#4b5563]">
@@ -227,7 +227,7 @@ export const ForgotPasswordPage: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@company.com"
-                    className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                    className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                   />
                 </div>
               </div>
@@ -235,7 +235,7 @@ export const ForgotPasswordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full ui-button-brand text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                className="w-full w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
               >
                 {loading ? 'Sending Code...' : 'Send Recovery Code →'}
               </button>
@@ -281,14 +281,14 @@ export const ForgotPasswordPage: React.FC = () => {
                       value={code}
                       onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                       placeholder="123456"
-                      className="w-full text-center tracking-widest font-mono text-lg font-bold py-2 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                      className="w-full text-center tracking-widest font-mono text-lg font-bold py-2 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading || code.length !== 6}
-                    className="w-full ui-button-brand text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                    className="w-full w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     {loading ? 'Verifying...' : 'Sign In Instantly →'}
                   </button>
@@ -306,7 +306,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       value={code}
                       onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                       placeholder="123456"
-                      className="w-full text-center tracking-widest font-mono text-base font-semibold py-2 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                      className="w-full text-center tracking-widest font-mono text-base font-semibold py-2 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                     />
                   </div>
 
@@ -323,7 +323,7 @@ export const ForgotPasswordPage: React.FC = () => {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="At least 8 characters"
-                        className="w-full pl-9 pr-9 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                        className="w-full pl-9 pr-9 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                       />
                       <button
                         type="button"
@@ -348,7 +348,7 @@ export const ForgotPasswordPage: React.FC = () => {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Repeat new password"
-                        className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                        className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                       />
                     </div>
                   </div>
@@ -356,7 +356,7 @@ export const ForgotPasswordPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading || code.length !== 6 || !newPassword}
-                    className="w-full ui-button-brand text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                    className="w-full w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs py-2.5 font-semibold justify-center rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     {loading ? 'Updating Password...' : 'Save New Password & Sign In →'}
                   </button>
@@ -376,7 +376,7 @@ export const ForgotPasswordPage: React.FC = () => {
                   type="button"
                   onClick={handleResendCode}
                   disabled={resendCooldown > 0 || loading}
-                  className="text-[#1e40af] hover:text-[#1d4ed8] font-semibold disabled:opacity-50 cursor-pointer"
+                  className="text-violet-600 hover:text-[#1d4ed8] font-semibold disabled:opacity-50 cursor-pointer"
                 >
                   {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}
                 </button>
@@ -392,7 +392,7 @@ export const ForgotPasswordPage: React.FC = () => {
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   );
 };

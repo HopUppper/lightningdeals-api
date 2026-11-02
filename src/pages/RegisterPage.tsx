@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, AlertCircle, Check, User as UserIcon, Phone } from 'lucide-react';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 
 export const RegisterPage: React.FC = () => {
   const [name, setName] = useState('');
@@ -63,46 +63,46 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
-      <Navbar />
+    <div className="min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans antialiased">
+      <SiteHeader />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-16">
-        <div className="w-full max-w-md bg-white border border-[#e5e7eb] rounded-xl p-8 sm:p-10 shadow-xs space-y-6">
+      <main className="flex-1 flex items-center justify-center px-4 py-16 sm:py-24">
+        <div className="w-full max-w-md bg-white border border-[#ede8e1] rounded-2xl p-8 sm:p-10 shadow-xs space-y-6">
           {registeredEmail ? (
             <div className="space-y-6 text-center">
-              <div className="w-12 h-12 rounded-lg bg-[#f0fdf4] text-emerald-700 border border-emerald-200 flex items-center justify-center mx-auto">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center justify-center mx-auto shadow-2xs">
                 <Mail className="w-6 h-6" />
               </div>
 
-              <div className="space-y-1.5">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#f0fdf4] text-xs font-medium text-emerald-800 border border-emerald-300">
+              <div className="space-y-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-50 text-xs font-semibold text-emerald-800 border border-emerald-200">
                   <Check className="w-3.5 h-3.5" /> Registration Received
                 </span>
-                <h2 className="text-xl font-bold text-[#111827]">Verify Your Email</h2>
-                <p className="text-xs text-[#4b5563] leading-relaxed">
-                  We sent a confirmation code to <strong className="text-[#111827]">{registeredEmail}</strong>.
+                <h2 className="text-2xl font-extrabold text-zinc-950 font-display tracking-tight">Verify Your Email</h2>
+                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
+                  We sent a confirmation code to <strong className="text-zinc-900 font-semibold">{registeredEmail}</strong>.
                 </p>
               </div>
 
-              <div className="p-4 rounded-lg bg-[#fbfbfa] border border-[#e5e7eb] text-left space-y-1 text-xs">
-                <div className="font-medium text-[#111827]">
+              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-left space-y-1 text-xs">
+                <div className="font-semibold text-zinc-900">
                   Activation Pending
                 </div>
-                <p className="text-[#6b7280]">
+                <p className="text-zinc-600">
                   Enter your 6-digit confirmation code on the verification page to activate your keys.
                 </p>
               </div>
 
-              <div className="pt-2 flex flex-col gap-2">
+              <div className="pt-2 flex flex-col gap-2.5">
                 <Link
                   to={`/verify-email?email=${encodeURIComponent(registeredEmail)}`}
-                  className="ui-button-primary w-full text-xs font-medium justify-center py-2.5"
+                  className="w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
                   Enter Verification Code →
                 </Link>
                 <Link
                   to="/login"
-                  className="text-xs text-[#6b7280] hover:text-[#111827] font-medium"
+                  className="text-xs text-zinc-600 hover:text-zinc-900 font-medium"
                 >
                   Back to Sign In
                 </Link>
@@ -110,31 +110,31 @@ export const RegisterPage: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="text-center space-y-2">
-                <div className="w-10 h-10 rounded-lg bg-[#0f172a] text-white flex items-center justify-center mx-auto">
+              <div className="text-center space-y-2.5">
+                <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-700 border border-violet-200/60 flex items-center justify-center mx-auto shadow-2xs">
                   <UserIcon className="w-5 h-5" />
                 </div>
-                <div className="inline-flex items-center px-2 py-0.5 rounded bg-[#f4f4f0] border border-[#e5e7eb] text-xs font-medium text-[#4b5563] uppercase tracking-wider">
+                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200/60 text-[10px] font-mono font-bold uppercase tracking-wider">
                   Create Account
                 </div>
-                <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 tracking-tight font-display">
                   Start with LightningAPI
                 </h1>
-                <p className="text-xs text-[#6b7280]">
+                <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-sm mx-auto">
                   Get instant access to API keys and 200,000 free evaluation tokens.
                 </p>
               </div>
 
               {error && (
-                <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs flex items-center gap-2">
+                <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                   <span>{error}</span>
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-3.5">
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[#111827]">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-zinc-900">
                     Full Name
                   </label>
                   <input
@@ -143,12 +143,12 @@ export const RegisterPage: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Jane Doe"
-                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-zinc-900 transition-colors"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[#111827]">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-zinc-900">
                     Email Address
                   </label>
                   <input
@@ -157,12 +157,12 @@ export const RegisterPage: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-zinc-900 transition-colors"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[#111827]">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-zinc-900">
                     Phone Number (Optional)
                   </label>
                   <input
@@ -170,12 +170,12 @@ export const RegisterPage: React.FC = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+1 555 0199"
-                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-zinc-900 transition-colors"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[#111827]">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-zinc-900">
                     Password
                   </label>
                   <input
@@ -184,12 +184,12 @@ export const RegisterPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Minimum 8 characters"
-                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-zinc-900 transition-colors"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-medium text-[#111827]">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-zinc-900">
                     Referral Code (Optional)
                   </label>
                   <input
@@ -197,23 +197,23 @@ export const RegisterPage: React.FC = () => {
                     value={referralCode}
                     onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                     placeholder="e.g. FRIEND10"
-                    className="w-full px-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827] uppercase font-mono"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-zinc-900 uppercase font-mono transition-colors"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full ui-button-primary text-xs py-2.5 font-medium justify-center cursor-pointer disabled:opacity-50 mt-2"
+                  className="w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
                 >
                   {loading ? 'Creating Account...' : 'Create Account →'}
                 </button>
               </form>
 
-              <div className="pt-3 border-t border-[#e5e7eb] text-center space-y-2">
-                <p className="text-xs text-[#6b7280]">
+              <div className="pt-3 border-t border-[#ede8e1] text-center space-y-2">
+                <p className="text-xs text-zinc-600">
                   Already have an account?{' '}
-                  <Link to="/login" className="text-[#1e40af] font-medium hover:underline">
+                  <Link to="/login" className="text-violet-600 hover:text-violet-700 font-semibold hover:underline">
                     Sign In
                   </Link>
                 </p>
@@ -223,7 +223,7 @@ export const RegisterPage: React.FC = () => {
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   );
 };

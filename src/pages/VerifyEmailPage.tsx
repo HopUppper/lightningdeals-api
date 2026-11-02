@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Mail, CheckCircle2, AlertCircle, RefreshCw, ArrowRight, ShieldCheck, KeyRound, Sparkles } from 'lucide-react';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { useAuth } from '../context/AuthContext';
 
 export const VerifyEmailPage: React.FC = () => {
@@ -126,19 +126,19 @@ export const VerifyEmailPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
-      <Navbar />
+    <div className="min-h-screen min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans antialiased">
+      <SiteHeader />
 
       <main className="flex-1 flex items-center justify-center p-6 my-12">
-        <div className="max-w-md w-full bg-white rounded-xl border border-[#e5e7eb] p-8 sm:p-10 shadow-xs space-y-6">
+        <div className="max-w-md w-full bg-white rounded-2xl border border-[#ede8e1] p-8 sm:p-10 shadow-xs space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-[#0f172a] text-white flex items-center justify-center mx-auto shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-700 border border-violet-200/60 flex items-center justify-center mx-auto shadow-2xs">
               <Mail className="w-5 h-5 text-slate-100" />
             </div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-[11px] font-medium text-slate-700 border border-slate-200">
               <span>One More Step</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827]">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 tracking-tight font-display">
               Verify Your Email
             </h1>
             <p className="text-xs text-[#4b5563]">
@@ -190,7 +190,7 @@ export const VerifyEmailPage: React.FC = () => {
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
                     placeholder="name@company.com"
-                    className="w-full px-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                    className="w-full px-3.5 py-2.5 text-xs bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                   />
                 </div>
 
@@ -205,7 +205,7 @@ export const VerifyEmailPage: React.FC = () => {
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="123456"
-                    className="w-full text-center tracking-widest font-mono text-xl font-bold py-2.5 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#1e40af] focus:ring-1 focus:ring-[#1e40af] text-[#111827] shadow-xs"
+                    className="w-full text-center tracking-widest font-mono text-xl font-bold py-2.5 bg-white border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-[#111827] shadow-xs"
                   />
                 </div>
 
@@ -224,7 +224,7 @@ export const VerifyEmailPage: React.FC = () => {
                   type="button"
                   onClick={handleResend}
                   disabled={resendCooldown > 0 || resending || !emailInput}
-                  className="text-[#1e40af] hover:text-[#1d4ed8] font-semibold disabled:opacity-50 cursor-pointer"
+                  className="text-violet-600 hover:text-[#1d4ed8] font-semibold disabled:opacity-50 cursor-pointer"
                 >
                   {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
                 </button>
@@ -240,7 +240,7 @@ export const VerifyEmailPage: React.FC = () => {
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   );
 };

@@ -16,8 +16,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userFetch } from '../utils/api';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 
 interface InviteDetails {
   id: string;
@@ -151,7 +151,7 @@ export const InvitePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#faf9f5] flex flex-col justify-between text-[#1c1917] font-sans antialiased selection:bg-[#7136E8]/10 selection:text-[#7136E8]">
-      <Navbar />
+      <SiteHeader />
 
       <main className="flex-1 flex items-center justify-center px-4 py-16 sm:py-24">
         <div className="w-full max-w-lg">
@@ -411,7 +411,7 @@ export const InvitePage: React.FC = () => {
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   );
 };

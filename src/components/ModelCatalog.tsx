@@ -128,7 +128,7 @@ export const ModelCatalog: React.FC = () => {
                   supportsReasoning: item.supports_reasoning ?? false,
                   protocol: item.protocol || 'openai-compatible',
                   supportedPlans: ['claude_max_rolling', 'claude_openai_credits', 'openai_tokens', 'claude_tokens', 'local_models_tokens'],
-                  tags: ['ScaleMax', ...(item.supports_vision ? ['Vision'] : []), ...(item.supports_reasoning ? ['Reasoning'] : [])],
+                  tags: ['LightningMesh', ...(item.supports_vision ? ['Vision'] : []), ...(item.supports_reasoning ? ['Reasoning'] : [])],
                   isNew: item.id.includes('argon') || item.id.includes('4-6'),
                 };
                 existingMap.set(canonical, dynamicList.length);

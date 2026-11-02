@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, AlertCircle, Key, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 
 export const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -54,35 +54,35 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
-      <Navbar />
+    <div className="min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans antialiased">
+      <SiteHeader />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-16">
-        <div className="w-full max-w-md bg-white border border-[#e5e7eb] rounded-xl p-8 sm:p-10 shadow-xs space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-[#0f172a] text-white flex items-center justify-center mx-auto">
+      <main className="flex-1 flex items-center justify-center px-4 py-16 sm:py-24">
+        <div className="w-full max-w-md bg-white border border-[#ede8e1] rounded-2xl p-8 sm:p-10 shadow-xs space-y-6">
+          <div className="text-center space-y-2.5">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-700 border border-violet-200/60 flex items-center justify-center mx-auto shadow-2xs">
               <Key className="w-5 h-5" />
             </div>
-            <div className="inline-flex items-center px-2 py-0.5 rounded bg-[#f4f4f0] border border-[#e5e7eb] text-xs font-medium text-[#4b5563] uppercase tracking-wider">
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200/60 text-[10px] font-mono font-bold uppercase tracking-wider">
               Account Sign In
             </div>
-            <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 tracking-tight font-display">
               Sign In to LightningAPI
             </h1>
-            <p className="text-xs text-[#6b7280]">
+            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-sm mx-auto">
               Access your API keys, usage dashboard, and subscription allocations.
             </p>
           </div>
 
           {searchParams.get('session_expired') === '1' && !error && (
-            <div className="p-3.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs flex items-center gap-2">
+            <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
               <span>Your session has expired. Please sign in to continue.</span>
             </div>
           )}
 
           {error && (
-            <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs flex flex-col gap-1.5">
+            <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs flex flex-col gap-1.5">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{error}</span>
@@ -90,7 +90,7 @@ export const LoginPage: React.FC = () => {
               {unverifiedEmail && (
                 <Link
                   to={`/verify-email?email=${encodeURIComponent(email)}`}
-                  className="mt-1 text-[#1e40af] font-medium underline"
+                  className="mt-1 text-violet-700 font-semibold underline hover:text-violet-800"
                 >
                   Verify your email address →
                 </Link>
@@ -99,41 +99,41 @@ export const LoginPage: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="block text-xs font-medium text-[#111827]">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-zinc-900">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-zinc-900 transition-colors"
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-medium text-[#111827]">
+                <label className="block text-xs font-semibold text-zinc-900">
                   Password
                 </label>
-                <Link to="/forgot-password" className="text-xs text-[#1e40af] hover:underline font-medium">
+                <Link to="/forgot-password" className="text-xs text-violet-600 hover:text-violet-700 hover:underline font-semibold">
                   Forgot Password?
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-[#d1d5db] rounded-lg focus:outline-none focus:border-[#1e40af] text-[#111827]"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-600/15 text-zinc-900 transition-colors"
                 />
               </div>
             </div>
@@ -141,16 +141,16 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full ui-button-primary text-xs py-2.5 font-medium justify-center cursor-pointer disabled:opacity-50"
+              className="w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
             >
               {loading ? 'Signing in...' : 'Sign In →'}
             </button>
           </form>
 
-          <div className="pt-4 border-t border-[#e5e7eb] text-center space-y-2">
-            <p className="text-xs text-[#6b7280]">
+          <div className="pt-4 border-t border-[#ede8e1] text-center space-y-2">
+            <p className="text-xs text-zinc-600">
               Don't have an account yet?{' '}
-              <Link to="/register" className="text-[#1e40af] font-medium hover:underline">
+              <Link to="/register" className="text-violet-600 hover:text-violet-700 font-semibold hover:underline">
                 Create Free Account
               </Link>
             </p>
@@ -158,7 +158,7 @@ export const LoginPage: React.FC = () => {
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   );
 };

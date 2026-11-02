@@ -434,3 +434,160 @@ pre::-webkit-scrollbar-thumb:hover {
 }
 
 
+
+/* ========================================================================= */
+/* UNIFIED TYPOGRAPHIC SCALE & SYSTEM CLASSES                                */
+/* Inspired by LotusAI: tight negative tracking, bold weights, compact line height */
+/* ========================================================================= */
+
+.page-headline {
+  font-family: var(--font-display);
+  font-size: clamp(2.00rem, 4.0vw, 3.25rem);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+}
+
+.section-headline {
+  font-family: var(--font-display);
+  font-size: clamp(1.50rem, 2.5vw, 2.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.card-headline {
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.sub-headline {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+
+.body-large {
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+.body-regular {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  letter-spacing: 0.00em;
+}
+
+.body-small {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  letter-spacing: 0.005em;
+}
+
+.caption-label {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.code-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+.code-mono-sm {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  letter-spacing: 0.00em;
+}
+
+/* Universal Selection Styling (Brand Violet) */
+::selection {
+  background-color: rgba(113, 54, 232, 0.22);
+  color: #2e1065;
+}
+
+/* Standardized Component Utility Classes */
+.ui-card {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-card:hover {
+  border-color: var(--ui-border-strong);
+}
+
+.ui-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 13.5px;
+  font-family: var(--font-sans);
+  background-color: #ffffff;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  color: #111827;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-input:focus {
+  outline: none;
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px rgba(113, 54, 232, 0.12);
+}
+
+.ui-button-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: var(--ui-radius-control);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.ui-button-ghost:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #0f172a;
+}
+
+.ui-table-header {
+  background-color: #fafaf9;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #71717a;
+}
+
+.ui-table-row {
+  border-bottom: 1px solid var(--ui-border);
+  transition: background-color 0.1s ease;
+}
+
+.ui-table-row:hover {
+  background-color: rgba(113, 54, 232, 0.02);
+}

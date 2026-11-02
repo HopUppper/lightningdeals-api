@@ -14,8 +14,8 @@ import {
   Lock,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { useAuth } from '../context/AuthContext';
 import { userFetch } from '../utils/api';
 import { ApiKeyRevealModal } from '../components/ApiKeyRevealModal';
@@ -103,7 +103,7 @@ export const TrialPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#fbf9f5] text-[#1c1917] flex flex-col font-sans antialiased selection:bg-[#6d28d9]/10 selection:text-[#6d28d9]">
-      <Navbar />
+      <SiteHeader />
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 py-12 sm:py-16 flex items-center justify-center">
         <div className="w-full bg-white border border-[#e7e5e4] rounded-2xl p-7 sm:p-10 shadow-warm space-y-6">
@@ -393,7 +393,7 @@ export const TrialPage: React.FC = () => {
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
 
       {revealedKeyData && (
         <ApiKeyRevealModal

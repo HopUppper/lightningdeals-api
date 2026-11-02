@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Send, CheckCircle2, AlertCircle, Zap, ShieldCheck, MessageSquare, Sparkles } from 'lucide-react';
-import { Navbar } from '../components/Navbar';
-import { Footer } from '../components/Footer';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { usePlans } from '../context/PlansContext';
 
 export const QuoteRequestPage: React.FC = () => {
@@ -48,7 +48,7 @@ export const QuoteRequestPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#fbfbfa] text-[#111827] flex flex-col font-sans">
-      <Navbar />
+      <SiteHeader />
 
       <main className="flex-1 max-w-2xl w-full mx-auto px-5 py-12 sm:py-16">
         <div className="text-center space-y-3">
@@ -197,7 +197,7 @@ export const QuoteRequestPage: React.FC = () => {
         </div>
       </main>
 
-      <Footer />
+      <SiteFooter />
     </div>
   );
 };

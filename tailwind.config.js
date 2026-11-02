@@ -62,6 +62,12 @@ export default {
         subtle: '#f5f2eb',
         border: '#e7e5e4',
         borderStrong: '#d6d3d1',
+        accent: {
+          DEFAULT: '#7136E8',
+          hover: '#5b21b6',
+          light: '#f5f3ff',
+          border: '#ddd6fe',
+        },
       },
       maxWidth: {
         page: '1240px',
@@ -81,9 +87,10 @@ export default {
         plum: '0 4px 14px 0 rgba(109, 40, 217, 0.25)',
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Geist', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['Geist', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         serif: ['Charter', 'Georgia', 'Cambria', 'serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'monospace'],
+        mono: ['Geist Mono', 'JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'monospace'],
       },
     },
   },

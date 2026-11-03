@@ -73,7 +73,20 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   // Filter models
   const filteredModels = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return models.filter((m) => {
+    return [...models].sort((a, b) => {
+      // Priority 1: Flagships / Recommended first
+      if (a.badge === 'Recommended' && b.badge !== 'Recommended') return -1;
+      if (b.badge === 'Recommended' && a.badge !== 'Recommended') return 1;
+      // Priority 2: Semantic version descending
+      const getV = (name: string) => {
+        const match = name.match(/(\d+(?:\.\d+)?)/);
+        return match ? parseFloat(match[1]) : 0;
+      };
+      const vA = getV(a.name);
+      const vB = getV(b.name);
+      if (vB !== vA) return vB - vA;
+      return (b.intelligence || 0) - (a.intelligence || 0);
+    }).filter((m) => {
       // Family filter
       if (selectedFamily !== 'all') {
         const fam = (m.family || '').toLowerCase();
@@ -115,17 +128,43 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
   if (!open) return null;
 
-  const renderSegmentedBar = (rating: number = 3, max: number = 5) => {
+  const getSpeedLabel = (speed: number = 4) => {
+    switch (speed) {
+      case 5: return 'Ultra-Fast (<400ms)';
+      case 4: return 'Fast (<800ms)';
+      case 3: return 'Standard (1-2s)';
+      case 2: return 'Deep Reasoning (3-5s)';
+      default: return 'Fast';
+    }
+  };
+
+  const getIntelligenceLabel = (intelligence: number = 5) => {
+    switch (intelligence) {
+      case 5: return 'Frontier (98/100)';
+      case 4: return 'Advanced (90/100)';
+      case 3: return 'Standard (80/100)';
+      default: return 'High';
+    }
+  };
+
+  const renderSegmentedBar = (rating: number = 3, max: number = 5, label?: string) => {
     return (
-      <div className="flex items-center gap-1.5 flex-1">
-        {Array.from({ length: max }).map((_, i) => (
-          <div
-            key={i}
-            className={`h-2 flex-1 rounded-sm transition-all ${
-              i < rating ? 'bg-slate-200 dark:bg-white' : 'bg-slate-300 dark:bg-slate-800'
-            }`}
-          />
-        ))}
+      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+        <div className="flex items-center gap-1 flex-1">
+          {Array.from({ length: max }).map((_, i) => (
+            <div
+              key={i}
+              className={`h-2 flex-1 rounded-sm transition-all ${
+                i < rating ? 'bg-violet-400 dark:bg-violet-300' : 'bg-slate-300 dark:bg-slate-800'
+              }`}
+            />
+          ))}
+        </div>
+        {label && (
+          <span className="text-[11px] font-mono text-slate-300 whitespace-nowrap shrink-0">
+            {rating}/{max} • {label}
+          </span>
+        )}
       </div>
     );
   };
@@ -340,14 +379,22 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
                 {/* Rating Meters: Speed & Intelligence (Image 2 style) */}
                 <div className="space-y-3 pt-2 border-t border-[#28334B]/80">
-                  <div className="flex items-center justify-between gap-4 text-xs">
-                    <span className="text-slate-400 font-medium w-24">Speed</span>
-                    {renderSegmentedBar(activeDetail.speed || (activeDetail.tokenMultiplier < 1 ? 5 : 4))}
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-slate-400 font-medium w-20 shrink-0">Speed</span>
+                    {renderSegmentedBar(
+                      activeDetail.speed || (activeDetail.tokenMultiplier < 1 ? 5 : 4),
+                      5,
+                      getSpeedLabel(activeDetail.speed || (activeDetail.tokenMultiplier < 1 ? 5 : 4))
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between gap-4 text-xs">
-                    <span className="text-slate-400 font-medium w-24">Intelligence</span>
-                    {renderSegmentedBar(activeDetail.intelligence || (activeDetail.tokenMultiplier >= 2 ? 5 : 4))}
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-slate-400 font-medium w-20 shrink-0">Intelligence</span>
+                    {renderSegmentedBar(
+                      activeDetail.intelligence || (activeDetail.tokenMultiplier >= 2 ? 5 : 4),
+                      5,
+                      getIntelligenceLabel(activeDetail.intelligence || (activeDetail.tokenMultiplier >= 2 ? 5 : 4))
+                    )}
                   </div>
                 </div>
 
@@ -388,13 +435,21 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-2 text-slate-300">
-                      <span className="text-emerald-400 font-bold">✓</span>
-                      <span>Web Search</span>
+                      <span className={activeDetail.supportsWebSearch ? 'text-emerald-400 font-bold' : 'text-slate-600'}>
+                        {activeDetail.supportsWebSearch ? '✓' : '✕'}
+                      </span>
+                      <span className={activeDetail.supportsWebSearch ? '' : 'text-slate-500'}>
+                        Web Search
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2 text-slate-300">
-                      <span className="text-emerald-400 font-bold">✓</span>
-                      <span>MCP & Tools</span>
+                      <span className={(activeDetail.supportsTools || activeDetail.supportsMCP) ? 'text-emerald-400 font-bold' : 'text-slate-600'}>
+                        {(activeDetail.supportsTools || activeDetail.supportsMCP) ? '✓' : '✕'}
+                      </span>
+                      <span className={(activeDetail.supportsTools || activeDetail.supportsMCP) ? '' : 'text-slate-500'}>
+                        MCP & Tools
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2 text-slate-300">

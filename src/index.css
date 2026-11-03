@@ -518,8 +518,15 @@ pre::-webkit-scrollbar-thumb:hover {
 
 /* Universal Selection Styling (Brand Violet) */
 ::selection {
-  background-color: rgba(113, 54, 232, 0.22);
-  color: #2e1065;
+  background-color: rgba(113, 54, 232, 0.25);
+  color: #1e1b4b;
+}
+
+.dark ::selection,
+[data-theme="dark"] ::selection,
+.dark-theme ::selection {
+  background-color: rgba(139, 92, 246, 0.5);
+  color: #ffffff;
 }
 
 /* Standardized Component Utility Classes */
@@ -590,4 +597,29 @@ pre::-webkit-scrollbar-thumb:hover {
 
 .ui-table-row:hover {
   background-color: rgba(113, 54, 232, 0.02);
+}
+
+
+/* Custom Themed Scrollbars (BUG UI-04) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
+.dark ::-webkit-scrollbar-thumb,
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+.dark ::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

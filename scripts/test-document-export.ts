@@ -139,6 +139,45 @@ The system covers complete lifecycle intake, chain of custody, and reporting.
     failed++;
   }
 
+  
+  // Test 5: Unicode Currency & Bullet List Rendering in PDF
+  try {
+    const userSample = `I can try again, but I need the **current Amazon and Flipkart product links** or screenshots to compare exact prices. I don't want to invent live prices.
+
+Send any listings you found, and I'll identify the best deal based on:
+• Intel i5 9th generation or newer
+• 16 GB RAM
+• 256 GB SSD
+• Final price under ₹16,000–₹17,000
+• Warranty, seller rating, condition, and return policy`;
+
+    const pdfSample = generateStudioDocument({
+      title: 'Hi',
+      format: 'pdf',
+      content: userSample,
+    });
+
+    const stream = pdfSample.buffer.toString('utf8');
+    if (!stream.includes('Intel i5 9th generation or newer')) {
+      throw new Error('Bullet text "Intel i5 9th generation or newer" missing from PDF stream');
+    }
+    if (!stream.includes('Rs. 16,000')) {
+      throw new Error('Rupee and en-dash replacement missing or corrupted in PDF stream');
+    }
+    if (stream.includes('donât') || stream.includes('Iâll')) {
+      throw new Error('Mojibake detected in PDF stream (donât / Iâll)');
+    }
+    if (stream.includes('**current Amazon')) {
+      throw new Error('Raw markdown asterisks (**bold**) leaked into PDF stream');
+    }
+
+    console.log('✅ Test 5 Passed: PDF successfully handles Unicode currency, bullets, and clean typography without mojibake');
+    passed++;
+  } catch (err: any) {
+    console.error('❌ Test 5 Failed:', err.message);
+    failed++;
+  }
+
   console.log(`\nDocument Export Test Suite: ${passed} PASSED, ${failed} FAILED\n`);
   if (failed > 0) process.exit(1);
 }

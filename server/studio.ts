@@ -3237,3 +3237,49 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     return res.end();
   }
 });
+
+// ── INTELLECTUAL PROMPT ENHANCER (BUG CHAT-02) ──
+function generateIntelligentPromptEnhancement(raw: string): string {
+  const lower = raw.toLowerCase();
+
+  // 1. Coding / Debugging / Refactoring
+  if (lower.includes('code') || lower.includes('bug') || lower.includes('error') || lower.includes('function') || lower.includes('component') || lower.includes('typescript') || lower.includes('python') || lower.includes('react') || lower.includes('api')) {
+    return `Act as an elite principal software engineer and systems architect. ${raw}. Provide a clean, robust, production-grade solution with comprehensive type safety, proper error boundaries, and clear code comments. Avoid unnecessary fluff and explain key design decisions concisely.`;
+  }
+
+  // 2. Market Research / Shopping / Deals / Hardware
+  if (lower.includes('deal') || lower.includes('buy') || lower.includes('price') || lower.includes('compare') || lower.includes('mini pc') || lower.includes('laptop') || lower.includes('refurbished') || lower.includes('recommend') || lower.includes('cost')) {
+    return `Conduct a comprehensive, objective market analysis and comparison for: ${raw}. Detail the top recommended models, exact specifications, realistic market price ranges in appropriate currency, pros & cons, warranty/condition considerations, and actionable buying criteria with clear rankings.`;
+  }
+
+  // 3. Documents / SRS / Reports / Business
+  if (lower.includes('document') || lower.includes('srs') || lower.includes('spec') || lower.includes('report') || lower.includes('contract') || lower.includes('proposal') || lower.includes('business plan') || lower.includes('resume')) {
+    return `Produce an executive-level, publication-grade document for: ${raw}. Structure with clear numbered headings, executive summary, granular functional/non-functional requirements, edge case considerations, and high-impact formatting.`;
+  }
+
+  // 4. Learning / Tutorial / Concept Explanation
+  if (lower.includes('how to') || lower.includes('teach me') || lower.includes('explain') || lower.includes('what is') || lower.includes('guide') || lower.includes('learn')) {
+    return `Provide a clear, engaging, step-by-step masterclass explaining: ${raw}. Break down the core concepts with real-world analogies, concrete examples, common pitfalls to avoid, and immediate next steps for practical application.`;
+  }
+
+  // Default Universal Enhancement
+  return `Act as a world-class domain specialist. ${raw}. Provide a deep, structured, and actionable response with concrete details, verified facts, and clear takeaways. Ensure high clarity with zero unnecessary filler.`;
+}
+
+studioRouter.post('/enhance-prompt', async (req: Request, res: Response) => {
+  try {
+    const { prompt: rawPrompt } = req.body || {};
+    if (!rawPrompt || typeof rawPrompt !== 'string' || !rawPrompt.trim()) {
+      return res.status(400).json({ success: false, error: { message: 'Prompt is required' } });
+    }
+
+    const enhanced = generateIntelligentPromptEnhancement(rawPrompt.trim());
+    return res.json({
+      success: true,
+      enhancedPrompt: enhanced,
+      originalPrompt: rawPrompt.trim(),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { message: err.message || 'Enhancement failed' } });
+  }
+});

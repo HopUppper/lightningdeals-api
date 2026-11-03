@@ -644,6 +644,10 @@ export const UserChatStudio: React.FC = () => {
   const [selectedKeyId, setSelectedKeyId] = useState('');
   const [isPaidCustomer, setIsPaidCustomer] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const isMac = typeof window !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.userAgent || navigator.platform || '');
+  const shortcutLabel = isMac ? '⌘K' : 'Ctrl+K';
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
 
   // Theme: Warm Claude Paper ('light') vs Obsidian Dark ('dark')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -1709,12 +1713,27 @@ export const UserChatStudio: React.FC = () => {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Prompt Enhancer
-  const handleEnhancePrompt = () => {
-    if (!inputMessage.trim()) return;
-    const raw = inputMessage.trim();
-    const enhanced = `Act as an elite principal software engineer and system architect. ${raw}. Ensure the solution is modular, includes robust TypeScript/Python typings, comprehensive error boundaries, and adheres to high-performance production standards with zero fluff.`;
-    setPrompt(enhanced);
+  // Prompt Enhancer (BUG CHAT-02)
+  const handleEnhancePrompt = async () => {
+    if (!inputMessage.trim() || isEnhancingPrompt) return;
+    setIsEnhancingPrompt(true);
+    try {
+      const res = await userFetch('/api/user/studio/enhance-prompt', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: inputMessage.trim(), model: activeThread.model }),
+      });
+      const data = await res.json();
+      if (data.success && data.enhancedPrompt) {
+        setPrompt(data.enhancedPrompt);
+        textareaRef.current?.focus();
+      }
+    } catch {
+      const raw = inputMessage.trim();
+      const enhanced = `Act as an elite domain specialist and systems architect. ${raw}. Ensure the solution is modular, comprehensive, robust, and adheres to high-performance standards with zero fluff.`;
+      setPrompt(enhanced);
+    } finally {
+      setIsEnhancingPrompt(false);
+    }
   };
 
   // File Upload Handlers (with server-side validation via /api/user/studio/upload)
@@ -4501,14 +4520,22 @@ export const UserChatStudio: React.FC = () => {
                         {Boolean(msg.content) && (
                           <div className="mt-2 pt-1 flex items-center justify-between gap-2 flex-wrap">
                             <div className="flex items-center gap-1 text-slate-400">
-                              {/* Copy button */}
+                              {/* Copy button with instant feedback (BUG CHAT-04) */}
                               <button
                                 type="button"
-                                onClick={() => navigator.clipboard.writeText(msg.content)}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(msg.content);
+                                  setCopiedMsgId(msg.id);
+                                  setTimeout(() => setCopiedMsgId(null), 2000);
+                                }}
                                 className={`p-1.5 rounded-lg border transition-colors cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 ${c.pillBg}`}
-                                title="Copy response to clipboard"
+                                title={copiedMsgId === msg.id ? 'Copied to clipboard!' : 'Copy response to clipboard'}
                               >
-                                <Copy className="w-3.5 h-3.5" />
+                                {copiedMsgId === msg.id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
                               </button>
 
                               {/* Read aloud TTS */}
@@ -5520,7 +5547,7 @@ export const UserChatStudio: React.FC = () => {
                   title={t.project.name}
                 />
               )}
-              <p className="truncate text-xs leading-snug font-normal group-hover:text-slate-950 dark:group-hover:text-white transition-colors">{t.title}</p>
+              <p title={t.title} className="truncate text-xs leading-snug font-normal group-hover:text-slate-950 dark:group-hover:text-white transition-colors">{t.title}</p>
             </div>
           )}
         </div>

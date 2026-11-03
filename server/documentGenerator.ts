@@ -552,80 +552,200 @@ export function generatePowerPointPresentation(options: DocumentGenerationOption
 }
 
 // ---------------------------------------------------------------------------
-// 4. PDF Document (.pdf) PDF 1.4 Specification Generator
+// 4. PDF Document (.pdf) PDF 1.4 Specification Generator (Vector & Resilient Unicode)
 // ---------------------------------------------------------------------------
+function sanitizeForPdf(text: string): string {
+  if (!text) return '';
+  return text
+    // Replace currency symbols for standard Type 1 Helvetica font
+    .replace(/₹/g, 'Rs. ')
+    .replace(/€/g, 'EUR ')
+    .replace(/£/g, 'GBP ')
+    .replace(/¥/g, 'JPY ')
+    // Replace smart/curly quotes
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    // Replace en-dash and em-dash
+    .replace(/[\u2013\u2014]/g, '-')
+    // Replace bullet variants
+    .replace(/[\u2022\u00B7]/g, '-')
+    // Replace ellipses
+    .replace(/\u2026/g, '...')
+    // Replace non-breaking spaces
+    .replace(/\u00A0/g, ' ')
+    // Strip other non-printable non-ASCII characters that break Helvetica
+    .replace(/[^\x20-\x7E\r\n\t]/g, '');
+}
+
+function cleanMarkdownForPdf(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // Bold
+    .replace(/\*([^*]+)\*/g, '$1')     // Italic
+    .replace(/__([^_]+)__/g, '$1')     // Underline
+    .replace(/`([^`]+)`/g, '$1')       // Inline code
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)'); // Link
+}
+
+function escapePdfString(str: string): string {
+  return str.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+function wrapPdfText(text: string, maxCharsPerLine: number = 78): string[] {
+  if (!text) return [''];
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if (!currentLine) {
+      currentLine = word;
+    } else if ((currentLine + ' ' + word).length <= maxCharsPerLine) {
+      currentLine += ' ' + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines.length > 0 ? lines : [''];
+}
+
 export function generatePdfDocument(options: DocumentGenerationOptions): Buffer {
-  const title = (options.title || 'LightningAPI Studio Document').slice(0, 80);
+  const title = sanitizeForPdf(cleanMarkdownForPdf(options.title || 'LightningAPI Studio Document')).slice(0, 80);
   const rawContent = options.content || 'Generated document report created by LightningAPI Studio.';
 
-  function escapePdfString(str: string): string {
-    return str.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  const safeTitle = escapePdfString(title);
+
+  // Parse lines into typed elements
+  interface DocElement {
+    type: 'h1' | 'h2' | 'h3' | 'bullet' | 'table' | 'paragraph' | 'empty';
+    text: string;
   }
 
-  const safeTitle = escapePdfString(title);
-  const rawLines: string[] = [];
+  const elements: DocElement[] = [];
 
-  rawContent.split(/\r?\n/).forEach((l) => {
-    const trimmed = l.trim();
+  rawContent.split(/\r?\n/).forEach((line) => {
+    const trimmed = sanitizeForPdf(cleanMarkdownForPdf(line.trim()));
     if (!trimmed) {
-      rawLines.push('');
+      elements.push({ type: 'empty', text: '' });
       return;
     }
-    if (trimmed.length > 85) {
-      for (let i = 0; i < trimmed.length; i += 85) {
-        rawLines.push(trimmed.slice(i, i + 85));
-      }
+    if (trimmed.startsWith('# ')) {
+      elements.push({ type: 'h1', text: trimmed.slice(2).trim() });
+    } else if (trimmed.startsWith('## ')) {
+      elements.push({ type: 'h2', text: trimmed.slice(3).trim() });
+    } else if (trimmed.startsWith('### ')) {
+      elements.push({ type: 'h3', text: trimmed.slice(4).trim() });
+    } else if (/^[-*•·]\s+/.test(trimmed)) {
+      elements.push({ type: 'bullet', text: trimmed.replace(/^[-*•·]\s+/, '').trim() });
+    } else if (trimmed.startsWith('|')) {
+      elements.push({ type: 'table', text: trimmed });
     } else {
-      rawLines.push(trimmed);
+      elements.push({ type: 'paragraph', text: trimmed });
     }
   });
 
-  const linesPerPage = 38;
-  const numPages = Math.max(1, Math.ceil(rawLines.length / linesPerPage));
+  // Flow content onto pages
+  interface PageContent {
+    stream: string;
+  }
+
+  const pages: PageContent[] = [];
+  let currentY = 710;
+  let currentStream = '';
+
+  function startNewPage() {
+    if (currentStream) {
+      pages.push({ stream: currentStream });
+    }
+    currentStream = '';
+    currentY = 710;
+  }
+
+  for (const el of elements) {
+    if (el.type === 'empty') {
+      currentY -= 10;
+      if (currentY < 70) startNewPage();
+      continue;
+    }
+
+    if (el.type === 'h1') {
+      if (currentY < 90) startNewPage();
+      const wrapped = wrapPdfText(el.text, 55);
+      for (const line of wrapped) {
+        currentStream += `BT /F2 14 Tf 0.1 0.1 0.3 rg 50 ${currentY} Td (${escapePdfString(line)}) Tj ET\n`;
+        currentY -= 18;
+      }
+      currentY -= 4;
+    } else if (el.type === 'h2') {
+      if (currentY < 85) startNewPage();
+      const wrapped = wrapPdfText(el.text, 65);
+      for (const line of wrapped) {
+        currentStream += `BT /F2 11.5 Tf 0.25 0.2 0.55 rg 50 ${currentY} Td (${escapePdfString(line)}) Tj ET\n`;
+        currentY -= 16;
+      }
+      currentY -= 2;
+    } else if (el.type === 'h3') {
+      if (currentY < 80) startNewPage();
+      const wrapped = wrapPdfText(el.text, 70);
+      for (const line of wrapped) {
+        currentStream += `BT /F2 10.5 Tf 0.15 0.15 0.2 rg 50 ${currentY} Td (${escapePdfString(line)}) Tj ET\n`;
+        currentY -= 15;
+      }
+    } else if (el.type === 'bullet') {
+      if (currentY < 75) startNewPage();
+      const wrapped = wrapPdfText(el.text, 72);
+      wrapped.forEach((line, idx) => {
+        if (idx === 0) {
+          // Bullet symbol at X=50, content indented at X=65
+          currentStream += `BT /F2 10 Tf 0.45 0.2 0.85 rg 50 ${currentY} Td (- ) Tj ET\n`;
+          currentStream += `BT /F1 9.5 Tf 0.15 0.15 0.15 rg 65 ${currentY} Td (${escapePdfString(line)}) Tj ET\n`;
+        } else {
+          // Continuation lines indented at X=65
+          currentStream += `BT /F1 9.5 Tf 0.15 0.15 0.15 rg 65 ${currentY} Td (${escapePdfString(line)}) Tj ET\n`;
+        }
+        currentY -= 14;
+        if (currentY < 70) startNewPage();
+      });
+      currentY -= 2;
+    } else if (el.type === 'table') {
+      if (currentY < 75) startNewPage();
+      currentStream += `BT /F1 8.5 Tf 0.2 0.2 0.25 rg 50 ${currentY} Td (${escapePdfString(el.text)}) Tj ET\n`;
+      currentY -= 13;
+    } else {
+      // Paragraph
+      if (currentY < 75) startNewPage();
+      const wrapped = wrapPdfText(el.text, 78);
+      for (const line of wrapped) {
+        currentStream += `BT /F1 9.5 Tf 0.15 0.15 0.15 rg 50 ${currentY} Td (${escapePdfString(line)}) Tj ET\n`;
+        currentY -= 14;
+        if (currentY < 70) startNewPage();
+      }
+      currentY -= 3;
+    }
+  }
+
+  if (currentStream || pages.length === 0) {
+    pages.push({ stream: currentStream });
+  }
+
+  const numPages = pages.length;
   const pageStreams: string[] = [];
 
   for (let p = 0; p < numPages; p++) {
-    const pageLines = rawLines.slice(p * linesPerPage, (p + 1) * linesPerPage);
     let s = '';
-
     // Running Header
     s += `BT /F2 11 Tf 0.1 0.1 0.3 rg 50 755 Td (${safeTitle}) Tj ET\n`;
-    s += `BT /F1 8 Tf 0.4 0.4 0.4 rg 50 742 Td (LightningAPI Studio • Engineering Artifact) Tj ET\n`;
+    s += `BT /F1 8 Tf 0.4 0.4 0.4 rg 50 742 Td (LightningAPI Studio | Engineering Artifact) Tj ET\n`;
     s += `50 734 m 562 734 l 0.75 w 0.85 G S\n`;
 
     // Running Footer
     s += `50 50 m 562 50 l 0.5 w 0.85 G S\n`;
-    s += `BT /F1 8 Tf 0.4 0.4 0.4 rg 50 38 Td (Confidential • Generated by LightningAPI Studio) Tj ET\n`;
+    s += `BT /F1 8 Tf 0.4 0.4 0.4 rg 50 38 Td (Confidential | Generated by LightningAPI Studio) Tj ET\n`;
     s += `BT /F1 8 Tf 0.4 0.4 0.4 rg 490 38 Td (Page ${p + 1} of ${numPages}) Tj ET\n`;
 
-    let currentY = 710;
-    for (const line of pageLines) {
-      if (!line) {
-        currentY -= 10;
-        continue;
-      }
-      const clean = escapePdfString(line);
-      if (line.startsWith('# ')) {
-        s += `BT /F2 13 Tf 0.1 0.1 0.3 rg 50 ${currentY} Td (${clean.slice(2)}) Tj ET\n`;
-        currentY -= 18;
-      } else if (line.startsWith('## ')) {
-        s += `BT /F2 11 Tf 0.25 0.2 0.55 rg 50 ${currentY} Td (${clean.slice(3)}) Tj ET\n`;
-        currentY -= 16;
-      } else if (line.startsWith('### ')) {
-        s += `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 ${currentY} Td (${clean.slice(4)}) Tj ET\n`;
-        currentY -= 15;
-      } else if (line.startsWith('- ') || line.startsWith('* ')) {
-        s += `BT /F2 9 Tf 0.4 0.2 0.8 rg 50 ${currentY} Td (- ) Tj /F1 9 Tf 0.15 0.15 0.15 rg 62 ${currentY} Td (${clean.slice(2)}) Tj ET\n`;
-        currentY -= 14;
-      } else if (line.startsWith('|')) {
-        s += `BT /F1 8.5 Tf 0.2 0.2 0.25 rg 50 ${currentY} Td (${clean}) Tj ET\n`;
-        currentY -= 13;
-      } else {
-        s += `BT /F1 9.5 Tf 0.15 0.15 0.15 rg 50 ${currentY} Td (${clean}) Tj ET\n`;
-        currentY -= 14;
-      }
-    }
-
+    // Body content
+    s += pages[p].stream;
     pageStreams.push(s);
   }
 

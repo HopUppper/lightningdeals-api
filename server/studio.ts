@@ -2761,6 +2761,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       messages: normalizedMessages,
       max_tokens: maxOutputLimit,
       stream: true,
+      stream_options: { include_usage: true },
       injectPersona: true,
     };
     if (effectiveSystemPrompt.trim()) payload.system = effectiveSystemPrompt.trim();
@@ -2931,8 +2932,30 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
 
     const latencyMs = Date.now() - startTime;
 
+    // Helper to calculate realistic token counts without treating raw base64 vision images as text tokens
+    const estimateTokensFromMessages = (msgs: any[], sysPrompt: string): number => {
+      let tokens = Math.ceil((sysPrompt || '').length / 4);
+      for (const m of msgs) {
+        if (typeof m.content === 'string') {
+          tokens += Math.ceil(m.content.length / 4);
+        } else if (Array.isArray(m.content)) {
+          for (const part of m.content) {
+            if (part.type === 'text') {
+              tokens += Math.ceil((part.text || '').length / 4);
+            } else if (part.type === 'image') {
+              // High-resolution vision token estimate (~1,600 tokens standard, never treated as base64 raw text)
+              tokens += 1600;
+            } else if (part.type === 'document') {
+              tokens += 2000;
+            }
+          }
+        }
+      }
+      return Math.max(1, tokens);
+    };
+
     // Calculate actual tokens (distinguishing provider-reported from estimates)
-    const inputTokens = reportedInputTokens || Math.max(1, Math.ceil(JSON.stringify(outboundMessages).length / 4));
+    const inputTokens = reportedInputTokens || estimateTokensFromMessages(normalizedMessages, effectiveSystemPrompt);
     // If request was interrupted before generating text, do not bill output tokens
     const actualOutput = reportedOutputTokens || (accumulatedText.length > 0 ? Math.ceil(accumulatedText.length / 4) : 0);
     const outputTokens = clientDisconnected && accumulatedText.length === 0 ? 0 : actualOutput;

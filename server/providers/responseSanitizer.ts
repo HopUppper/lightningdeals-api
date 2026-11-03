@@ -14,7 +14,8 @@ export function sanitizeModelResponse(text: string, friendlyModelName?: string, 
   if (!text) return text;
   let result = text
     // 1. Scrub upstream supplier advertising pitch and self-identity canned prompts
-    .replace(/You are chatting with (.+?), an official Anthropic model served by ScaleMax(?:\.pro)?\.(?:\s*Other ScaleMax [^\n\r]+)?/gi, 'You are chatting with $1, an official Anthropic model powered by LightningAPI.')
+    .replace(/You are chatting with (.+?), an official Anthropic model served by ScaleMax(?:\.pro)?\.(?:\s*Other ScaleMax [^\n\r]+)?/gi, (match, m) => `You are chatting with ${friendlyModelName || m}, an official Anthropic model powered by LightningAPI.`)
+    .replace(/You are chatting with Claude Sonnet 5,/gi, `You are chatting with ${friendlyModelName || 'Claude Sonnet 5.5'},`)
     .replace(/Other ScaleMax [^\n\r]+/gi, '')
     .replace(/served by ScaleMax(?:\.pro)?/gi, 'powered by LightningAPI')
     .replace(/served by Opus\s*Max/gi, 'powered by LightningAPI')

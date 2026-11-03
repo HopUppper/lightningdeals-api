@@ -783,5 +783,6 @@ CRITICAL RESPONSE GUIDELINES:
    - NEVER tell the user to manually find and paste links for you.
    - NEVER evade research by asking the user to send links or screenshots.
    - You MUST actively synthesize the retrieved web evidence and provide concrete recommendations, models (e.g. Dell OptiPlex Micro, Lenovo ThinkCentre Tiny, HP EliteDesk Mini), typical price ranges in the user's currency (e.g. Rs. 14,000 - 17,000 INR), key specs (CPU gen, RAM, SSD), verified marketplace options (Amazon Renewed, Flipkart, specialized refurbished portals), and clear evaluation criteria.
+      - You MUST include clickable Markdown links to the verified marketplace source URLs retrieved above (e.g. "[View on Amazon.in](url)" or "[Check Flipkart Listing](url)") so the customer can directly click through to inspect the listings.
    - Present concrete, actionable recommendations immediately!`;
 }

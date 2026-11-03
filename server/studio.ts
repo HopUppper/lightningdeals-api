@@ -21,6 +21,7 @@ import { authenticateJwt, optionalAuthenticateJwt, AuthRequest } from './auth';
 import { builderRouter } from './studioBuilder';
 import { buildProviderRequest } from './providerAdapter';
 import { mapToUpstreamModel, getFriendlyModelName, sanitizeModelResponse, sanitizeErrorMessage } from './gateway';
+import { executeAdvancedResearchPipeline } from './research';
 import {
   searchWeb,
   fetchPublicUrl,
@@ -2580,53 +2581,18 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       } else {
         activityTracker.failCurrentStep(`Unable to access URL: ${page.error || 'Connection failed'}`);
       }
-    } else if ((researchMode === 'web_search' || taskAnalysis.category === 'web_search') && prompt) {
-      activityTracker.startStep('searching_web', 'Searching the web', `Querying authoritative sources for "${prompt.trim().substring(0, 50)}"...`);
-      const isShopping = /\b(buy|deal|deals|discount|price|prices|under\s*(?:₹|rs\.?|\$)?\s*\d+|amazon|flipkart|shop|shopping|purchase|cost|specs|best\s+(?:phone|phones|smartphone|smartphones|laptop|laptops|pc|mini\s*pc|tv|gadget|monitor|headphones|earbuds))\b/i.test(prompt);
-      let queryToExecute = prompt.trim();
-      let maxResults = 6;
-      if (isShopping) {
-        maxResults = 8;
-        if (!/amazon/i.test(queryToExecute) && !/flipkart/i.test(queryToExecute)) {
-          queryToExecute = queryToExecute + ' amazon in flipkart buy';
-        }
-      }
-      const searchRes = await searchWeb(queryToExecute, { maxResults });
-      if (searchRes.results.length > 0) {
-        researchSources.push(...searchRes.results);
-        activityTracker.startStep('evaluating_sources', 'Evaluating retrieved sources', `Found ${searchRes.results.length} verified web sources. Extracting factual evidence...`);
-
-        // Low-latency factual ground truth retrieval (top primary source)
-        let primaryPageExcerpt = '';
-        const topResult = searchRes.results[0];
-        if (topResult?.url) {
-          try {
-            const pageRes = await fetchPublicUrl(topResult.url, { timeoutMs: 2500, maxBytes: 1.5 * 1024 * 1024 });
-            if (pageRes.ok && pageRes.text) {
-              primaryPageExcerpt = `\n\n--- [PRIMARY SOURCE CONTENT: ${topResult.title} (${topResult.url})] ---\n${pageRes.text.substring(0, 3500)}\n`;
-            }
-          } catch {
-            // Non-blocking fallback to snippets
-          }
-        }
-
-        const evidenceSnippets = searchRes.results
-          .map((r) => `[SOURCE ${r.citationIndex}] ${r.title} (${r.url})\nRETRIEVED AT: ${r.timestamp}\nSNIPPET: ${r.snippet}`)
-          .join('\n\n') + primaryPageExcerpt;
-        effectiveSystemPrompt += '\n\n' + buildWebResearchPromptDirective(searchRes.results, evidenceSnippets, prompt.trim());
-      } else {
-        activityTracker.startStep('evaluating_sources', 'Search completed', searchRes.error || 'No relevant sources found.');
-      }
-    } else if ((researchMode === 'deep_research' || taskAnalysis.category === 'deep_research') && prompt) {
-      activityTracker.startStep('searching_web', 'Starting deep research investigation', 'Round 1: Executing primary search and page retrieval...');
-      const deepReport = await executeDeepResearch(prompt.trim(), {
-        maxRounds: 2,
-        onProgress: (status) => activityTracker.startStep('deep_research_round', 'Deep research in progress', status),
+    } else if ((researchMode === 'web_search' || taskAnalysis.category === 'web_search' || researchMode === 'deep_research' || taskAnalysis.category === 'deep_research') && prompt) {
+      const mode = (researchMode === 'deep_research' || taskAnalysis.category === 'deep_research') ? 'deep_research' : 'web_search';
+      const researchRes = await executeAdvancedResearchPipeline(prompt.trim(), {
+        researchMode: mode,
+        onProgress: (step, title, detail) => activityTracker.startStep(step, title, detail),
       });
-      if (deepReport.sources.length > 0) {
-        researchSources.push(...deepReport.sources);
-        activityTracker.startStep('evaluating_sources', 'Evidence synthesis', `Examined ${deepReport.totalSourcesExamined} sources across ${deepReport.rounds.length} research rounds.`);
-        effectiveSystemPrompt += '\n\n' + buildWebResearchPromptDirective(deepReport.sources, deepReport.structuredEvidence, prompt.trim());
+
+      if (researchRes.sources.length > 0) {
+        researchSources.push(...researchRes.sources);
+        effectiveSystemPrompt += '\n\n' + researchRes.promptDirective;
+      } else {
+        activityTracker.startStep('evaluating_sources', 'Research completed', 'No relevant verified sources could be retrieved.');
       }
     }
 

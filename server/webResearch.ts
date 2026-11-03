@@ -455,7 +455,7 @@ export async function fetchPublicUrl(
  */
 export async function searchWeb(
   query: string,
-  options?: { maxResults?: number }
+  options?: { maxResults?: number; includeDomains?: string[]; searchDepth?: 'basic' | 'advanced' }
 ): Promise<{ provider: string; query: string; results: WebSearchResult[]; error?: string }> {
   const maxResults = options?.maxResults || 5;
   const cleanQuery = (query || '').trim();
@@ -489,7 +489,7 @@ export async function searchWeb(
   // 1. Tavily Search API (Primary official AI search provider if TAVILY_API_KEY configured)
   if (isTavilyConfigured()) {
     try {
-      const tavilyRes = await searchTavily(cleanQuery, { maxResults });
+      const tavilyRes = await searchTavily(cleanQuery, { maxResults, includeDomains: options?.includeDomains, searchDepth: options?.searchDepth || 'basic' });
       if (tavilyRes.success && tavilyRes.results.length > 0) {
         return cacheAndReturn({
           provider: 'Live Web Index',

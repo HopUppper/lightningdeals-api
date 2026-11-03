@@ -3437,7 +3437,7 @@ export const UserChatStudio: React.FC = () => {
                       >
                         <span className="flex items-center gap-2">
                           <HelpCircle className="w-3.5 h-3.5 text-violet-400" />
-                          <span>Getting Started Guide</span>
+                          <span>Getting Started & Capability Guide (?)</span>
                         </span>
                         <span className="text-[10px] font-mono text-slate-400">?</span>
                       </button>
@@ -4858,6 +4858,7 @@ export const UserChatStudio: React.FC = () => {
                           Workspace Tools
                         </div>
 
+                        {/* Primary 1-Click Attach Button */}
                         {/* Attach File */}
                         <button
                           type="button"

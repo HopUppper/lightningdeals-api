@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { userFetch } from '../../utils/api';
+import { OrbitIcon } from '../../components/brand/OrbitIcon';
 
 export const UserOverview: React.FC = () => {
   const { user } = useAuth();
@@ -403,15 +404,15 @@ export const UserOverview: React.FC = () => {
             className="bg-white p-4 rounded-2xl border border-[#e5e7eb] shadow-2xs hover:border-[#7136E8] hover:shadow-xs transition-all group space-y-2 block"
           >
             <div className="p-2 rounded-xl bg-purple-50 text-[#7136E8] w-fit group-hover:scale-105 transition-transform">
-              <Bot className="w-4 h-4" />
+              <OrbitIcon className="w-4 h-4 text-[#7136E8]" size={16} glow />
             </div>
             <div>
               <h3 className="text-xs font-bold text-[#111827] group-hover:text-[#7136E8] transition-colors flex items-center justify-between">
-                <span>AI Chat Studio</span>
+                <span>Orbit Workspace</span>
                 <ChevronRight className="w-3 h-3 text-gray-400 group-hover:translate-x-0.5 transition-transform" />
               </h3>
               <p className="text-[11px] text-[#6b7280] mt-0.5 leading-snug">
-                Real-time interactive workspace for Claude &amp; OpenAI.
+                Your AI universe. One place. Chat, research, code &amp; documents.
               </p>
             </div>
           </Link>

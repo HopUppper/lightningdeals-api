@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowRight, Copy, Check, Sparkles, Terminal, Code2, Zap, ShieldCheck, CheckCircle2, Cpu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { OrbitIcon } from '../brand/OrbitIcon';
 
 export const EditorialHero: React.FC = () => {
   const { user } = useAuth();
@@ -277,15 +278,27 @@ for chunk in stream:
         
         {/* Top Eyebrow Badge & Cluster Telemetry */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-6 border-b border-white/[0.08]">
+          <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/dashboard/orbit"
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-950/70 text-violet-200 hover:text-white text-xs font-semibold border border-violet-500/40 hover:border-violet-400 transition-colors shadow-xs"
+          >
+            <OrbitIcon className="w-3.5 h-3.5 text-violet-300" size={14} />
+            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-violet-500/30 text-violet-200">
+              INTRODUCING ORBIT
+            </span>
+            <span>All-in-One AI Workspace &rarr;</span>
+          </Link>
           <Link
             to="/docs#sec-quick-setup"
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-950/60 text-violet-300 hover:text-white text-xs font-semibold border border-violet-700/50 hover:border-violet-600 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/60 text-zinc-300 hover:text-white text-xs font-semibold border border-zinc-800 hover:border-zinc-700 transition-colors"
           >
-            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-violet-500/30 text-violet-200">
-              NEW
+            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300">
+              CLI
             </span>
-            <span>Fast 1-Command CLI Installer &middot; npx lightningdeals &rarr;</span>
+            <span>npx lightningdeals &rarr;</span>
           </Link>
+        </div>
 
           <div className="flex items-center gap-4 text-xs font-mono text-zinc-400">
             <span className="inline-flex items-center gap-1.5">
@@ -320,10 +333,11 @@ for chunk in stream:
             {/* CTAs: Clear Primary Actions */}
             <div className="flex flex-wrap items-center gap-3.5 pt-1">
               <Link
-                to={ctaDestination}
+                to={user ? '/dashboard/orbit' : '/register'}
                 className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-sm sm:text-base font-bold shadow-lg shadow-violet-600/30 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
               >
-                <span>Get Started</span>
+                <OrbitIcon className="w-4 h-4 text-violet-200" size={16} />
+                <span>Explore Orbit</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 

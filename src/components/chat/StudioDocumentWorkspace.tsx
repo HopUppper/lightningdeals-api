@@ -504,7 +504,7 @@ export const StudioDocumentWorkspace: React.FC<StudioDocumentWorkspaceProps> = (
             {/* Document Footer Sign-off */}
             {content && (
               <div className="mt-12 pt-6 border-t border-black/10 dark:border-white/10 flex flex-wrap items-center justify-between text-xs text-slate-400 dark:text-slate-500 font-mono gap-2">
-                <span>LightningAPI Studio • Verified Engineering Artifact</span>
+                <span>Orbit Documents • Powered by LightningAPI</span>
                 <span>{stats.words.toLocaleString()} words • UTF-8 Valid</span>
               </div>
             )}

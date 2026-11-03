@@ -22,6 +22,7 @@ import {
   Play
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { OrbitIcon } from './brand/OrbitIcon';
 
 export const StudioFlagshipSection: React.FC = () => {
   const { user } = useAuth();
@@ -71,7 +72,8 @@ export const StudioFlagshipSection: React.FC = () => {
             className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold tracking-wider uppercase bg-[#f5f3ff] text-[#6d28d9] border border-[#c4b5fd]/80 shadow-2xs"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#6d28d9]" />
-            <span>YOUR AI WORKSPACE</span>
+            <OrbitIcon className="w-3.5 h-3.5 text-[#6d28d9]" size={14} />
+            <span>MEET ORBIT · POWERED BY LIGHTNINGAPI</span>
           </motion.div>
 
           <motion.h2
@@ -82,7 +84,7 @@ export const StudioFlagshipSection: React.FC = () => {
             className="text-3xl sm:text-5xl font-extrabold text-[#1c1917] tracking-tight leading-[1.15]"
           >
             More than an API. <br className="hidden sm:inline" />
-            <span className="text-[#6d28d9]">A workspace to think, create and build.</span>
+            <span className="text-[#6d28d9]">Your AI universe. One place.</span>
           </motion.h2>
 
           <motion.p
@@ -92,7 +94,7 @@ export const StudioFlagshipSection: React.FC = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-sm sm:text-base text-[#57534e] max-w-2xl mx-auto leading-relaxed"
           >
-            Explore AI Chat Studio with an eligible trial key or unlock more capacity and capabilities with a paid plan. Chat with supported models, analyze documents, write code and create downloadable work products in one workspace.
+            Orbit is your all-in-one AI workspace, powered by LightningAPI. Chat with leading AI models, research the web, create documents, analyse information, code and get things done — all in one place.
           </motion.p>
 
           {/* Action CTAs */}
@@ -108,7 +110,7 @@ export const StudioFlagshipSection: React.FC = () => {
               className="px-6 py-3 rounded-2xl bg-[#6d28d9] hover:bg-[#5b21b6] text-white text-sm font-bold shadow-xs hover:shadow-md transition-all flex items-center gap-2 group cursor-pointer"
             >
               <Bot className="w-4 h-4 text-violet-200" />
-              <span>Explore AI Chat Studio</span>
+              <span>Explore Orbit</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
 

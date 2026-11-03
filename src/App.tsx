@@ -271,6 +271,7 @@ export function App() {
                 <Route path="/refund" element={<RefundPage />} />
                 <Route path="/refund-policy" element={<RefundPage />} />
                 <Route path="/rewards" element={<Navigate to="/dashboard/rewards" replace />} />
+                <Route path="/orbit" element={<Navigate to="/dashboard/orbit" replace />} />
                 <Route path="/studio" element={<Navigate to="/dashboard/studio" replace />} />
                 <Route path="/chat" element={<Navigate to="/dashboard/studio" replace />} />
                 <Route path="/builder" element={<WebsiteBuilderLanding />} />

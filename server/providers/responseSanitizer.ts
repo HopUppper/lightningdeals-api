@@ -14,8 +14,10 @@ export function sanitizeModelResponse(text: string, friendlyModelName?: string, 
   if (!text) return text;
   let result = text
     // 1. Scrub upstream supplier advertising pitch and self-identity canned prompts
-    .replace(/You are chatting with (.+?), an official Anthropic model served by ScaleMax(?:\.pro)?\.(?:\s*Other ScaleMax [^\n\r]+)?/gi, (match, m) => `You are chatting with ${friendlyModelName || m}, an official Anthropic model powered by LightningAPI.`)
-    .replace(/You are chatting with Claude Sonnet 5,/gi, `You are chatting with ${friendlyModelName || 'Claude Sonnet 5.5'},`)
+    .replace(/You are chatting with (.+?), an official Anthropic model served by ScaleMax(?:\.pro)?\.(?:\s*Other ScaleMax [^\n\r]+)?/gi, (match, m) => `You are chatting with ${friendlyModelName || (m === 'Claude Sonnet 5' ? 'Claude Sonnet 5.5' : m)}, an official Anthropic model powered by LightningAPI.`)
+    .replace(/\b(?:Claude\s+)?Sonnet 5\b(?![\.\d])/gi, (m) => m.toLowerCase().startsWith('claude') ? (friendlyModelName || 'Claude Sonnet 5.5') : (friendlyModelName ? friendlyModelName.replace(/^Claude\s+/i, '') : 'Sonnet 5.5'))
+    .replace(/\b(?:Claude\s+)?Opus 5\b(?![\.\d])/gi, (m) => m.toLowerCase().startsWith('claude') ? (friendlyModelName || 'Claude Opus 5.5') : (friendlyModelName ? friendlyModelName.replace(/^Claude\s+/i, '') : 'Opus 5.5'))
+    .replace(/\b(?:Claude\s+)?Haiku 5\b(?![\.\d])/gi, (m) => m.toLowerCase().startsWith('claude') ? (friendlyModelName || 'Claude Haiku 5.5') : (friendlyModelName ? friendlyModelName.replace(/^Claude\s+/i, '') : 'Haiku 5.5'))
     .replace(/Other ScaleMax [^\n\r]+/gi, '')
     .replace(/served by ScaleMax(?:\.pro)?/gi, 'powered by LightningAPI')
     .replace(/served by Opus\s*Max/gi, 'powered by LightningAPI')
@@ -34,6 +36,8 @@ export function sanitizeModelResponse(text: string, friendlyModelName?: string, 
     .replace(/\bopusmax(?:\.pro)?\b/gi, 'lightningapi')
     .replace(/\bLotus\s*AI(?:\.pro)?\b/gi, 'LightningAPI')
     .replace(/\blotusai(?:\.pro)?\b/gi, 'lightningapi')
+    .replace(/\bOpenPipe\b/gi, 'LightningAPI')
+    .replace(/\bopenpipe\b/gi, 'lightningapi')
 
     // 2. Remove supplier URLs and hostnames
     .replace(/https?:\/\/[a-zA-Z0-9.-]*(?:scalemax|opusmax|lotusai)[a-zA-Z0-9.-]*(?:\/[^\s"']*)?/gi, 'https://lightningapi.pro')
@@ -56,11 +60,15 @@ export function sanitizeModelResponse(text: string, friendlyModelName?: string, 
     .replace(/claude-3-opus-20240229/gi, friendlyModelName || 'Claude Opus 5.5')
     .replace(/claude-3-5-sonnet-20241022/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/claude-3-5-sonnet-20240620/gi, friendlyModelName || 'Claude Sonnet 5.5')
+    .replace(/claude-3-5-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/claude-3\.5-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/claude-3-5-haiku-20241022/gi, friendlyModelName || 'Claude Haiku 5.5')
+    .replace(/claude-3-5-haiku/gi, friendlyModelName || 'Claude Haiku 5.5')
     .replace(/claude-3\.5-haiku/gi, friendlyModelName || 'Claude Haiku 5.5')
     .replace(/claude-3-haiku-20240307/gi, friendlyModelName || 'Claude Haiku 5.5')
+    .replace(/claude-3-haiku/gi, friendlyModelName || 'Claude Haiku 5.5')
     .replace(/claude-3-sonnet-20240229/gi, friendlyModelName || 'Claude Sonnet 5.5')
+    .replace(/claude-3-sonnet/gi, friendlyModelName || 'Claude Sonnet 5.5')
     .replace(/claude-3-opus/gi, friendlyModelName || 'Claude Opus 5.5')
 
     // 5. Strip internal system prompt reflection leaks and identity deliberation commentary
@@ -156,7 +164,7 @@ export function sanitizeErrorMessage(message: string, customScrubbers?: string[]
     }
   }
 
-  return result.trim();
+  return result;
 }
 
 /**

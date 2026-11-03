@@ -20,7 +20,16 @@ import { resolveProviderCredential } from './providers/credentialResolver';
 import { authenticateJwt, optionalAuthenticateJwt, AuthRequest } from './auth';
 import { builderRouter } from './studioBuilder';
 import { buildProviderRequest } from './providerAdapter';
-import { mapToUpstreamModel, getFriendlyModelName, sanitizeModelResponse, sanitizeErrorMessage } from './gateway';
+import {
+  mapToUpstreamModel,
+  getFriendlyModelName,
+  sanitizeModelResponse,
+  sanitizeErrorMessage,
+  isModelIdentityQuery,
+  isModelRefusalQuery,
+  generateModelIdentityResponse,
+  StreamChunkSanitizer,
+} from './gateway';
 import { executeAdvancedResearchPipeline } from './research';
 import {
   searchWeb,
@@ -2500,6 +2509,8 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('X-No-Buffer', '1');
+    res.socket?.setNoDelay(true);
     if (res.flushHeaders) res.flushHeaders();
 
     // Emit memory usage event to client
@@ -2529,6 +2540,94 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
 
     // Notify client of conversation session
     sendSse('session', { conversationId: conversation.id, title: conversation.title, model: selectedModel });
+
+    // Direct Model Identity Interception (Zero latency, exact branding, zero token ballooning)
+    if (prompt && !isContinuation && (isModelIdentityQuery(prompt) || isModelRefusalQuery(prompt))) {
+      const isRefusal = isModelRefusalQuery(prompt);
+      const identityText = generateModelIdentityResponse(friendlyModel, isRefusal);
+
+      // Record user turn in DB
+      await prisma.studioMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: 'user',
+          content: prompt.trim(),
+          attachments: Array.isArray(attachments) && attachments.length > 0 ? JSON.stringify(attachments) : null,
+        },
+      }).catch(() => {});
+
+      sendSse('content_delta', { text: identityText });
+
+      // Record assistant turn in DB
+      await prisma.studioMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: identityText,
+        },
+      }).catch(() => {});
+
+      // Settle minimal local accounting (5 prompt tokens, 25 output tokens)
+      await settleReservation(studioRequestId);
+      const minIn = 5;
+      const minOut = 25;
+      const costUsd = Math.max(0.0001, Math.round(((minIn * 2.0 + minOut * 10.0) / 1000000) * 100000) / 100000);
+      const curBal = Number(keyRecord.creditBalanceUsd || 0);
+      const newBal = Math.max(0, curBal - costUsd);
+
+      if (keyRecord.billingType === 'credit') {
+        await prisma.apiKey.update({
+          where: { id: keyRecord.id },
+          data: {
+            creditBalanceUsd: newBal,
+            totalCreditsUsedUsd: { increment: costUsd },
+            tokensUsed: { increment: BigInt(minIn + minOut) },
+            totalRequests: { increment: 1 },
+            lastUsedAt: new Date(),
+          },
+        }).catch(() => {});
+
+        await prisma.customerUsageCreditLedger.create({
+          data: {
+            userId,
+            apiKeyId: keyRecord.id,
+            type: 'USAGE_DEDUCTION',
+            amount: -costUsd,
+            balanceBefore: curBal,
+            balanceAfter: newBal,
+            currency: 'USD',
+            model: selectedModel,
+            inputTokens: minIn,
+            outputTokens: minOut,
+            reference: studioRequestId,
+            notes: `AI Chat Studio: ${friendlyModel} (${costUsd.toFixed(4)})`,
+          },
+        }).catch(() => {});
+      }
+
+      sendSse('usage', {
+        inputTokens: minIn,
+        outputTokens: minOut,
+        totalTokens: minIn + minOut,
+        billedTokens: minIn + minOut,
+        costUsd,
+        currency: 'USD',
+        creditBalanceUsd: keyRecord.billingType === 'credit' ? newBal : curBal,
+        billingType: keyRecord.billingType,
+      });
+
+      sendSse('done', {
+        conversationId: conversation.id,
+        stopReason: 'end_turn',
+        latencyMs: 10,
+        ttftMs: 5,
+        totalTokens: minIn + minOut,
+        costUsd,
+      });
+
+      res.end();
+      return;
+    }
 
     // Initialize Context-Aware Activity Tracker
     const taskAnalysis = analyzePromptTaskContext(prompt, researchMode, targetUrl);
@@ -2583,8 +2682,13 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       }
     } else if ((researchMode === 'web_search' || taskAnalysis.category === 'web_search' || researchMode === 'deep_research' || taskAnalysis.category === 'deep_research') && prompt) {
       const mode = (researchMode === 'deep_research' || taskAnalysis.category === 'deep_research') ? 'deep_research' : 'web_search';
+      // Find previous user turn or conversation title for contextual shopping / deal follow-ups
+      const lastUserMsg = Array.isArray(clientMessages) && clientMessages.length > 0
+        ? [...clientMessages].reverse().find((m: any) => m.role === 'user' && m.content !== prompt)?.content
+        : undefined;
       const researchRes = await executeAdvancedResearchPipeline(prompt.trim(), {
         researchMode: mode,
+        contextHint: typeof lastUserMsg === 'string' ? lastUserMsg : conversation.title,
         onProgress: (step, title, detail) => activityTracker.startStep(step, title, detail),
       });
 
@@ -2608,32 +2712,47 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     const outboundMessages: any[] = [];
 
     // Helper to format a message with multimodal/document attachments
-    const formatTurnContent = (content: any, atts?: any[]) => {
+    // Helper to format a message with multimodal/document attachments (pruning stale base64 to avoid token explosion)
+    const formatTurnContent = (content: any, atts?: any[], isRecentTurn: boolean = false) => {
       if (Array.isArray(atts) && atts.length > 0) {
         const parts: any[] = [];
         for (const att of atts) {
           if (att.type === 'image' && att.dataBase64) {
-            parts.push({
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: att.mimeType,
-                data: att.dataBase64,
-              },
-            });
+            if (isRecentTurn) {
+              parts.push({
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: att.mimeType || 'image/jpeg',
+                  data: att.dataBase64,
+                },
+              });
+            } else {
+              parts.push({
+                type: 'text',
+                text: `[Previously analyzed image: ${att.name || 'image.png'}]`,
+              });
+            }
           } else if (att.type === 'document' && att.dataBase64) {
-            parts.push({
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: att.dataBase64,
-              },
-            });
+            if (isRecentTurn) {
+              parts.push({
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: 'application/pdf',
+                  data: att.dataBase64,
+                },
+              });
+            } else {
+              parts.push({
+                type: 'text',
+                text: `[Previously analyzed document: ${att.name || 'document.pdf'}]`,
+              });
+            }
           } else if (att.textSnippet) {
             parts.push({
               type: 'text',
-              text: `--- ATTACHED FILE: ${att.name} ---\n\`\`\`\n${att.textSnippet}\n\`\`\`\n`,
+              text: `--- ATTACHED FILE: ${att.name} ---\n\`\`\`\n${isRecentTurn ? att.textSnippet : (att.textSnippet.slice(0, 400) + '... (historical context)')}\n\`\`\`\n`,
             });
           }
         }
@@ -2647,11 +2766,12 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       return typeof content === 'string' ? content : JSON.stringify(content || '');
     };
 
-    // Ingest prior history from client
+    // Ingest prior history from client (Bounded to 16 turns to guarantee ultra-low latency & avoid token ballooning)
     if (Array.isArray(clientMessages) && clientMessages.length > 0) {
-      const turnsToKeep = tokenSaverEnabled ? clientMessages.slice(-6) : clientMessages;
-      if (tokenSaverEnabled && clientMessages.length > 6) {
-        const omittedMessages = clientMessages.slice(0, -6);
+      const maxTurns = tokenSaverEnabled ? 6 : 16;
+      const turnsToKeep = clientMessages.length > maxTurns ? clientMessages.slice(-maxTurns) : clientMessages;
+      if (clientMessages.length > maxTurns) {
+        const omittedMessages = clientMessages.slice(0, -maxTurns);
         const omittedChars = omittedMessages.reduce((sum: number, m: any) => {
           const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
           return sum + contentStr.length;
@@ -2659,12 +2779,13 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
         estimatedSavingsTokens += Math.ceil(omittedChars / 4);
       }
 
-      for (const m of turnsToKeep) {
+      turnsToKeep.forEach((m, idx) => {
+        const isRecentTurn = idx >= turnsToKeep.length - 2;
         outboundMessages.push({
           role: m.role,
-          content: formatTurnContent(m.content, m.attachments),
+          content: formatTurnContent(m.content, m.attachments, isRecentTurn),
         });
-      }
+      });
     }
 
     // Crucial Bugfix (Part 1.2): Always ensure active user prompt is the concluding turn
@@ -2679,7 +2800,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     if (!isPromptAlreadyLast && (prompt?.trim() || (Array.isArray(attachments) && attachments.length > 0))) {
       outboundMessages.push({
         role: 'user',
-        content: formatTurnContent(prompt?.trim() || '', attachments),
+        content: formatTurnContent(prompt?.trim() || '', attachments, true),
       });
     }
     if (isContinuation) {
@@ -2800,6 +2921,7 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     // 10. Stream Chunks to Client & Buffer for DB Persistence
     const reader = upstreamRes.body?.getReader();
     const decoder = new TextDecoder();
+    const chunkSanitizer = new StreamChunkSanitizer(friendlyModel);
     let sseBuffer = '';
     let accumulatedText = '';
     let accumulatedThinking = '';
@@ -2846,9 +2968,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
                       accumulatedThinking += cleanThinking;
                       res.write(`event: thinking_delta\ndata: ${JSON.stringify({ thinking: cleanThinking })}\n\n`);
                     } else if (data.delta?.type === 'text_delta' && data.delta.text) {
-                      const cleanText = sanitizeModelResponse(data.delta.text, friendlyModel);
-                      accumulatedText += cleanText;
-                      res.write(`event: content_delta\ndata: ${JSON.stringify({ text: cleanText })}\n\n`);
+                      const cleanText = chunkSanitizer.process(data.delta.text);
+                      if (cleanText) {
+                        accumulatedText += cleanText;
+                        res.write(`event: content_delta\ndata: ${JSON.stringify({ text: cleanText })}\n\n`);
+                      }
                     }
                   }
 
@@ -2875,9 +2999,11 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
                       res.write(`event: thinking_delta\ndata: ${JSON.stringify({ thinking: cleanThinking })}\n\n`);
                     }
                     if (choice.delta?.content) {
-                      const cleanText = sanitizeModelResponse(choice.delta.content, friendlyModel);
-                      accumulatedText += cleanText;
-                      res.write(`event: content_delta\ndata: ${JSON.stringify({ text: cleanText })}\n\n`);
+                      const cleanText = chunkSanitizer.process(choice.delta.content);
+                      if (cleanText) {
+                        accumulatedText += cleanText;
+                        res.write(`event: content_delta\ndata: ${JSON.stringify({ text: cleanText })}\n\n`);
+                      }
                     }
                     if (choice.finish_reason) {
                       stopReason = choice.finish_reason;
@@ -2902,6 +3028,13 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
           streamInterrupted = true;
           interruptionReason = streamErr.message || 'Stream connection closed unexpectedly';
         }
+      } finally {
+        const remaining = chunkSanitizer.flush();
+        if (remaining) {
+          accumulatedText += remaining;
+          res.write(`event: content_delta\ndata: ${JSON.stringify({ text: remaining })}\n\n`);
+        }
+        accumulatedText = sanitizeModelResponse(accumulatedText, friendlyModel);
       }
     }
 

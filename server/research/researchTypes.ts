@@ -64,6 +64,8 @@ export interface ProductListing {
   marketplace: string;
   directProductUrl: string | null;
   searchFallbackUrl: string | null;
+  amazonUrl?: string | null;
+  flipkartUrl?: string | null;
   urlType: UrlType;
   productIdentifier: string | null; // e.g. Amazon ASIN (B0...) or Flipkart FSN/PID
   imageUrl?: string;

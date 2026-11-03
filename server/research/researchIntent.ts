@@ -31,7 +31,7 @@ export interface ExtractedIntentEntities {
 /**
  * Classifies research intent and extracts key entities from user query.
  */
-export function analyzeResearchIntent(userPrompt: string): ExtractedIntentEntities {
+export function analyzeResearchIntent(userPrompt: string, contextHint?: string): ExtractedIntentEntities {
   const prompt = (userPrompt || '').trim();
   const lower = prompt.toLowerCase();
 
@@ -164,6 +164,26 @@ export function analyzeResearchIntent(userPrompt: string): ExtractedIntentEntiti
     if (lower.includes(b)) {
       brandOrEntity = b;
       break;
+    }
+  }
+
+  // Conversational Follow-Up Resolution: extract entity from contextHint if not present in prompt
+  if (!brandOrEntity && contextHint && typeof contextHint === 'string') {
+    const hintLower = contextHint.toLowerCase();
+    for (const b of brands) {
+      if (hintLower.includes(b)) {
+        brandOrEntity = b;
+        break;
+      }
+    }
+    if (!brandOrEntity) {
+      const cleanHint = contextHint
+        .replace(/^(find|search|give me|show me|look up|what are|tell me about|compare|research|can u|can you)\s+/i, '')
+        .replace(/\s+(in india|in us|for me|today|please|now)$/i, '')
+        .trim();
+      if (cleanHint.length > 3 && cleanHint.length < 60) {
+        primarySubject = `${cleanHint} ${primarySubject}`.trim();
+      }
     }
   }
 

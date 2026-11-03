@@ -208,9 +208,9 @@ export function extractProductListings(
     } else if (targetEntityHint && new RegExp(targetEntityHint, 'i').test(combinedText)) {
       detectedModel = targetEntityHint;
     } else {
-      // Generic product title extraction
-      const titleClean = src.title.split(/[-–|]/)[0].trim();
-      if (titleClean.length > 5 && titleClean.length < 50) {
+      // Generic product title extraction (cleaning parenthesis, brackets, dashes)
+      const titleClean = src.title.split(/[(\[,\-–|]/)[0].trim();
+      if (titleClean.length > 3 && titleClean.length < 80) {
         detectedModel = titleClean;
       }
     }
@@ -241,6 +241,17 @@ export function extractProductListings(
     } else {
       priceStatus = sellingPrice ? 'RECENTLY_OBSERVED' : 'UNVERIFIED';
     }
+
+    const isAmazon = classified.domain.includes('amazon');
+    const isFlipkart = classified.domain.includes('flipkart');
+
+    const amazonUrl = (isAmazon && directProductUrl)
+      ? directProductUrl
+      : `https://www.amazon.in/s?k=${encodeURIComponent(detectedModel)}`;
+
+    const flipkartUrl = (isFlipkart && directProductUrl)
+      ? directProductUrl
+      : `https://www.flipkart.com/search?q=${encodeURIComponent(detectedModel)}`;
 
     // Calculate discount
     let discountPercent: number | null = null;
@@ -300,6 +311,8 @@ export function extractProductListings(
       marketplace: classified.merchant,
       directProductUrl,
       searchFallbackUrl,
+      amazonUrl,
+      flipkartUrl,
       urlType: classified.urlType,
       productIdentifier: classified.productIdentifier,
       specifications: specs,

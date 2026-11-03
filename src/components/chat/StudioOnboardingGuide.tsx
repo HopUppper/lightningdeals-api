@@ -59,7 +59,7 @@ export const StudioOnboardingGuide: React.FC<StudioOnboardingGuideProps> = ({
           </div>
           <div>
             <h3 className="font-bold text-sm text-[#111827] dark:text-white">
-              Getting Started with AI Chat Studio
+              Getting Started with AI Orbit
             </h3>
             <p className="text-[11px] text-[#6b7280] dark:text-slate-400">
               High-speed frontier intelligence with instant code downloads and sandboxed previews

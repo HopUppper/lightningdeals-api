@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationCenter } from '../../components/NotificationCenter';
+import { OrbitIcon } from '../../components/brand/OrbitIcon';
 
 interface NavItem {
   name: string;
@@ -68,8 +69,8 @@ export const UserDashboardLayout: React.FC = () => {
       title: 'DEVELOP',
       icon: Cpu,
       items: [
-        { name: 'AI Website Builder', path: '/dashboard/builder', icon: Sparkles, badge: 'Studio' },
-        { name: 'AI Chat Studio', path: '/dashboard/studio', icon: Bot },
+        { name: 'Orbit Builder', path: '/dashboard/builder', icon: Sparkles, badge: 'Builder' },
+        { name: 'Orbit Workspace', path: '/dashboard/studio', icon: OrbitIcon, badge: 'All-in-One' },
         { name: 'API Keys', path: '/dashboard/keys', icon: Key },
         { name: 'Models & Rates', path: '/dashboard/models', icon: Cpu, badge: '82 Models' },
         { name: 'API Console', path: '/dashboard/api-test', icon: Play },

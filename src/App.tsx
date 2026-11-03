@@ -309,6 +309,8 @@ export function App() {
                   <Route path="referral" element={<UserReferrals />} />
                   <Route path="docs" element={<UserDocs />} />
                   <Route path="orders" element={<UserOrders />} />
+                  <Route path="orbit" element={<UserChatStudio />} />
+                  <Route path="orbit/builder" element={<UserWebsiteBuilder />} />
                   <Route path="studio" element={<UserChatStudio />} />
                   <Route path="chat" element={<UserChatStudio />} />
                   <Route path="builder" element={<UserWebsiteBuilder />} />

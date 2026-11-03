@@ -85,6 +85,7 @@ export const SiteHeader: React.FC = () => {
 
   // Primary Navigation Hierarchy
   const navLinks = [
+    { name: 'Orbit', href: user ? '/dashboard/studio' : '/login?redirect=%2Fdashboard%2Fstudio', badge: 'Workspace' },
     { name: 'Models', href: '/models' },
     { name: 'Plans', href: '/pricing' },
     { name: 'Verify Key', href: '/check-key' },

@@ -70,6 +70,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { userFetch, getAuthHeaders } from '../../utils/api';
+import { OrbitIcon, OrbitBrandBadge } from '../../components/brand/OrbitIcon';
 import { MarkdownBlock } from '../../components/chat/MarkdownBlock';
 import { StudioDocumentWorkspace } from '../../components/chat/StudioDocumentWorkspace';
 import { ArtifactCanvas, ArtifactData } from '../../components/chat/ArtifactCanvas';
@@ -767,7 +768,8 @@ export const UserChatStudio: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [availableModels, setAvailableModels] = useState<StudioModelMeta[]>(VERIFIED_MODELS);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
@@ -1450,6 +1452,15 @@ export const UserChatStudio: React.FC = () => {
       }
     );
   }, [threads, activeThreadId]);
+
+  // Orbit Document Title Sync
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = activeThread.title && activeThread.title !== 'New Session'
+        ? `${activeThread.title} — Orbit`
+        : 'Orbit — Your AI Universe, Powered by LightningAPI';
+    }
+  }, [activeThread?.title]);
 
   const activeModelMeta = useMemo(() => {
     return (
@@ -2797,6 +2808,13 @@ export const UserChatStudio: React.FC = () => {
             </button>
           )}
 
+          {/* Orbit Brand Mark */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 shrink-0 select-none">
+            <OrbitIcon className="w-3.5 h-3.5 text-violet-500" size={14} glow />
+            <span className="font-bold text-[11px] tracking-tight text-zinc-900 dark:text-white">Orbit</span>
+          </div>
+          <span className="hidden sm:inline text-slate-300 dark:text-slate-700">/</span>
+
           {/* Session Title (Inline Editable) */}
           <div className="flex items-center gap-1.5 min-w-0 max-w-[200px] sm:max-w-[280px] md:max-w-[360px]">
             {isEditingTitle ? (
@@ -4062,15 +4080,23 @@ export const UserChatStudio: React.FC = () => {
                   )}
 
                   <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-violet-500/20">
-                    <Sparkles className="w-6 h-6" />
+                    <OrbitIcon className="w-6 h-6 text-white" size={24} glow />
                   </div>
 
                   <div className="space-y-1.5 max-w-xl mx-auto">
-                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      LightningAPI AI Chat Studio
-                    </h2>
-                    <p className={`text-xs sm:text-sm leading-relaxed ${c.textMuted}`}>
-                      Frontier reasoning, instant code downloads, and sandboxed previews.
+                    <div className="flex items-center justify-center gap-2">
+                      <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                        Welcome to Orbit
+                      </h2>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-violet-500/15 text-violet-600 dark:text-violet-300 border border-violet-500/20">
+                        Workspace
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-medium text-violet-600 dark:text-violet-400">
+                      Your AI universe. One place.
+                    </p>
+                    <p className={`text-xs leading-relaxed ${c.textMuted}`}>
+                      Ask questions, explore ideas, research the web, create documents and get things done — powered by LightningAPI.
                     </p>
                   </div>
 
@@ -4116,7 +4142,7 @@ export const UserChatStudio: React.FC = () => {
                         className="inline-flex items-center gap-1.5 text-xs text-violet-600 dark:text-violet-400 hover:underline font-medium cursor-pointer"
                       >
                         <HelpCircle className="w-3.5 h-3.5" />
-                        <span>View Studio guide & capabilities</span>
+                        <span>View Orbit guide & capabilities</span>
                       </button>
                     </div>
                   )}

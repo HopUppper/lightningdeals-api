@@ -2582,7 +2582,16 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       }
     } else if ((researchMode === 'web_search' || taskAnalysis.category === 'web_search') && prompt) {
       activityTracker.startStep('searching_web', 'Searching the web', `Querying authoritative sources for "${prompt.trim().substring(0, 50)}"...`);
-      const searchRes = await searchWeb(prompt.trim(), { maxResults: 5 });
+      const isShopping = /\b(buy|deal|deals|discount|price|prices|under\s*(?:₹|rs\.?|\$)?\s*\d+|amazon|flipkart|shop|shopping|purchase|cost|specs|best\s+(?:phone|phones|smartphone|smartphones|laptop|laptops|pc|mini\s*pc|tv|gadget|monitor|headphones|earbuds))\b/i.test(prompt);
+      let queryToExecute = prompt.trim();
+      let maxResults = 6;
+      if (isShopping) {
+        maxResults = 8;
+        if (!/amazon/i.test(queryToExecute) && !/flipkart/i.test(queryToExecute)) {
+          queryToExecute = queryToExecute + ' amazon in flipkart buy';
+        }
+      }
+      const searchRes = await searchWeb(queryToExecute, { maxResults });
       if (searchRes.results.length > 0) {
         researchSources.push(...searchRes.results);
         activityTracker.startStep('evaluating_sources', 'Evaluating retrieved sources', `Found ${searchRes.results.length} verified web sources. Extracting factual evidence...`);

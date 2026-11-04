@@ -180,7 +180,7 @@ export function extractCleanDomain(urlString: string): string {
 /**
  * Classifies any web URL into its authoritative research category.
  */
-export function classifyUrl(rawUrl: string): ClassifiedUrlInfo {
+export function classifyUrl(rawUrl: string, targetLocation: 'India' | 'US' | 'Global' = 'India'): ClassifiedUrlInfo {
   const cleanUrl = sanitizeAndNormalizeUrl(rawUrl);
   let parsed: URL;
   try {
@@ -206,13 +206,15 @@ export function classifyUrl(rawUrl: string): ClassifiedUrlInfo {
     const dpMatch = pathname.match(/(?:\/dp\/|\/gp\/product\/|\/product\/)([A-Z0-9]{10})(?:[/?]|$)/i);
     if (dpMatch && dpMatch[1]) {
       const asin = dpMatch[1].toUpperCase();
-      const canonicalListingUrl = `https://${parsed.hostname}/dp/${asin}`;
+      const isIndia = targetLocation === 'India' || domain.endsWith('.in');
+      const canonicalHost = isIndia ? 'www.amazon.in' : (parsed.hostname.includes('amazon.in') ? 'www.amazon.in' : parsed.hostname);
+      const canonicalListingUrl = `https://${canonicalHost}/dp/${asin}`;
       return {
         urlType: 'direct_product_listing',
         rawUrl,
         cleanUrl,
-        domain,
-        merchant: domain.endsWith('.in') ? 'Amazon India' : 'Amazon',
+        domain: canonicalHost.replace(/^www\./i, ''),
+        merchant: isIndia ? 'Amazon India' : 'Amazon',
         productIdentifier: asin,
         identifierType: 'ASIN',
         canonicalListingUrl,
@@ -225,8 +227,8 @@ export function classifyUrl(rawUrl: string): ClassifiedUrlInfo {
         urlType: 'marketplace_search',
         rawUrl,
         cleanUrl,
-        domain,
-        merchant: domain.endsWith('.in') ? 'Amazon India' : 'Amazon',
+        domain: canonicalHost.replace(/^www\./i, ''),
+        merchant: isIndia ? 'Amazon India' : 'Amazon',
         productIdentifier: null,
         canonicalListingUrl: null,
       };
@@ -238,8 +240,8 @@ export function classifyUrl(rawUrl: string): ClassifiedUrlInfo {
         urlType: 'category_page',
         rawUrl,
         cleanUrl,
-        domain,
-        merchant: domain.endsWith('.in') ? 'Amazon India' : 'Amazon',
+        domain: canonicalHost.replace(/^www\./i, ''),
+        merchant: isIndia ? 'Amazon India' : 'Amazon',
         productIdentifier: null,
         canonicalListingUrl: null,
       };
@@ -356,6 +358,34 @@ export function classifyUrl(rawUrl: string): ClassifiedUrlInfo {
         productIdentifier: rdMatch[1],
         identifierType: 'SKU',
         canonicalListingUrl: `https://www.reliancedigital.in/p/${rdMatch[1]}`,
+      };
+    }
+  }
+
+  // 3b. NewJaisa Refurbished Marketplace
+  if (domain.includes('newjaisa.com')) {
+    if (pathname.includes('/products/')) {
+      const slug = pathname.split('/products/')[1]?.split(/[/?]/)[0] || null;
+      return {
+        urlType: 'direct_product_listing',
+        rawUrl,
+        cleanUrl,
+        domain,
+        merchant: 'NewJaisa Refurbished',
+        productIdentifier: slug,
+        identifierType: 'SKU',
+        canonicalListingUrl: cleanUrl,
+      };
+    }
+    if (pathname.includes('/collections/') || pathname.includes('/pages/')) {
+      return {
+        urlType: 'category_page',
+        rawUrl,
+        cleanUrl,
+        domain,
+        merchant: 'NewJaisa Refurbished',
+        productIdentifier: null,
+        canonicalListingUrl: null,
       };
     }
   }

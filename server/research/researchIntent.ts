@@ -5,14 +5,23 @@
  *
  * Analyzes natural language user prompts to determine the exact research category,
  * extracts budget, location, product entities, and generates targeted multi-angle search queries.
+ * Fully supports multi-turn conversational query rewriting and context inheritance.
  */
 
 import { ResearchCategory, ResearchPlan } from './researchTypes';
+
+export interface ConversationContextHint {
+  title?: string;
+  previousUserMessage?: string;
+  previousAssistantResponse?: string;
+  recentMessages?: Array<{ role: string; content: string }>;
+}
 
 export interface ExtractedIntentEntities {
   category: ResearchCategory;
   primarySubject: string;
   brandOrEntity: string;
+  detectedModels?: string[];
   targetLocation: 'India' | 'US' | 'Global';
   currency: string;
   budgetLimit: {
@@ -21,6 +30,7 @@ export interface ExtractedIntentEntities {
   } | null;
   requiredAttributes: string[];
   isShoppingOrProduct: boolean;
+  isFollowUp?: boolean;
   generatedQueries: Array<{
     query: string;
     purpose: 'broad' | 'amazon_direct' | 'flipkart_direct' | 'specs_official' | 'pricing' | 'academic' | 'general';
@@ -30,49 +40,94 @@ export interface ExtractedIntentEntities {
 
 /**
  * Classifies research intent and extracts key entities from user query.
+ * Fully contextual: resolves anaphoric follow-ups ("can u give me the direct product link?")
+ * using conversation history to prevent amnesia and irrelevant queries.
  */
-export function analyzeResearchIntent(userPrompt: string, contextHint?: string): ExtractedIntentEntities {
+export function analyzeResearchIntent(
+  userPrompt: string,
+  contextHint?: string | ConversationContextHint
+): ExtractedIntentEntities {
   const prompt = (userPrompt || '').trim();
   const lower = prompt.toLowerCase();
 
-  // 1. Detect Location & Currency
-  let targetLocation: 'India' | 'US' | 'Global' = 'Global';
-  let currency = 'USD';
+  // Extract text from contextHint
+  let contextUserText = '';
+  let contextAssistantText = '';
+  if (typeof contextHint === 'string') {
+    contextUserText = contextHint;
+  } else if (contextHint && typeof contextHint === 'object') {
+    contextUserText = contextHint.previousUserMessage || contextHint.title || '';
+    contextAssistantText = contextHint.previousAssistantResponse || '';
+  }
+  const combinedContext = `${contextUserText} ${contextAssistantText}`.trim();
+  const combinedContextLower = combinedContext.toLowerCase();
 
-  if (
-    lower.includes('in india') ||
-    lower.includes('india') ||
-    lower.includes('flipkart') ||
-    lower.includes('amazon.in') ||
-    lower.includes('croma') ||
-    lower.includes('reliance digital') ||
-    lower.includes('₹') ||
-    lower.includes('rs.') ||
-    lower.includes('inr') ||
-    /\b(lakh|crore)\b/i.test(lower)
-  ) {
-    targetLocation = 'India';
-    currency = 'INR';
-  } else if (lower.includes('in uk') || lower.includes('£') || lower.includes('gbp')) {
-    targetLocation = 'Global';
-    currency = 'GBP';
-  } else if (lower.includes('in europe') || lower.includes('€') || lower.includes('eur')) {
-    targetLocation = 'Global';
-    currency = 'EUR';
-  } else if (lower.includes('$') || lower.includes('usd') || lower.includes('in us') || lower.includes('in usa')) {
+  // 1. Follow-up / Anaphora Detection
+  const followUpPattern =
+    /^(can (u|you) (give|share|send|provide|show) (me )?(the )?(direct |purchase |buy )?(product |amazon |flipkart )?links?\??)/i.test(lower) ||
+    /\b(direct (product )?links?|purchase links?|buy links?|amazon links?|flipkart links?|where to buy|how to buy|where can i buy|indian links?|india links?|purchase link|product link)\b/i.test(lower) ||
+    /^(give me|show me|share|send) (the )?(links?|options?|deals?|prices?)/i.test(lower) ||
+    /^(which (one|is better)|what about (the|this)|show (me )?cheaper|any other|is there any)\b/i.test(lower) ||
+    (/\b(this|that|these|those|it|them|the first one|the second one|the former|the latter)\b/i.test(lower) && prompt.split(/\s+/).length <= 10);
+
+  const isFollowUp = Boolean(followUpPattern && combinedContext.length > 5);
+
+  // 2. Detect Location & Currency
+  // Default to India for consumer shopping on LightningAPI unless explicit US/UK/EUR markers exist
+  let targetLocation: 'India' | 'US' | 'Global' = 'India';
+  let currency = 'INR';
+
+  const hasExplicitUs =
+    /\$|\busd\b|\bin us\b|\bin usa\b|\bunited states\b|\bamazon\.com\b/i.test(lower);
+  const hasExplicitUk =
+    /£|\bgbp\b|\bin uk\b|\bunited kingdom\b|\bamazon\.co\.uk\b/i.test(lower);
+  const hasExplicitEur =
+    /€|\beur\b|\bin europe\b|\bamazon\.de\b/i.test(lower);
+
+  if (hasExplicitUs) {
     targetLocation = 'US';
     currency = 'USD';
+  } else if (hasExplicitUk) {
+    targetLocation = 'Global';
+    currency = 'GBP';
+  } else if (hasExplicitEur) {
+    targetLocation = 'Global';
+    currency = 'EUR';
+  } else {
+    // Check if India markers exist in prompt or context
+    const hasIndiaMarker =
+      /₹|\brs\.?|\binr\b|\b(lakh|crore)\b|\bflipkart\b|\bamazon\.in\b|\bcroma\b|\breliance digital\b|\bin india\b|\bindia\b|\bnewjaisa\b/i.test(lower) ||
+      /\b\d+\s*k\b/i.test(lower) ||
+      /₹|\brs\.?|\binr\b|\b(lakh|crore)\b|\bflipkart\b|\bamazon\.in\b|\bin india\b|\bindia\b|\bnewjaisa\b/i.test(combinedContextLower);
+
+    if (hasIndiaMarker) {
+      targetLocation = 'India';
+      currency = 'INR';
+    } else if (isFollowUp && combinedContextLower.includes('usd')) {
+      targetLocation = 'US';
+      currency = 'USD';
+    } else {
+      // Default consumer shopping to India, academic / tech to Global if neutral
+      targetLocation = 'India';
+      currency = 'INR';
+    }
   }
 
-  // 2. Detect Budget Constraint
+  // 3. Detect Budget Constraint (checking prompt first, then context)
   let budgetLimit: { amount: number; currency: string } | null = null;
-  const budgetMatch = lower.match(/(?:under|below|less than|within|budget of)\s*(?:₹|rs\.?|\$|€|£)?\s*([0-9,]+)(?:\s*(?:k|thousand|lakh|inr|usd))?/i);
-  if (budgetMatch && budgetMatch[1]) {
-    let rawNum = parseFloat(budgetMatch[1].replace(/,/g, ''));
+  const budgetSourceText = lower + (isFollowUp ? ` ${combinedContextLower}` : '');
+  const budgetMatch = budgetSourceText.match(
+    /(?:under|below|less than|within|budget of)\s*(?:₹|rs\.?|\$|€|£)?\s*([0-9,]+)(?:\s*(?:k|thousand|lakh|inr|usd))?(?:\s*(?:or|to|-)\s*([0-9,]+)(?:\s*(?:k|thousand|lakh|inr|usd))?)?/i
+  );
+
+  if (budgetMatch) {
+    // If range like "within 16k or 17k", use upper bound
+    const rawValStr = budgetMatch[2] || budgetMatch[1];
+    let rawNum = parseFloat(rawValStr.replace(/,/g, ''));
     if (!isNaN(rawNum)) {
-      if (lower.includes(`${budgetMatch[1]}k`) || lower.includes('thousand')) {
+      if (budgetSourceText.includes(`${rawValStr}k`) || budgetSourceText.includes('thousand') || (rawNum <= 100 && currency === 'INR')) {
         rawNum = rawNum * 1000;
-      } else if (lower.includes('lakh')) {
+      } else if (budgetSourceText.includes('lakh')) {
         rawNum = rawNum * 100000;
       }
       budgetLimit = {
@@ -82,16 +137,18 @@ export function analyzeResearchIntent(userPrompt: string, contextHint?: string):
     }
   }
 
-  // 3. Classify Category
+  // 4. Classify Category
   let category: ResearchCategory = 'general_factual';
-  const isShopping = /\b(buy|deal|deals|discount|discounts|price|prices|cheap|cheapest|under\s*(?:₹|rs\.?|\$)?\s*\d+|amazon|flipkart|shop|shopping|purchase|cost|offer|offers)\b/i.test(lower);
-  const isComparison = /\b(compare|comparison|versus|vs|better than|difference between)\b/i.test(lower);
-  const isSpecs = /\b(specs|specifications|features|camera|battery|processor|display|ram|storage)\b/i.test(lower);
-  const isSoftwareSaaS = /\b(saas|software|crm|hosting|provider|cloud|database|postgres|postgresql|tool|tools|pricing plan|per month|subscription)\b/i.test(lower);
-  const isTechnical = /\b(api|sdk|code|github|documentation|architecture|benchmark|performance|latency|postgres|kubernetes|docker|library)\b/i.test(lower);
-  const isAcademic = /\b(paper|papers|study|studies|research paper|arxiv|journal|peer-reviewed|impact of|academic|doi)\b/i.test(lower);
-  const isNews = /\b(latest news|current events|breaking|today|announcement|announced)\b/i.test(lower);
-  const isMarket = /\b(market size|market share|industry report|cagr|forecast|revenue|market analysis)\b/i.test(lower);
+  const effectiveTextForCategory = isFollowUp ? `${combinedContextLower} ${lower}` : lower;
+
+  const isShopping = /\b(buy|deal|deals|discount|discounts|price|prices|cheap|cheapest|under\s*(?:₹|rs\.?|\$)?\s*\d+|\d+\s*k\b|amazon|flipkart|shop|shopping|purchase|cost|offer|offers|refurbished|renewed|mini pc|pc|laptop|phone|smartphone|direct product link|product link)\b/i.test(effectiveTextForCategory);
+  const isComparison = /\b(compare|comparison|versus|vs|better than|difference between)\b/i.test(effectiveTextForCategory);
+  const isSpecs = /\b(specs|specifications|features|camera|battery|processor|display|ram|storage)\b/i.test(effectiveTextForCategory);
+  const isSoftwareSaaS = /\b(saas|software|crm|hosting|provider|cloud|database|postgres|postgresql|tool|tools|pricing plan|per month|subscription)\b/i.test(effectiveTextForCategory);
+  const isTechnical = /\b(api|sdk|code|github|documentation|architecture|benchmark|performance|latency|postgres|kubernetes|docker|library)\b/i.test(effectiveTextForCategory);
+  const isAcademic = /\b(paper|papers|study|studies|research paper|arxiv|journal|peer-reviewed|impact of|academic|doi)\b/i.test(effectiveTextForCategory);
+  const isNews = /\b(latest news|current events|breaking|today|announcement|announced)\b/i.test(effectiveTextForCategory);
+  const isMarket = /\b(market size|market share|industry report|cagr|forecast|revenue|market analysis)\b/i.test(effectiveTextForCategory);
 
   if (isAcademic) {
     category = 'academic_research';
@@ -103,7 +160,7 @@ export function analyzeResearchIntent(userPrompt: string, contextHint?: string):
     category = 'technical_research';
   } else if (isShopping && isComparison) {
     category = 'price_comparison';
-  } else if (isShopping && /\b(deal|deals|discount|offer|cheapest)\b/i.test(lower)) {
+  } else if (isShopping && /\b(deal|deals|discount|offer|cheapest|cheap)\b/i.test(effectiveTextForCategory)) {
     category = 'deal_discovery';
   } else if (isShopping) {
     category = 'product_discovery';
@@ -115,24 +172,54 @@ export function analyzeResearchIntent(userPrompt: string, contextHint?: string):
     category = 'general_factual';
   }
 
-  // 4. Extract Primary Brand / Entity
-  let primarySubject = prompt;
-  let brandOrEntity = '';
+  // 5. Extract Specific Models & Hardware Entities
+  const detectedModels: string[] = [];
+  const modelRegexes = [
+    /dell\s+optiplex\s+(?:30[0-9]{2}|70[0-9]{2}|50[0-9]{2}|[0-9]{4}|micro)/gi,
+    /hp\s+prodesk\s+(?:600|400|800|g[0-9]|mini|micro)/gi,
+    /hp\s+elitedesk\s+(?:800|705|g[0-9]|mini)/gi,
+    /lenovo\s+thinkcentre\s+(?:m[0-9]{2,3}[a-z]?|tiny)/gi,
+    /tecno\s+pova\s+(?:[0-9]+(?:\s*(?:pro|neo|5g))?)/gi,
+    /samsung\s+galaxy\s+(?:[a-z0-9]+)/gi,
+    /iphone\s+(?:[0-9]{1,2}(?:\s*(?:pro|max|plus|mini))?)/gi,
+    /mac\s+mini\s+(?:m[0-9])/gi,
+  ];
 
-  // Clean conversational prefixes
-  const subjectClean = prompt
-    .replace(/^(find|search|give me|show me|look up|what are|tell me about|compare|research)\s+/i, '')
+  const searchCorpus = `${prompt} ${combinedContext}`;
+  for (const regex of modelRegexes) {
+    const matches = searchCorpus.match(regex);
+    if (matches) {
+      for (const m of matches) {
+        const clean = m.trim();
+        if (!detectedModels.some(existing => existing.toLowerCase() === clean.toLowerCase())) {
+          detectedModels.push(clean);
+        }
+      }
+    }
+  }
+
+  // 6. Extract Primary Brand / Entity
+  let primarySubject = prompt
+    .replace(/^(can (u|you) (get|find|give|show|recommend) (me )?(a )?(cheap |good |best )?(deal (on|for) (a )?)?)/i, '')
+    .replace(/^(find|search|give me|show me|look up|what are|tell me about|compare|research|where can i buy|where to buy|looking for)\s+(a\s+)?/i, '')
+    .replace(/\s+(within\s*(?:₹|rs\.?|\$)?\s*\d+\s*(?:k|thousand)?(?:\s*(?:or|to|-)\s*\d+\s*(?:k|thousand)?)?)$/i, '')
+    .replace(/\s+(under\s*(?:₹|rs\.?|\$)?\s*\d+\s*(?:k|thousand)?)$/i, '')
     .replace(/\s+(in india|in us|for me|today|please|now)$/i, '')
     .trim();
 
-  primarySubject = subjectClean;
-
+  let brandOrEntity = '';
   const brands = [
     'tecno pova',
     'tecno',
+    'dell optiplex',
+    'hp prodesk',
+    'hp elitedesk',
+    'lenovo thinkcentre',
     'samsung',
     'apple',
     'iphone',
+    'macbook',
+    'mac mini',
     'xiaomi',
     'redmi',
     'poco',
@@ -142,20 +229,13 @@ export function analyzeResearchIntent(userPrompt: string, contextHint?: string):
     'iqoo',
     'vivo',
     'oppo',
-    'nothing phone',
-    'pixel',
-    'google pixel',
     'asus',
     'lenovo',
     'dell',
     'hp',
-    'macbook',
     'postgresql',
     'supabase',
     'linear',
-    'jira',
-    'notion',
-    'trello',
     'docker',
     'kubernetes',
   ];
@@ -167,27 +247,53 @@ export function analyzeResearchIntent(userPrompt: string, contextHint?: string):
     }
   }
 
-  // Conversational Follow-Up Resolution: extract entity from contextHint if not present in prompt
-  if (!brandOrEntity && contextHint && typeof contextHint === 'string') {
-    const hintLower = contextHint.toLowerCase();
+  // If follow-up or missing brand, extract from context
+  if (!brandOrEntity && combinedContext) {
     for (const b of brands) {
-      if (hintLower.includes(b)) {
+      if (combinedContextLower.includes(b)) {
         brandOrEntity = b;
         break;
       }
     }
-    if (!brandOrEntity) {
-      const cleanHint = contextHint
-        .replace(/^(find|search|give me|show me|look up|what are|tell me about|compare|research|can u|can you)\s+/i, '')
-        .replace(/\s+(in india|in us|for me|today|please|now)$/i, '')
-        .trim();
-      if (cleanHint.length > 3 && cleanHint.length < 60) {
-        primarySubject = `${cleanHint} ${primarySubject}`.trim();
+  }
+
+  // Rewrite primarySubject if it's a follow-up
+  if (isFollowUp) {
+    if (detectedModels.length > 0) {
+      primarySubject = detectedModels.slice(0, 2).join(' and ');
+    } else {
+      const hardwareKeywords = [
+        'refurbished mini pc',
+        'mini pc',
+        'refurbished laptop',
+        'refurbished desktop',
+        'laptop',
+        'smartphone',
+        'budget phone',
+      ];
+      for (const hw of hardwareKeywords) {
+        if (combinedContextLower.includes(hw)) {
+          primarySubject = hw;
+          break;
+        }
       }
+    }
+
+    // Append key hardware specs from context
+    const specs: string[] = [];
+    const cpuMatch = combinedContext.match(/i[3579][ -]?[0-9]{1,2}(?:th|[0-9]{3}[a-z]*)?/i);
+    if (cpuMatch) specs.push(cpuMatch[0]);
+    const ramMatch = combinedContext.match(/([0-9]{1,2}\s*gb(?:\s*ram)?)/i);
+    if (ramMatch) specs.push(ramMatch[0]);
+    const storageMatch = combinedContext.match(/([0-9]{3,4}\s*gb(?:\s*ssd)?)/i);
+    if (storageMatch) specs.push(storageMatch[0]);
+
+    if (specs.length > 0) {
+      primarySubject += ` ${specs.join(' ')}`;
     }
   }
 
-  // 5. Generate Multi-Angle Search Strategy
+  // 7. Generate Multi-Angle Search Strategy
   const isShoppingOrProduct = [
     'product_discovery',
     'price_comparison',
@@ -199,42 +305,74 @@ export function analyzeResearchIntent(userPrompt: string, contextHint?: string):
   const generatedQueries: ExtractedIntentEntities['generatedQueries'] = [];
 
   if (isShoppingOrProduct) {
-    const cleanProductTarget = brandOrEntity || primarySubject.replace(/\b(deals?|best|buy|find|under\s*\d+|price)\b/gi, '').trim();
+    let cleanProductTarget = brandOrEntity || primarySubject
+      .replace(/\b(deals?|best|buy|find|under\s*\d+|price|direct product link|or above|cheap)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     if (targetLocation === 'India') {
-      // Angle 1: Direct Marketplace Amazon Listing
-      generatedQueries.push({
-        query: `${cleanProductTarget} site:amazon.in dp`,
-        purpose: 'amazon_direct',
-        preferredDomains: ['amazon.in'],
-      });
+      // If we have specific detected models, target them directly on Amazon India and Flipkart
+      if (detectedModels.length > 0) {
+        for (const model of detectedModels.slice(0, 2)) {
+          generatedQueries.push({
+            query: `site:amazon.in "${model}" renewed OR refurbished`,
+            purpose: 'amazon_direct',
+            preferredDomains: ['amazon.in'],
+          });
+          generatedQueries.push({
+            query: `site:flipkart.com "${model}"`,
+            purpose: 'flipkart_direct',
+            preferredDomains: ['flipkart.com'],
+          });
+        }
+      } else {
+        // Direct Amazon India listing search without restrictive whole-sentence quotes
+        const conciseTarget = cleanProductTarget
+          .replace(/\b(with|for|or|above)\b/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
 
-      // Angle 2: Direct Marketplace Flipkart Listing
-      generatedQueries.push({
-        query: `${cleanProductTarget} site:flipkart.com /p/`,
-        purpose: 'flipkart_direct',
-        preferredDomains: ['flipkart.com'],
-      });
+        generatedQueries.push({
+          query: `site:amazon.in ${conciseTarget}`,
+          purpose: 'amazon_direct',
+          preferredDomains: ['amazon.in'],
+        });
+        // Direct Flipkart listing search
+        generatedQueries.push({
+          query: `site:flipkart.com ${conciseTarget}`,
+          purpose: 'flipkart_direct',
+          preferredDomains: ['flipkart.com'],
+        });
+      }
 
-      // Angle 3: Authoritative Spec Sheet / Price Tracker (Gadgets360 / 91mobiles)
+      // Spec & Price Authority Check
       generatedQueries.push({
-        query: `${cleanProductTarget} price in india specs site:91mobiles.com OR site:gadgets360.com`,
+        query: `${cleanProductTarget} price in India buy online deals 2026`,
         purpose: 'specs_official',
-        preferredDomains: ['91mobiles.com', 'gadgets360.com'],
       });
 
-      // Angle 4: Broad live deal query
+      // Broad Deal query
       generatedQueries.push({
-        query: `${cleanProductTarget} price in India deals 2026`,
+        query: `${cleanProductTarget} buy in India amazon flipkart`,
         purpose: 'broad',
       });
     } else {
       // Global / US Shopping
-      generatedQueries.push({
-        query: `${cleanProductTarget} site:amazon.com dp`,
-        purpose: 'amazon_direct',
-        preferredDomains: ['amazon.com'],
-      });
+      if (detectedModels.length > 0) {
+        for (const model of detectedModels.slice(0, 2)) {
+          generatedQueries.push({
+            query: `site:amazon.com "${model}"`,
+            purpose: 'amazon_direct',
+            preferredDomains: ['amazon.com'],
+          });
+        }
+      } else {
+        generatedQueries.push({
+          query: `site:amazon.com "${cleanProductTarget}"`,
+          purpose: 'amazon_direct',
+          preferredDomains: ['amazon.com'],
+        });
+      }
       generatedQueries.push({
         query: `${cleanProductTarget} official price specs`,
         purpose: 'specs_official',
@@ -271,37 +409,39 @@ export function analyzeResearchIntent(userPrompt: string, contextHint?: string):
   } else {
     // General factual research
     generatedQueries.push({
-      query: prompt,
+      query: isFollowUp ? primarySubject : prompt,
       purpose: 'general',
     });
     generatedQueries.push({
-      query: `${primarySubject} comprehensive overview analysis 2026`,
+      query: `${primarySubject} overview analysis 2026`,
       purpose: 'broad',
     });
   }
 
-  // 6. Extract Required Attributes
+  // 8. Extract Required Attributes
   const requiredAttributes: string[] = [];
-  const ramMatch = lower.match(/\b(\d+\s*gb)\s*(?:ram)?\b/i);
+  const ramMatch = effectiveTextForCategory.match(/\b(\d+\s*gb)\s*(?:ram)?\b/i);
   if (ramMatch) requiredAttributes.push(ramMatch[1].toUpperCase() + ' RAM');
 
-  const storageMatch = lower.match(/\b(\d+\s*gb|\d+\s*tb)\s*(?:storage|rom|ssd)\b/i);
+  const storageMatch = effectiveTextForCategory.match(/\b(\d+\s*gb|\d+\s*tb)\s*(?:storage|rom|ssd)\b/i);
   if (storageMatch) requiredAttributes.push(storageMatch[1].toUpperCase() + ' Storage');
 
-  if (lower.includes('5g')) requiredAttributes.push('5G');
-  if (lower.includes('amoled')) requiredAttributes.push('AMOLED Display');
-  if (lower.includes('refurbished')) requiredAttributes.push('Refurbished');
+  if (effectiveTextForCategory.includes('5g')) requiredAttributes.push('5G');
+  if (effectiveTextForCategory.includes('amoled')) requiredAttributes.push('AMOLED Display');
+  if (effectiveTextForCategory.includes('refurbished') || effectiveTextForCategory.includes('renewed')) requiredAttributes.push('Refurbished');
 
   return {
     category,
-    primarySubject,
+    primarySubject: primarySubject.trim(),
     brandOrEntity,
+    detectedModels,
     targetLocation,
     currency,
     budgetLimit,
     requiredAttributes,
     isShoppingOrProduct,
-    generatedQueries,
+    isFollowUp,
+    generatedQueries: generatedQueries.slice(0, 4),
   };
 }
 

@@ -2682,13 +2682,29 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       }
     } else if ((researchMode === 'web_search' || taskAnalysis.category === 'web_search' || researchMode === 'deep_research' || taskAnalysis.category === 'deep_research') && prompt) {
       const mode = (researchMode === 'deep_research' || taskAnalysis.category === 'deep_research') ? 'deep_research' : 'web_search';
-      // Find previous user turn or conversation title for contextual shopping / deal follow-ups
-      const lastUserMsg = Array.isArray(clientMessages) && clientMessages.length > 0
-        ? [...clientMessages].reverse().find((m: any) => m.role === 'user' && m.content !== prompt)?.content
-        : undefined;
+      // Extract rich multi-turn conversation context for contextual shopping, product follow-ups, and query resolution
+      let conversationContext: any = conversation.title;
+      if (Array.isArray(clientMessages) && clientMessages.length > 0) {
+        const reversed = [...clientMessages].reverse();
+        const prevUserMsg = reversed.find((m: any) => m.role === 'user' && m.content !== prompt)?.content;
+        const prevAssistantMsg = reversed.find((m: any) => m.role === 'assistant')?.content;
+
+        const recentTurns = clientMessages.slice(-4).map((m: any) => ({
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content.substring(0, 500) : '',
+        }));
+
+        conversationContext = {
+          title: conversation.title,
+          previousUserMessage: typeof prevUserMsg === 'string' ? prevUserMsg : undefined,
+          previousAssistantResponse: typeof prevAssistantMsg === 'string' ? prevAssistantMsg : undefined,
+          recentMessages: recentTurns,
+        };
+      }
+
       const researchRes = await executeAdvancedResearchPipeline(prompt.trim(), {
         researchMode: mode,
-        contextHint: typeof lastUserMsg === 'string' ? lastUserMsg : conversation.title,
+        contextHint: conversationContext,
         onProgress: (step, title, detail) => activityTracker.startStep(step, title, detail),
       });
 

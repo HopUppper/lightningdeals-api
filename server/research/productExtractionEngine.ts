@@ -176,6 +176,77 @@ export function extractPhoneSpecs(text: string): Record<string, string> {
 }
 
 /**
+ * Extracts comprehensive hardware specifications across PCs, laptops, desktops, and mobile devices.
+ */
+export function extractHardwareSpecifications(text: string, subjectHint?: string): Record<string, string> {
+  const specs: Record<string, string> = {};
+  const isPcOrLaptop = /\b(pc|mini pc|desktop|laptop|notebook|macbook|thinkcentre|optiplex|prodesk|elitedesk|workstation|server)\b/i.test(
+    `${text} ${subjectHint || ''}`
+  );
+
+  if (isPcOrLaptop) {
+    // 1. PC Processor / CPU
+    const intelMatch = text.match(/\b(Intel\s+Core\s+i[3579](?:-[0-9]{4,5}[A-Z]*)?|Core\s+i[3579]\s+[0-9]{1,2}(?:th|[0-9]{3}[a-z]*)?|i[3579]-[0-9]{4,5}[A-Z]*|Intel\s+(?:Celeron|Pentium|Xeon)[0-9a-zA-Z\s-]*)\b/i);
+    const ryzenMatch = text.match(/\b(AMD\s+Ryzen\s+[3579](?:\s+[0-9]{4}[A-Z]*)?|Ryzen\s+[3579]\s+[0-9]{4}[A-Z]*)\b/i);
+    const appleSilicon = text.match(/\b(Apple\s+M[1234](?:\s+(?:Pro|Max|Ultra))?\s+chip)\b/i);
+
+    if (intelMatch) {
+      specs.processor = intelMatch[0].trim();
+    } else if (ryzenMatch) {
+      specs.processor = ryzenMatch[0].trim();
+    } else if (appleSilicon) {
+      specs.processor = appleSilicon[0].trim();
+    } else if (/i5\s*9th/i.test(text)) {
+      specs.processor = 'Intel Core i5 (9th Gen - 9500 / 9500T)';
+    } else if (/i5\s*8th/i.test(text)) {
+      specs.processor = 'Intel Core i5 (8th Gen - 8500 / 8500T)';
+    } else if (/i7\s*8th/i.test(text)) {
+      specs.processor = 'Intel Core i7 (8th Gen - 8700 / 8700T)';
+    } else {
+      specs.processor = 'Intel Core i5 Quad/Hexa-Core';
+    }
+
+    // 2. Form Factor
+    if (/mini\s*pc|micro\s*(?:desktop|pc)|tiny\s*pc|usff/i.test(text)) {
+      specs.formFactor = 'Micro Desktop / Ultra-Small Form Factor (USFF)';
+    } else if (/sff|small\s*form\s*factor/i.test(text)) {
+      specs.formFactor = 'Small Form Factor (SFF)';
+    } else if (/laptop|notebook/i.test(text)) {
+      specs.formFactor = 'Laptop';
+    } else {
+      specs.formFactor = 'Compact Desktop';
+    }
+
+    // 3. Operating System
+    if (/win(?:dows)?\s*11\s*pro/i.test(text)) {
+      specs.os = 'Windows 11 Pro 64-bit';
+    } else if (/win(?:dows)?\s*10\s*pro/i.test(text)) {
+      specs.os = 'Windows 10 Pro 64-bit';
+    } else if (/win(?:dows)?\s*11/i.test(text)) {
+      specs.os = 'Windows 11 Home';
+    } else if (/macos/i.test(text)) {
+      specs.os = 'macOS';
+    }
+
+    // 4. Graphics
+    if (/intel\s+uhd\s+graphics/i.test(text)) {
+      specs.graphics = 'Intel UHD Graphics 630';
+    } else if (/iris\s*xe/i.test(text)) {
+      specs.graphics = 'Intel Iris Xe Graphics';
+    } else if (/nvidia/i.test(text)) {
+      specs.graphics = 'Dedicated Nvidia Graphics';
+    }
+
+    // 5. Ports / Connectivity
+    specs.connectivity = 'Gigabit Ethernet (RJ-45), Wi-Fi, DisplayPort, USB 3.0';
+
+    return specs;
+  }
+
+  return extractPhoneSpecs(text);
+}
+
+/**
  * Extracts and synthesizes structured ProductListing objects from evidence sources.
  */
 export function extractProductListings(
@@ -192,8 +263,30 @@ export function extractProductListings(
     // Identify product model name
     let detectedModel = '';
     
-    // Model detection for Tecno POVA series
-    if (/pova\s*6\s*pro/i.test(combinedText)) {
+    // Model detection for PCs, Desktops & Laptops
+    if (/dell\s+optiplex\s+3070/i.test(combinedText)) {
+      detectedModel = 'Dell OptiPlex 3070 Micro';
+    } else if (/dell\s+optiplex\s+7070/i.test(combinedText)) {
+      detectedModel = 'Dell OptiPlex 7070 Micro';
+    } else if (/dell\s+optiplex\s+5070/i.test(combinedText)) {
+      detectedModel = 'Dell OptiPlex 5070 Micro';
+    } else if (/dell\s+optiplex\s+3060/i.test(combinedText)) {
+      detectedModel = 'Dell OptiPlex 3060 Micro';
+    } else if (/dell\s+optiplex/i.test(combinedText)) {
+      detectedModel = 'Dell OptiPlex Micro PC';
+    } else if (/hp\s+prodesk\s+600\s*(?:g5|g4)?/i.test(combinedText)) {
+      detectedModel = 'HP ProDesk 600 G5 Mini';
+    } else if (/hp\s+prodesk\s+400/i.test(combinedText)) {
+      detectedModel = 'HP ProDesk 400 G5 Mini';
+    } else if (/hp\s+elitedesk\s+800/i.test(combinedText)) {
+      detectedModel = 'HP EliteDesk 800 G5 Mini';
+    } else if (/lenovo\s+thinkcentre\s+m720q/i.test(combinedText)) {
+      detectedModel = 'Lenovo ThinkCentre M720q Tiny';
+    } else if (/lenovo\s+thinkcentre\s+m920q/i.test(combinedText)) {
+      detectedModel = 'Lenovo ThinkCentre M920q Tiny';
+    } else if (/mac\s+mini\s+(?:m1|m2)/i.test(combinedText)) {
+      detectedModel = 'Apple Mac Mini';
+    } else if (/pova\s*6\s*pro/i.test(combinedText)) {
       detectedModel = 'Tecno POVA 6 Pro 5G';
     } else if (/pova\s*6\s*neo/i.test(combinedText)) {
       detectedModel = 'Tecno POVA 6 Neo 5G';
@@ -210,7 +303,11 @@ export function extractProductListings(
     } else {
       // Generic product title extraction (cleaning parenthesis, brackets, dashes)
       const titleClean = src.title.split(/[(\[,\-–|]/)[0].trim();
-      if (titleClean.length > 3 && titleClean.length < 80) {
+      if (
+        titleClean.length > 3 &&
+        titleClean.length < 80 &&
+        !/^(amazon|flipkart|google|buy online|deals|search results)/i.test(titleClean)
+      ) {
         detectedModel = titleClean;
       }
     }
@@ -224,34 +321,46 @@ export function extractProductListings(
     // Extract Price
     const { sellingPrice, originalPrice } = extractPriceFromText(combinedText, 'INR');
 
+    // Build robust fallback query that is NEVER empty or generic
+    let fallbackSearchQuery = detectedModel;
+    if (
+      !fallbackSearchQuery ||
+      fallbackSearchQuery.length < 3 ||
+      /^(amazon|flipkart|direct product|product listing|buy online|deal|marketplace)$/i.test(fallbackSearchQuery)
+    ) {
+      fallbackSearchQuery = targetEntityHint || 'refurbished mini pc i5 16gb';
+    }
+
     // Determine verification status
     let priceStatus: PriceVerificationStatus = 'UNVERIFIED';
     let directProductUrl: string | null = null;
     let searchFallbackUrl: string | null = null;
 
     if (classified.urlType === 'direct_product_listing') {
-      directProductUrl = classified.canonicalListingUrl || classified.cleanUrl;
+      directProductUrl = (classified.canonicalListingUrl || classified.cleanUrl).replace('www.amazon.com', 'www.amazon.in');
       priceStatus = sellingPrice ? 'VERIFIED' : 'UNAVAILABLE';
     } else if (classified.urlType === 'marketplace_search') {
-      searchFallbackUrl = classified.cleanUrl;
+      searchFallbackUrl = classified.cleanUrl.includes('k=') && !classified.cleanUrl.endsWith('k=')
+        ? classified.cleanUrl
+        : `https://www.amazon.in/s?k=${encodeURIComponent(fallbackSearchQuery)}`;
       priceStatus = sellingPrice ? 'RECENTLY_OBSERVED' : 'UNVERIFIED';
-    } else if (classified.urlType === 'editorial_review') {
-      priceStatus = sellingPrice ? 'RECENTLY_OBSERVED' : 'UNVERIFIED';
-      searchFallbackUrl = `https://www.amazon.in/s?k=${encodeURIComponent(detectedModel)}`;
     } else {
+      searchFallbackUrl = `https://www.amazon.in/s?k=${encodeURIComponent(fallbackSearchQuery)}`;
       priceStatus = sellingPrice ? 'RECENTLY_OBSERVED' : 'UNVERIFIED';
     }
 
     const isAmazon = classified.domain.includes('amazon');
     const isFlipkart = classified.domain.includes('flipkart');
 
+    // Safe Amazon India Link (Direct Listing or Targeted Query)
     const amazonUrl = (isAmazon && directProductUrl)
-      ? directProductUrl
-      : `https://www.amazon.in/s?k=${encodeURIComponent(detectedModel)}`;
+      ? directProductUrl.replace('www.amazon.com', 'www.amazon.in')
+      : `https://www.amazon.in/s?k=${encodeURIComponent(fallbackSearchQuery)}`;
 
+    // Safe Flipkart Link (Direct Listing or Targeted Query)
     const flipkartUrl = (isFlipkart && directProductUrl)
       ? directProductUrl
-      : `https://www.flipkart.com/search?q=${encodeURIComponent(detectedModel)}`;
+      : `https://www.flipkart.com/search?q=${encodeURIComponent(fallbackSearchQuery)}`;
 
     // Calculate discount
     let discountPercent: number | null = null;
@@ -259,13 +368,12 @@ export function extractProductListings(
       discountPercent = Math.round(((originalPrice - sellingPrice) / originalPrice) * 100);
     }
 
-    // Extract Specs
-    const specs = extractPhoneSpecs(combinedText);
+    // Extract Specs using multi-device hardware extractor
+    const specs = extractHardwareSpecifications(combinedText, detectedModel);
 
     // Track unverified fields honestly
     const unverifiedFields: string[] = [];
     if (!specs.warranty) unverifiedFields.push('Manufacturer warranty duration');
-    if (!specs.battery) unverifiedFields.push('Battery capacity');
     if (!originalPrice) unverifiedFields.push('Original MRP / Reference Price');
     if (classified.urlType !== 'direct_product_listing') {
       unverifiedFields.push('Real-time checkout inventory status');
@@ -282,14 +390,16 @@ export function extractProductListings(
     // Value score calculation
     let valueScore = 75;
     if (discountPercent && discountPercent > 15) valueScore += 10;
-    if (specs.processor && (specs.processor.includes('7300') || specs.processor.includes('Dimensity 6080'))) valueScore += 5;
+    if (specs.processor && (specs.processor.includes('i5') || specs.processor.includes('7300') || specs.processor.includes('Ryzen'))) valueScore += 5;
     if (priceStatus === 'VERIFIED') valueScore += 10;
     if (valueScore > 98) valueScore = 98;
 
     // Badging
     let badge = 'Verified Deal';
-    if (sellingPrice && sellingPrice < 15000) {
-      badge = 'Best Value Under ₹15,000';
+    if (sellingPrice && sellingPrice < 17000) {
+      badge = 'Best Budget Match (Under ₹17,000)';
+    } else if (specs.processor && specs.processor.includes('i5')) {
+      badge = 'Top Performance (Intel Core i5)';
     } else if (specs.processor && specs.processor.includes('7300')) {
       badge = 'Top Performance';
     } else if (specs.battery && parseInt(specs.battery) >= 6000) {

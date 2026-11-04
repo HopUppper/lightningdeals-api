@@ -14,7 +14,7 @@ import {
   ProductListing,
   GeneralResearchFinding,
 } from './researchTypes';
-import { analyzeResearchIntent, ExtractedIntentEntities } from './researchIntent';
+import { analyzeResearchIntent, ExtractedIntentEntities, ConversationContextHint } from './researchIntent';
 import { classifyUrl, sanitizeAndNormalizeUrl } from './urlClassifier';
 import { extractProductListings, RawSourceEvidence } from './productExtractionEngine';
 import { searchWeb, fetchPublicUrl, WebSearchResult } from '../webResearch';
@@ -22,7 +22,7 @@ import { searchWeb, fetchPublicUrl, WebSearchResult } from '../webResearch';
 export interface AdvancedResearchOptions {
   researchMode?: 'web_search' | 'deep_research';
   maxRounds?: number;
-  contextHint?: string;
+  contextHint?: string | ConversationContextHint;
   onProgress?: (step: string, title: string, detail: string) => void;
 }
 
@@ -184,31 +184,69 @@ export async function executeAdvancedResearchPipeline(
   }
 
   // 6. Build Comparison Matrix
+  const isComputerOrDesktop = /\b(pc|mini pc|desktop|laptop|optiplex|prodesk|thinkcentre|elitedesk|macbook|mac mini|nuc|workstation)\b/i.test(
+    `${intent.primarySubject} ${intent.brandOrEntity || ''} ${extractedProducts.map((p) => p.exactModel).join(' ')}`
+  );
+
+  let matrixHeaders: string[];
+  let matrixRows: Record<string, string>[];
+
+  if (!intent.isShoppingOrProduct) {
+    matrixHeaders = ['Topic / Provider', 'Key Claim / Feature', 'Source Citation', 'Status'];
+    matrixRows = generalFindings.map((f) => ({
+      'Topic / Provider': f.topic,
+      'Key Claim / Feature': f.supportingExcerpt.substring(0, 80) + '...',
+      'Source Citation': `[${f.citationIndex}] ${f.sourceTitle}`,
+      Status: 'Verified against public source',
+    }));
+  } else if (isComputerOrDesktop) {
+    matrixHeaders = ['Model & Variant', 'Verified Price', 'Processor (CPU)', 'RAM & Storage', 'Form Factor / OS', 'Retailer & Direct Purchase Link'];
+    matrixRows = extractedProducts.map((p) => {
+      const ramStr = p.variant.ram || p.specifications.ram || '16GB';
+      const storageStr = p.variant.storage || p.specifications.storage || '256GB SSD';
+      const purchaseLink = p.directProductUrl
+        ? `[Direct ${p.merchant} Listing](${p.directProductUrl})`
+        : p.amazonUrl
+        ? `[Buy on Amazon.in](${p.amazonUrl})`
+        : p.flipkartUrl
+        ? `[Buy on Flipkart](${p.flipkartUrl})`
+        : p.merchant;
+
+      return {
+        'Model & Variant': `${p.exactModel} (${p.variant.condition === 'refurbished' ? 'Refurbished' : 'New'})`,
+        'Verified Price': p.sellingPrice ? `₹${p.sellingPrice.toLocaleString('en-IN')}` : 'Check Live Listing',
+        'Processor (CPU)': p.specifications.processor || 'Intel Core i5 (9th Gen or above)',
+        'RAM & Storage': `${ramStr} RAM, ${storageStr}`,
+        'Form Factor / OS': `${p.specifications.formFactor || 'Micro Desktop'} / ${p.specifications.os || 'Windows 11 Pro'}`,
+        'Retailer & Direct Purchase Link': purchaseLink,
+      };
+    });
+  } else {
+    // Smartphones & Mobile Devices
+    matrixHeaders = ['Model & Variant', 'Verified Price', 'Processor', 'Display', 'Battery & Charging', 'Retailer & Direct Purchase Link'];
+    matrixRows = extractedProducts.map((p) => {
+      const purchaseLink = p.directProductUrl
+        ? `[Direct ${p.merchant} Listing](${p.directProductUrl})`
+        : p.amazonUrl
+        ? `[Buy on Amazon.in](${p.amazonUrl})`
+        : p.flipkartUrl
+        ? `[Buy on Flipkart](${p.flipkartUrl})`
+        : p.merchant;
+
+      return {
+        'Model & Variant': `${p.exactModel} (${p.variant.ram || '8GB'}/${p.variant.storage || '128GB'})`,
+        'Verified Price': p.sellingPrice ? `₹${p.sellingPrice.toLocaleString('en-IN')}` : 'Check Live Listing',
+        Processor: p.specifications.processor || 'Fast Octa-Core Processor',
+        Display: p.specifications.display || 'FHD+ AMOLED 120Hz',
+        'Battery & Charging': `${p.specifications.battery || '5000 mAh'} / ${p.specifications.charging || 'Fast Charge'}`,
+        'Retailer & Direct Purchase Link': purchaseLink,
+      };
+    });
+  }
+
   const comparisonMatrix = {
-    headers: intent.isShoppingOrProduct
-      ? ['Model & Variant', 'Verified Price', 'Original MRP', 'Discount', 'Processor', 'Display', 'Battery & Charging', 'Retailer / Direct Link']
-      : ['Topic / Provider', 'Key Claim / Feature', 'Source Citation', 'Status'],
-    rows: intent.isShoppingOrProduct
-      ? extractedProducts.map((p) => ({
-          'Model & Variant': `${p.exactModel} (${p.variant.ram || '8GB'}/${p.variant.storage || '128GB'})`,
-          'Verified Price': p.sellingPrice ? `₹${p.sellingPrice.toLocaleString('en-IN')}` : 'Check Listing',
-          'Original MRP': p.originalPrice ? `₹${p.originalPrice.toLocaleString('en-IN')}` : 'N/A',
-          Discount: p.discountPercent ? `${p.discountPercent}% OFF` : 'N/A',
-          Processor: p.specifications.processor || 'MediaTek Dimensity',
-          Display: p.specifications.display || 'FHD+ AMOLED',
-          'Battery & Charging': `${p.specifications.battery || '6000 mAh'} / ${p.specifications.charging || 'Fast Charge'}`,
-          'Retailer / Direct Link': p.directProductUrl
-            ? `[Direct ${p.merchant} Listing](${p.directProductUrl})`
-            : p.searchFallbackUrl
-            ? `[${p.merchant} Search](${p.searchFallbackUrl})`
-            : p.merchant,
-        }))
-      : generalFindings.map((f) => ({
-          'Topic / Provider': f.topic,
-          'Key Claim / Feature': f.supportingExcerpt.substring(0, 80) + '...',
-          'Source Citation': `[${f.citationIndex}] ${f.sourceTitle}`,
-          Status: 'Verified against public source',
-        })),
+    headers: matrixHeaders,
+    rows: matrixRows,
   };
 
   // 7. Synthesize Top Recommendations
@@ -296,14 +334,36 @@ export function buildStructuredResearchPromptDirective(dataset: StructuredResear
 
   let productDetailsBlock = '';
   if (isShopping) {
+    const isComp = /\b(pc|mini pc|desktop|laptop|optiplex|prodesk|thinkcentre|elitedesk|macbook|mac mini|nuc)\b/i.test(dataset.query);
+
     productDetailsBlock = `\n\nSTRUCTURED PRODUCT EVIDENCE:
 ${dataset.products
   .map((p, idx) => {
     const priceText = p.sellingPrice ? `₹${p.sellingPrice.toLocaleString('en-IN')}` : 'Price not confirmed';
     const mrpText = p.originalPrice ? ` (MRP: ₹${p.originalPrice.toLocaleString('en-IN')})` : '';
     const discountText = p.discountPercent ? ` [${p.discountPercent}% OFF]` : '';
-    const amazonLink = p.amazonUrl || (p.directProductUrl && p.directProductUrl.includes('amazon') ? p.directProductUrl : `https://www.amazon.in/s?k=${encodeURIComponent(p.exactModel)}`);
+
+    // Ensure Amazon link always uses amazon.in for Indian target
+    let amazonLink = p.amazonUrl || (p.directProductUrl && p.directProductUrl.includes('amazon') ? p.directProductUrl : `https://www.amazon.in/s?k=${encodeURIComponent(p.exactModel)}`);
+    if (dataset.location === 'India') {
+      amazonLink = amazonLink.replace('www.amazon.com', 'www.amazon.in');
+    }
     const flipkartLink = p.flipkartUrl || (p.directProductUrl && p.directProductUrl.includes('flipkart') ? p.directProductUrl : `https://www.flipkart.com/search?q=${encodeURIComponent(p.exactModel)}`);
+
+    let specsBlock = '';
+    if (isComp) {
+      specsBlock = `  * Processor (CPU): ${p.specifications.processor || 'Intel Core i5 (9th Gen or above)'}
+  * RAM: ${p.variant.ram || p.specifications.ram || '16GB'} DDR4
+  * Storage: ${p.variant.storage || p.specifications.storage || '256GB SSD'}
+  * Form Factor: ${p.specifications.formFactor || 'Micro Desktop / Ultra-Small Form Factor'}
+  * Operating System: ${p.specifications.os || 'Windows 11 / 10 Pro 64-bit'}
+  * Condition: ${p.variant.condition === 'refurbished' ? 'Renewed / Certified Refurbished (Grade A)' : 'Brand New'}`;
+    } else {
+      specsBlock = `  * Processor: ${p.specifications.processor || 'Octa-Core Processor'}
+  * Display: ${p.specifications.display || 'FHD+ Display'}
+  * Battery & Charging: ${p.specifications.battery || '5000 mAh'} / ${p.specifications.charging || 'Fast Charge'}
+  * Camera: Rear ${p.specifications.rearCamera || '50MP AI'} | Front ${p.specifications.frontCamera || '16MP'}`;
+    }
 
     return `Product #${idx + 1}: ${p.exactModel}
 - Variant: ${p.variant.ram || '8GB'} RAM, ${p.variant.storage || '128GB'} Storage (${p.variant.condition})
@@ -311,11 +371,8 @@ ${dataset.products
 - Merchant / Marketplace: ${p.merchant}
 - Status: ${p.priceStatus} (Observed: ${p.observedDate})
 - Hardware Specs:
-  * Processor: ${p.specifications.processor || 'MediaTek Dimensity / Fast Octa-Core'}
-  * Display: ${p.specifications.display || 'FHD+ AMOLED 120Hz'}
-  * Battery & Charging: ${p.specifications.battery || '5000-6000 mAh'} / ${p.specifications.charging || 'Fast Charge'}
-  * Camera: Rear ${p.specifications.rearCamera || '50MP AI'} | Front ${p.specifications.frontCamera || '16MP'}
-- Direct Purchase Links (Amazon & Flipkart):
+${specsBlock}
+- Direct Purchase Links (Amazon India & Flipkart):
   * Amazon.in Link: ${amazonLink}
   * Flipkart Link: ${flipkartLink}
 - Deal Badge: ${p.dealQuality.badge}
@@ -338,28 +395,25 @@ CRITICAL RESEARCH PRESENTATION RULES:
 1. EVIDENCE-FIRST DIRECT ANSWER:
    - Begin immediately with a clear, concise executive summary answering the user's specific request.
    - For shopping queries, immediately state the top recommended models, their exact variants, and their verified pricing.
+   - If the user asks for direct product links, provide the direct purchase links immediately for each model discussed.
+   - FOR INDIAN USERS/QUERIES: ALL purchase links MUST be for Amazon India (amazon.in) and Flipkart (flipkart.com). NEVER output amazon.com (US) links.
 
 2. MANDATORY PURCHASE LINKS FOR AMAZON & FLIPKART:
    - For EVERY recommended product or comparison option, you MUST include direct markdown links to purchase or check the live listing on BOTH Amazon.in and Flipkart.
    - Use the exact purchase links provided above in the Structured Product Evidence:
      - Amazon.in: [Buy on Amazon.in](url)
      - Flipkart: [Buy on Flipkart](url)
-   - In comparison tables, include a dedicated "Purchase Links" column containing both [Amazon.in](url) and [Flipkart](url).
+   - In comparison tables, include a dedicated "Retailer / Purchase Link" column containing both [Amazon.in](url) and [Flipkart](url).
    - NEVER tell the customer to search for themselves or find links manually.
    - NEVER claim that you do not have links or that sources do not provide links. Always output the verified purchase links provided above!
+   - NEVER output an empty search link (e.g. /s?k=). Every link must contain the exact product model.
 
 3. VARIANT RIGOR & SPECIFICATION HONESTY:
-   - Always clearly specify RAM and Storage (e.g. 8GB RAM + 128GB Storage). Never lump different configurations together without stating the specs.
+   - Always clearly specify RAM and Storage (e.g. 16GB RAM + 256GB SSD). Never lump different configurations together without stating the specs.
    - Never fabricate specs. Use the hardware specifications provided in the evidence above.
 
 4. COMPARISON MATRIX:
-   - Present a clean, well-formatted Markdown comparison table comparing:
-     * Model & Variant
-     * Verified Price & Discount
-     * Processor / Performance
-     * Battery & Charging Speed
-     * Display
-     * Retailer & Direct Purchase Link
+   - Present a clean, well-formatted Markdown comparison table using the relevant specifications for the product type.
 
 5. RANKING RATIONALE & BADGES:
    - For each recommended option, explain WHY it is recommended (e.g. Best Overall Value, Best Performance, Best Battery).

@@ -1,5 +1,6 @@
 import { prisma } from '../db';
 import { getActiveCustomerReservations, isRollingPlan } from './tokenReservation';
+import { computeCycleBoundaries } from '../subscriptions/quotaReconciliationService';
 
 export interface CustomerRollingWindowMetrics {
   apiKeyId: string;
@@ -91,28 +92,52 @@ export async function calculateCustomerRollingWindow(
     };
   }
 
-  // 2. Rolling Window Plans: Check 5-second in-memory cache
+  // 2. Rolling Window Plans: Compute authoritative fixed cycle boundaries [cycleStart, cycleEnd)
+  let linkedSub: { activationTime: Date; quotaWindowHours: number } | null = null;
+  try {
+    linkedSub = await prisma.subscription.findFirst({
+      where: {
+        apiKeyId: keyRecord.id,
+        status: { in: ['ACTIVE', 'EXPIRING', 'active'] },
+      },
+      select: { activationTime: true, quotaWindowHours: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  } catch (e) {}
+
+  const anchorTime = linkedSub?.activationTime || keyRecord.createdAt || new Date(nowMs);
+  const effectiveWindowHours = overrideWindowHours || linkedSub?.quotaWindowHours || keyRecord.windowHours || 5;
+  const boundaries = computeCycleBoundaries(anchorTime, effectiveWindowHours, new Date(nowMs));
+  const cycleStart = boundaries.currentCycleStart;
+  const cycleEnd = boundaries.currentCycleEnd;
+
+  // Check 5-second in-memory cache strictly valid within the current cycle
   const cached = windowUsageCache.get(keyRecord.id);
   let windowTokensUsed = 0;
-  let nextResetAt: string | null = null;
-  let windowResetSeconds: number | null = null;
+  let nextResetAt: string | null = boundaries.currentCycleEnd.toISOString();
+  let windowResetSeconds: number | null = boundaries.secondsUntilReset;
   let rolloffSchedule: Array<{ tokens: number; rollsOffAt: string; secondsUntil: number }> = [];
 
-  if (!options.bypassCache && cached && (nowMs - cached.cachedAt < WINDOW_AGG_CACHE_TTL_MS)) {
+  const isCacheValid = !options.bypassCache &&
+                       cached &&
+                       cached.cachedAt >= cycleStart.getTime() &&
+                       (nowMs - cached.cachedAt < WINDOW_AGG_CACHE_TTL_MS);
+
+  if (isCacheValid && cached) {
     windowTokensUsed = cached.windowTokensUsed;
-    nextResetAt = cached.nextResetAt;
+    nextResetAt = cached.nextResetAt || boundaries.currentCycleEnd.toISOString();
     windowResetSeconds = cached.windowResetSeconds !== null
       ? Math.max(0, cached.windowResetSeconds - Math.floor((nowMs - cached.cachedAt) / 1000))
-      : null;
+      : boundaries.secondsUntilReset;
     rolloffSchedule = cached.rolloffSchedule;
   } else {
-    // Optimized single-pass aggregation and recent window items (bounded to max 50 for performance)
+    // Single-pass aggregation strictly bounded to current cycle [cycleStart, cycleEnd)
     const [windowUsageAgg, requestsInWindow] = await Promise.all([
       prisma.apiRequest.aggregate({
         _sum: { totalTokens: true },
         where: {
           apiKeyId: keyRecord.id,
-          createdAt: { gte: windowStart },
+          createdAt: { gte: cycleStart, lt: cycleEnd },
         },
       }),
       options.lightMode
@@ -120,7 +145,7 @@ export async function calculateCustomerRollingWindow(
         : prisma.apiRequest.findMany({
             where: {
               apiKeyId: keyRecord.id,
-              createdAt: { gte: windowStart },
+              createdAt: { gte: cycleStart, lt: cycleEnd },
             },
             select: {
               totalTokens: true,
@@ -132,20 +157,15 @@ export async function calculateCustomerRollingWindow(
     ]);
 
     windowTokensUsed = windowUsageAgg._sum.totalTokens || 0;
+    nextResetAt = boundaries.currentCycleEnd.toISOString();
+    windowResetSeconds = boundaries.secondsUntilReset;
 
     if (requestsInWindow.length > 0) {
-      const oldest = requestsInWindow[0];
-      const oldestMs = new Date(oldest.createdAt).getTime();
-      const rollOffMs = oldestMs + windowMs;
-      nextResetAt = new Date(rollOffMs).toISOString();
-      windowResetSeconds = Math.max(0, Math.floor((rollOffMs - nowMs) / 1000));
-
       for (const req of requestsInWindow) {
-        const rMs = new Date(req.createdAt).getTime() + windowMs;
         rolloffSchedule.push({
           tokens: req.totalTokens,
-          rollsOffAt: new Date(rMs).toISOString(),
-          secondsUntil: Math.max(0, Math.floor((rMs - nowMs) / 1000)),
+          rollsOffAt: boundaries.currentCycleEnd.toISOString(),
+          secondsUntil: boundaries.secondsUntilReset,
         });
       }
     }

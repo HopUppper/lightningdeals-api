@@ -26,6 +26,7 @@ import { isModelAuthorizedForKey } from './studioEntitlement';
 import { reserveCustomerQuota, settleReservation, releaseReservation, isRollingPlan } from './accounting/tokenReservation';
 import { calculateCustomerRollingWindow } from './accounting/customerAccounting';
 import { resolveCustomerEntitlements } from './subscriptions/subscriptionEngine';
+import { reconcileSubscriptionCycle, calculateKeyQuota } from './subscriptions/quotaReconciliationService';
 import { invalidateKeyCache } from './cache/authCache';
 import { computeFriendlyError, computeKeyResolution } from './friendlyErrors';
 
@@ -1876,19 +1877,17 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
       }
     }
 
-    let currentUsageStr = '0';
-    let quotaLimitStr = activeSub ? activeSub.quotaLimit.toString() : '0';
-    if (activeSub?.apiKey) {
-      currentUsageStr = activeSub.apiKey.tokensUsed.toString();
-    } else if (activeSub) {
-      currentUsageStr = activeSub.currentUsage.toString();
-    }
+    const cycleMetrics = activeSub ? await reconcileSubscriptionCycle(activeSub.id, new Date()) : null;
 
-    const billingType = activeSub?.apiKey?.billingType || (activeSub && activeSub.quotaLimit === 0n ? 'credit' : 'window');
-    const planCategory = activeSub?.order?.planCategory || (billingType === 'credit' ? 'claude_openai_credits' : 'claude_max_rolling');
-    const creditBalanceUsd = activeSub?.apiKey?.creditBalanceUsd ? Number(activeSub.apiKey.creditBalanceUsd) : 0;
-    const totalCreditsUsedUsd = activeSub?.apiKey?.totalCreditsUsedUsd ? Number(activeSub.apiKey.totalCreditsUsedUsd) : 0;
-    const tokensRemaining = activeSub?.apiKey?.tokensRemaining ? activeSub.apiKey.tokensRemaining.toString() : (activeSub ? (activeSub.quotaLimit - activeSub.currentUsage).toString() : '0');
+    let currentUsageStr = cycleMetrics ? cycleMetrics.currentCycleUsage : (activeSub ? activeSub.currentUsage.toString() : '0');
+    let quotaLimitStr = cycleMetrics ? cycleMetrics.quotaLimit : (activeSub ? activeSub.quotaLimit.toString() : '0');
+    let tokensRemaining = cycleMetrics ? cycleMetrics.availableQuota : (activeSub ? (activeSub.quotaLimit - activeSub.currentUsage).toString() : '0');
+
+    const billingType = cycleMetrics ? cycleMetrics.billingType : (activeSub?.apiKey?.billingType || (activeSub && activeSub.quotaLimit === 0n ? 'credit' : 'window'));
+    const planCategory = cycleMetrics ? cycleMetrics.planCategory : (activeSub?.order?.planCategory || (billingType === 'credit' ? 'claude_openai_credits' : 'claude_max_rolling'));
+    const creditBalanceUsd = cycleMetrics ? cycleMetrics.creditBalanceUsd : (activeSub?.apiKey?.creditBalanceUsd ? Number(activeSub.apiKey.creditBalanceUsd) : 0);
+    const totalCreditsUsedUsd = cycleMetrics ? cycleMetrics.totalCreditsUsedUsd : (activeSub?.apiKey?.totalCreditsUsedUsd ? Number(activeSub.apiKey.totalCreditsUsedUsd) : 0);
+    const nextResetTime = cycleMetrics ? cycleMetrics.nextResetTime : (activeSub ? activeSub.nextResetTime : new Date());
 
     res.json({
       success: true,
@@ -1899,6 +1898,7 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
             planName: activeSub.planName,
             planCategory,
             billingType,
+            billingClassification: cycleMetrics?.billingClassification || 'ROLLING_WINDOW',
             creditBalanceUsd,
             totalCreditsUsedUsd,
             status: activeSub.status,
@@ -1906,9 +1906,17 @@ router.get('/subscriptions', authenticateJwt, async (req: AuthRequest, res: Resp
             expiryTime: activeSub.expiryTime,
             quotaLimit: quotaLimitStr,
             currentUsage: currentUsageStr,
+            currentCycleUsage: currentUsageStr,
             tokensRemaining,
+            availableQuota: tokensRemaining,
+            usagePercentage: cycleMetrics?.usagePercentage || 0,
+            availablePercentage: cycleMetrics?.availablePercentage || 100,
+            previousCycleUsage: cycleMetrics?.previousCycleUsage || '0',
+            lifetimeTokensUsed: cycleMetrics?.lifetimeTokensUsed || (activeSub.apiKey?.tokensUsed || 0n).toString(),
             quotaWindowHours: activeSub.quotaWindowHours,
-            nextResetTime: activeSub.nextResetTime,
+            nextResetTime,
+            nextResetIso: cycleMetrics ? cycleMetrics.nextResetIso : activeSub.nextResetTime.toISOString(),
+            secondsUntilReset: cycleMetrics ? cycleMetrics.secondsUntilReset : Math.max(0, Math.floor((activeSub.nextResetTime.getTime() - Date.now()) / 1000)),
             apiKeyDisplay: activeSub.apiKey?.displayKey || null,
             orderId: activeSub.orderId,
           }
@@ -2427,14 +2435,18 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
         let effectiveRemaining = k.tokensRemaining;
         let activeReservations = 0n;
         let isOverAllocated = false;
+        let quotaMetrics: any = null;
 
         if (isWindow) {
-          const metrics = await calculateCustomerRollingWindow(k);
-          effectiveRemaining = BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance)));
-          activeReservations = metrics.activeReservations;
-          isOverAllocated = k.tokensUsed > k.purchasedTokens;
+          quotaMetrics = await calculateKeyQuota(k);
+          effectiveRemaining = BigInt(quotaMetrics.availableQuota);
+          isOverAllocated = BigInt(quotaMetrics.currentCycleUsage) >= BigInt(quotaMetrics.quotaLimit) && BigInt(quotaMetrics.quotaLimit) > 0n;
         } else if (k.billingType === 'token') {
-          isOverAllocated = k.tokensRemaining <= 0n;
+          quotaMetrics = await calculateKeyQuota(k);
+          effectiveRemaining = BigInt(quotaMetrics.availableQuota);
+          isOverAllocated = effectiveRemaining <= 0n;
+        } else if (k.billingType === 'credit') {
+          isOverAllocated = Number(k.creditBalanceUsd || 0) <= 0;
         }
 
         const isExpired = Boolean(k.expiresAt && new Date(k.expiresAt) < new Date());
@@ -2459,16 +2471,23 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
           plan: k.plan,
           allowedModels: k.allowedModels || 'all',
           allowedModelFamilies: k.allowedModelFamilies || 'all',
-          purchasedTokens: k.purchasedTokens?.toString() ?? '0',
-          tokensUsed: k.tokensUsed?.toString() ?? '0',
+          purchasedTokens: quotaMetrics ? quotaMetrics.quotaLimit : (k.purchasedTokens?.toString() ?? '0'),
+          tokensUsed: quotaMetrics ? quotaMetrics.currentCycleUsage : (k.tokensUsed?.toString() ?? '0'),
+          currentCycleUsage: quotaMetrics ? quotaMetrics.currentCycleUsage : (k.tokensUsed?.toString() ?? '0'),
           tokensRemaining: effectiveRemaining.toString(),
+          availableQuota: effectiveRemaining.toString(),
           rawTokensRemaining: k.tokensRemaining?.toString() ?? '0',
+          previousCycleUsage: quotaMetrics?.previousCycleUsage || '0',
+          lifetimeTokensUsed: quotaMetrics?.lifetimeTokensUsed || (k.tokensUsed?.toString() ?? '0'),
+          nextResetIso: quotaMetrics?.nextResetIso || null,
+          secondsUntilReset: quotaMetrics?.secondsUntilReset ?? null,
           activeReservations: activeReservations.toString(),
           isOverAllocated,
           keyFailureResolution,
           totalInputTokens: k.totalInputTokens?.toString() ?? '0',
           totalOutputTokens: k.totalOutputTokens?.toString() ?? '0',
           billingType: k.billingType || 'window',
+          billingClassification: quotaMetrics?.billingClassification || (k.billingType === 'credit' ? 'API_CREDITS' : k.billingType === 'token' ? 'CONSUMABLE_TOKENS' : 'ROLLING_WINDOW'),
           creditBalanceUsd: k.creditBalanceUsd !== null && k.creditBalanceUsd !== undefined ? Number(k.creditBalanceUsd) : 0,
           totalCreditsUsedUsd: k.totalCreditsUsedUsd !== null && k.totalCreditsUsedUsd !== undefined ? Number(k.totalCreditsUsedUsd) : 0,
           expiresAt: k.expiresAt,
@@ -2618,16 +2637,20 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
             purchasedTokens: 0n,
             tokensUsed: 0n,
             remainingAllowance: 0n,
+            lifetimeTokensUsed: 0n,
+            previousCycleUsage: 0n,
           };
         } else {
-          const metrics = await calculateCustomerRollingWindow(k, undefined, { lightMode: true });
+          const quota = await calculateKeyQuota(k, new Date());
           return {
             isCredit: false,
             creditBalanceUsd: 0,
             totalCreditsUsedUsd: 0,
-            purchasedTokens: k.purchasedTokens,
-            tokensUsed: k.tokensUsed,
-            remainingAllowance: BigInt(Math.max(0, Math.floor(metrics.remainingWindowAllowance))),
+            purchasedTokens: BigInt(quota.quotaLimit),
+            tokensUsed: BigInt(quota.currentCycleUsage),
+            remainingAllowance: BigInt(quota.availableQuota),
+            lifetimeTokensUsed: BigInt(quota.lifetimeTokensUsed),
+            previousCycleUsage: BigInt(quota.previousCycleUsage),
           };
         }
       })),
@@ -2694,6 +2717,8 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
     let totalPurchased = 0n;
     let totalUsed = 0n;
     let totalRemaining = 0n;
+    let totalLifetimeTokensUsed = 0n;
+    let totalPreviousCycleUsed = 0n;
     let totalCreditBalanceUsd = 0;
     let totalCreditsUsedUsd = 0;
     let hasCreditKey = false;
@@ -2707,6 +2732,8 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
         totalPurchased += res.purchasedTokens;
         totalUsed += res.tokensUsed;
         totalRemaining += res.remainingAllowance;
+        totalLifetimeTokensUsed += res.lifetimeTokensUsed || 0n;
+        totalPreviousCycleUsed += res.previousCycleUsage || 0n;
       }
     }
 
@@ -2716,10 +2743,23 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
       totalRemaining = 0n;
     }
 
+    const activeSub = await prisma.subscription.findFirst({
+      where: { userId: req.user!.id, status: { in: ['ACTIVE', 'EXPIRING', 'active'] } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const subQuota = activeSub ? await reconcileSubscriptionCycle(activeSub.id, new Date()) : null;
+
     res.json({
       totalPurchased: totalPurchased.toString(),
       totalUsed: totalUsed.toString(),
+      currentCycleUsage: totalUsed.toString(),
       totalRemaining: totalRemaining.toString(),
+      availableQuota: totalRemaining.toString(),
+      lifetimeTokensUsed: totalLifetimeTokensUsed.toString(),
+      previousCycleUsage: totalPreviousCycleUsed.toString(),
+      nextResetTime: subQuota?.nextResetTime || null,
+      nextResetIso: subQuota?.nextResetIso || null,
+      secondsUntilReset: subQuota?.secondsUntilReset ?? null,
       hasCreditKey,
       creditBalanceUsd: Math.round(totalCreditBalanceUsd * 100) / 100,
       totalCreditsUsedUsd: Math.round(totalCreditsUsedUsd * 100) / 100,

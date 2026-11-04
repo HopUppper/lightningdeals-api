@@ -79,28 +79,41 @@ export const UserUsage: React.FC = () => {
     }
   }, [activeTab]);
 
-  // 5-Hour Rolling Window Live Countdown (only relevant for rolling window)
+  // 5-Hour Rolling Window Live Countdown derived strictly from authoritative backend nextResetTime
   useEffect(() => {
+    let hasRefetched = false;
+
     const interval = setInterval(() => {
       const now = new Date();
-      const nextWindow = new Date(now);
-      const currentHour = now.getHours();
-      const nextHour = Math.ceil((currentHour + 1) / 5) * 5;
-      nextWindow.setHours(nextHour % 24, 0, 0, 0);
-      if (nextHour >= 24) nextWindow.setDate(nextWindow.getDate() + 1);
+      const rawReset = stats?.nextResetTime || stats?.nextResetIso;
 
-      const diff = Math.max(0, nextWindow.getTime() - now.getTime());
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      if (rawReset) {
+        const nextWindow = new Date(rawReset);
+        const diff = nextWindow.getTime() - now.getTime();
 
-      setTimeLeft(
-        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-      );
+        if (diff <= 0) {
+          setTimeLeft('00:00:00');
+          if (!hasRefetched) {
+            hasRefetched = true;
+            loadStats();
+          }
+        } else {
+          hasRefetched = false;
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+          setTimeLeft(
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+          );
+        }
+      } else {
+        setTimeLeft('05:00:00');
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [stats]);
 
   const formatTokens = (val: string | number) => {
     const num = Number(val || 0);

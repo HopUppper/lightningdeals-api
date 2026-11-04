@@ -102,24 +102,41 @@ export const UserPlan: React.FC = () => {
     }
   };
 
-  // Live countdown to next 5-hour reset & plan expiry
+  // Live countdown derived strictly from authoritative backend nextResetTime & plan expiry
   useEffect(() => {
+    let hasRefetchedForCycle = false;
+
     const interval = setInterval(() => {
       const now = new Date();
-      const nextWindow = new Date(now);
-      const currentHour = now.getHours();
-      const nextHour = Math.ceil((currentHour + 1) / 5) * 5;
-      nextWindow.setHours(nextHour % 24, 0, 0, 0);
-      if (nextHour >= 24) nextWindow.setDate(nextWindow.getDate() + 1);
+      const rawReset =
+        data?.activeSubscription?.nextResetTime ||
+        data?.activeSubscription?.nextResetIso ||
+        data?.summary?.rollingPools?.[0]?.nextResetTime;
 
-      const diff = Math.max(0, nextWindow.getTime() - now.getTime());
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      if (rawReset) {
+        const nextWindow = new Date(rawReset);
+        const diff = nextWindow.getTime() - now.getTime();
 
-      setResetCountdown(
-        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-      );
+        if (diff <= 0) {
+          setResetCountdown('00:00:00');
+          // Cycle boundary reached: trigger immediate authoritative balance refresh once
+          if (!hasRefetchedForCycle) {
+            hasRefetchedForCycle = true;
+            fetchSubscriptions();
+          }
+        } else {
+          hasRefetchedForCycle = false;
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+          setResetCountdown(
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+          );
+        }
+      } else {
+        setResetCountdown('05:00:00');
+      }
 
       if (data?.activeSubscription?.expiryTime) {
         const expDiff = Math.max(0, new Date(data.activeSubscription.expiryTime).getTime() - now.getTime());

@@ -111,28 +111,50 @@ export const UserOverview: React.FC = () => {
     fetchOffer();
   }, []);
 
-  // Live countdown timer to next 5-hour window refresh (for rolling window plans)
+  // Live countdown timer derived strictly from authoritative backend nextResetTime
   useEffect(() => {
+    let hasRefetched = false;
+
     const interval = setInterval(() => {
       const now = new Date();
-      const nextWindow = new Date(now);
-      const currentHour = now.getHours();
-      const nextHour = Math.ceil((currentHour + 1) / 5) * 5;
-      nextWindow.setHours(nextHour % 24, 0, 0, 0);
-      if (nextHour >= 24) nextWindow.setDate(nextWindow.getDate() + 1);
+      const rawReset =
+        entitlements?.activeSubscription?.nextResetTime ||
+        entitlements?.activeSubscription?.nextResetIso ||
+        entitlements?.summary?.rollingPools?.[0]?.nextResetTime;
 
-      const diff = Math.max(0, nextWindow.getTime() - now.getTime());
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      if (rawReset) {
+        const nextWindow = new Date(rawReset);
+        const diff = nextWindow.getTime() - now.getTime();
 
-      setTimeLeft(
-        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-      );
+        if (diff <= 0) {
+          setTimeLeft('00:00:00');
+          if (!hasRefetched) {
+            hasRefetched = true;
+            // Refetch active subscriptions & usage on cycle transition
+            userFetch('/api/user/subscriptions').then(async (r) => {
+              if (r.ok) setEntitlements(await r.json());
+            });
+            userFetch('/api/user/usage').then(async (r) => {
+              if (r.ok) setStats(await r.json());
+            });
+          }
+        } else {
+          hasRefetched = false;
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+          setTimeLeft(
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+          );
+        }
+      } else {
+        setTimeLeft('05:00:00');
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [entitlements]);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { authenticateJwt, AuthRequest } from '../auth';
 import { OrderEngine } from '../orders/orderEngine';
 import { getSubscriptionStatus, resolveCustomerEntitlements } from './subscriptionEngine';
+import { reconcileSubscriptionCycle } from './quotaReconciliationService';
 
 export const customerSubscriptionRouter = Router();
 
@@ -89,6 +90,9 @@ customerSubscriptionRouter.get('/:id', async (req: AuthRequest, res: Response) =
     const msRemaining = sub.expiryTime.getTime() - now.getTime();
     const daysRemaining = Math.max(0, Math.ceil(msRemaining / (24 * 60 * 60 * 1000)));
 
+    // Authoritative 5-hour cycle and balance reconciliation
+    const cycleMetrics = await reconcileSubscriptionCycle(sub.id, now);
+
     // Fetch related renewal orders for this subscription
     const relatedOrders = await prisma.order.findMany({
       where: {
@@ -104,15 +108,30 @@ customerSubscriptionRouter.get('/:id', async (req: AuthRequest, res: Response) =
       subscription: {
         ...sub,
         billingPeriod: sub.billingPeriod || (sub.durationDays >= 365 ? 'yearly' : 'monthly'),
+        billingClassification: cycleMetrics?.billingClassification || 'ROLLING_WINDOW',
         currentPeriodStart: sub.activationTime,
         currentPeriodEnd: sub.expiryTime,
         status: liveStatus,
         daysRemaining,
+        quotaLimit: cycleMetrics ? cycleMetrics.quotaLimit : sub.quotaLimit.toString(),
+        currentUsage: cycleMetrics ? cycleMetrics.currentCycleUsage : sub.currentUsage.toString(),
+        currentCycleUsage: cycleMetrics ? cycleMetrics.currentCycleUsage : sub.currentUsage.toString(),
+        tokensRemaining: cycleMetrics ? cycleMetrics.availableQuota : Math.max(0n, sub.quotaLimit - sub.currentUsage).toString(),
+        availableQuota: cycleMetrics ? cycleMetrics.availableQuota : Math.max(0n, sub.quotaLimit - sub.currentUsage).toString(),
+        nextResetTime: cycleMetrics ? cycleMetrics.nextResetTime : sub.nextResetTime,
+        nextResetIso: cycleMetrics ? cycleMetrics.nextResetIso : sub.nextResetTime.toISOString(),
+        secondsUntilReset: cycleMetrics ? cycleMetrics.secondsUntilReset : Math.max(0, Math.floor((sub.nextResetTime.getTime() - now.getTime()) / 1000)),
+        usagePercentage: cycleMetrics ? cycleMetrics.usagePercentage : 0,
+        availablePercentage: cycleMetrics ? cycleMetrics.availablePercentage : 100,
+        previousCycleUsage: cycleMetrics ? cycleMetrics.previousCycleUsage : '0',
+        lifetimeTokensUsed: cycleMetrics ? cycleMetrics.lifetimeTokensUsed : (sub.apiKey?.tokensUsed || 0n).toString(),
         apiKey: sub.apiKey
           ? {
               ...sub.apiKey,
-              tokensRemaining: sub.apiKey.tokensRemaining.toString(),
-              tokensUsed: sub.apiKey.tokensUsed.toString(),
+              tokensRemaining: cycleMetrics ? cycleMetrics.availableQuota : sub.apiKey.tokensRemaining.toString(),
+              tokensUsed: cycleMetrics ? cycleMetrics.currentCycleUsage : sub.apiKey.tokensUsed.toString(),
+              currentCycleUsage: cycleMetrics ? cycleMetrics.currentCycleUsage : sub.apiKey.tokensUsed.toString(),
+              lifetimeTokensUsed: cycleMetrics ? cycleMetrics.lifetimeTokensUsed : sub.apiKey.tokensUsed.toString(),
               creditBalanceUsd: Number(sub.apiKey.creditBalanceUsd || 0),
             }
           : null,

@@ -1,5 +1,6 @@
 import { prisma } from '../db';
 import { recordAuditEvent } from '../auditLogger';
+import { reconcileSubscriptionCycle } from './quotaReconciliationService';
 
 /**
  * ============================================================================
@@ -398,95 +399,128 @@ export async function resolveCustomerEntitlements(userId: string) {
     }
   }
 
-  // 4. Format all subscriptions and classify into entitlements
-  const formattedSubscriptions = existingSubs.map((sub) => {
-    const liveStatus = getSubscriptionStatus(sub.expiryTime, sub.status, now);
-    const msRemaining = sub.expiryTime.getTime() - now.getTime();
-    const daysRemaining = Math.max(0, Math.ceil(msRemaining / (24 * 60 * 60 * 1000)));
+  // 4. Format all subscriptions and classify into entitlements with authoritative cycle reconciliation
+  const formattedSubscriptions = await Promise.all(
+    existingSubs.map(async (sub) => {
+      const liveStatus = getSubscriptionStatus(sub.expiryTime, sub.status, now);
+      const msRemaining = sub.expiryTime.getTime() - now.getTime();
+      const daysRemaining = Math.max(0, Math.ceil(msRemaining / (24 * 60 * 60 * 1000)));
 
-    const key = sub.apiKey;
-    const isCredit = key?.billingType === 'credit' || sub.quotaLimit === 0n;
-    const isToken = key?.billingType === 'token';
+      // Authoritative 5-hour cycle and balance reconciliation
+      const cycleMetrics = await reconcileSubscriptionCycle(sub.id, now);
 
-    let planCategory = sub.order?.planCategory;
-    if (!planCategory) {
-      if (isCredit) {
-        planCategory = 'claude_openai_credits';
-      } else if (isToken) {
-        const pLower = (sub.planName || '').toLowerCase();
-        if (pLower.includes('deepseek') || pLower.includes('llama') || pLower.includes('qwen') || pLower.includes('local')) {
-          planCategory = 'local_models_tokens';
-        } else if (pLower.includes('openai') || pLower.includes('gpt')) {
-          planCategory = 'openai_tokens';
+      const key = sub.apiKey;
+      const isCredit = cycleMetrics
+        ? cycleMetrics.billingType === 'credit'
+        : key?.billingType === 'credit' || sub.quotaLimit === 0n;
+      const isToken = cycleMetrics
+        ? cycleMetrics.billingType === 'token'
+        : key?.billingType === 'token';
+      const isWindow = !isCredit && !isToken;
+
+      let planCategory = sub.order?.planCategory || cycleMetrics?.planCategory;
+      if (!planCategory) {
+        if (isCredit) {
+          planCategory = 'claude_openai_credits';
+        } else if (isToken) {
+          const pLower = (sub.planName || '').toLowerCase();
+          if (pLower.includes('deepseek') || pLower.includes('llama') || pLower.includes('qwen') || pLower.includes('local')) {
+            planCategory = 'local_models_tokens';
+          } else if (pLower.includes('openai') || pLower.includes('gpt')) {
+            planCategory = 'openai_tokens';
+          } else {
+            planCategory = 'claude_tokens';
+          }
         } else {
-          planCategory = 'claude_tokens';
+          planCategory = 'claude_max_rolling';
         }
-      } else {
-        planCategory = 'claude_max_rolling';
       }
-    }
 
-    const quotaLimitStr = sub.quotaLimit.toString();
-    const tokensUsedStr = key ? key.tokensUsed.toString() : sub.currentUsage.toString();
-    const tokensRemainingStr = key
-      ? key.tokensRemaining.toString()
-      : Math.max(0n, sub.quotaLimit - sub.currentUsage).toString();
+      const quotaLimitStr = cycleMetrics ? cycleMetrics.quotaLimit : sub.quotaLimit.toString();
+      const tokensUsedStr = cycleMetrics
+        ? cycleMetrics.currentCycleUsage
+        : (key ? key.tokensUsed.toString() : sub.currentUsage.toString());
+      const tokensRemainingStr = cycleMetrics
+        ? cycleMetrics.availableQuota
+        : (key ? key.tokensRemaining.toString() : Math.max(0n, sub.quotaLimit - sub.currentUsage).toString());
 
-    const creditBalanceUsd = key?.creditBalanceUsd ? Number(key.creditBalanceUsd) : 0;
-    const totalCreditsUsedUsd = key?.totalCreditsUsedUsd ? Number(key.totalCreditsUsedUsd) : 0;
+      const nextResetTime = cycleMetrics ? cycleMetrics.nextResetTime : sub.nextResetTime;
+      const nextResetIso = cycleMetrics ? cycleMetrics.nextResetIso : sub.nextResetTime.toISOString();
+      const secondsUntilReset = cycleMetrics ? cycleMetrics.secondsUntilReset : Math.max(0, Math.floor((sub.nextResetTime.getTime() - now.getTime()) / 1000));
+      const usagePercentage = cycleMetrics ? cycleMetrics.usagePercentage : (Number(sub.quotaLimit) > 0 ? Math.min(100, Math.round((Number(tokensUsedStr) / Number(sub.quotaLimit)) * 10000) / 100) : 0);
+      const availablePercentage = cycleMetrics ? cycleMetrics.availablePercentage : Math.max(0, 100 - usagePercentage);
+      const previousCycleUsage = cycleMetrics ? cycleMetrics.previousCycleUsage : '0';
+      const lifetimeTokensUsed = cycleMetrics ? cycleMetrics.lifetimeTokensUsed : (key?.tokensUsed || 0n).toString();
 
-    return {
-      id: sub.id,
-      planId: sub.planId,
-      planName: sub.planName,
-      planCategory,
-      billingType: isCredit ? 'credit' : isToken ? 'token' : 'window',
-      billingPeriod: sub.billingPeriod || (sub.durationDays >= 365 ? 'yearly' : 'monthly'),
-      status: liveStatus,
-      rawStatus: sub.status,
-      activationTime: sub.activationTime,
-      expiryTime: sub.expiryTime,
-      currentPeriodStart: sub.activationTime,
-      currentPeriodEnd: sub.expiryTime,
-      durationDays: sub.durationDays,
-      daysRemaining,
-      renewalCount: sub.renewalCount,
-      lastRenewedAt: sub.lastRenewedAt,
-      isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0,
-      isExpired: daysRemaining === 0 || liveStatus === 'EXPIRED',
-      quotaLimit: quotaLimitStr,
-      currentUsage: tokensUsedStr,
-      tokensRemaining: tokensRemainingStr,
-      quotaWindowHours: sub.quotaWindowHours,
-      nextResetTime: sub.nextResetTime,
-      creditBalanceUsd,
-      totalCreditsUsedUsd,
-      apiKey: key
-        ? {
-            id: key.id,
-            displayKey: key.displayKey,
-            name: key.name,
-            billingType: key.billingType,
-            status: key.status,
-            tokensRemaining: key.tokensRemaining.toString(),
-            creditBalanceUsd: Number(key.creditBalanceUsd || 0),
-          }
-        : null,
-      apiKeyDisplay: key?.displayKey || null,
-      order: sub.order
-        ? {
-            id: sub.order.id,
-            internalOrderId: sub.order.internalOrderId,
-            amountInr: sub.order.amountInr,
-            paidAmountInr: sub.order.paidAmountInr,
-            status: sub.order.status,
-            paymentStatus: sub.order.paymentStatus,
-            createdAt: sub.order.createdAt,
-          }
-        : null,
-      orderId: sub.orderId,
-    };
-  });
+      const creditBalanceUsd = cycleMetrics
+        ? cycleMetrics.creditBalanceUsd
+        : (key?.creditBalanceUsd ? Number(key.creditBalanceUsd) : 0);
+      const totalCreditsUsedUsd = cycleMetrics
+        ? cycleMetrics.totalCreditsUsedUsd
+        : (key?.totalCreditsUsedUsd ? Number(key.totalCreditsUsedUsd) : 0);
+
+      return {
+        id: sub.id,
+        planId: sub.planId,
+        planName: sub.planName,
+        planCategory,
+        billingType: isCredit ? 'credit' : isToken ? 'token' : 'window',
+        billingClassification: cycleMetrics?.billingClassification || (isCredit ? 'API_CREDITS' : isToken ? 'CONSUMABLE_TOKENS' : 'ROLLING_WINDOW'),
+        billingPeriod: sub.billingPeriod || (sub.durationDays >= 365 ? 'yearly' : 'monthly'),
+        status: liveStatus,
+        rawStatus: sub.status,
+        activationTime: sub.activationTime,
+        expiryTime: sub.expiryTime,
+        currentPeriodStart: sub.activationTime,
+        currentPeriodEnd: sub.expiryTime,
+        durationDays: sub.durationDays,
+        daysRemaining,
+        renewalCount: sub.renewalCount,
+        lastRenewedAt: sub.lastRenewedAt,
+        isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0,
+        isExpired: daysRemaining === 0 || liveStatus === 'EXPIRED',
+        quotaLimit: quotaLimitStr,
+        currentUsage: tokensUsedStr,
+        currentCycleUsage: tokensUsedStr,
+        tokensRemaining: tokensRemainingStr,
+        availableQuota: tokensRemainingStr,
+        usagePercentage,
+        availablePercentage,
+        previousCycleUsage,
+        lifetimeTokensUsed,
+        quotaWindowHours: sub.quotaWindowHours,
+        nextResetTime,
+        nextResetIso,
+        secondsUntilReset,
+        creditBalanceUsd,
+        totalCreditsUsedUsd,
+        apiKey: key
+          ? {
+              id: key.id,
+              displayKey: key.displayKey,
+              name: key.name,
+              billingType: key.billingType,
+              status: key.status,
+              tokensRemaining: tokensRemainingStr,
+              creditBalanceUsd: isCredit ? creditBalanceUsd : Number(key.creditBalanceUsd || 0),
+            }
+          : null,
+        apiKeyDisplay: key?.displayKey || null,
+        order: sub.order
+          ? {
+              id: sub.order.id,
+              internalOrderId: sub.order.internalOrderId,
+              amountInr: sub.order.amountInr,
+              paidAmountInr: sub.order.paidAmountInr,
+              status: sub.order.status,
+              paymentStatus: sub.order.paymentStatus,
+              createdAt: sub.order.createdAt,
+            }
+          : null,
+        orderId: sub.orderId,
+      };
+    })
+  );
 
   // Filter active entitlements
   const activeEntitlements = formattedSubscriptions.filter(
@@ -525,9 +559,18 @@ export async function resolveCustomerEntitlements(userId: string) {
         planName: ent.planName,
         quotaLimit: ent.quotaLimit,
         tokensUsed: ent.currentUsage,
+        currentUsage: ent.currentUsage,
+        currentCycleUsage: ent.currentCycleUsage,
         tokensRemaining: ent.tokensRemaining,
+        availableQuota: ent.availableQuota,
         windowHours: ent.quotaWindowHours,
         nextResetTime: ent.nextResetTime,
+        nextResetIso: ent.nextResetIso,
+        secondsUntilReset: ent.secondsUntilReset,
+        usagePercentage: ent.usagePercentage,
+        availablePercentage: ent.availablePercentage,
+        previousCycleUsage: ent.previousCycleUsage,
+        lifetimeTokensUsed: ent.lifetimeTokensUsed,
         status: ent.status,
         apiKeyDisplay: ent.apiKeyDisplay,
       });

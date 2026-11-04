@@ -20,6 +20,7 @@ import { prisma } from './db';
 import { globalErrorHandler, NotFoundError } from './errors';
 import { recordPageview, handleAnalyticsBeacon } from './analyticsTracker';
 import { startModelSyncScheduler, executeModelSync, getModelSyncStatus } from './models/modelSyncService';
+import { sweepExpiredSubscriptionCycles } from './subscriptions/quotaReconciliationService';
 
 // 0. In-Memory Micro-Cache for High-Traffic Public Endpoints
 interface CacheItem<T> {
@@ -485,5 +486,14 @@ app.listen(PORT, () => {
     startModelSyncScheduler(12);
   } catch (err: any) {
     console.error('[ModelSync] Failed to start scheduler:', err.message);
+  }
+  try {
+    setInterval(() => {
+      sweepExpiredSubscriptionCycles().catch((err: any) => {
+        console.error('[QuotaSweeper] Background cycle sweep error:', err.message);
+      });
+    }, 60 * 1000);
+  } catch (err: any) {
+    console.error('[QuotaSweeper] Failed to start sweeper interval:', err.message);
   }
 });

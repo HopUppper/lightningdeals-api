@@ -1,9 +1,103 @@
-import React, { useState, useEffect } from 'react';
-import { Key, AlertCircle, CheckCircle2, Clock, Sparkles, DollarSign, Coins, HelpCircle, Wrench } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  Key,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+  DollarSign,
+  Coins,
+  HelpCircle,
+  Wrench,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Copy,
+  Check,
+  Layers,
+} from 'lucide-react';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { ErrorSolutionModal } from '../components/ErrorSolutionModal';
 import { getFriendlyError, FriendlyErrorInfo } from '../utils/friendlyErrors';
+
+interface ModelCategoryMeta {
+  label: string;
+  key: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  dotColor: string;
+}
+
+function getModelCategory(modelId: string): ModelCategoryMeta {
+  const id = (modelId || '').toLowerCase();
+  if (id.includes('claude') || id.includes('fable')) {
+    return {
+      label: 'Anthropic Claude Frontier',
+      key: 'claude',
+      badgeBg: 'bg-violet-50',
+      badgeText: 'text-violet-700',
+      badgeBorder: 'border-violet-200',
+      dotColor: 'bg-violet-600',
+    };
+  }
+  if (id.includes('gpt') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4') || id.includes('codex') || id.includes('text-embedding')) {
+    return {
+      label: 'OpenAI Frontier',
+      key: 'openai',
+      badgeBg: 'bg-emerald-50',
+      badgeText: 'text-emerald-700',
+      badgeBorder: 'border-emerald-200',
+      dotColor: 'bg-emerald-600',
+    };
+  }
+  if (id.includes('gemini')) {
+    return {
+      label: 'Google Gemini',
+      key: 'gemini',
+      badgeBg: 'bg-sky-50',
+      badgeText: 'text-sky-700',
+      badgeBorder: 'border-sky-200',
+      dotColor: 'bg-sky-600',
+    };
+  }
+  if (id.includes('deepseek')) {
+    return {
+      label: 'DeepSeek AI',
+      key: 'deepseek',
+      badgeBg: 'bg-indigo-50',
+      badgeText: 'text-indigo-700',
+      badgeBorder: 'border-indigo-200',
+      dotColor: 'bg-indigo-600',
+    };
+  }
+  if (id.includes('grok')) {
+    return {
+      label: 'xAI Grok',
+      key: 'grok',
+      badgeBg: 'bg-zinc-100',
+      badgeText: 'text-zinc-800',
+      badgeBorder: 'border-zinc-300',
+      dotColor: 'bg-zinc-700',
+    };
+  }
+  return {
+    label: 'Open-Weights & Labs',
+    key: 'local',
+    badgeBg: 'bg-amber-50',
+    badgeText: 'text-amber-800',
+    badgeBorder: 'border-amber-200',
+    dotColor: 'bg-amber-600',
+  };
+}
+
+function formatContextWindow(tokens: number | undefined | null): string {
+  if (!tokens) return '128k context';
+  if (tokens >= 1_000_000) return `${Math.round(tokens / 1_000_000)}M context`;
+  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}k context`;
+  return `${tokens} tokens`;
+}
 
 export const CheckKeyPage: React.FC = () => {
   const [keyInput, setKeyInput] = useState('');
@@ -15,6 +109,15 @@ export const CheckKeyPage: React.FC = () => {
     error: FriendlyErrorInfo;
     rawEvent?: any;
   } | null>(null);
+
+  // Authorized Models Dropdown State
+  const [selectedModelId, setSelectedModelId] = useState<string>('');
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [modelSearch, setModelSearch] = useState('');
+  const [modelCategoryFilter, setModelCategoryFilter] = useState('all');
+  const [copiedModel, setCopiedModel] = useState<string | null>(null);
+  const [isGridExpanded, setIsGridExpanded] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleCheckKey = async (e?: React.FormEvent, keyOverride?: string) => {
     if (e) e.preventDefault();
@@ -97,6 +200,122 @@ export const CheckKeyPage: React.FC = () => {
     : purchasedNum > 0
     ? (usedNum / purchasedNum) * 100
     : 0;
+
+  // Close model dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsModelDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Strict Rule 1 Filtering: Ensure no Claude 3 models appear anywhere
+  const cleanAvailableModels = useMemo(() => {
+    if (!result?.availableModels || !Array.isArray(result.availableModels)) return [];
+    return result.availableModels.filter((m: any) => {
+      const id = (m.id || m.modelId || m.name || '').toLowerCase();
+      return (
+        !id.includes('claude-3') &&
+        !id.includes('3-5-sonnet') &&
+        !id.includes('3-5-haiku') &&
+        !id.includes('3-7-sonnet') &&
+        !id.includes('3-opus')
+      );
+    });
+  }, [result]);
+
+  // Set default model on load
+  useEffect(() => {
+    if (cleanAvailableModels.length > 0) {
+      const preferred =
+        cleanAvailableModels.find((m: any) => m.id === result?.defaultModel) ||
+        cleanAvailableModels.find((m: any) => m.id === 'claude-sonnet-5.5') ||
+        cleanAvailableModels.find((m: any) => m.id === 'claude-opus-5.5') ||
+        cleanAvailableModels[0];
+      setSelectedModelId(preferred?.id || cleanAvailableModels[0]?.id || '');
+    }
+  }, [cleanAvailableModels, result]);
+
+  const copyModelId = (id: string) => {
+    if (!id) return;
+    navigator.clipboard.writeText(id);
+    setCopiedModel(id);
+    setTimeout(() => setCopiedModel(null), 2000);
+  };
+
+  const selectedModel = useMemo(() => {
+    if (!selectedModelId) return cleanAvailableModels[0] || null;
+    return cleanAvailableModels.find((m: any) => (m.id || m.name) === selectedModelId) || cleanAvailableModels[0] || null;
+  }, [cleanAvailableModels, selectedModelId]);
+
+  const activeCategory = useMemo(() => {
+    return getModelCategory(selectedModel?.id || '');
+  }, [selectedModel]);
+
+  // Categorized counts for filter tabs
+  const categoryTabs = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: cleanAvailableModels.length,
+      claude: 0,
+      openai: 0,
+      gemini: 0,
+      deepseek: 0,
+      local: 0,
+    };
+    for (const m of cleanAvailableModels) {
+      const cat = getModelCategory(m.id || m.name);
+      if (counts[cat.key] !== undefined) {
+        counts[cat.key]++;
+      } else {
+        counts.local++;
+      }
+    }
+    return [
+      { key: 'all', label: 'All', count: counts.all },
+      { key: 'claude', label: 'Claude', count: counts.claude },
+      { key: 'openai', label: 'OpenAI', count: counts.openai },
+      { key: 'gemini', label: 'Gemini', count: counts.gemini },
+      { key: 'deepseek', label: 'DeepSeek', count: counts.deepseek },
+      { key: 'local', label: 'Open-Weights', count: counts.local },
+    ].filter((tab) => tab.count > 0 || tab.key === 'all');
+  }, [cleanAvailableModels]);
+
+  // Filtered models for dropdown list
+  const filteredDropdownModels = useMemo(() => {
+    return cleanAvailableModels.filter((m: any) => {
+      const id = (m.id || m.name || '').toLowerCase();
+      const displayName = (m.name || '').toLowerCase();
+      const searchMatch = !modelSearch || id.includes(modelSearch.toLowerCase()) || displayName.includes(modelSearch.toLowerCase());
+      if (!searchMatch) return false;
+
+      if (modelCategoryFilter === 'all') return true;
+      const cat = getModelCategory(m.id || m.name);
+      return cat.key === modelCategoryFilter;
+    });
+  }, [cleanAvailableModels, modelSearch, modelCategoryFilter]);
+
+  // Grouped models for full visual grid expansion
+  const groupedModelCategories = useMemo(() => {
+    const groups: Record<string, { label: string; key: string; dotColor: string; models: any[] }> = {
+      claude: { label: 'Anthropic Claude Frontier', key: 'claude', dotColor: 'bg-violet-600', models: [] },
+      openai: { label: 'OpenAI Frontier', key: 'openai', dotColor: 'bg-emerald-600', models: [] },
+      gemini: { label: 'Google Gemini', key: 'gemini', dotColor: 'bg-sky-600', models: [] },
+      deepseek: { label: 'DeepSeek AI', key: 'deepseek', dotColor: 'bg-indigo-600', models: [] },
+      grok: { label: 'xAI Grok', key: 'grok', dotColor: 'bg-zinc-700', models: [] },
+      local: { label: 'Open-Weights & Labs', key: 'local', dotColor: 'bg-amber-600', models: [] },
+    };
+
+    for (const m of cleanAvailableModels) {
+      const cat = getModelCategory(m.id || m.name);
+      const targetGroup = groups[cat.key] || groups.local;
+      targetGroup.models.push(m);
+    }
+
+    return Object.values(groups).filter((g) => g.models.length > 0);
+  }, [cleanAvailableModels]);
 
   return (
     <div className="min-h-screen bg-[#fafaf9] text-zinc-950 flex flex-col font-sans antialiased selection:bg-violet-500/10 selection:text-violet-700">
@@ -472,25 +691,309 @@ export const CheckKeyPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Authorized Permitted Models List */}
-                {result.availableModels && result.availableModels.length > 0 && (
-                  <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold text-[#1c1917] uppercase tracking-wider flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-[#6d28d9]" />
-                        <span>Authorized Models ({result.availableModels.length} Models Permitted)</span>
-                      </span>
-                      <span className="text-[11px] font-mono text-[#78716c]">
-                        Strict Gateway Enforced
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {result.availableModels.map((m: any) => (
-                        <span key={m.id || m.name} className="px-2.5 py-1 rounded-lg bg-white border border-[#e7e5e4] text-[11px] font-mono font-bold text-[#1c1917]">
-                          {m.id || m.name}
+                {/* Authorized Permitted Models Dropdown Box */}
+                {cleanAvailableModels.length > 0 && (
+                  <div className="p-4 rounded-2xl bg-[#fbf9f5] border border-[#e7e5e4] shadow-xs space-y-3">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-violet-100 border border-violet-200 flex items-center justify-center text-violet-700">
+                          <Sparkles className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold text-[#1c1917] uppercase tracking-wider">
+                              Authorized Models
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-violet-50 text-violet-700 border border-violet-200">
+                              {cleanAvailableModels.length} Models Permitted
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#78716c] font-sans">
+                            Instant access through OpenAI & Anthropic API client formats
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsGridExpanded(!isGridExpanded)}
+                          className="px-2.5 py-1 text-[11px] font-mono font-medium rounded-lg bg-white border border-[#e7e5e4] hover:bg-[#f5f3ff] hover:text-violet-700 hover:border-violet-300 transition-all text-[#44403c] flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <Layers className="w-3 h-3 text-violet-600" />
+                          <span>{isGridExpanded ? 'Collapse to Dropdown' : `View Full Grid (${cleanAvailableModels.length})`}</span>
+                          {isGridExpanded ? <ChevronUp className="w-3 h-3 text-violet-600" /> : <ChevronDown className="w-3 h-3 text-zinc-400" />}
+                        </button>
+                        <span className="hidden sm:inline-block text-[11px] font-mono text-[#78716c]">
+                          Strict Gateway Enforced
                         </span>
-                      ))}
+                      </div>
                     </div>
+
+                    {/* Compact Dropdown Selector Box */}
+                    <div className="relative" ref={dropdownRef}>
+                      <div
+                        onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                        className={`w-full p-2.5 sm:p-3 rounded-xl bg-white border cursor-pointer transition-all flex items-center justify-between gap-2 shadow-2xs ${
+                          isModelDropdownOpen
+                            ? 'border-violet-500 ring-2 ring-violet-500/10'
+                            : 'border-[#e7e5e4] hover:border-violet-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeCategory.dotColor}`} />
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <span className="font-mono font-bold text-xs sm:text-sm text-[#1c1917] truncate">
+                              {selectedModel?.id || 'Select a permitted model...'}
+                            </span>
+                            {selectedModel && (
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold border ${activeCategory.badgeBg} ${activeCategory.badgeText} ${activeCategory.badgeBorder}`}>
+                                {activeCategory.label}
+                              </span>
+                            )}
+                            {selectedModel?.contextWindow && (
+                              <span className="hidden sm:inline-block text-[10px] font-mono text-[#78716c] bg-[#fbf9f5] px-1.5 py-0.5 rounded border border-[#e7e5e4]">
+                                {formatContextWindow(selectedModel.contextWindow)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {selectedModel && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyModelId(selectedModel.id);
+                              }}
+                              title="Copy Model ID"
+                              className="p-1.5 rounded-lg hover:bg-violet-50 text-zinc-500 hover:text-violet-700 transition-colors cursor-pointer"
+                            >
+                              {copiedModel === selectedModel.id ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                          <div className="w-px h-4 bg-zinc-200" />
+                          <ChevronDown
+                            className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
+                              isModelDropdownOpen ? 'rotate-180 text-violet-600' : ''
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Dropdown Menu Overlay */}
+                      {isModelDropdownOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-2xl bg-white border border-[#e7e5e4] shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                          {/* Search & Category Filter Header */}
+                          <div className="p-2.5 sm:p-3 border-b border-[#e7e5e4] bg-[#faf8f5] space-y-2">
+                            <div className="relative">
+                              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <input
+                                type="text"
+                                value={modelSearch}
+                                onChange={(e) => setModelSearch(e.target.value)}
+                                placeholder={`Search ${cleanAvailableModels.length} authorized models by name or id...`}
+                                className="w-full pl-9 pr-3 py-1.5 text-xs font-mono rounded-lg bg-white border border-[#e7e5e4] focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-[#1c1917] placeholder:text-zinc-400"
+                                autoFocus
+                              />
+                              {modelSearch && (
+                                <button
+                                  type="button"
+                                  onClick={() => setModelSearch('')}
+                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-600"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Category Filter Pills */}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {categoryTabs.map((tab) => (
+                                <button
+                                  key={tab.key}
+                                  type="button"
+                                  onClick={() => setModelCategoryFilter(tab.key)}
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold transition-all cursor-pointer ${
+                                    modelCategoryFilter === tab.key
+                                      ? 'bg-violet-600 text-white shadow-2xs'
+                                      : 'bg-white text-[#78716c] hover:text-[#1c1917] hover:bg-zinc-100 border border-[#e7e5e4]'
+                                  }`}
+                                >
+                                  {tab.label} ({tab.count})
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Filtered Models List */}
+                          <div className="max-h-72 overflow-y-auto divide-y divide-[#f5f3ef] custom-scrollbar">
+                            {filteredDropdownModels.length === 0 ? (
+                              <div className="py-8 text-center text-xs font-mono text-[#78716c]">
+                                No authorized models match "{modelSearch}"
+                              </div>
+                            ) : (
+                              filteredDropdownModels.map((m: any) => {
+                                const cat = getModelCategory(m.id || m.name);
+                                const isSelected = selectedModel?.id === (m.id || m.name);
+                                return (
+                                  <div
+                                    key={m.id || m.name}
+                                    onClick={() => {
+                                      setSelectedModelId(m.id || m.name);
+                                      setIsModelDropdownOpen(false);
+                                    }}
+                                    className={`p-2.5 sm:px-3 sm:py-2 flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                                      isSelected
+                                        ? 'bg-violet-50/80 hover:bg-violet-50'
+                                        : 'hover:bg-[#faf8f5]'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <span className={`w-2 h-2 rounded-full shrink-0 ${cat.dotColor}`} />
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className={`font-mono text-xs font-bold ${isSelected ? 'text-violet-700' : 'text-[#1c1917]'}`}>
+                                            {m.id || m.name}
+                                          </span>
+                                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono border ${cat.badgeBg} ${cat.badgeText} ${cat.badgeBorder}`}>
+                                            {cat.label}
+                                          </span>
+                                        </div>
+                                        {m.name && m.name !== m.id && (
+                                          <p className="text-[11px] text-[#78716c] truncate">
+                                            {m.name}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {m.contextWindow && (
+                                        <span className="text-[10px] font-mono text-[#78716c] bg-[#fbf9f5] px-1.5 py-0.5 rounded border border-[#e7e5e4]">
+                                          {formatContextWindow(m.contextWindow)}
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          copyModelId(m.id || m.name);
+                                        }}
+                                        title="Copy model ID"
+                                        className="p-1 rounded hover:bg-zinc-200 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                                      >
+                                        {copiedModel === (m.id || m.name) ? (
+                                          <Check className="w-3 h-3 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="w-3 h-3" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          {/* Footer with quick action hint */}
+                          <div className="px-3 py-2 bg-[#fbf9f5] border-t border-[#e7e5e4] flex items-center justify-between text-[11px] font-mono text-[#78716c]">
+                            <span>Showing {filteredDropdownModels.length} of {cleanAvailableModels.length} models</span>
+                            <span>Click any model to select & copy ID</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected Model Spec Pill Bar */}
+                    {selectedModel && !isGridExpanded && (
+                      <div className="p-2.5 rounded-xl bg-white border border-[#e7e5e4] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[#78716c]">Model ID:</span>
+                          <span className="font-bold text-[#1c1917] bg-[#f5f3ff] text-violet-700 px-2 py-0.5 rounded border border-violet-200">
+                            {selectedModel.id}
+                          </span>
+                          <span className="text-[#78716c] hidden sm:inline">•</span>
+                          <span className="text-[#78716c] hidden sm:inline">Provider: <strong className="text-[#1c1917]">{activeCategory.label}</strong></span>
+                          {selectedModel.contextWindow && (
+                            <>
+                              <span className="text-[#78716c] hidden sm:inline">•</span>
+                              <span className="text-[#78716c] hidden sm:inline">Context: <strong className="text-[#1c1917]">{formatContextWindow(selectedModel.contextWindow)}</strong></span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyModelId(selectedModel.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#faf8f5] hover:bg-violet-50 text-[11px] font-mono text-zinc-700 hover:text-violet-700 border border-zinc-200 transition-colors cursor-pointer"
+                          >
+                            {copiedModel === selectedModel.id ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span className="text-emerald-700 font-bold">Copied ID</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy Model ID</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Expandable Grouped Grid */}
+                    {isGridExpanded && (
+                      <div className="pt-2 border-t border-[#e7e5e4] space-y-3">
+                        {groupedModelCategories.map((group) => (
+                          <div key={group.key} className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-mono font-bold text-[#78716c] uppercase tracking-wider flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${group.dotColor}`} />
+                                <span>{group.label}</span>
+                                <span className="text-zinc-400 font-normal">({group.models.length})</span>
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {group.models.map((m: any) => {
+                                const isSelected = selectedModel?.id === m.id;
+                                return (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedModelId(m.id);
+                                      copyModelId(m.id);
+                                    }}
+                                    title="Click to select & copy ID"
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                                      isSelected
+                                        ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                                        : 'bg-white hover:bg-violet-50 text-[#1c1917] hover:text-violet-700 border-[#e7e5e4] hover:border-violet-300'
+                                    }`}
+                                  >
+                                    <span>{m.id}</span>
+                                    {copiedModel === m.id ? (
+                                      <Check className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-emerald-600'}`} />
+                                    ) : (
+                                      <Copy className={`w-3 h-3 opacity-40 hover:opacity-100 ${isSelected ? 'text-white' : 'text-zinc-400'}`} />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

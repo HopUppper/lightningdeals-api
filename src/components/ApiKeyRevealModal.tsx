@@ -107,7 +107,7 @@ export const ApiKeyRevealModal: React.FC<ApiKeyRevealModalProps> = ({
               <span>Your Secret API Key:</span>
             </label>
 
-            <div className="flex items-center gap-2 p-3 bg-bg border-2 border-violet-500/40 rounded-control focus-within:border-violet-600 transition-all">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-3 bg-bg border-2 border-violet-500/40 rounded-control focus-within:border-violet-600 transition-all">
               <input
                 type="text"
                 readOnly

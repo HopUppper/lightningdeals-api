@@ -4641,7 +4641,7 @@ export const UserChatStudio: React.FC = () => {
           )}
 
           {/* Floating Pill Composer (Minimal & Focused) */}
-          <div className="p-4 shrink-0 bg-gradient-to-t from-current/5 to-transparent">
+          <div className="p-2.5 sm:p-4 safe-bottom shrink-0 bg-gradient-to-t from-current/5 to-transparent">
             <div className={`max-w-4xl mx-auto rounded-3xl border shadow-lg transition-all ${c.inputBg} ${c.border} ${
               generating ? 'opacity-90' : 'focus-within:ring-2 focus-within:ring-violet-500/30'
             }`}>

@@ -22,7 +22,7 @@ export const SiteFooter: React.FC = () => {
       <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
         {/* Main Footer Directory Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8">
           
           {/* Brand & Mission (Col 1 & 2 on mobile) */}
           <div className="col-span-2 space-y-4">

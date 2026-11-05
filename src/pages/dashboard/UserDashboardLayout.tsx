@@ -61,6 +61,21 @@ export const UserDashboardLayout: React.FC = () => {
     }
   }, [user, navigate]);
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = mobileNavOpen ? 'hidden' : '';
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+    };
+  }, [mobileNavOpen]);
+
   const navGroups: NavGroup[] = [
     {
       id: 'home',

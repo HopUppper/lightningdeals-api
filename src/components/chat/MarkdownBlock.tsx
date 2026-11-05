@@ -493,7 +493,7 @@ const TextBlock: React.FC<{ text: string; sources?: WebSourceItem[] }> = ({ text
               key={idx}
               className="my-4 overflow-x-auto rounded-xl border border-[#e5e7eb] dark:border-[#28334B] bg-white dark:bg-[#0f172a] shadow-xs"
             >
-              <table className="w-full border-collapse text-[13px] text-left">
+              <table className="w-full min-w-[550px] border-collapse text-[13px] text-left">
                 <thead className="bg-[#f8f9fa] dark:bg-[#161f30] border-b border-[#e5e7eb] dark:border-[#28334B]">
                   <tr>
                     {headers.map((h, hIdx) => {

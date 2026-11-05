@@ -338,7 +338,7 @@ export const UserKeys: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[780px] text-left text-xs">
               <thead>
                 <tr className="border-b border-[#ede8e1] text-[#64607d] uppercase bg-[#faf8f5] text-[10.5px] font-bold">
                   <th className="py-3.5 px-5">Key Name & Plan</th>

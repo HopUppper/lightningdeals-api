@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift, MessageSquare, Bot, Star, ShieldCheck, DollarSign } from 'lucide-react';
+import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
+import { Menu, LayoutDashboard, Users, Key, Zap, ShoppingBag, Server, Activity, Settings, LogOut, Search, X, FileText, Globe, LifeBuoy, ShieldAlert, Award, CheckCircle2, Layers, Gift, MessageSquare, Bot, Star, ShieldCheck, DollarSign } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { adminFetch } from '../../utils/api';
 

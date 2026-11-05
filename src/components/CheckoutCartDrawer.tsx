@@ -405,7 +405,7 @@ export const CheckoutCartDrawer: React.FC = () => {
 
           {/* Footer Checkout Action */}
           {cartItems.length > 0 && (
-            <div className="p-4 sm:p-5 border-t border-[#e7e5e4] bg-white space-y-3 shrink-0">
+            <div className="p-4 sm:p-5 safe-bottom border-t border-[#e7e5e4] bg-white space-y-3 shrink-0">
               <button
                 onClick={handleCheckout}
                 disabled={checkoutLoading}

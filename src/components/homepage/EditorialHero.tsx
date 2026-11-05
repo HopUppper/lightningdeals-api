@@ -318,7 +318,7 @@ for chunk in stream:
           {/* Left Column: High-Impact Typography & Action */}
           <div className="lg:col-span-6 space-y-6 text-left">
             
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white font-display tracking-tight leading-[1.05]">
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white font-display tracking-tight leading-[1.05]">
               Every AI model.
               <br />
               <span className="bg-gradient-to-r from-fuchsia-400 via-violet-400 to-indigo-300 bg-clip-text text-transparent">
@@ -331,7 +331,7 @@ for chunk in stream:
             </p>
 
             {/* CTAs: Clear Primary Actions */}
-            <div className="flex flex-wrap items-center gap-3.5 pt-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1 w-full sm:w-auto">
               <Link
                 to={user ? '/dashboard/orbit' : '/register'}
                 className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-sm sm:text-base font-bold shadow-lg shadow-violet-600/30 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"

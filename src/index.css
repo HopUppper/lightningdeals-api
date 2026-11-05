@@ -437,7 +437,7 @@ pre::-webkit-scrollbar-thumb:hover {
 
 /* ========================================================================= */
 /* UNIFIED TYPOGRAPHIC SCALE & SYSTEM CLASSES                                */
-/* Inspired by LotusAI: tight negative tracking, bold weights, compact line height */
+/* Tight negative tracking, bold weights, compact line height */
 /* ========================================================================= */
 
 .page-headline {
@@ -622,4 +622,74 @@ pre::-webkit-scrollbar-thumb:hover {
 .dark ::-webkit-scrollbar-thumb:hover,
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================================================= */
+/* COMPREHENSIVE RESPONSIVE DESIGN & MOBILE OPTIMISATION UTILITIES           */
+/* ========================================================================= */
+
+/* Safe area insets for iOS notches, Dynamic Island, and Android gesture bars */
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+.safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+}
+.safe-px {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+/* Touch targets: Enforce minimum 44x44px tap targets on touch viewports */
+@media (max-width: 768px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .touch-icon-btn {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Contained responsive table wrapper */
+.responsive-table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  position: relative;
+}
+
+/* Prevent long unbroken text from blowing out mobile viewports */
+.overflow-wrap-anywhere,
+.break-words-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Mobile drawer backdrop and transition */
+.mobile-drawer-backdrop {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* Prevent text cut-off on small screens */
+.text-responsive-title {
+  font-size: clamp(1.5rem, 4vw, 2.75rem);
+  line-height: 1.15;
+}
+
+.text-responsive-subtitle {
+  font-size: clamp(0.9rem, 2vw, 1.125rem);
+  line-height: 1.45;
 }

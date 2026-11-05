@@ -348,7 +348,7 @@ export const UserUsage: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#ede8e1] pb-3">
+      <div className="flex items-center gap-2 border-b border-[#ede8e1] pb-3 overflow-x-auto">
         <button
           type="button"
           onClick={() => setActiveTab('requests')}
@@ -417,7 +417,7 @@ export const UserUsage: React.FC = () => {
           ) : (
             <div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-mono">
+                <table className="w-full min-w-[850px] text-left text-xs font-mono">
                   <thead>
                     <tr className="border-b border-[#ede8e1] text-[#64607d] uppercase bg-[#faf8f5] text-[10px] font-bold">
                       <th className="py-3 px-3.5 whitespace-nowrap">Timestamp</th>

@@ -656,7 +656,7 @@ export const UserOverview: React.FC = () => {
         ) : (
           <div className="bg-white rounded-2xl border border-[#e5e7eb] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[520px] text-left text-xs">
                 <thead className="bg-[#f9fafb] text-[#6b7280] font-semibold border-b border-[#e5e7eb]">
                   <tr>
                     <th className="py-2.5 px-4">Time</th>
@@ -721,7 +721,7 @@ export const UserOverview: React.FC = () => {
 
           <div className="bg-white rounded-2xl border border-[#e5e7eb] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[520px] text-left text-xs">
                 <thead className="bg-[#f9fafb] text-[#6b7280] font-semibold border-b border-[#e5e7eb]">
                   <tr>
                     <th className="py-2.5 px-4">Order ID</th>

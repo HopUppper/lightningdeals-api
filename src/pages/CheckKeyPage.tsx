@@ -1043,7 +1043,7 @@ export const CheckKeyPage: React.FC = () => {
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs font-mono">
+                        <table className="w-full min-w-[720px] text-left text-xs font-mono">
                           <thead>
                             <tr className="border-b border-[#e7e5e4] text-[#78716c] uppercase bg-[#fbf9f5]">
                               <th className="py-2.5 px-3 whitespace-nowrap">Date & Time</th>

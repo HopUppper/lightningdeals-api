@@ -282,7 +282,7 @@ export const ModelUniverse: React.FC = () => {
                     
                     {/* Model Info */}
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-base font-bold text-white tracking-tight">
                           {model.name}
                         </span>

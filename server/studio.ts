@@ -17,7 +17,7 @@ import { normalizeErrorResponse } from './friendlyErrors';
 import { Router, Response } from 'express';
 import { prisma, decryptText } from './db';
 import { resolveProviderCredential } from './providers/credentialResolver';
-import { authenticateJwt, optionalAuthenticateJwt, AuthRequest } from './auth';
+import { authenticateJwt, optionalAuthenticateJwt, requireVerifiedEmail, AuthRequest } from './auth';
 import { builderRouter } from './studioBuilder';
 import { buildProviderRequest } from './providerAdapter';
 import {
@@ -223,12 +223,12 @@ export const PREBUILT_STUDIO_SKILLS: StudioSkill[] = [
 
 export const studioRouter = Router();
 
-// Apply JWT authentication to studio routes (allow /models to proceed with optional auth for discovery)
+// Apply JWT authentication and verified email check to studio routes (allow /models to proceed with optional auth for discovery)
 studioRouter.use((req, res, next) => {
   if (req.path === '/models' || req.path === '/models/') {
     return optionalAuthenticateJwt(req, res, next);
   }
-  return authenticateJwt(req, res, next);
+  return authenticateJwt(req, res, () => requireVerifiedEmail(req, res, next));
 });
 
 // Mount AI Website & App Builder routes

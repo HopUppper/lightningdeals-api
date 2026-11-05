@@ -1,4 +1,5 @@
 import { prisma } from '../db';
+import { recordIpSecurityViolation } from '../securityDetection';
 
 export interface AnomalyCheckResult {
   hasAnomaly: boolean;
@@ -163,6 +164,7 @@ export async function recordAuthFailure(ipAddress: string, providedKeySnippet?: 
   const recentFailures = win.authFailureTimestamps.filter((t) => t >= cutoff2m).length;
 
   if (recentFailures >= ANOMALY_THRESHOLDS.AUTH_FAILURES_2MIN) {
+    recordIpSecurityViolation(ipAddress, 'AUTH_KEY_SPRAY');
     await persistIncident({
       anomalyType: 'AUTH_SPRAY',
       severity: recentFailures >= 25 ? 'CRITICAL' : 'HIGH',

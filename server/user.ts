@@ -1243,39 +1243,124 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
     return res.status(400).json({ error: { message: 'API key name is required.' } });
   }
 
-  const validBillingTypes = ['window', 'credit', 'token'];
-  const effectiveBillingType = billingType && validBillingTypes.includes(billingType) ? billingType : 'window';
+  const userId = req.user!.id;
 
   try {
+    const userRecord = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, status: true, emailVerified: true, balance: true, hasStudioAccess: true },
+    });
+
+    if (!userRecord || userRecord.status === 'suspended') {
+      return res.status(403).json({ error: { message: 'Your account is suspended. Please contact support.' } });
+    }
+
+    if (!userRecord.emailVerified && userRecord.role !== 'admin') {
+      return res.status(403).json({ error: { message: 'Email verification is required before generating API keys.' } });
+    }
+
+    // Limit active keys per customer (max 5)
+    if (userRecord.role !== 'admin') {
+      const activeKeysCount = await prisma.apiKey.count({
+        where: { userId, status: { not: 'revoked' } },
+      });
+      if (activeKeysCount >= 5) {
+        return res.status(400).json({
+          error: {
+            message: 'Maximum limit of 5 API keys reached. Please revoke an unused key in your dashboard before generating a new one.',
+          },
+        });
+      }
+    }
+
+    // Check Entitlement: Active Paid Subscription OR Paid Order OR Available Account Balance
+    const [activeSubscription, paidOrder] = await Promise.all([
+      prisma.subscription.findFirst({
+        where: {
+          userId,
+          status: 'active',
+          planId: { not: 'free_trial' },
+          OR: [{ expiryTime: { gt: new Date() } }, { currentPeriodEnd: { gt: new Date() } }],
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.order.findFirst({
+        where: {
+          userId,
+          OR: [{ paymentStatus: 'PAID' }, { status: 'completed' }],
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const hasBalance = Number(userRecord.balance || 0) > 0;
+    const isEntitled = Boolean(activeSubscription || paidOrder || hasBalance || userRecord.role === 'admin');
+
+    if (!isEntitled) {
+      return res.status(403).json({
+        error: {
+          type: 'entitlement_required',
+          message: 'An active paid subscription, token pack, or credit deposit is required to create API keys. Please select a plan from Plans & Pricing.',
+        },
+      });
+    }
+
+    // Authoritative plan and allocation resolution
+    let effectiveBillingType: 'window' | 'credit' | 'token' = 'window';
+    let authoritativePlan = 'Claude Rolling Window';
+    let initialTokens = BigInt(0);
+    let initialCredit = 0.0;
+
+    if (activeSubscription) {
+      effectiveBillingType = (activeSubscription.billingType as any) || 'window';
+      authoritativePlan = activeSubscription.planName || 'Claude Rolling Window';
+      initialTokens = BigInt(0);
+      initialCredit = 0.0;
+    } else if (paidOrder) {
+      effectiveBillingType = (paidOrder.billingType as any) || (paidOrder.planCategory === 'token_pack' ? 'token' : 'credit');
+      authoritativePlan = paidOrder.planName || 'Prepaid Plan';
+      initialTokens = paidOrder.tokensRemaining ? BigInt(paidOrder.tokensRemaining.toString()) : BigInt(0);
+      initialCredit = Number(paidOrder.creditsRemaining || 0);
+    } else if (hasBalance) {
+      effectiveBillingType = 'credit';
+      authoritativePlan = 'Usage Credit';
+      initialCredit = Number(userRecord.balance);
+    } else if (userRecord.role === 'admin') {
+      const validBillingTypes = ['window', 'credit', 'token'];
+      effectiveBillingType = billingType && validBillingTypes.includes(billingType) ? billingType : 'window';
+      authoritativePlan = plan || 'Admin Provisioned Key';
+      initialTokens = BigInt(1000000);
+    }
+
     const keyMaterial = await generateProviderApiKey({ isTrial: false });
     const { rawKeySecret, keyPrefix, keyHash, displayKey, providerId } = keyMaterial;
 
     const key = await prisma.apiKey.create({
       data: {
-        userId: req.user!.id,
+        userId,
         providerId,
         keyPrefix,
         keyHash,
         displayKey,
         keyEncrypted: encryptText(rawKeySecret),
         name: name.trim(),
-        purchasedTokens: BigInt(1000000),
-        tokensRemaining: BigInt(1000000),
-        creditBalanceUsd: effectiveBillingType === 'credit' ? 5.0 : 0.0,
+        purchasedTokens: initialTokens,
+        tokensRemaining: initialTokens,
+        creditBalanceUsd: initialCredit,
         billingType: effectiveBillingType,
         allowedModelFamilies: (() => {
           if (modelScope === 'claude') return JSON.stringify(['claude']);
           if (modelScope === 'openai') return JSON.stringify(['openai']);
           if (modelScope === 'local') return JSON.stringify(['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']);
-          if (plan && typeof plan === 'string') {
-            const pLow = plan.toLowerCase();
+          if (authoritativePlan && typeof authoritativePlan === 'string') {
+            const pLow = authoritativePlan.toLowerCase();
             if (pLow.includes('claude')) return JSON.stringify(['claude']);
             if (pLow.includes('openai')) return JSON.stringify(['openai']);
             if (pLow.includes('local')) return JSON.stringify(['local', 'deepseek', 'gemini', 'grok', 'glm', 'minimax', 'kimi', 'qwen']);
           }
           return 'all';
         })(),
-        plan: plan || (effectiveBillingType === 'credit' ? 'Usage Credit' : effectiveBillingType === 'token' ? 'Prepaid Token Pack' : 'Claude Max 20x'),
+        plan: authoritativePlan,
       },
     });
 
@@ -1307,7 +1392,7 @@ router.post('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequ
 });
 
 // POST /api/user/keys/:id/rotate — Rotate Customer's Own API Key (IDOR Protected)
-router.post('/keys/:id/rotate', authenticateJwt, async (req: AuthRequest, res: Response) => {
+router.post('/keys/:id/rotate', authenticateJwt, requireVerifiedEmail, async (req: AuthRequest, res: Response) => {
   try {
     const key = await prisma.apiKey.findFirst({
       where: { id: req.params.id, userId: req.user!.id },
@@ -1371,7 +1456,7 @@ router.post('/keys/:id/rotate', authenticateJwt, async (req: AuthRequest, res: R
 });
 
 // POST /api/user/keys/test — Live Interactive API Key Playground & AI Studio Execution
-router.post('/keys/test', authenticateJwt, async (req: AuthRequest, res: Response) => {
+router.post('/keys/test', authenticateJwt, requireVerifiedEmail, async (req: AuthRequest, res: Response) => {
   const { apiKeyId, keyString, model, prompt, messages, system, temperature, max_tokens, clientPlatform, thinking } = req.body;
 
   try {
@@ -2410,7 +2495,7 @@ router.get('/trial/status', optionalAuthenticateJwt, async (req: AuthRequest, re
 });
 
 // GET /api/user/keys — List User's Own API Keys (IDOR Protected)
-router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => {
+router.get('/keys', authenticateJwt, requireVerifiedEmail, async (req: AuthRequest, res: Response) => {
   try {
     const userRecord = await prisma.user.findUnique({
       where: { id: req.user!.id },
@@ -2509,7 +2594,7 @@ router.get('/keys', authenticateJwt, async (req: AuthRequest, res: Response) => 
 });
 
 // DELETE /api/user/keys/:id — Revoke User's API Key (IDOR Protected)
-router.delete('/keys/:id', authenticateJwt, async (req: AuthRequest, res: Response) => {
+router.delete('/keys/:id', authenticateJwt, requireVerifiedEmail, async (req: AuthRequest, res: Response) => {
   try {
     const key = await prisma.apiKey.findFirst({
       where: { id: req.params.id, userId: req.user!.id },
@@ -2540,7 +2625,7 @@ router.delete('/keys/:id', authenticateJwt, async (req: AuthRequest, res: Respon
 });
 
 // POST /api/user/keys/:id/reveal — Decrypt and securely reveal the user's secret API key (IDOR Protected)
-router.post('/keys/:id/reveal', authenticateJwt, async (req: AuthRequest, res: Response) => {
+router.post('/keys/:id/reveal', authenticateJwt, requireVerifiedEmail, async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user!;
     const key = await prisma.apiKey.findFirst({

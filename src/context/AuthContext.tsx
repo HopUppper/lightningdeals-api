@@ -7,6 +7,8 @@ export interface User {
   name: string;
   phone?: string | null;
   role: 'user' | 'admin';
+  emailVerified?: boolean;
+  status?: string;
 }
 
 interface AuthContextType {

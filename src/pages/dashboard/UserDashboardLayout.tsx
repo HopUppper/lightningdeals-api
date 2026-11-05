@@ -55,6 +55,12 @@ export const UserDashboardLayout: React.FC = () => {
     navigate('/');
   };
 
+  useEffect(() => {
+    if (user && user.role !== 'admin' && !user.emailVerified) {
+      navigate(`/verify-email?email=${encodeURIComponent(user.email)}`, { replace: true });
+    }
+  }, [user, navigate]);
+
   const navGroups: NavGroup[] = [
     {
       id: 'home',

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import net from 'net';
 import { recordAuditEvent } from './auditLogger';
+import { recordIpSecurityViolation } from './securityDetection';
 
 interface RateLimitStore {
   count: number;
@@ -127,6 +128,7 @@ export function createRateLimiter(options: RateLimiterOptions) {
           req,
         });
 
+        recordIpSecurityViolation(clientIp, `RATE_LIMIT_${options.keyPrefix || 'EXCEEDED'}`);
         return res.status(429).json({
           error: {
             type: 'rate_limit_exceeded',
@@ -173,6 +175,7 @@ export function createRateLimiter(options: RateLimiterOptions) {
               req,
             });
 
+            recordIpSecurityViolation(clientIp, `RATE_LIMIT_${options.keyPrefix || 'EXCEEDED'}`);
             return res.status(429).json({
               error: {
                 type: 'rate_limit_exceeded',

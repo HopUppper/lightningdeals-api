@@ -46,6 +46,76 @@ const MALICIOUS_BOT_UA = [
   /nmap/i,
 ];
 
+// Hard blacklisted malicious IPs (confirmed threat actors / abusive bot runners)
+const KNOWN_MALICIOUS_IPS = new Set<string>([
+  '45.138.70.116', // US proxy/bot running rapid automated key probes and completions spraying
+]);
+
+// Dynamic Auto-Ban / Threat Jail
+interface BannedIpRecord {
+  bannedUntil: number;
+  reason: string;
+}
+const dynamicallyBannedIps = new Map<string, BannedIpRecord>();
+
+interface IpViolationRecord {
+  count: number;
+  firstViolationAt: number;
+}
+const ipViolations = new Map<string, IpViolationRecord>();
+
+const VIOLATION_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const VIOLATION_THRESHOLD = 8; // 8 violations within 5 mins triggers 24-hour auto-ban
+const BAN_DURATION_MS = 24 * 3600 * 1000; // 24 hours
+
+/**
+ * Record a security violation from an IP (e.g. rate limit trigger, invalid API key spray, auth failure).
+ * Automatically jails repeat offenders for 24 hours.
+ */
+export function recordIpSecurityViolation(ip: string, reason: string): void {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return;
+  const now = Date.now();
+  const current = ipViolations.get(ip);
+  if (!current || now - current.firstViolationAt > VIOLATION_WINDOW_MS) {
+    ipViolations.set(ip, { count: 1, firstViolationAt: now });
+    return;
+  }
+  current.count++;
+  if (current.count >= VIOLATION_THRESHOLD) {
+    dynamicallyBannedIps.set(ip, {
+      bannedUntil: now + BAN_DURATION_MS,
+      reason: `Exceeded security violation threshold (${current.count} violations: ${reason})`,
+    });
+    recordAuditEvent({
+      eventType: 'IP_AUTO_BANNED',
+      severity: 'CRITICAL',
+      actorType: 'ANONYMOUS',
+      result: 'BLOCKED',
+      statusCode: 403,
+      failureReason: `IP ${ip} automatically banned for 24h due to repeated security violations (${reason})`,
+      metadata: { ipAddress: ip, violationCount: current.count, reason },
+    });
+  }
+}
+
+/**
+ * Check if an IP address is actively banned or blacklisted.
+ */
+export function isIpBanned(ip: string): { isBanned: boolean; reason?: string } {
+  if (!ip) return { isBanned: false };
+  if (KNOWN_MALICIOUS_IPS.has(ip)) {
+    return { isBanned: true, reason: 'Permanently blacklisted malicious network IP' };
+  }
+  const ban = dynamicallyBannedIps.get(ip);
+  if (ban) {
+    if (Date.now() < ban.bannedUntil) {
+      return { isBanned: true, reason: ban.reason };
+    }
+    dynamicallyBannedIps.delete(ip);
+  }
+  return { isBanned: false };
+}
+
 /**
  * Scan a single string or recursive object for attack patterns
  */
@@ -126,6 +196,25 @@ export function securityThreatDetector(req: Request, res: Response, next: NextFu
     req.path.endsWith('.html')
   ) {
     return next();
+  }
+
+  // 0. Ingress IP Threat Jail / Blacklist Inspection
+  const clientIp = (
+    (req.headers['x-forwarded-for'] as string) ||
+    req.socket.remoteAddress ||
+    req.ip ||
+    ''
+  ).split(',')[0].trim();
+
+  const banStatus = isIpBanned(clientIp);
+  if (banStatus.isBanned) {
+    return res.status(403).json({
+      error: {
+        type: 'access_denied',
+        code: 'IP_BANNED',
+        message: 'Access blocked by automated edge threat protection.',
+      },
+    });
   }
 
   const userAgent = req.headers['user-agent'] || '';

@@ -44,6 +44,7 @@ import {
 } from './infrastructure/circuitBreaker';
 import { recordProviderCallMetric } from './infrastructure/providerHealth';
 import { evaluateRequestAnomalies, recordAuthFailure } from './infrastructure/anomalyDetector';
+import { recordIpSecurityViolation } from './securityDetection';
 import { getCachedGlobalApiDisabled, getCachedApiKey, updateCachedKeyBalance, invalidateKeyCache } from './cache/authCache';
 export { invalidateKeyCache, updateCachedKeyBalance };
 
@@ -856,6 +857,43 @@ export function detectModelFamily(model: string): string {
 }
 
 export async function validateKeyRecordAndCheckAllowance(keyRecord: any, requestedModel?: string, req?: any) {
+  // Authoritative Customer Account Status Guard
+  if (keyRecord.user) {
+    if (keyRecord.user.status === 'suspended') {
+      invalidateKeyCache(keyRecord.id);
+      invalidateKeyCache(keyRecord.keyHash);
+      recordAuditEvent({
+        eventType: 'SUSPENDED_CUSTOMER_API_BLOCKED',
+        severity: 'HIGH',
+        actorType: 'CUSTOMER',
+        actorId: keyRecord.userId,
+        customerId: keyRecord.userId,
+        apiKeyId: keyRecord.id,
+        result: 'BLOCKED',
+        statusCode: 403,
+        failureReason: 'Customer account is suspended',
+        req,
+      });
+      return { errorStatus: 403, errorType: 'permission_error', errorMessage: 'Your account is suspended. Please contact support@lightningapi.pro.' };
+    }
+
+    if (!keyRecord.user.emailVerified && keyRecord.user.role !== 'admin') {
+      recordAuditEvent({
+        eventType: 'UNVERIFIED_CUSTOMER_API_BLOCKED',
+        severity: 'MEDIUM',
+        actorType: 'CUSTOMER',
+        actorId: keyRecord.userId,
+        customerId: keyRecord.userId,
+        apiKeyId: keyRecord.id,
+        result: 'BLOCKED',
+        statusCode: 403,
+        failureReason: 'Customer account email is unverified',
+        req,
+      });
+      return { errorStatus: 403, errorType: 'permission_error', errorMessage: 'Email verification is required before using API keys. Please verify your email.' };
+    }
+  }
+
   if (keyRecord.status !== 'active') {
     if (req) {
       recordAuditEvent({
@@ -1076,6 +1114,7 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
   if (!keyRecord) {
     const clientIp = (req?.ip || req?.headers?.['x-forwarded-for']?.toString() || '').split(',')[0].trim() || 'unknown';
     recordAuthFailure(clientIp, rawKey.substring(0, 8)).catch(() => {});
+    recordIpSecurityViolation(clientIp, 'INVALID_API_KEY');
     recordAuditEvent({
       eventType: 'INVALID_API_KEY',
       severity: 'LOW',
@@ -1087,6 +1126,43 @@ export async function validateAndExtractApiKey(req: Request, requestedModel?: st
       req,
     });
     return { errorStatus: 401, errorType: 'authentication_error', errorMessage: 'Invalid API key provided.' };
+  }
+
+  // Authoritative Customer Account Status Guard
+  if (keyRecord.user) {
+    if (keyRecord.user.status === 'suspended') {
+      invalidateKeyCache(keyRecord.id);
+      invalidateKeyCache(keyRecord.keyHash);
+      recordAuditEvent({
+        eventType: 'SUSPENDED_CUSTOMER_API_BLOCKED',
+        severity: 'HIGH',
+        actorType: 'CUSTOMER',
+        actorId: keyRecord.userId,
+        customerId: keyRecord.userId,
+        apiKeyId: keyRecord.id,
+        result: 'BLOCKED',
+        statusCode: 403,
+        failureReason: 'Customer account is suspended',
+        req,
+      });
+      return { errorStatus: 403, errorType: 'permission_error', errorMessage: 'Your account is suspended. Please contact support@lightningapi.pro.' };
+    }
+
+    if (!keyRecord.user.emailVerified && keyRecord.user.role !== 'admin') {
+      recordAuditEvent({
+        eventType: 'UNVERIFIED_CUSTOMER_API_BLOCKED',
+        severity: 'MEDIUM',
+        actorType: 'CUSTOMER',
+        actorId: keyRecord.userId,
+        customerId: keyRecord.userId,
+        apiKeyId: keyRecord.id,
+        result: 'BLOCKED',
+        statusCode: 403,
+        failureReason: 'Customer account email is unverified',
+        req,
+      });
+      return { errorStatus: 403, errorType: 'permission_error', errorMessage: 'Email verification is required before using API keys. Please verify your email.' };
+    }
   }
 
   if (keyRecord.status !== 'active') {

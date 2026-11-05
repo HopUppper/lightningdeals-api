@@ -122,7 +122,7 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     include: { user: true },
   });
 
-  if (!keyRecord || keyRecord.status === 'revoked') {
+  if (!keyRecord || keyRecord.status === 'revoked' || keyRecord.status === 'suspended' || keyRecord.user?.status === 'suspended') {
     // Constant-time execution pad to eliminate timing oracle attacks
     await new Promise((r) => setTimeout(r, 50));
     return res.status(200).json({ valid: false, error: { type: 'invalid_key', message: 'Invalid or revoked API key.' } });

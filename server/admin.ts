@@ -3776,8 +3776,24 @@ router.put('/customers/:id', async (req: AuthRequest, res: Response) => {
         },
       });
 
+      if (user.status === 'suspended') {
+        // Authoritative cascading suspension: immediately suspend all API keys & revoke sessions
+        await tx.apiKey.updateMany({
+          where: { userId: user.id, status: 'active' },
+          data: { status: 'suspended' },
+        });
+        await tx.userSession.updateMany({
+          where: { userId: user.id, isRevoked: false },
+          data: { isRevoked: true },
+        });
+      }
+
       return user;
     });
+
+    if (updated.status === 'suspended') {
+      invalidateKeyCache();
+    }
 
     const eventType = updated.status === 'suspended' && existing.status !== 'suspended'
       ? 'CUSTOMER_SUSPENDED'
@@ -3862,6 +3878,18 @@ router.post('/customers/:id/toggle-studio', async (req: AuthRequest, res: Respon
           metadata: `${isGranted ? 'Granted' : 'Revoked'} AI Chat Studio access for customer ${user.name} (${user.email})`,
         },
       });
+
+      if (user.status === 'suspended') {
+        // Authoritative cascading suspension: immediately suspend all API keys & revoke sessions
+        await tx.apiKey.updateMany({
+          where: { userId: user.id, status: 'active' },
+          data: { status: 'suspended' },
+        });
+        await tx.userSession.updateMany({
+          where: { userId: user.id, isRevoked: false },
+          data: { isRevoked: true },
+        });
+      }
 
       return user;
     });

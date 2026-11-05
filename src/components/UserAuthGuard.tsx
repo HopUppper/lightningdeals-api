@@ -26,5 +26,15 @@ export const UserAuthGuard: React.FC<{ children: React.ReactElement }> = ({ chil
     return <Navigate to={redirectUrl} replace />;
   }
 
+  // Strict Account Suspension Guard
+  if (user.status === 'suspended') {
+    return <Navigate to="/login?error=account_suspended" replace />;
+  }
+
+  // Strict Email Verification Guard (No unverified accounts can enter dashboard)
+  if (!user.emailVerified && user.role !== 'admin') {
+    return <Navigate to={`/verify-email?email=${encodeURIComponent(user.email)}`} replace />;
+  }
+
   return children;
 };

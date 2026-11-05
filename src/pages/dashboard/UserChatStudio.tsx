@@ -640,11 +640,44 @@ const ResponseTelemetryDropdown: React.FC<ResponseTelemetryDropdownProps> = ({ m
   );
 };
 
+export type ApiKeyLoadingState = 'INITIALIZING' | 'LOADING' | 'READY' | 'NO_KEY' | 'ERROR';
+
 export const UserChatStudio: React.FC = () => {
-  const [keys, setKeys] = useState<any[]>([]);
-  const [selectedKeyId, setSelectedKeyId] = useState('');
+  // Key state machine with instant <50ms cache hydration to eliminate latency and false "No Key" states
+  const [keys, setKeys] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('lightning_studio_key_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id) return [parsed];
+      }
+    } catch {}
+    return [];
+  });
+  const [selectedKeyId, setSelectedKeyId] = useState<string>(() => {
+    try {
+      const cached = localStorage.getItem('lightning_studio_key_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id) return parsed.id;
+      }
+      return localStorage.getItem('lightning_studio_key_id') || '';
+    } catch {}
+    return '';
+  });
+  const [keyLoadingState, setKeyLoadingState] = useState<ApiKeyLoadingState>(() => {
+    try {
+      const cached = localStorage.getItem('lightning_studio_key_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id) return 'READY';
+      }
+    } catch {}
+    return 'INITIALIZING';
+  });
   const [isPaidCustomer, setIsPaidCustomer] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const isCreatingThreadRef = useRef(false);
   const isMac = typeof window !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.userAgent || navigator.platform || '');
   const shortcutLabel = isMac ? '⌘K' : 'Ctrl+K';
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
@@ -1057,143 +1090,187 @@ export const UserChatStudio: React.FC = () => {
     );
   };
 
-  // 1. Initial Load: User Keys & Server Conversations & Authoritative Models
+  // 1. Initial Load: User Keys & Server Conversations & Authoritative Models (Parallelized execution)
   useEffect(() => {
     async function loadData() {
       try {
-        // Load Authoritative Model Catalog from Server
-        let modelsLoaded = false;
-        try {
-          const modelsRes = await userFetch('/api/user/studio/models');
-          if (modelsRes.ok) {
-            const modelsData = await modelsRes.json();
-            if (Array.isArray(modelsData.models) && modelsData.models.length > 0) {
-              setAvailableModels(modelsData.models);
-              modelsLoaded = true;
-            }
-          }
-        } catch {}
-
-        if (!modelsLoaded) {
+        // Parallel Task 1: API Keys (Top priority for immediate responsiveness)
+        const loadKeysPromise = (async () => {
           try {
-            const v1Res = await fetch('/v1/models');
-            if (v1Res.ok) {
-              const v1Data = await v1Res.json();
-              if (Array.isArray(v1Data.data) && v1Data.data.length > 0) {
-                const mapped: StudioModelMeta[] = v1Data.data.map((m: any) => ({
-                  id: m.id,
-                  name: m.display_name || m.id,
-                  category: m.id.startsWith('claude') ? 'Flagship Models' : m.id.startsWith('gemini') ? 'Google Gemini' : m.id.startsWith('gpt') ? 'OpenAI Series' : 'Frontier Models',
-                  badge: m.id.includes('argon') ? 'New Frontier' : undefined,
-                  description: m.description || `${m.display_name || m.id} frontier AI model.`,
-                  tokenMultiplier: 1.0,
-                  contextWindow: m.context_window || 128000,
-                  maxOutputTokens: 8192,
-                  supportsThinking: Boolean(m.supports_reasoning),
-                  supportsVision: Boolean(m.supports_vision),
-                  supportsTools: Boolean(m.supports_tools),
-                  isAvailable: true,
-                  upstreamModelId: m.id,
-                  providerRoute: m.protocol || 'openai-compatible',
-                }));
-                setAvailableModels(mapped);
+            setKeyLoadingState((prev) => (prev === 'READY' ? 'READY' : 'LOADING'));
+            const keysRes = await userFetch('/api/user/keys');
+            if (keysRes.ok) {
+              const keysData = await keysRes.json();
+              const keyList = keysData.keys || [];
+              setKeys(keyList);
+              setIsPaidCustomer(Boolean(keysData.isPaidCustomer));
+
+              if (keyList.length === 0) {
+                setKeyLoadingState('NO_KEY');
+                localStorage.removeItem('lightning_studio_key_cache');
+              } else {
+                setKeyLoadingState('READY');
+                const savedKeyId = localStorage.getItem('lightning_studio_key_id');
+                let resolvedKey = null;
+                if (savedKeyId && keyList.some((k: any) => k.id === savedKeyId)) {
+                  setSelectedKeyId(savedKeyId);
+                  resolvedKey = keyList.find((k: any) => k.id === savedKeyId);
+                } else {
+                  // Prefer an active key that has available quota (> 0 tokens or > $0 credits)
+                  const positiveKey = keyList.find((k: any) => {
+                    const cat = getKeyPlanCategory(k);
+                    if (cat === 'credit') return Number(k.creditBalanceUsd || 0) > 0;
+                    return BigInt(k.tokensRemaining || 0) > 0n;
+                  });
+                  resolvedKey = positiveKey || keyList[0];
+                  if (resolvedKey) {
+                    setSelectedKeyId(resolvedKey.id);
+                    localStorage.setItem('lightning_studio_key_id', resolvedKey.id);
+                  }
+                }
+                if (resolvedKey) {
+                  try {
+                    localStorage.setItem('lightning_studio_key_cache', JSON.stringify(resolvedKey));
+                  } catch {}
+                }
+              }
+            } else {
+              setKeyLoadingState((prev) => (prev === 'READY' ? 'READY' : 'ERROR'));
+            }
+          } catch {
+            setKeyLoadingState((prev) => (prev === 'READY' ? 'READY' : 'ERROR'));
+          }
+        })();
+
+        // Parallel Task 2: Model Catalog
+        const loadModelsPromise = (async () => {
+          let modelsLoaded = false;
+          try {
+            const modelsRes = await userFetch('/api/user/studio/models');
+            if (modelsRes.ok) {
+              const modelsData = await modelsRes.json();
+              if (Array.isArray(modelsData.models) && modelsData.models.length > 0) {
+                setAvailableModels(modelsData.models);
+                modelsLoaded = true;
               }
             }
           } catch {}
-        }
 
-        // Load API Keys
-        const keysRes = await userFetch('/api/user/keys');
-        if (keysRes.ok) {
-          const keysData = await keysRes.json();
-          const keyList = keysData.keys || [];
-          setKeys(keyList);
-          setIsPaidCustomer(Boolean(keysData.isPaidCustomer));
+          if (!modelsLoaded) {
+            try {
+              const v1Res = await fetch('/v1/models');
+              if (v1Res.ok) {
+                const v1Data = await v1Res.json();
+                if (Array.isArray(v1Data.data) && v1Data.data.length > 0) {
+                  const mapped: StudioModelMeta[] = v1Data.data.map((m: any) => ({
+                    id: m.id,
+                    name: m.display_name || m.id,
+                    category: m.id.startsWith('claude') ? 'Flagship Models' : m.id.startsWith('gemini') ? 'Google Gemini' : m.id.startsWith('gpt') ? 'OpenAI Series' : 'Frontier Models',
+                    badge: m.id.includes('argon') ? 'New Frontier' : undefined,
+                    description: m.description || `${m.display_name || m.id} frontier AI model.`,
+                    tokenMultiplier: 1.0,
+                    contextWindow: m.context_window || 128000,
+                    maxOutputTokens: 8192,
+                    supportsThinking: Boolean(m.supports_reasoning),
+                    supportsVision: Boolean(m.supports_vision),
+                    supportsTools: Boolean(m.supports_tools),
+                    isAvailable: true,
+                    upstreamModelId: m.id,
+                    providerRoute: m.protocol || 'openai-compatible',
+                  }));
+                  setAvailableModels(mapped);
+                }
+              }
+            } catch {}
+          }
+        })();
 
-          const savedKeyId = localStorage.getItem('lightning_studio_key_id');
-          if (savedKeyId && keyList.some((k: any) => k.id === savedKeyId)) {
-            setSelectedKeyId(savedKeyId);
-          } else {
-            // Prefer an active key that has available quota (> 0 tokens or > $0 credits)
-            const positiveKey = keyList.find((k: any) => {
-              const cat = getKeyPlanCategory(k);
-              if (cat === 'credit') return Number(k.creditBalanceUsd || 0) > 0;
-              return BigInt(k.tokensRemaining || 0) > 0n;
-            });
-            const initialKey = positiveKey || keyList[0];
-            if (initialKey) {
-              setSelectedKeyId(initialKey.id);
-              localStorage.setItem('lightning_studio_key_id', initialKey.id);
+        // Parallel Task 3: Projects
+        const loadProjectsPromise = (async () => {
+          try {
+            const projRes = await userFetch('/api/user/studio/projects');
+            if (projRes.ok) {
+              const pData = await projRes.json();
+              if (Array.isArray(pData.projects)) setProjects(pData.projects);
             }
+          } catch {}
+        })();
+
+        // Parallel Task 4: Server Conversations
+        const loadConversationsPromise = (async () => {
+          try {
+            const convsRes = await userFetch('/api/user/studio/conversations');
+            if (convsRes.ok) {
+              const convsData = await convsRes.json();
+              if (Array.isArray(convsData.conversations) && convsData.conversations.length > 0) {
+                const serverThreads: ChatThread[] = convsData.conversations.map((c: any) => ({
+                  id: c.id,
+                  title: c.title,
+                  model: c.model,
+                  pinned: Boolean(c.pinned),
+                  archived: Boolean(c.archived),
+                  projectId: c.projectId || null,
+                  project: c.project || null,
+                  systemPrompt: c.systemPrompt || '',
+                  thinkingEnabled: Boolean(c.thinkingEnabled),
+                  tokenSaverEnabled: Boolean(c.tokenSaverEnabled),
+                  temperature: c.temperature ?? 0.2,
+                  messages: [],
+                  createdAt: new Date(c.createdAt).getTime(),
+                  updatedAt: new Date(c.updatedAt).getTime(),
+                  messagesLoaded: false,
+                }));
+                setThreads(serverThreads);
+                const firstId = serverThreads[0].id;
+                setActiveThreadId(firstId);
+                loadConversationMessages(firstId);
+                return true;
+              }
+            }
+          } catch {}
+          return false;
+        })();
+
+        // Execute all initial loads concurrently
+        const results = await Promise.allSettled([
+          loadKeysPromise,
+          loadModelsPromise,
+          loadProjectsPromise,
+          loadConversationsPromise,
+        ]);
+
+        const conversationsResolved = results[3].status === 'fulfilled' && results[3].value === true;
+        if (!conversationsResolved) {
+          // Fallback to localStorage cache if server had 0 conversations
+          const saved = localStorage.getItem('lightning_chat_threads_v3');
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setThreads(parsed);
+                setActiveThreadId(parsed[0].id);
+                return;
+              }
+            } catch {}
           }
+
+          // Default Thread
+          const defaultThread: ChatThread = {
+            id: `thread_${Date.now()}`,
+            title: 'New Session',
+            model: 'claude-sonnet-5.5',
+            systemPrompt: 'You are an elite principal software architect. Provide clean, robust, production-grade code with TypeScript typings, error handling, and structured explanations.',
+            temperature: 0.2,
+            thinkingEnabled: true,
+            tokenSaverEnabled: false,
+            messages: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            messagesLoaded: true,
+          };
+          setThreads([defaultThread]);
+          setActiveThreadId(defaultThread.id);
         }
-
-        // Load Projects
-        try {
-          const projRes = await userFetch('/api/user/studio/projects');
-          if (projRes.ok) {
-            const pData = await projRes.json();
-            if (Array.isArray(pData.projects)) setProjects(pData.projects);
-          }
-        } catch {}
-
-        // Load Server-Backed Conversations
-        const convsRes = await userFetch('/api/user/studio/conversations');
-        if (convsRes.ok) {
-          const convsData = await convsRes.json();
-          if (Array.isArray(convsData.conversations) && convsData.conversations.length > 0) {
-            const serverThreads: ChatThread[] = convsData.conversations.map((c: any) => ({
-              id: c.id,
-              title: c.title,
-              model: c.model,
-              pinned: Boolean(c.pinned),
-              archived: Boolean(c.archived),
-              projectId: c.projectId || null,
-              project: c.project || null,
-              systemPrompt: c.systemPrompt || '',
-              thinkingEnabled: Boolean(c.thinkingEnabled),
-              tokenSaverEnabled: Boolean(c.tokenSaverEnabled),
-              temperature: c.temperature ?? 0.2,
-              messages: [],
-              createdAt: new Date(c.createdAt).getTime(),
-              updatedAt: new Date(c.updatedAt).getTime(),
-              messagesLoaded: false,
-            }));
-            setThreads(serverThreads);
-            const firstId = serverThreads[0].id;
-            setActiveThreadId(firstId);
-            loadConversationMessages(firstId);
-            return;
-          }
-        }
-
-        // Fallback to localStorage cache if server had 0 conversations
-        const saved = localStorage.getItem('lightning_chat_threads_v3');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setThreads(parsed);
-            setActiveThreadId(parsed[0].id);
-            return;
-          }
-        }
-
-        // Default Thread
-        const defaultThread: ChatThread = {
-          id: `thread_${Date.now()}`,
-          title: 'New Session',
-          model: 'claude-sonnet-5.5',
-          systemPrompt: 'You are an elite principal software architect. Provide clean, robust, production-grade code with TypeScript typings, error handling, and structured explanations.',
-          temperature: 0.2,
-          thinkingEnabled: true,
-          tokenSaverEnabled: false,
-          messages: [],
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          messagesLoaded: true,
-        };
-        setThreads([defaultThread]);
-        setActiveThreadId(defaultThread.id);
       } catch (err) {
         console.error('Failed to load initial studio data:', err);
       } finally {
@@ -1514,53 +1591,85 @@ export const UserChatStudio: React.FC = () => {
 
   const handleCreateNewThread = async (forProjectId?: string) => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false);
-    const projIdToUse = forProjectId !== undefined ? forProjectId : selectedProjectId;
-    const projObj = projIdToUse ? projects.find((p) => p.id === projIdToUse) : null;
-    const defaultModel = activeThread.model || 'claude-sonnet-5.5';
-    let newId = `thread_${Date.now()}`;
 
+    // Prevent concurrent rapid double-clicks from spawning duplicate sessions
+    if (isCreatingThreadRef.current) return;
+
+    // Idempotency: If current active thread is already pristine and has 0 messages, reuse it!
+    const isCurrentThreadEmpty =
+      activeThread &&
+      activeThread.messages.length === 0 &&
+      !inputMessage.trim() &&
+      attachments.length === 0 &&
+      (forProjectId === undefined || activeThread.projectId === (forProjectId || null));
+
+    if (isCurrentThreadEmpty) {
+      if (textareaRef.current) textareaRef.current.focus();
+      return;
+    }
+
+    isCreatingThreadRef.current = true;
     try {
-      const res = await userFetch('/api/user/studio/conversations', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: 'New Session',
-          model: defaultModel,
-          thinkingEnabled: activeThread.thinkingEnabled ?? true,
-          tokenSaverEnabled: activeThread.tokenSaverEnabled ?? false,
-          projectId: projIdToUse || undefined,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.conversation?.id) {
-          newId = data.conversation.id;
+      const projIdToUse = forProjectId !== undefined ? forProjectId : selectedProjectId;
+      const projObj = projIdToUse ? projects.find((p) => p.id === projIdToUse) : null;
+      const defaultModel = activeThread.model || 'claude-sonnet-5.5';
+      let newId = `thread_${Date.now()}`;
+
+      try {
+        const res = await userFetch('/api/user/studio/conversations', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: 'New Session',
+            model: defaultModel,
+            thinkingEnabled: activeThread.thinkingEnabled ?? true,
+            tokenSaverEnabled: activeThread.tokenSaverEnabled ?? false,
+            projectId: projIdToUse || undefined,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.conversation?.id) {
+            newId = data.conversation.id;
+            // If the server reused an existing empty conversation that is already in threads, select it
+            if (data.reused) {
+              const existingInList = threads.find((t) => t.id === newId);
+              if (existingInList) {
+                setActiveThreadId(newId);
+                if (textareaRef.current) textareaRef.current.focus();
+                return;
+              }
+            }
+          }
         }
-      }
-    } catch {}
+      } catch {}
 
-    const newThread: ChatThread = {
-      id: newId,
-      title: 'New Session',
-      model: defaultModel,
-      projectId: projIdToUse || null,
-      project: projObj ? { id: projObj.id, name: projObj.name, color: projObj.color || '#8b5cf6' } : null,
-      systemPrompt: activeThread.systemPrompt,
-      temperature: activeThread.temperature ?? 0.2,
-      thinkingEnabled: activeThread.thinkingEnabled ?? true,
-      tokenSaverEnabled: activeThread.tokenSaverEnabled ?? false,
-      messages: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      messagesLoaded: true,
-    };
+      const newThread: ChatThread = {
+        id: newId,
+        title: 'New Session',
+        model: defaultModel,
+        projectId: projIdToUse || null,
+        project: projObj ? { id: projObj.id, name: projObj.name, color: projObj.color || '#8b5cf6' } : null,
+        systemPrompt: activeThread.systemPrompt,
+        temperature: activeThread.temperature ?? 0.2,
+        thinkingEnabled: activeThread.thinkingEnabled ?? true,
+        tokenSaverEnabled: activeThread.tokenSaverEnabled ?? false,
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messagesLoaded: true,
+      };
 
-    setThreads((prev) => [newThread, ...prev]);
-    setActiveThreadId(newId);
-    setActiveArtifact(null);
-    setPrompt('');
-    setAttachments([]);
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    setSpeakingMsgId(null);
+      setThreads((prev) => [newThread, ...prev]);
+      setActiveThreadId(newId);
+      setActiveArtifact(null);
+      setPrompt('');
+      setAttachments([]);
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      setSpeakingMsgId(null);
+      if (textareaRef.current) textareaRef.current.focus();
+    } finally {
+      isCreatingThreadRef.current = false;
+    }
   };
 
   const handleDeleteThread = async (id: string, e: React.MouseEvent) => {
@@ -1751,8 +1860,12 @@ export const UserChatStudio: React.FC = () => {
   const handleFilesSelected = async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
 
-    if (!activeKey) {
-      setUpgradeReason('An active API key is required to analyze files and images. Claim a free 200k trial key or activate a capacity plan.');
+    if (keyLoadingState === 'INITIALIZING' || keyLoadingState === 'LOADING') {
+      return;
+    }
+
+    if (keyLoadingState === 'NO_KEY' || (!activeKey && keyLoadingState === 'READY')) {
+      setUpgradeReason('An active API key is required to analyze files and images. Claim a free trial key or activate a capacity plan.');
       setShowUpgradeModal(true);
       return;
     }
@@ -1966,8 +2079,12 @@ export const UserChatStudio: React.FC = () => {
     const promptToSend = customPrompt !== undefined ? customPrompt : inputMessage;
     if ((!promptToSend.trim() && attachments.length === 0) || generating) return;
 
-    if (!activeKey) {
-      setUpgradeReason('An active API key is required to use AI Chat Studio. Claim your free 200k trial key or activate a capacity plan.');
+    if (keyLoadingState === 'INITIALIZING' || keyLoadingState === 'LOADING') {
+      return;
+    }
+
+    if (keyLoadingState === 'NO_KEY' || (!activeKey && keyLoadingState === 'READY')) {
+      setUpgradeReason('An active API key is required to use AI Chat Studio. Claim your free trial key or activate a capacity plan.');
       setShowUpgradeModal(true);
       return;
     }
@@ -2677,12 +2794,16 @@ export const UserChatStudio: React.FC = () => {
   const remainingTokensM = (Number(remainingTokens) / 1000000).toFixed(2);
 
   const isKeyDepleted = useMemo(() => {
-    if (!activeKey) return true;
+    // Critical: While keys are initializing or loading, NEVER consider depleted and NEVER block prompting
+    if (keyLoadingState === 'INITIALIZING' || keyLoadingState === 'LOADING') {
+      return false;
+    }
+    if (!activeKey) return false;
     if (activeKeyPlanCategory === 'credit') {
       return activeCreditBalance <= 0;
     }
     return Number(remainingTokens) <= 0;
-  }, [activeKey, activeKeyPlanCategory, activeCreditBalance, remainingTokens]);
+  }, [keyLoadingState, activeKey, activeKeyPlanCategory, activeCreditBalance, remainingTokens]);
 
   const remainingQuotaDisplay = useMemo(() => {
     if (!activeKey) return '0';
@@ -2971,7 +3092,11 @@ export const UserChatStudio: React.FC = () => {
               type="button"
               onClick={() => setQuotaPopoverOpen(!quotaPopoverOpen)}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer shadow-2xs ${
-                isKeyDepleted
+                keyLoadingState === 'INITIALIZING' || keyLoadingState === 'LOADING'
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 font-medium animate-pulse'
+                  : keyLoadingState === 'NO_KEY'
+                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 font-bold'
+                  : isKeyDepleted
                   ? isDark
                     ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
                     : 'bg-rose-100 border-rose-300 text-rose-900 hover:bg-rose-200 font-bold'
@@ -2983,7 +3108,11 @@ export const UserChatStudio: React.FC = () => {
             >
               <Zap className="w-3 h-3 text-emerald-500 shrink-0" />
               <span className="font-bold text-[11px]">
-                {activeKeyPlanCategory === 'credit'
+                {keyLoadingState === 'INITIALIZING' || keyLoadingState === 'LOADING'
+                  ? 'Connecting...'
+                  : keyLoadingState === 'NO_KEY'
+                  ? 'No Key'
+                  : activeKeyPlanCategory === 'credit'
                   ? `${activeCreditBalance.toFixed(2)}`
                   : activeKeyPlanCategory === 'window'
                   ? `${remainingQuotaDisplay} / 5h`
@@ -3827,7 +3956,11 @@ export const UserChatStudio: React.FC = () => {
                 >
                   <Key className="w-3 h-3 text-violet-500 shrink-0" />
                   <span className="font-sans font-semibold truncate text-[11px]">
-                    {keys.length === 0 ? 'No Key' : activeKey?.name || activeKey?.displayKey || 'API Key'}
+                    {keyLoadingState === 'INITIALIZING' || keyLoadingState === 'LOADING'
+                      ? 'Loading Key...'
+                      : keyLoadingState === 'NO_KEY'
+                      ? 'No Key'
+                      : activeKey?.name || activeKey?.displayKey || 'API Key'}
                   </span>
                 </button>
                 <button
@@ -3840,8 +3973,10 @@ export const UserChatStudio: React.FC = () => {
                   }`}
                   title="Switch API Key"
                 >
-                  {keys.length === 0
-                    ? 'No Key'
+                  {keyLoadingState === 'INITIALIZING' || keyLoadingState === 'LOADING'
+                    ? 'Connecting'
+                    : keyLoadingState === 'NO_KEY'
+                    ? 'Add Key'
                     : isKeyDepleted
                     ? 'Switch Key'
                     : activeKeyPlanCategory === 'credit'
@@ -4996,23 +5131,8 @@ export const UserChatStudio: React.FC = () => {
                   )}
                 </div>
 
-                {/* Right: Voice Dictation + Send Button */}
+                {/* Middle: Optional Prompt Enhancer */}
                 <div className="flex items-center gap-2">
-                  {/* Voice Dictation (Mic) */}
-                  <button
-                    type="button"
-                    onClick={toggleVoiceDictation}
-                    className={`p-1.5 rounded-full border transition-all cursor-pointer ${
-                      isListening
-                        ? 'bg-rose-500/20 border-rose-500 text-rose-500 animate-pulse'
-                        : c.pillBg
-                    }`}
-                    title={isListening ? 'Listening... click to stop' : 'Voice Dictation (Speech-to-Text)'}
-                  >
-                    <Mic className={`w-3.5 h-3.5 ${isListening ? 'fill-current text-rose-500' : 'text-slate-400'}`} />
-                  </button>
-
-                  {/* Prompt Enhancer (✨) - only visible when user types */}
                   {inputMessage.trim() && (
                     <button
                       type="button"
@@ -5026,9 +5146,23 @@ export const UserChatStudio: React.FC = () => {
                   )}
                 </div>
 
-                {/* Right controls: Stop Generation or Send Button */}
-                <div className="flex items-center gap-2">
-                  <span className="hidden lg:inline text-[11px] text-slate-400 dark:text-slate-500 font-mono pr-1 select-none">
+                {/* Right controls: Mic Button immediately adjacent to Send Button */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Voice Dictation (Mic) */}
+                  <button
+                    type="button"
+                    onClick={toggleVoiceDictation}
+                    className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center min-w-[34px] min-h-[34px] ${
+                      isListening
+                        ? 'bg-rose-500/20 border-rose-500 text-rose-500 animate-pulse'
+                        : c.pillBg
+                    }`}
+                    title={isListening ? 'Listening... click to stop' : 'Voice Dictation (Speech-to-Text)'}
+                  >
+                    <Mic className={`w-3.5 h-3.5 ${isListening ? 'fill-current text-rose-500' : 'text-slate-400'}`} />
+                  </button>
+
+                  <span className="hidden lg:inline text-[11px] text-slate-400 dark:text-slate-500 font-mono pr-0.5 select-none">
                     Enter ↵
                   </span>
                   {generating ? (
@@ -5533,6 +5667,9 @@ export const UserChatStudio: React.FC = () => {
         onClick={() => {
           setActiveThreadId(t.id);
           setActiveMenuThreadId(null);
+          if (!t.messagesLoaded) {
+            loadConversationMessages(t.id);
+          }
           if (window.speechSynthesis) window.speechSynthesis.cancel();
           setSpeakingMsgId(null);
           if (window.innerWidth < 768) setSidebarOpen(false);

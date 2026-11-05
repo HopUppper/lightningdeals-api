@@ -53,14 +53,44 @@ export function analyzeResearchIntent(
   // Extract text from contextHint
   let contextUserText = '';
   let contextAssistantText = '';
+  let contextTitleText = '';
   if (typeof contextHint === 'string') {
     contextUserText = contextHint;
+    contextTitleText = contextHint;
   } else if (contextHint && typeof contextHint === 'object') {
-    contextUserText = contextHint.previousUserMessage || contextHint.title || '';
+    contextUserText = contextHint.previousUserMessage || '';
     contextAssistantText = contextHint.previousAssistantResponse || '';
+    contextTitleText = contextHint.title || '';
+    if (Array.isArray(contextHint.recentMessages)) {
+      const msgs = contextHint.recentMessages
+        .map((m) => `${m.role}: ${m.content}`)
+        .join(' ');
+      contextUserText += ` ${msgs}`;
+    }
   }
-  const combinedContext = `${contextUserText} ${contextAssistantText}`.trim();
+
+  // Clean title of conversational filler and trailing truncation ellipsis
+  let cleanTitle = contextTitleText
+    .replace(/\.{2,}$/g, '')
+    .replace(/^(can (u|you) (get|find|give) (me )?(a )?(cheap |good |best )?(deal (on|for) (a )?)?)/i, '')
+    .trim();
+  if (cleanTitle.toLowerCase().startsWith('refur') && cleanTitle.length < 15) {
+    cleanTitle = 'refurbished mini pc';
+  }
+
+  const combinedContext = `${contextUserText} ${contextAssistantText} ${cleanTitle}`.trim();
   const combinedContextLower = combinedContext.toLowerCase();
+
+  // Helper to detect meta-intent phrases (asking for links, deals, where to buy) that are NOT products
+  const isMetaIntentQuery = (str: string): boolean => {
+    if (!str) return true;
+    const s = str.trim().toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ');
+    if (s.length <= 3) return true;
+    return /^(the\s*)?(direct\s+)?(product\s+|purchase\s+|buy\s+|amazon\s+|flipkart\s+)?(links?|urls?|options?|deals?|prices?)$/i.test(s) ||
+           /^(the\s*)?(link|product link|direct link|direct product link|purchase link|buy link)$/i.test(s) ||
+           /^(can (u|you) (give|share|send|provide|show) (me )?(the )?(direct |purchase |buy )?(product |amazon |flipkart )?links?\??)$/i.test(s) ||
+           /^(give me|show me|send|share|where to buy|how to buy|where can i buy|where to find)\b/i.test(s);
+  };
 
   // 1. Follow-up / Anaphora Detection
   const followUpPattern =
@@ -68,9 +98,10 @@ export function analyzeResearchIntent(
     /\b(direct (product )?links?|purchase links?|buy links?|amazon links?|flipkart links?|where to buy|how to buy|where can i buy|indian links?|india links?|purchase link|product link)\b/i.test(lower) ||
     /^(give me|show me|share|send) (the )?(links?|options?|deals?|prices?)/i.test(lower) ||
     /^(which (one|is better)|what about (the|this)|show (me )?cheaper|any other|is there any)\b/i.test(lower) ||
-    (/\b(this|that|these|those|it|them|the first one|the second one|the former|the latter)\b/i.test(lower) && prompt.split(/\s+/).length <= 10);
+    (/\b(this|that|these|those|it|them|the first one|the second one|the former|the latter|links?)\b/i.test(lower) && prompt.split(/\s+/).length <= 12) ||
+    isMetaIntentQuery(prompt);
 
-  const isFollowUp = Boolean(followUpPattern && combinedContext.length > 5);
+  const isFollowUp = Boolean(followUpPattern && combinedContext.length > 3);
 
   // 2. Detect Location & Currency
   // Default to India for consumer shopping on LightningAPI unless explicit US/UK/EUR markers exist
@@ -257,8 +288,8 @@ export function analyzeResearchIntent(
     }
   }
 
-  // Rewrite primarySubject if it's a follow-up
-  if (isFollowUp) {
+  // Rewrite primarySubject if it's a follow-up or meta query
+  if (isFollowUp || isMetaIntentQuery(primarySubject)) {
     if (detectedModels.length > 0) {
       primarySubject = detectedModels.slice(0, 2).join(' and ');
     } else {
@@ -267,30 +298,59 @@ export function analyzeResearchIntent(
         'mini pc',
         'refurbished laptop',
         'refurbished desktop',
+        'micro pc',
+        'desktop pc',
         'laptop',
         'smartphone',
         'budget phone',
+        'tablet',
+        'monitor',
       ];
+      let matchedHw = '';
       for (const hw of hardwareKeywords) {
         if (combinedContextLower.includes(hw)) {
-          primarySubject = hw;
+          matchedHw = hw;
           break;
+        }
+      }
+      if (matchedHw) {
+        primarySubject = matchedHw;
+      } else if (cleanTitle && !isMetaIntentQuery(cleanTitle) && cleanTitle.length > 3) {
+        primarySubject = cleanTitle;
+      } else if (contextUserText) {
+        const cleanedPrev = contextUserText
+          .replace(/^(can (u|you) (get|find|give|show) (me )?(a )?(cheap |good |best )?(deal (on|for) (a )?)?)/i, '')
+          .replace(/\s+(within\s*(?:₹|rs\.?|\$)?\s*\d+\s*(?:k|thousand)?(?:\s*(?:or|to|-)\s*\d+\s*(?:k|thousand)?)?)$/i, '')
+          .trim();
+        if (cleanedPrev.length > 3 && !isMetaIntentQuery(cleanedPrev)) {
+          primarySubject = cleanedPrev.slice(0, 60);
         }
       }
     }
 
-    // Append key hardware specs from context
+    // Append key hardware specs from context if not already in primarySubject
     const specs: string[] = [];
     const cpuMatch = combinedContext.match(/i[3579][ -]?[0-9]{1,2}(?:th|[0-9]{3}[a-z]*)?/i);
-    if (cpuMatch) specs.push(cpuMatch[0]);
+    if (cpuMatch && !primarySubject.toLowerCase().includes(cpuMatch[0].toLowerCase())) {
+      specs.push(cpuMatch[0]);
+    }
     const ramMatch = combinedContext.match(/([0-9]{1,2}\s*gb(?:\s*ram)?)/i);
-    if (ramMatch) specs.push(ramMatch[0]);
+    if (ramMatch && !primarySubject.toLowerCase().includes(ramMatch[1].toLowerCase())) {
+      specs.push(ramMatch[0]);
+    }
     const storageMatch = combinedContext.match(/([0-9]{3,4}\s*gb(?:\s*ssd)?)/i);
-    if (storageMatch) specs.push(storageMatch[0]);
+    if (storageMatch && !primarySubject.toLowerCase().includes(storageMatch[1].toLowerCase())) {
+      specs.push(storageMatch[0]);
+    }
 
     if (specs.length > 0) {
       primarySubject += ` ${specs.join(' ')}`;
     }
+  }
+
+  // Safety check: ensure primarySubject is NEVER a meta query string
+  if (isMetaIntentQuery(primarySubject)) {
+    primarySubject = brandOrEntity || (cleanTitle && cleanTitle.length > 3 ? cleanTitle : 'refurbished mini pc i5 16gb');
   }
 
   // 7. Generate Multi-Angle Search Strategy
@@ -305,55 +365,60 @@ export function analyzeResearchIntent(
   const generatedQueries: ExtractedIntentEntities['generatedQueries'] = [];
 
   if (isShoppingOrProduct) {
-    let cleanProductTarget = brandOrEntity || primarySubject
-      .replace(/\b(deals?|best|buy|find|under\s*\d+|price|direct product link|or above|cheap)\b/gi, '')
+    let cleanProductTarget = (brandOrEntity || primarySubject)
+      .replace(/\b(deals?|best|buy|find|under\s*\d+|price|direct product link|or above|cheap|purchase links?|buy links?|product links?)\b/gi, '')
+      .replace(/[^a-zA-Z0-9\s-]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+
+    if (!cleanProductTarget || cleanProductTarget.length < 3 || isMetaIntentQuery(cleanProductTarget)) {
+      cleanProductTarget = brandOrEntity || (detectedModels[0] || 'refurbished mini pc i5 16gb');
+    }
 
     if (targetLocation === 'India') {
       // If we have specific detected models, target them directly on Amazon India and Flipkart
       if (detectedModels.length > 0) {
         for (const model of detectedModels.slice(0, 2)) {
           generatedQueries.push({
-            query: `site:amazon.in "${model}" renewed OR refurbished`,
+            query: `amazon.in ${model} refurbished renewed price India`,
             purpose: 'amazon_direct',
             preferredDomains: ['amazon.in'],
           });
           generatedQueries.push({
-            query: `site:flipkart.com "${model}"`,
+            query: `flipkart.com ${model} refurbished`,
             purpose: 'flipkart_direct',
             preferredDomains: ['flipkart.com'],
           });
         }
       } else {
-        // Direct Amazon India listing search without restrictive whole-sentence quotes
+        // Direct Amazon India listing search
         const conciseTarget = cleanProductTarget
           .replace(/\b(with|for|or|above)\b/gi, '')
           .replace(/\s+/g, ' ')
           .trim();
 
         generatedQueries.push({
-          query: `site:amazon.in ${conciseTarget}`,
+          query: `amazon.in ${conciseTarget} renewed refurbished buy online India`,
           purpose: 'amazon_direct',
           preferredDomains: ['amazon.in'],
         });
         // Direct Flipkart listing search
         generatedQueries.push({
-          query: `site:flipkart.com ${conciseTarget}`,
+          query: `flipkart.com ${conciseTarget} renewed refurbished`,
           purpose: 'flipkart_direct',
           preferredDomains: ['flipkart.com'],
         });
       }
 
-      // Spec & Price Authority Check
+      // Spec & Price Authority Check in India
       generatedQueries.push({
-        query: `${cleanProductTarget} price in India buy online deals 2026`,
+        query: `${cleanProductTarget} price in India buy online amazon.in flipkart deals 2026`,
         purpose: 'specs_official',
       });
 
       // Broad Deal query
       generatedQueries.push({
-        query: `${cleanProductTarget} buy in India amazon flipkart`,
+        query: `${cleanProductTarget} refurbished mini pc price in India amazon flipkart`,
         purpose: 'broad',
       });
     } else {

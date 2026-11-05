@@ -846,6 +846,18 @@ studioRouter.get('/conversations', async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // Prune abandoned empty sessions older than 2 hours to avoid database bloat and sidebar clutter
+    try {
+      await prisma.studioConversation.deleteMany({
+        where: {
+          userId,
+          title: 'New Session',
+          messages: { none: {} },
+          createdAt: { lt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+        },
+      });
+    } catch {}
+
     const items = conversations.map((c) => ({
       id: c.id,
       title: c.title,
@@ -871,7 +883,7 @@ studioRouter.get('/conversations', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/user/studio/conversations - Create new conversation
+// POST /api/user/studio/conversations - Create new conversation (Idempotent: reuses recent empty session)
 studioRouter.post('/conversations', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
@@ -881,6 +893,22 @@ studioRouter.post('/conversations', async (req: AuthRequest, res: Response) => {
     if (projectId && typeof projectId === 'string') {
       const p = await prisma.studioProject.findFirst({ where: { id: projectId, userId } });
       if (p) validProjectId = p.id;
+    }
+
+    // Idempotency: If user already has an unused empty conversation created recently with same project, reuse it
+    const existingEmpty = await prisma.studioConversation.findFirst({
+      where: {
+        userId,
+        projectId: validProjectId,
+        title: 'New Session',
+        messages: { none: {} },
+        createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingEmpty) {
+      return res.json({ success: true, conversation: existingEmpty, reused: true });
     }
 
     const conversation = await prisma.studioConversation.create({
@@ -2684,14 +2712,30 @@ studioRouter.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       const mode = (researchMode === 'deep_research' || taskAnalysis.category === 'deep_research') ? 'deep_research' : 'web_search';
       // Extract rich multi-turn conversation context for contextual shopping, product follow-ups, and query resolution
       let conversationContext: any = conversation.title;
-      if (Array.isArray(clientMessages) && clientMessages.length > 0) {
-        const reversed = [...clientMessages].reverse();
+      let effectiveTurns: any[] = Array.isArray(clientMessages) && clientMessages.length > 0 ? [...clientMessages] : [];
+
+      if (effectiveTurns.length === 0 && conversation?.id) {
+        try {
+          const dbMsgs = await prisma.studioMessage.findMany({
+            where: { conversationId: conversation.id },
+            orderBy: { createdAt: 'desc' },
+            take: 8,
+            select: { role: true, content: true },
+          });
+          if (dbMsgs.length > 0) {
+            effectiveTurns = dbMsgs.reverse();
+          }
+        } catch {}
+      }
+
+      if (effectiveTurns.length > 0) {
+        const reversed = [...effectiveTurns].reverse();
         const prevUserMsg = reversed.find((m: any) => m.role === 'user' && m.content !== prompt)?.content;
         const prevAssistantMsg = reversed.find((m: any) => m.role === 'assistant')?.content;
 
-        const recentTurns = clientMessages.slice(-4).map((m: any) => ({
+        const recentTurns = effectiveTurns.slice(-6).map((m: any) => ({
           role: m.role,
-          content: typeof m.content === 'string' ? m.content.substring(0, 500) : '',
+          content: typeof m.content === 'string' ? m.content.substring(0, 1000) : '',
         }));
 
         conversationContext = {

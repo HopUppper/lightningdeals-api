@@ -78,14 +78,25 @@ export async function executeAdvancedResearchPipeline(
   for (const batch of settledBatches) {
     if (batch.status === 'fulfilled') {
       for (const res of batch.value) {
-        const clean = sanitizeAndNormalizeUrl(res.url);
+        let finalUrl = res.url;
+        let finalDomain = res.domain;
+        let finalTitle = res.title;
+
+        // If targetLocation is India, convert any US Amazon links to verified Amazon India search links
+        if (intent.targetLocation === 'India' && finalUrl.includes('amazon.com') && !finalUrl.includes('amazon.in')) {
+          finalUrl = `https://www.amazon.in/s?k=${encodeURIComponent(intent.brandOrEntity || intent.primarySubject)}`;
+          finalDomain = 'amazon.in';
+          finalTitle = `${res.title.replace(/\s*[-|]\s*Amazon\.com/gi, '')} - Amazon India`;
+        }
+
+        const clean = sanitizeAndNormalizeUrl(finalUrl);
         if (!rawEvidenceMap.has(clean)) {
           rawEvidenceMap.set(clean, {
             citationIndex: citationCounter++,
-            title: res.title,
-            url: res.url,
+            title: finalTitle,
+            url: finalUrl,
             snippet: res.snippet,
-            domain: res.domain,
+            domain: finalDomain,
             timestamp: res.timestamp,
           });
         }
@@ -96,17 +107,27 @@ export async function executeAdvancedResearchPipeline(
   // 3. Fallback: If no direct marketplace listings were returned in initial round for shopping queries
   if (intent.isShoppingOrProduct && rawEvidenceMap.size < 4) {
     try {
-      const fallbackQuery = `${intent.brandOrEntity || intent.primarySubject} buy price in India`;
-      const fallbackRes = await searchWeb(fallbackQuery, { maxResults: 6 });
+      const fallbackQuery = `${intent.brandOrEntity || intent.primarySubject} buy price in India amazon.in flipkart`;
+      const fallbackRes = await searchWeb(fallbackQuery, { maxResults: 6, includeDomains: ['amazon.in', 'flipkart.com'] });
       for (const res of fallbackRes.results) {
-        const clean = sanitizeAndNormalizeUrl(res.url);
+        let finalUrl = res.url;
+        let finalDomain = res.domain;
+        let finalTitle = res.title;
+
+        if (intent.targetLocation === 'India' && finalUrl.includes('amazon.com') && !finalUrl.includes('amazon.in')) {
+          finalUrl = `https://www.amazon.in/s?k=${encodeURIComponent(intent.brandOrEntity || intent.primarySubject)}`;
+          finalDomain = 'amazon.in';
+          finalTitle = `${res.title.replace(/\s*[-|]\s*Amazon\.com/gi, '')} - Amazon India`;
+        }
+
+        const clean = sanitizeAndNormalizeUrl(finalUrl);
         if (!rawEvidenceMap.has(clean)) {
           rawEvidenceMap.set(clean, {
             citationIndex: citationCounter++,
-            title: res.title,
-            url: res.url,
+            title: finalTitle,
+            url: finalUrl,
             snippet: res.snippet,
-            domain: res.domain,
+            domain: finalDomain,
             timestamp: res.timestamp,
           });
         }

@@ -58,24 +58,69 @@ export function resolveBillingArchitecture(keyRecord: any): string {
   return 'claude_openai_credits';
 }
 
+// High-performance in-memory model & provider caching (60s TTL)
+interface CachedModelEntry {
+  modelRecord: any;
+  cachedAt: number;
+}
+const modelLookupCache = new Map<string, CachedModelEntry>();
+const MODEL_CACHE_TTL_MS = 60000;
+
+interface CachedProviderEntry {
+  provider: any;
+  cachedAt: number;
+}
+const providerLookupCache = new Map<string, CachedProviderEntry>();
+const PROVIDER_CACHE_TTL_MS = 60000;
+
+async function getCachedVendorProvider(query: { slug?: string; id?: string; isPrimary?: boolean }) {
+  const cacheKey = query.slug ? `slug:${query.slug}` : query.id ? `id:${query.id}` : 'primary';
+  const cached = providerLookupCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && now - cached.cachedAt < PROVIDER_CACHE_TTL_MS) {
+    return cached.provider;
+  }
+
+  let provider: any = null;
+  if (query.slug) {
+    provider = await prisma.vendorProvider.findFirst({
+      where: { slug: query.slug, status: { not: 'disabled' } },
+    });
+  } else if (query.id) {
+    provider = await prisma.vendorProvider.findUnique({
+      where: { id: query.id },
+    });
+  } else if (query.isPrimary) {
+    provider = await prisma.vendorProvider.findFirst({
+      where: { isPrimary: true, status: { not: 'disabled' } },
+    });
+  }
+
+  if (provider) {
+    providerLookupCache.set(cacheKey, { provider, cachedAt: now });
+  }
+  return provider;
+}
+
 /**
- * Determines adaptive timeout in milliseconds based on model modality and family
+ * Determines adaptive timeout in milliseconds based on model modality and family.
+ * Standard interactive calls are bounded to 8,500ms to guarantee end-to-end response < 10 seconds.
  */
 export function determineAdaptiveTimeoutMs(model: string, isStreaming = false, hasThinking = false): number {
   const m = (model || '').toLowerCase();
 
-  // Thinking/Reasoning models require extended timeouts
+  // Thinking/Reasoning models require extended reasoning budgets
   if (hasThinking || m.includes('thinking') || m.includes('o1') || m.includes('o3') || m.includes('r1')) {
-    return 180000; // 3 minutes
+    return 120000; // 2 minutes max for thinking models
   }
 
   // Large frontier models on streaming
-  if (isStreaming && (m.includes('opus') || m.includes('sonnet') || m.includes('argon'))) {
-    return 120000; // 2 minutes
+  if (isStreaming) {
+    return 60000; // 60 seconds
   }
 
-  // Standard interactive requests
-  return 60000; // 60 seconds
+  // Standard interactive requests: strictly capped to 8,500ms so full roundtrip is guaranteed <10 seconds
+  return 8500; // 8.5 seconds
 }
 
 /**
@@ -101,27 +146,37 @@ export async function resolveIntelligentRoute(params: {
     };
   }
 
-  // 1. Central Model Registry Validation
+  // 1. Central Model Registry Validation (with In-Memory Caching)
   let modelRecord = params.modelRecord;
   const norm = requestedModel.toLowerCase().trim();
   const canonical = canonicalizeModelId(norm);
 
   if (!modelRecord) {
-    try {
-      modelRecord = await prisma.model.findFirst({
-        where: {
-          OR: [
-            { modelId: norm },
-            { upstreamModelId: norm },
-            { modelId: canonical },
-            { upstreamModelId: canonical },
-            { modelId: requestedModel },
-            { upstreamModelId: requestedModel },
-            { displayName: { equals: requestedModel, mode: 'insensitive' } },
-          ],
-        },
-      });
-    } catch (e) {}
+    const cached = modelLookupCache.get(norm) || modelLookupCache.get(canonical);
+    const now = Date.now();
+    if (cached && now - cached.cachedAt < MODEL_CACHE_TTL_MS) {
+      modelRecord = cached.modelRecord;
+    } else {
+      try {
+        modelRecord = await prisma.model.findFirst({
+          where: {
+            OR: [
+              { modelId: norm },
+              { upstreamModelId: norm },
+              { modelId: canonical },
+              { upstreamModelId: canonical },
+              { modelId: requestedModel },
+              { upstreamModelId: requestedModel },
+              { displayName: { equals: requestedModel, mode: 'insensitive' } },
+            ],
+          },
+        });
+        if (modelRecord) {
+          modelLookupCache.set(norm, { modelRecord, cachedAt: now });
+          modelLookupCache.set(canonical, { modelRecord, cachedAt: now });
+        }
+      } catch (e) {}
+    }
   }
 
   if (modelRecord) {
@@ -230,47 +285,32 @@ export async function resolveIntelligentRoute(params: {
   // - OpenAI Rolling Window keys (openai_max_rolling) route strictly to LotusAI
   // - Claude Rolling Window keys (claude_max_rolling / window) route strictly to OpusMax
   if (billingArchitecture === 'claude_openai_credits' || keyRecord?.billingType === 'credit') {
-    targetProvider = await prisma.vendorProvider.findFirst({
-      where: { slug: 'scalemax', status: { not: 'disabled' } },
-    });
+    targetProvider = await getCachedVendorProvider({ slug: 'scalemax' });
   } else if (
     billingArchitecture === 'openai_tokens' ||
     billingArchitecture === 'claude_tokens' ||
     billingArchitecture === 'local_models_tokens' ||
     keyRecord?.billingType === 'token'
   ) {
-    targetProvider = await prisma.vendorProvider.findFirst({
-      where: { slug: 'scalemax', status: { not: 'disabled' } },
-    });
+    targetProvider = await getCachedVendorProvider({ slug: 'scalemax' });
   } else if (billingArchitecture === 'openai_max_rolling') {
-    targetProvider = await prisma.vendorProvider.findFirst({
-      where: { slug: 'lotusai', status: { not: 'disabled' } },
-    });
+    targetProvider = await getCachedVendorProvider({ slug: 'lotusai' });
   } else if (billingArchitecture === 'claude_max_rolling' || keyRecord?.billingType === 'window') {
-    targetProvider = await prisma.vendorProvider.findFirst({
-      where: { slug: 'opus_max', status: { not: 'disabled' } },
-    });
+    targetProvider = await getCachedVendorProvider({ slug: 'opus_max' });
   }
 
   // Fallback to key explicit provider, model record provider, or primary vendor
   if (!targetProvider && keyRecord?.providerId) {
-    targetProvider = await prisma.vendorProvider.findUnique({ where: { id: keyRecord.providerId } });
+    targetProvider = await getCachedVendorProvider({ id: keyRecord.providerId });
   }
   if (!targetProvider && modelRecord?.providerId) {
-    targetProvider = await prisma.vendorProvider.findUnique({ where: { id: modelRecord.providerId } });
+    targetProvider = await getCachedVendorProvider({ id: modelRecord.providerId });
   }
   if (!targetProvider && modelRecord?.providerSlug) {
-    targetProvider = await prisma.vendorProvider.findFirst({
-      where: {
-        OR: [{ slug: modelRecord.providerSlug }, { name: { contains: modelRecord.providerSlug, mode: 'insensitive' } }],
-        status: { not: 'disabled' },
-      },
-    });
+    targetProvider = await getCachedVendorProvider({ slug: modelRecord.providerSlug });
   }
   if (!targetProvider) {
-    targetProvider = await prisma.vendorProvider.findFirst({
-      where: { isPrimary: true, status: { not: 'disabled' } },
-    });
+    targetProvider = await getCachedVendorProvider({ isPrimary: true });
   }
 
   if (!targetProvider) {

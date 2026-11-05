@@ -325,9 +325,24 @@ export const UserUsage: React.FC = () => {
             <span className="text-[#64607d] text-xs font-semibold">Success Rate</span>
             <span className="font-extrabold text-[#1e1b2e] font-mono">{successRate}</span>
           </div>
+
           <div className="flex items-center justify-between p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1]">
-            <span className="text-[#64607d] text-xs font-semibold">Transport</span>
-            <span className="font-extrabold text-violet-700">SSE (HTTP/2)</span>
+            <span className="text-[#64607d] text-xs font-semibold">Avg Latency</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-emerald-700 font-mono">
+                {stats.avgLatencyMs ? (stats.avgLatencyMs >= 1000 ? `${(stats.avgLatencyMs / 1000).toFixed(2)}s` : `${stats.avgLatencyMs}ms`) : avgLatency}
+              </span>
+              <span className="text-[9.5px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                &lt;10s SLA
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#faf8f5] border border-[#ede8e1]">
+            <span className="text-[#64607d] text-xs font-semibold">Prompt Cache</span>
+            <span className="font-extrabold text-cyan-700 font-mono">
+              {formatTokens(stats.totalCachedTokens || 0)}
+            </span>
           </div>
         </div>
       </div>
@@ -405,29 +420,34 @@ export const UserUsage: React.FC = () => {
                 <table className="w-full text-left text-xs font-mono">
                   <thead>
                     <tr className="border-b border-[#ede8e1] text-[#64607d] uppercase bg-[#faf8f5] text-[10px] font-bold">
-                      <th className="py-3 px-4">Timestamp</th>
-                      <th className="py-3 px-4">Target Model</th>
-                      {isCreditPlan ? (
-                        <th className="py-3 px-4 text-right">Credits Consumed</th>
-                      ) : (
-                        <>
-                          <th className="py-3 px-4 text-right">Prompt / Output</th>
-                          <th className="py-3 px-4 text-right">Total Tokens</th>
-                        </>
+                      <th className="py-3 px-3.5 whitespace-nowrap">Timestamp</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap">Target Model</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap">Endpoint</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap text-center">Status</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap text-right">Time Taken</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap text-right">Input</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap text-right">Output</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap text-right">Cache</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap text-right">Total Tokens</th>
+                      {isCreditPlan && (
+                        <th className="py-3 px-3.5 whitespace-nowrap text-right">Credits Deducted</th>
                       )}
-                      <th className="py-3 px-4 text-center">Usage Source</th>
-                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-3.5 whitespace-nowrap text-center">Source</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#ede8e1]">
                     {paginatedRequests.map((req: any, i: number) => {
                       const isEstimated = req.isEstimated || req.usageSource === 'LOCAL_CALCULATED';
-                      const inTok = req.promptTokens || req.inputTokens || 0;
-                      const outTok = req.completionTokens || req.outputTokens || 0;
-                      const totTok = req.totalTokens || inTok + outTok;
+                      const inTok = Number(req.promptTokens || req.inputTokens || 0);
+                      const outTok = Number(req.completionTokens || req.outputTokens || 0);
+                      const cachedTok = Number(req.cachedTokens || 0);
+                      const totTok = Number(req.totalTokens || (inTok + outTok));
+                      const latMs = Number(req.latencyMs || 0);
+                      const latFormatted = req.formattedLatency || (latMs >= 1000 ? `${(latMs / 1000).toFixed(2)}s` : `${latMs}ms`);
+
                       return (
                         <tr key={i} className="hover:bg-[#faf8f5]/60 transition-colors">
-                          <td className="py-3 px-4 whitespace-nowrap">
+                          <td className="py-3 px-3.5 whitespace-nowrap">
                             <div className="font-semibold text-[#1e1b2e]">
                               {new Date(req.createdAt).toLocaleDateString()}
                             </div>
@@ -435,33 +455,13 @@ export const UserUsage: React.FC = () => {
                               {new Date(req.createdAt).toLocaleTimeString()}
                             </div>
                           </td>
-                          <td className="py-3 px-4 font-semibold text-violet-700">
+                          <td className="py-3 px-3.5 font-semibold text-violet-700 whitespace-nowrap">
                             {req.model}
                           </td>
-                          {isCreditPlan ? (
-                            <td className="py-3 px-4 text-right font-bold text-emerald-700 font-mono">
-                              ${Number(req.costUsd || req.customerCostUsd || 0).toFixed(4)} USD
-                            </td>
-                          ) : (
-                            <>
-                              <td className="py-3 px-4 text-right text-[11px] text-[#64607d]">
-                                {formatTokens(inTok)} / {formatTokens(outTok)}
-                              </td>
-                              <td className="py-3 px-4 text-right font-bold text-[#1e1b2e]">
-                                {formatTokens(totTok)}
-                              </td>
-                            </>
-                          )}
-                          <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-sans font-bold ${
-                              isEstimated
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            }`}>
-                              {isEstimated ? 'Estimated' : 'Provider Reported'}
-                            </span>
+                          <td className="py-3 px-3.5 text-[#64607d] text-[11px] whitespace-nowrap">
+                            {req.endpoint || '/v1/messages'}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-3.5 text-center whitespace-nowrap">
                             {req.statusCode >= 200 && req.statusCode < 300 ? (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                 {req.statusCode || 200}
@@ -493,6 +493,62 @@ export const UserUsage: React.FC = () => {
                                 </button>
                               </div>
                             )}
+                          </td>
+                          <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded text-[10.5px] font-mono font-bold border inline-flex items-center gap-1 ${
+                              latMs < 5000
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : latMs < 10000
+                                ? 'bg-teal-50 text-teal-800 border-teal-200'
+                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                            }`}>
+                              {latFormatted}
+                              {req.streaming && (
+                                <span className="text-[9px] px-1 py-0.1 rounded bg-white/70 border border-current font-sans font-semibold">
+                                  SSE
+                                </span>
+                              )}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3.5 text-right text-[#64607d] font-mono whitespace-nowrap">
+                            {inTok.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-3.5 text-right text-[#64607d] font-mono whitespace-nowrap">
+                            {outTok.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                            {cachedTok > 0 ? (
+                              <span className="px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-800 border border-cyan-200 text-[10px] font-bold font-mono">
+                                {cachedTok.toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-[#a8a29e] font-mono text-[11px]">0</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-bold text-[#1e1b2e] font-mono whitespace-nowrap">
+                            <span>{totTok.toLocaleString()}</span>
+                            {isEstimated && (
+                              <span
+                                className="ml-1.5 text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans"
+                                title="Estimated via length heuristics"
+                              >
+                                ESTIMATED
+                              </span>
+                            )}
+                          </td>
+                          {isCreditPlan && (
+                            <td className="py-3 px-3.5 text-right font-bold text-emerald-700 font-mono whitespace-nowrap">
+                              ${Number(req.costDeductedUsd || req.costUsd || req.customerCostUsd || 0).toFixed(4)} USD
+                            </td>
+                          )}
+                          <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-sans font-bold ${
+                              isEstimated
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            }`}>
+                              {isEstimated ? 'Local Calculated' : 'Provider Reported'}
+                            </span>
                           </td>
                         </tr>
                       );

@@ -1827,10 +1827,15 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         return res.status(400).json({ error: { type: 'ssrf_blocked', message: ssrfCheck.error || 'Blocked by SSRF security filter.' } });
       }
 
-      // Cross-platform Intelligent Memory Injection for authenticated user API keys
+      // Cross-platform Intelligent Memory Injection for authenticated Studio / Orbit requests only
       let effectiveSystem = system;
       const lastUserPrompt = getLastUserPrompt(messages || []);
-      if (keyRecord.userId && lastUserPrompt) {
+      const isStudioOrOrbitRequest = Boolean(
+        req.headers['x-lightning-orbit'] ||
+        req.headers['x-orbit-session'] ||
+        req.headers['x-use-memories'] === 'true'
+      );
+      if (keyRecord.userId && lastUserPrompt && isStudioOrOrbitRequest) {
         const memoryRetrieval = await retrieveRelevantMemories({
           userId: keyRecord.userId,
           prompt: lastUserPrompt,
@@ -1865,8 +1870,10 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         isAnthropicEndpoint: true,
       }, resolvedBillingType);
 
+      // Bound adaptive timeout strictly: max 8.5s for standard requests to guarantee <10s response time
+      const effectiveTimeoutMs = isThinkingRequested ? Math.min(adaptiveTimeoutMs, 120000) : Math.min(adaptiveTimeoutMs, 8500);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), adaptiveTimeoutMs);
+      const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
       // Handle client disconnect mid-flight
       let clientDisconnected = false;
@@ -1885,6 +1892,11 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         if (clientDisconnected) break;
 
+        // If elapsed time already exceeds 7.5s, break to guarantee strict <10s response time
+        if (attempt > 0 && Date.now() - startTime > 7500) {
+          break;
+        }
+
         const attemptStart = Date.now();
         try {
           upstreamRes = (await pooledFetch(prepared.url, {
@@ -1892,7 +1904,7 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
             headers: prepared.headers,
             body: JSON.stringify(prepared.body),
             signal: controller.signal,
-            timeoutMs: adaptiveTimeoutMs,
+            timeoutMs: effectiveTimeoutMs,
           })) as any;
 
           const attemptLatency = Date.now() - attemptStart;
@@ -1910,8 +1922,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
               errorCategory: upstreamRes.status === 429 ? 'rate_limit' : 'server_error',
             });
 
-            if (attempt < MAX_RETRIES && !clientDisconnected) {
-              const backoffMs = retryAfterSec ? Math.min(3000, retryAfterSec * 1000) : calculateExponentialBackoffJitter(attempt, 500, 2000);
+            if (attempt < MAX_RETRIES && !clientDisconnected && (Date.now() - startTime) < 7000) {
+              const backoffMs = retryAfterSec ? Math.min(1500, retryAfterSec * 1000) : calculateExponentialBackoffJitter(attempt, 200, 800);
               console.warn(`[SMART ROUTER RETRY] Upstream returned ${upstreamRes.status} on attempt ${attempt + 1}. Retrying in ${backoffMs}ms...`);
               await new Promise((r) => setTimeout(r, backoffMs));
               continue;
@@ -2085,6 +2097,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         let sseBuffer = '';
         let reportedInputTokens: number | null = null;
         let reportedOutputTokens: number | null = null;
+        let reportedCachedTokens: number | null = null;
+        let reportedReasoningTokens: number | null = null;
         let streamedCharsLength = 0;
         let streamedThinking = '';
         let suppressedThinkingBlock = false;
@@ -2144,7 +2158,10 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
                         data.message.usage.service_tier = 'standard';
                         data.message.usage.usage_source = 'anthropic';
                         const u = data.message.usage;
-                        reportedInputTokens = Number(u.input_tokens || 0) + Number(u.cache_read_input_tokens || 0) + Number(u.cache_creation_input_tokens || 0);
+                        const cachedRead = Number(u.cache_read_input_tokens || 0);
+                        const cachedCreation = Number(u.cache_creation_input_tokens || 0);
+                        reportedCachedTokens = cachedRead + cachedCreation;
+                        reportedInputTokens = Number(u.input_tokens || 0) + reportedCachedTokens;
                       }
                       if (firstTokenMs === null) firstTokenMs = Date.now() - startTime;
                       res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -2282,6 +2299,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           model,
           inputTokens,
           outputTokens,
+          cachedTokens: reportedCachedTokens || 0,
+          reasoningTokens: reportedReasoningTokens || 0,
           totalTokens,
           latencyMs: firstTokenMs ?? (Date.now() - startTime),
           streaming: true,
@@ -2365,6 +2384,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
           model,
           inputTokens: normalized.usage.inputTokens,
           outputTokens: normalized.usage.outputTokens,
+          cachedTokens: normalized.usage.cachedTokens || 0,
+          reasoningTokens: normalized.usage.reasoningTokens || 0,
           totalTokens: normalized.usage.totalTokens,
           latencyMs: Date.now() - startTime,
           streaming: false,
@@ -2999,9 +3020,14 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
   }
   const { apiKey: decryptedMasterKey, billingType: resolvedBillingType } = credResolution.credential;
 
-  // Cross-platform Intelligent Memory Injection for authenticated user API keys
+  // Cross-platform Intelligent Memory Injection for authenticated Studio / Orbit requests only
   let effectiveMessages = messages;
-  if (keyRecord.userId && lastUserPrompt && Array.isArray(messages)) {
+  const isStudioOrOrbitRequest = Boolean(
+    req.headers['x-lightning-orbit'] ||
+    req.headers['x-orbit-session'] ||
+    req.headers['x-use-memories'] === 'true'
+  );
+  if (keyRecord.userId && lastUserPrompt && Array.isArray(messages) && isStudioOrOrbitRequest) {
     const memoryRetrieval = await retrieveRelevantMemories({
       userId: keyRecord.userId,
       prompt: lastUserPrompt,
@@ -3038,8 +3064,10 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     prepared.body.stream_options = { include_usage: true };
   }
 
+  // Bound adaptive timeout strictly: max 8.5s for standard requests to guarantee <10s response time
+  const effectiveTimeoutMs = isThinkingRequested ? Math.min(adaptiveTimeoutMs, 120000) : Math.min(adaptiveTimeoutMs, 8500);
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), adaptiveTimeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
   let clientDisconnected = false;
   req.on('close', () => {
@@ -3057,6 +3085,12 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (clientDisconnected) break;
+
+    // Stay strictly under 10 seconds
+    if (attempt > 0 && Date.now() - startTime > 7500) {
+      break;
+    }
+
     const attemptStart = Date.now();
 
     try {
@@ -3065,7 +3099,7 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
         headers: prepared.headers,
         body: JSON.stringify(prepared.body),
         signal: controller.signal,
-        timeoutMs: adaptiveTimeoutMs,
+        timeoutMs: effectiveTimeoutMs,
       })) as any;
 
       const attemptLatency = Date.now() - attemptStart;
@@ -3081,8 +3115,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
           errorCategory: upstreamRes.status === 429 ? 'rate_limit' : 'server_error',
         });
 
-        if (attempt < MAX_RETRIES && !clientDisconnected) {
-          const backoffMs = retryAfterSec ? Math.min(3000, retryAfterSec * 1000) : calculateExponentialBackoffJitter(attempt, 500, 2000);
+        if (attempt < MAX_RETRIES && !clientDisconnected && (Date.now() - startTime) < 7000) {
+          const backoffMs = retryAfterSec ? Math.min(1500, retryAfterSec * 1000) : calculateExponentialBackoffJitter(attempt, 200, 800);
           console.warn(`[SMART ROUTER RETRY] Chat completions upstream returned ${upstreamRes.status} on attempt ${attempt + 1}. Retrying in ${backoffMs}ms...`);
           await new Promise((r) => setTimeout(r, backoffMs));
           continue;
@@ -3176,6 +3210,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       let sseBuffer = '';
       let reportedPromptTokens: number | null = null;
       let reportedCompTokens: number | null = null;
+      let reportedCachedTokens: number | null = null;
+      let reportedReasoningTokens: number | null = null;
       const chatSanitizer = new StreamChunkSanitizer(friendlyModel);
       const reasoningSanitizer = new StreamChunkSanitizer(friendlyModel);
 
@@ -3222,6 +3258,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
                 if (parsed.usage) {
                   if (typeof parsed.usage.prompt_tokens === 'number') reportedPromptTokens = parsed.usage.prompt_tokens;
                   if (typeof parsed.usage.completion_tokens === 'number') reportedCompTokens = parsed.usage.completion_tokens;
+                  if (typeof parsed.usage.prompt_tokens_details?.cached_tokens === 'number') reportedCachedTokens = parsed.usage.prompt_tokens_details.cached_tokens;
+                  if (typeof parsed.usage.completion_tokens_details?.reasoning_tokens === 'number') reportedReasoningTokens = parsed.usage.completion_tokens_details.reasoning_tokens;
                 }
                 if (parsed.model) parsed.model = model;
                 if (Array.isArray(parsed.choices)) {
@@ -3260,6 +3298,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
         model,
         inputTokens,
         outputTokens,
+        cachedTokens: reportedCachedTokens || 0,
+        reasoningTokens: reportedReasoningTokens || 0,
         totalTokens,
         latencyMs: firstTokenMs ?? (Date.now() - startTime),
         streaming: true,
@@ -3291,6 +3331,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
       
       const inputTokens = data?.usage?.prompt_tokens ?? Math.max(20, Math.ceil(JSON.stringify(messages).length / 3.8));
       const outputTokens = data?.usage?.completion_tokens ?? 50;
+      const cachedTokens = Number(data?.usage?.prompt_tokens_details?.cached_tokens || data?.usage?.cache_read_input_tokens || 0);
+      const reasoningTokens = Number(data?.usage?.completion_tokens_details?.reasoning_tokens || 0);
       const totalTokens = data?.usage?.total_tokens ?? (inputTokens + outputTokens);
 
       await updateTokensAndLog({
@@ -3298,6 +3340,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
         model,
         inputTokens,
         outputTokens,
+        cachedTokens,
+        reasoningTokens,
         totalTokens,
         latencyMs: Date.now() - startTime,
         streaming: false,

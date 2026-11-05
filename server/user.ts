@@ -2711,8 +2711,8 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
 
     const keyIds = keys.map((k) => k.id);
 
-    // Concurrently fetch key window metrics, recent requests, and ledgers in parallel
-    const [keyMetricsResults, recentRequests, ledgerEntries, rawCreditLedgerEntries] = await Promise.all([
+    // Concurrently fetch key window metrics, recent requests, ledgers, and token telemetry in parallel
+    const [keyMetricsResults, recentRequests, ledgerEntries, rawCreditLedgerEntries, userReqAgg] = await Promise.all([
       Promise.all(keys.map(async (k) => {
         if (k.billingType === 'credit') {
           return {
@@ -2754,7 +2754,10 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
           billingPlanType: true,
           inputTokens: true,
           outputTokens: true,
+          cachedTokens: true,
+          reasoningTokens: true,
           totalTokens: true,
+          costDeductedUsd: true,
           latencyMs: true,
           streaming: true,
           usageSource: true,
@@ -2797,6 +2800,11 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
           createdAt: true,
         },
       }),
+      keyIds.length > 0 ? prisma.apiRequest.aggregate({
+        where: { apiKeyId: { in: keyIds } },
+        _sum: { cachedTokens: true },
+        _avg: { latencyMs: true },
+      }) : Promise.resolve({ _sum: { cachedTokens: 0 }, _avg: { latencyMs: 0 } }),
     ]);
 
     let totalPurchased = 0n;
@@ -2842,6 +2850,8 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
       availableQuota: totalRemaining.toString(),
       lifetimeTokensUsed: totalLifetimeTokensUsed.toString(),
       previousCycleUsage: totalPreviousCycleUsed.toString(),
+      totalCachedTokens: (userReqAgg._sum.cachedTokens ?? 0).toString(),
+      avgLatencyMs: Math.round(userReqAgg._avg.latencyMs ?? 0),
       nextResetTime: subQuota?.nextResetTime || null,
       nextResetIso: subQuota?.nextResetIso || null,
       secondsUntilReset: subQuota?.secondsUntilReset ?? null,
@@ -2866,7 +2876,14 @@ router.get('/usage', authenticateJwt, async (req: AuthRequest, res: Response) =>
           outputTokens: (r.outputTokens ?? 0).toString(),
           promptTokens: (r.inputTokens ?? 0).toString(),
           completionTokens: (r.outputTokens ?? 0).toString(),
+          cachedTokens: (r.cachedTokens ?? 0).toString(),
+          reasoningTokens: (r.reasoningTokens ?? 0).toString(),
           totalTokens: (r.totalTokens ?? 0).toString(),
+          latencyMs: r.latencyMs ?? 0,
+          costDeductedUsd: (r as any).costDeductedUsd ? Number((r as any).costDeductedUsd) : 0,
+          formattedLatency: (r.latencyMs || 0) >= 1000
+            ? `${((r.latencyMs || 0) / 1000).toFixed(2)}s`
+            : `${r.latencyMs || 0}ms`,
         };
       }),
       ledgerEntries: ledgerEntries.map(l => ({

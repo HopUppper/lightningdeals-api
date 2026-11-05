@@ -50,6 +50,8 @@ export interface NormalizedProviderResponse {
   usage: {
     inputTokens: number;
     outputTokens: number;
+    cachedTokens?: number;
+    reasoningTokens?: number;
     totalTokens: number;
     isEstimated: boolean;
     usageSource: 'PROVIDER_REPORTED' | 'LOCAL_CALCULATED' | 'SIMULATED_ESTIMATE';
@@ -315,6 +317,9 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     if (responseJson?.usage && typeof responseJson.usage.input_tokens === 'number') {
       const rawIn = responseJson.usage.input_tokens;
       const rawOut = responseJson.usage.output_tokens;
+      const cachedRead = Number(responseJson.usage.cache_read_input_tokens || 0);
+      const cachedCreation = Number(responseJson.usage.cache_creation_input_tokens || 0);
+      const cachedTokens = cachedRead + cachedCreation;
       const isValid = Number.isFinite(rawIn) && rawIn >= 0 && Number.isFinite(rawOut) && rawOut >= 0;
       const inputTokens = isValid ? Math.floor(rawIn) : fallbackInputTokens;
       const outputTokens = isValid ? Math.floor(rawOut) : fallbackOutputTokens;
@@ -325,6 +330,8 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
         usage: {
           inputTokens,
           outputTokens,
+          cachedTokens,
+          reasoningTokens: 0,
           totalTokens: inputTokens + outputTokens,
           isEstimated: !isValid,
           usageSource: isValid ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
@@ -336,6 +343,15 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     if (responseJson?.usage && typeof responseJson.usage.prompt_tokens === 'number') {
       const rawIn = responseJson.usage.prompt_tokens;
       const rawOut = responseJson.usage.completion_tokens;
+      const cachedTokens = Number(
+        responseJson.usage.prompt_tokens_details?.cached_tokens ||
+        responseJson.usage.cache_read_input_tokens ||
+        0
+      );
+      const reasoningTokens = Number(
+        responseJson.usage.completion_tokens_details?.reasoning_tokens ||
+        0
+      );
       const isValid = Number.isFinite(rawIn) && rawIn >= 0 && Number.isFinite(rawOut) && rawOut >= 0;
       const inputTokens = isValid ? Math.floor(rawIn) : fallbackInputTokens;
       const outputTokens = isValid ? Math.floor(rawOut) : fallbackOutputTokens;
@@ -349,6 +365,8 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
         usage: {
           inputTokens,
           outputTokens,
+          cachedTokens,
+          reasoningTokens,
           totalTokens,
           isEstimated: !isValid,
           usageSource: isValid ? 'PROVIDER_REPORTED' : 'LOCAL_CALCULATED',
@@ -589,6 +607,16 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
       isEstimated = true;
     }
 
+    const cachedTokens = Number(
+      responseJson?.usage?.cache_read_input_tokens ||
+      responseJson?.usage?.prompt_tokens_details?.cached_tokens ||
+      0
+    );
+    const reasoningTokens = Number(
+      responseJson?.usage?.completion_tokens_details?.reasoning_tokens ||
+      0
+    );
+
     return {
       ok: true,
       statusCode,
@@ -596,6 +624,8 @@ export class ScaleMaxProviderAdapter extends BaseProviderAdapter {
       usage: {
         inputTokens,
         outputTokens,
+        cachedTokens,
+        reasoningTokens,
         totalTokens: inputTokens + outputTokens,
         isEstimated,
         usageSource: isEstimated ? 'LOCAL_CALCULATED' : 'PROVIDER_REPORTED',

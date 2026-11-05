@@ -653,7 +653,7 @@ export async function seedFivePlanArchitecture() {
       badge: 'CLAUDE SCALE',
       featuresJson: JSON.stringify([
         '100,000,000 Consumable Claude Tokens',
-        'Wholesale Supplier Reference: ₹2,300',
+        'Dedicated High-Concurrency Bandwidth',
         '365-Day Extended Validity',
         'Sub-50ms Gateway Latency',
         'VIP Priority Support',
@@ -719,7 +719,7 @@ export async function seedFivePlanArchitecture() {
       featuresJson: JSON.stringify([
         '100,000,000 Consumable Local Tokens',
         'Full Model Catalog (DeepSeek V4, Gemini, Grok, Qwen)',
-        'Wholesale Supplier Reference: ₹1,300',
+        'High-Throughput Batch Processing',
         '365-Day Extended Validity',
         'Dedicated Local Upstream Pipeline',
       ]),
@@ -748,7 +748,7 @@ export async function seedFivePlanArchitecture() {
       badge: 'LOCAL ENTERPRISE',
       featuresJson: JSON.stringify([
         '500,000,000 Consumable Local Tokens',
-        'Wholesale Supplier Reference: ₹5,800',
+        'Dedicated Enterprise Infrastructure',
         '365-Day Extended Validity',
         'Max Concurrency on Local Routing Channel',
         'VIP Priority Support',

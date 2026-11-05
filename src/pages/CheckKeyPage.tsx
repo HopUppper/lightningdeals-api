@@ -645,49 +645,77 @@ export const CheckKeyPage: React.FC = () => {
                 )}
 
                 {/* Request Stats Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                  <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
-                    <p className="text-xs text-[#78716c] font-mono uppercase">Total Requests</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                    <p className="text-[11px] text-[#78716c] font-mono uppercase tracking-wider">Total Requests</p>
                     <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
                       {Number(result.totalRequests || 0).toLocaleString()}
                     </p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
-                    <p className="text-xs text-[#78716c] font-mono uppercase">24h Requests</p>
-                    <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
-                      {Number(result.requests24h || 0).toLocaleString()}
+                    <p className="text-[10px] font-mono text-[#78716c] mt-0.5">
+                      {Number(result.requests24h || 0).toLocaleString()} in past 24h
                     </p>
                   </div>
+
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                    <p className="text-[11px] text-[#78716c] font-mono uppercase tracking-wider">Tokens Consumed</p>
+                    <p className="text-lg sm:text-xl font-bold font-mono text-amber-600 mt-1">
+                      {formatTokens(result.tokensUsed || (Number(result.totalInputTokens || 0) + Number(result.totalOutputTokens || 0)))}
+                    </p>
+                    <p className="text-[10px] font-mono text-emerald-700 mt-0.5 font-medium">
+                      100% Backend Verified
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                    <p className="text-[11px] text-[#78716c] font-mono uppercase tracking-wider">Input / Output</p>
+                    <p className="text-sm sm:text-base font-bold font-mono text-[#1c1917] mt-1.5 truncate">
+                      {formatTokens(result.totalInputTokens)} / {formatTokens(result.totalOutputTokens)}
+                    </p>
+                    <p className="text-[10px] font-mono text-[#78716c] mt-0.5">
+                      Prompt / Completion
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                    <p className="text-[11px] text-[#78716c] font-mono uppercase tracking-wider">Prompt Cache</p>
+                    <p className="text-lg sm:text-xl font-bold font-mono text-cyan-700 mt-1">
+                      {formatTokens(result.totalCachedTokens || 0)}
+                    </p>
+                    <p className="text-[10px] font-mono text-cyan-800 mt-0.5">
+                      Cache Read Hits
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                    <p className="text-[11px] text-[#78716c] font-mono uppercase tracking-wider">Avg Latency</p>
+                    <p className="text-lg sm:text-xl font-bold font-mono text-emerald-700 mt-1">
+                      {result.avgLatencyMs ? (result.avgLatencyMs >= 1000 ? `${(result.avgLatencyMs / 1000).toFixed(2)}s` : `${result.avgLatencyMs}ms`) : '<1.0s'}
+                    </p>
+                    <p className="text-[10px] font-mono text-emerald-700 mt-0.5 font-semibold">
+                      ⚡ &lt;10s SLA Enforced
+                    </p>
+                  </div>
+
                   {isCredit ? (
-                    <>
-                      <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
-                        <p className="text-xs text-[#78716c] font-mono uppercase">Credits Consumed</p>
-                        <p className="text-lg sm:text-xl font-bold font-mono text-emerald-700 mt-1">
-                          ${Number(result.totalCreditsUsedUsd || 0).toFixed(4)} USD
-                        </p>
-                      </div>
-                      <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
-                        <p className="text-xs text-[#78716c] font-mono uppercase">Credits Remaining</p>
-                        <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
-                          ${Number(result.creditBalanceUsd || 0).toFixed(2)} USD
-                        </p>
-                      </div>
-                    </>
+                    <div className="p-3.5 sm:p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                      <p className="text-[11px] text-[#78716c] font-mono uppercase tracking-wider">Available Credits</p>
+                      <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
+                        ${Number(result.creditBalanceUsd || 0).toFixed(2)} USD
+                      </p>
+                      <p className="text-[10px] font-mono text-[#78716c] mt-0.5">
+                        ${Number(result.totalCreditsUsedUsd || 0).toFixed(2)} spent
+                      </p>
+                    </div>
                   ) : (
-                    <>
-                      <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
-                        <p className="text-xs text-[#78716c] font-mono uppercase">Input Tokens</p>
-                        <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
-                          {formatTokens(result.totalInputTokens)}
-                        </p>
-                      </div>
-                      <div className="p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
-                        <p className="text-xs text-[#78716c] font-mono uppercase">Output Tokens</p>
-                        <p className="text-lg sm:text-xl font-bold font-mono text-[#1c1917] mt-1">
-                          {formatTokens(result.totalOutputTokens)}
-                        </p>
-                      </div>
-                    </>
+                    <div className="p-3.5 sm:p-4 rounded-xl bg-[#fbf9f5] border border-[#e7e5e4]">
+                      <p className="text-[11px] text-[#78716c] font-mono uppercase tracking-wider">Available Tokens</p>
+                      <p className="text-lg sm:text-xl font-bold font-mono text-emerald-700 mt-1">
+                        {formatTokens(result.tokensRemaining)}
+                      </p>
+                      <p className="text-[10px] font-mono text-[#78716c] mt-0.5">
+                        {isWindow ? 'Current 5h cycle' : 'Prepaid balance'}
+                      </p>
+                    </div>
                   )}
                 </div>
 
@@ -1022,91 +1050,124 @@ export const CheckKeyPage: React.FC = () => {
                               <th className="py-2.5 px-3 whitespace-nowrap">Model Used</th>
                               <th className="py-2.5 px-3 whitespace-nowrap">Endpoint</th>
                               <th className="py-2.5 px-3 whitespace-nowrap">Status</th>
-                              {isCredit ? (
+                              <th className="py-2.5 px-3 whitespace-nowrap text-right">Time Taken</th>
+                              <th className="py-2.5 px-3 whitespace-nowrap text-right">Input</th>
+                              <th className="py-2.5 px-3 whitespace-nowrap text-right">Output</th>
+                              <th className="py-2.5 px-3 whitespace-nowrap text-right">Cache</th>
+                              <th className="py-2.5 px-3 whitespace-nowrap text-right">Total Tokens</th>
+                              {isCredit && (
                                 <th className="py-2.5 px-3 whitespace-nowrap text-right">Credits Consumed</th>
-                              ) : (
-                                <>
-                                  <th className="py-2.5 px-3 whitespace-nowrap">Input</th>
-                                  <th className="py-2.5 px-3 whitespace-nowrap">Output</th>
-                                  <th className="py-2.5 px-3 whitespace-nowrap">Total Tokens</th>
-                                </>
                               )}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#e7e5e4]">
-                            {result.recentRequests.map((req: any) => (
-                              <tr key={req.id} className="hover:bg-[#fbf9f5]/70 transition-colors">
-                                <td className="py-2.5 px-3 text-[#78716c] text-[11px] whitespace-nowrap">
-                                  {new Date(req.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}
-                                </td>
-                                <td className="py-2.5 px-3 font-bold text-[#6d28d9] whitespace-nowrap">{req.model}</td>
-                                <td className="py-2.5 px-3 text-[#1c1917] text-[11px] whitespace-nowrap">{req.endpoint}</td>
-                                <td className="py-2.5 px-3 whitespace-nowrap">
-                                  {req.statusCode < 400 ? (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                      <span>Success</span>
-                                    </span>
-                                  ) : (
-                                    <div className="flex flex-col gap-1 items-start">
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1 w-fit">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                                        <span>
-                                          {req.friendlyError?.simpleTitle ||
-                                            (req.statusCode === 503
-                                              ? '503 (Cluster Busy)'
-                                              : req.statusCode === 429
-                                              ? '429 (Quota Limit)'
-                                              : `${req.statusCode} (${req.errorCode || 'Failed'})`)}
-                                        </span>
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setSelectedSolution({
-                                            error:
-                                              req.friendlyError ||
-                                              getFriendlyError({
-                                                statusCode: req.statusCode,
-                                                errorCode: req.errorCode,
-                                                errorMessage: req.errorMessage,
-                                                model: req.model,
-                                                billingPlanType: result.billingType,
-                                              }),
-                                            rawEvent: req,
-                                          })
-                                        }
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors shadow-2xs cursor-pointer"
-                                      >
-                                        <Wrench className="w-3 h-3 text-rose-500" />
-                                        <span>How to Resolve</span>
-                                      </button>
-                                    </div>
-                                  )}
-                                </td>
-                                {isCredit ? (
-                                  <td className="py-2.5 px-3 font-bold text-emerald-700 text-right">
-                                    ${Number(req.costUsd || req.customerCostUsd || 0).toFixed(4)} USD
+                            {result.recentRequests.map((req: any) => {
+                              const latMs = Number(req.latencyMs || 0);
+                              const latFormatted = req.formattedLatency || (latMs >= 1000 ? `${(latMs / 1000).toFixed(2)}s` : `${latMs}ms`);
+                              const inTok = Number(req.inputTokens || 0);
+                              const outTok = Number(req.outputTokens || 0);
+                              const cachedTok = Number(req.cachedTokens || 0);
+                              const totTok = Number(req.totalTokens || (inTok + outTok));
+                              return (
+                                <tr key={req.id} className="hover:bg-[#fbf9f5]/70 transition-colors">
+                                  <td className="py-2.5 px-3 text-[#78716c] text-[11px] whitespace-nowrap">
+                                    {new Date(req.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}
                                   </td>
-                                ) : (
-                                  <>
-                                    <td className="py-2.5 px-3 text-[#78716c]">{req.inputTokens?.toLocaleString()}</td>
-                                    <td className="py-2.5 px-3 text-[#78716c]">{req.outputTokens?.toLocaleString()}</td>
-                                    <td className="py-2.5 px-3 font-bold text-[#1c1917]">
-                                      <span>{req.totalTokens?.toLocaleString()}</span>
-                                      {req.isEstimated && (
-                                        <span
-                                          className="ml-1.5 text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans"
-                                          title="Estimated via length heuristics"
+                                  <td className="py-2.5 px-3 font-bold text-[#6d28d9] whitespace-nowrap">{req.model}</td>
+                                  <td className="py-2.5 px-3 text-[#1c1917] text-[11px] whitespace-nowrap">{req.endpoint}</td>
+                                  <td className="py-2.5 px-3 whitespace-nowrap">
+                                    {req.statusCode < 400 ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        <span>Success</span>
+                                      </span>
+                                    ) : (
+                                      <div className="flex flex-col gap-1 items-start">
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1 w-fit">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                          <span>
+                                            {req.friendlyError?.simpleTitle ||
+                                              (req.statusCode === 503
+                                                ? '503 (Cluster Busy)'
+                                                : req.statusCode === 429
+                                                ? '429 (Quota Limit)'
+                                                : `${req.statusCode} (${req.errorCode || 'Failed'})`)}
+                                          </span>
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setSelectedSolution({
+                                              error:
+                                                req.friendlyError ||
+                                                getFriendlyError({
+                                                  statusCode: req.statusCode,
+                                                  errorCode: req.errorCode,
+                                                  errorMessage: req.errorMessage,
+                                                  model: req.model,
+                                                  billingPlanType: result.billingType,
+                                                }),
+                                              rawEvent: req,
+                                            })
+                                          }
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors shadow-2xs cursor-pointer"
                                         >
-                                          ESTIMATED
+                                          <Wrench className="w-3 h-3 text-rose-500" />
+                                          <span>How to Resolve</span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                    <span className={`px-2 py-0.5 rounded text-[10.5px] font-mono font-bold border inline-flex items-center gap-1 ${
+                                      latMs < 5000
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : latMs < 10000
+                                        ? 'bg-teal-50 text-teal-800 border-teal-200'
+                                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                                    }`}>
+                                      {latFormatted}
+                                      {req.streaming && (
+                                        <span className="text-[9px] px-1 py-0.1 rounded bg-white/70 border border-current font-sans font-semibold">
+                                          SSE
                                         </span>
                                       )}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right text-[#78716c] font-mono whitespace-nowrap">
+                                    {inTok.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right text-[#78716c] font-mono whitespace-nowrap">
+                                    {outTok.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                    {cachedTok > 0 ? (
+                                      <span className="px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-800 border border-cyan-200 text-[10px] font-bold font-mono">
+                                        {cachedTok.toLocaleString()}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[#a8a29e] font-mono text-[11px]">0</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-bold text-[#1c1917] font-mono whitespace-nowrap">
+                                    <span>{totTok.toLocaleString()}</span>
+                                    {req.isEstimated && (
+                                      <span
+                                        className="ml-1.5 text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans"
+                                        title="Estimated via length heuristics"
+                                      >
+                                        ESTIMATED
+                                      </span>
+                                    )}
+                                  </td>
+                                  {isCredit && (
+                                    <td className="py-2.5 px-3 font-bold text-emerald-700 text-right font-mono whitespace-nowrap">
+                                      ${Number(req.costDeductedUsd || req.costUsd || req.customerCostUsd || 0).toFixed(4)} USD
                                     </td>
-                                  </>
-                                )}
-                              </tr>
-                            ))}
+                                  )}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

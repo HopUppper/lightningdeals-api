@@ -5,26 +5,26 @@ import { fetch as undiciFetch, Agent as UndiciAgent } from 'undici';
 // High-performance HTTP Keep-Alive Agent Pool for Node HTTP clients
 export const httpAgent = new http.Agent({
   keepAlive: true,
-  keepAliveMsecs: 60000,
-  maxSockets: 128,
-  maxFreeSockets: 32,
-  timeout: 180000,
+  keepAliveMsecs: 120000,
+  maxSockets: 256,
+  maxFreeSockets: 64,
+  timeout: 120000,
 });
 
 export const httpsAgent = new https.Agent({
   keepAlive: true,
-  keepAliveMsecs: 60000,
-  maxSockets: 128,
-  maxFreeSockets: 32,
-  timeout: 180000,
+  keepAliveMsecs: 120000,
+  maxSockets: 256,
+  maxFreeSockets: 64,
+  timeout: 120000,
   rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
 });
 
 // Undici Agent for High-Performance Keep-Alive connection reuse in fetch
 export const undiciAgent = new UndiciAgent({
-  keepAliveTimeout: 60000,
-  keepAliveMaxTimeout: 180000,
-  connections: 128,
+  keepAliveTimeout: 120000,
+  keepAliveMaxTimeout: 300000,
+  connections: 256,
   pipelining: 1,
   connect: {
     rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',

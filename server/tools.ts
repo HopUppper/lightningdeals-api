@@ -195,27 +195,38 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
       : (numM > 0 ? `Claude Max ${numM}x` : (keyRecord.plan || 'Claude Max 20x'));
   }
 
-  const recentRequests = await prisma.apiRequest.findMany({
-    where: { apiKeyId: keyRecord.id },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-    select: {
-      id: true,
-      model: true,
-      endpoint: true,
-      statusCode: true,
-      errorCode: true,
-      errorMessage: true,
-      inputTokens: true,
-      outputTokens: true,
-      totalTokens: true,
-      latencyMs: true,
-      streaming: true,
-      isEstimated: true,
-      usageSource: true,
-      createdAt: true,
-    },
-  });
+  const [recentRequests, cachedTokensAgg] = await Promise.all([
+    prisma.apiRequest.findMany({
+      where: { apiKeyId: keyRecord.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        model: true,
+        endpoint: true,
+        statusCode: true,
+        errorCode: true,
+        errorMessage: true,
+        inputTokens: true,
+        outputTokens: true,
+        cachedTokens: true,
+        reasoningTokens: true,
+        totalTokens: true,
+        costDeductedUsd: true,
+        latencyMs: true,
+        streaming: true,
+        isEstimated: true,
+        usageSource: true,
+        createdAt: true,
+      },
+    }),
+    prisma.apiRequest.aggregate({
+      where: { apiKeyId: keyRecord.id },
+      _sum: { cachedTokens: true },
+    }),
+  ]);
+
+  const totalCachedTokens = Number(cachedTokensAgg._sum.cachedTokens || 0);
 
   const isExpired = keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date();
 
@@ -345,6 +356,7 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
     requests24h,
     totalInputTokens: keyRecord.totalInputTokens.toString(),
     totalOutputTokens: keyRecord.totalOutputTokens.toString(),
+    totalCachedTokens: totalCachedTokens.toString(),
     avgLatencyMs: Math.round(avgLatency._avg.latencyMs || 0),
     allowedModels: keyRecord.allowedModels,
     allowedModelFamilies: allowedFamilies,
@@ -383,6 +395,16 @@ export async function handleCheckKeyStatus(req: Request, res: Response) {
       }) : null;
       return {
         ...r,
+        inputTokens: r.inputTokens ?? 0,
+        outputTokens: r.outputTokens ?? 0,
+        cachedTokens: r.cachedTokens ?? 0,
+        reasoningTokens: r.reasoningTokens ?? 0,
+        totalTokens: r.totalTokens ?? 0,
+        latencyMs: r.latencyMs ?? 0,
+        costDeductedUsd: r.costDeductedUsd ? Number(r.costDeductedUsd) : 0,
+        formattedLatency: (r.latencyMs || 0) >= 1000
+          ? `${((r.latencyMs || 0) / 1000).toFixed(2)}s`
+          : `${r.latencyMs || 0}ms`,
         exactFailureReason: r.statusCode >= 400 ? (friendly?.simpleReason || r.errorMessage || r.errorCode || `HTTP ${r.statusCode} Request Failed`) : null,
         friendlyError: friendly,
       };

@@ -615,12 +615,20 @@ export async function handleGetModels(req: Request, res: Response) {
       return clean.length >= 3 ? clean : fallback;
     };
 
+    const firstId = models.length > 0 ? models[0].modelId : null;
+    const lastId = models.length > 0 ? models[models.length - 1].modelId : null;
+
     res.json({
       object: 'list',
+      has_more: false,
+      first_id: firstId,
+      last_id: lastId,
       data: models.map((m) => ({
         id: m.modelId,
+        type: 'model',
         object: 'model',
         created: Math.floor(m.createdAt.getTime() / 1000),
+        created_at: m.createdAt.toISOString(),
         owned_by: sanitizeVendorText(m.provider, 'Anthropic'),
         display_name: sanitizeVendorText(m.displayName, m.modelId),
         description: sanitizeVendorText(m.description, `${m.displayName || m.modelId} high-performance AI model via LightningAPI network.`),
@@ -637,6 +645,107 @@ export async function handleGetModels(req: Request, res: Response) {
     });
   } catch (err: any) {
     res.status(500).json({ error: { message: err.message } });
+  }
+}
+
+// 3b. Retrieve Single Model by ID (/v1/models/:modelId)
+export async function handleGetModelById(req: Request, res: Response) {
+  try {
+    const rawModelId = req.params.modelId || '';
+    if (!rawModelId) {
+      return res.status(400).json({ error: { type: 'invalid_request_error', message: 'Model ID is required.' } });
+    }
+
+    const norm = rawModelId.toLowerCase().trim();
+    const dotted = norm.replace(/-(\d+)-(\d+)/g, '-$1.$2');
+    const hyphened = norm.replace(/-(\d+)\.(\d+)/g, '-$1-$2');
+    const canonical = canonicalizeModelId(norm);
+
+    let model = await prisma.model.findFirst({
+      where: {
+        OR: [
+          { modelId: norm },
+          { modelId: dotted },
+          { modelId: hyphened },
+          { modelId: canonical },
+          { upstreamModelId: norm },
+          { upstreamModelId: dotted },
+          { upstreamModelId: hyphened },
+          { upstreamModelId: canonical },
+          { displayName: { equals: norm, mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    const sanitizeVendorText = (text: string | null | undefined, fallback: string): string => {
+      if (!text || typeof text !== 'string') return fallback;
+      let clean = text
+        .replace(/Available\s+through\s+(?:ScaleMax|OpusMax|LotusAI|OpenPipe)/gi, '')
+        .replace(/\b(?:ScaleMax|OpusMax|LotusAI|OpenPipe)\b/gi, 'LightningAPI')
+        .trim();
+      return clean.length >= 3 ? clean : fallback;
+    };
+
+    if (!model) {
+      const catalogEntry = ALL_SUPPORTED_MODELS.find(
+        (m: any) =>
+          m.modelId.toLowerCase() === norm ||
+          m.modelId.toLowerCase() === dotted ||
+          m.modelId.toLowerCase() === hyphened ||
+          m.modelId.toLowerCase() === canonical
+      );
+      if (catalogEntry) {
+        return res.json({
+          id: rawModelId,
+          type: 'model',
+          object: 'model',
+          created: 1700000000,
+          created_at: new Date().toISOString(),
+          display_name: catalogEntry.displayName,
+          description: catalogEntry.description,
+          context_window: catalogEntry.contextWindow || 128000,
+          input_price_per_1m: catalogEntry.inputPrice || 3,
+          output_price_per_1m: catalogEntry.outputPrice || 15,
+          supports_vision: Boolean(catalogEntry.supportsVision),
+          supports_tools: Boolean(catalogEntry.supportsTools),
+          supports_streaming: Boolean(catalogEntry.supportsStreaming),
+          supports_reasoning: Boolean(catalogEntry.supportsReasoning),
+          family: catalogEntry.categoryKey || 'claude',
+          protocol: catalogEntry.protocol || 'anthropic',
+          owned_by: 'Anthropic',
+        });
+      }
+
+      return res.status(404).json({
+        error: {
+          type: 'not_found_error',
+          message: `Model '${rawModelId}' not found.`,
+          code: 'model_not_found',
+        },
+      });
+    }
+
+    return res.json({
+      id: rawModelId,
+      type: 'model',
+      object: 'model',
+      created: Math.floor(model.createdAt.getTime() / 1000),
+      created_at: model.createdAt.toISOString(),
+      display_name: sanitizeVendorText(model.displayName, model.modelId),
+      description: sanitizeVendorText(model.description, `${model.displayName || model.modelId} high-performance AI model via LightningAPI network.`),
+      context_window: model.contextWindow,
+      input_price_per_1m: model.inputPrice,
+      output_price_per_1m: model.outputPrice,
+      supports_vision: Boolean(model.supportsVision || model.supportsImageInput),
+      supports_tools: Boolean(model.supportsTools),
+      supports_streaming: Boolean(model.supportsStreaming),
+      supports_reasoning: Boolean(model.supportsReasoning),
+      family: model.family,
+      protocol: model.protocol,
+      owned_by: sanitizeVendorText(model.provider, 'Anthropic'),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: { message: err.message } });
   }
 }
 

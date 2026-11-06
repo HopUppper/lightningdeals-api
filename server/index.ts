@@ -6,7 +6,7 @@ import cors from 'cors';
 import crypto from 'crypto';
 
 import { handleMessagesEndpoint, handleChatCompletionsEndpoint, handleResponsesEndpoint } from './gateway';
-import { handleCheckKeyStatus, handleResolveError, handleSystemStatus, handleGetModels, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
+import { handleCheckKeyStatus, handleResolveError, handleSystemStatus, handleGetModels, handleGetModelById, handleCountTokens, handleWebSearch, handleUnderstandImage } from './tools';
 import { authenticateJwt, requireAdmin } from './auth';
 import adminRouter from './admin';
 import adminAuthRouter from './adminAuth';
@@ -212,6 +212,7 @@ app.post(['/v1/messages', '/messages', '/v1/v1/messages', '/token/v1/messages'],
 app.post(['/v1/chat/completions', '/chat/completions', '/v1/v1/chat/completions', '/token/v1/chat/completions'], handleChatCompletionsEndpoint);
 app.post(['/v1/responses', '/responses', '/v1/v1/responses', '/token/v1/responses'], handleResponsesEndpoint);
 app.get(['/v1/models', '/models', '/v1/v1/models', '/token/v1/models'], handleGetModels);
+app.get(['/v1/models/:modelId', '/models/:modelId', '/v1/v1/models/:modelId', '/token/v1/models/:modelId'], handleGetModelById);
 app.post(['/v1/messages/count_tokens', '/messages/count_tokens', '/v1/v1/messages/count_tokens', '/token/v1/messages/count_tokens'], handleCountTokens);
 
 // 2. Built-in Tools Endpoints

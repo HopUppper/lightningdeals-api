@@ -138,13 +138,25 @@ export const SUPPORTED_MODELS_CATALOG: CatalogModelEntry[] = [
     id: 'claude-haiku-5.5',
     upstreamId: 'claude-haiku-4-5-20251001',
     displayName: 'Claude Haiku 5.5',
-    aliases: ['haiku-5.5', 'haiku 5.5'],
+    aliases: ['haiku-5.5', 'haiku 5.5', 'claude-haiku-4-5.20251001', 'claude-haiku-4-5-20251001'],
   },
   {
     id: 'claude-haiku-5',
     upstreamId: 'claude-haiku-4-5-20251001',
     displayName: 'Claude Haiku 5',
-    aliases: ['haiku-5', 'haiku 5', 'claude-haiku-4-5', 'haiku-4-5'],
+    aliases: ['haiku-5', 'haiku 5', 'claude-haiku-4-5', 'haiku-4-5', 'claude-haiku-4-5.20251001', 'claude-haiku-4-5-20251001'],
+  },
+  {
+    id: 'claude-sonnet-4.5',
+    upstreamId: 'claude-sonnet-5',
+    displayName: 'Claude Sonnet 4.5',
+    aliases: ['sonnet-4.5', 'claude-sonnet-4-5', 'sonnet-4-5', 'sonnet 4.5'],
+  },
+  {
+    id: 'claude-haiku-4.5',
+    upstreamId: 'claude-haiku-4-5-20251001',
+    displayName: 'Claude Haiku 4.5',
+    aliases: ['haiku-4.5', 'claude-haiku-4-5', 'haiku-4-5', 'haiku 4.5', 'claude-haiku-4-5.20251001', 'claude-haiku-4-5-20251001'],
   },
   {
     id: 'claude-3-7-sonnet-20250219',
@@ -1870,8 +1882,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
         isAnthropicEndpoint: true,
       }, resolvedBillingType);
 
-      // Bound adaptive timeout strictly: max 8.5s for standard requests to guarantee <10s response time
-      const effectiveTimeoutMs = isThinkingRequested ? Math.min(adaptiveTimeoutMs, 120000) : Math.min(adaptiveTimeoutMs, 8500);
+      // Adaptive request timeout based on modality and model streaming requirements
+      const effectiveTimeoutMs = adaptiveTimeoutMs;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
@@ -1892,8 +1904,8 @@ export async function handleMessagesEndpoint(req: Request, res: Response) {
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         if (clientDisconnected) break;
 
-        // If elapsed time already exceeds 7.5s, break to guarantee strict <10s response time
-        if (attempt > 0 && Date.now() - startTime > 7500) {
+        // If elapsed time already exceeds the effective timeout threshold, abort retry
+        if (attempt > 0 && Date.now() - startTime > (effectiveTimeoutMs - 5000)) {
           break;
         }
 
@@ -3064,8 +3076,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
     prepared.body.stream_options = { include_usage: true };
   }
 
-  // Bound adaptive timeout strictly: max 8.5s for standard requests to guarantee <10s response time
-  const effectiveTimeoutMs = isThinkingRequested ? Math.min(adaptiveTimeoutMs, 120000) : Math.min(adaptiveTimeoutMs, 8500);
+  // Adaptive request timeout based on modality and model streaming requirements
+  const effectiveTimeoutMs = adaptiveTimeoutMs;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
@@ -3086,8 +3098,8 @@ export async function handleChatCompletionsEndpoint(req: Request, res: Response)
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (clientDisconnected) break;
 
-    // Stay strictly under 10 seconds
-    if (attempt > 0 && Date.now() - startTime > 7500) {
+    // If elapsed time already exceeds the effective timeout threshold, abort retry
+    if (attempt > 0 && Date.now() - startTime > (effectiveTimeoutMs - 5000)) {
       break;
     }
 

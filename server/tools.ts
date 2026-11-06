@@ -584,6 +584,18 @@ export async function handleGetModels(req: Request, res: Response) {
       }
     }
 
+    // 5-Hour Rolling Plan keys (window) must ONLY see and access Opus Max rolling models.
+    // ScaleMax models must not be exposed to or work with 5-hour rolling plan keys.
+    if (keyRecord?.billingType === 'window' || keyRecord?.planCategory === 'claude_max_rolling') {
+      models = models.filter((m: any) => {
+        const slug = (m.providerSlug || '').toLowerCase();
+        if (slug === 'scalemax' || slug.includes('scalemax')) return false;
+        const fam = (m.family || m.provider || '').toLowerCase();
+        const isClaudeFam = fam === 'claude' || fam === 'anthropic';
+        return isClaudeFam || slug === 'opus_max';
+      });
+    }
+
     // Authoritative Deduplication by Stable Model Identity (provider + canonical_id)
     const seenIdentities = new Set<string>();
     models = models.filter((m) => {
@@ -594,15 +606,24 @@ export async function handleGetModels(req: Request, res: Response) {
       return true;
     });
 
+    const sanitizeVendorText = (text: string | null | undefined, fallback: string): string => {
+      if (!text || typeof text !== 'string') return fallback;
+      let clean = text
+        .replace(/Available\s+through\s+(?:ScaleMax|OpusMax|LotusAI|OpenPipe)/gi, '')
+        .replace(/\b(?:ScaleMax|OpusMax|LotusAI|OpenPipe)\b/gi, 'LightningAPI')
+        .trim();
+      return clean.length >= 3 ? clean : fallback;
+    };
+
     res.json({
       object: 'list',
       data: models.map((m) => ({
         id: m.modelId,
         object: 'model',
         created: Math.floor(m.createdAt.getTime() / 1000),
-        owned_by: m.provider,
-        display_name: m.displayName,
-        description: m.description,
+        owned_by: sanitizeVendorText(m.provider, 'Anthropic'),
+        display_name: sanitizeVendorText(m.displayName, m.modelId),
+        description: sanitizeVendorText(m.description, `${m.displayName || m.modelId} high-performance AI model via LightningAPI network.`),
         context_window: m.contextWindow,
         input_price_per_1m: m.inputPrice,
         output_price_per_1m: m.outputPrice,

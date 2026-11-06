@@ -249,12 +249,33 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     const toolChoice = hasTools ? payload.tool_choice : undefined;
     const isThinkingEnabled = payload.thinking && payload.thinking.type === 'enabled';
 
+    const isOpusMax = Boolean(
+      (this.baseUrl && this.baseUrl.includes('opusmax.pro')) ||
+      this.slug === 'opus_max' ||
+      (this.name && this.name.toLowerCase().includes('opus max')) ||
+      (this.protocol === 'anthropic' && !this.baseUrl.includes('api.anthropic.com'))
+    );
+
     let finalMaxTokens = payload.max_tokens || 4096;
-    if (isThinkingEnabled && payload.thinking.budget_tokens) {
-      const budget = Number(payload.thinking.budget_tokens);
-      if (finalMaxTokens <= budget) {
-        finalMaxTokens = budget + 4096;
+    let effectiveThinking = payload.thinking;
+
+    if (isThinkingEnabled && payload.thinking?.budget_tokens) {
+      let budget = Number(payload.thinking.budget_tokens);
+      if (isOpusMax && budget >= 4096) {
+        // In Anthropic API specification, max_tokens MUST be strictly greater than thinking.budget_tokens
+        budget = 3072;
+        effectiveThinking = { ...payload.thinking, budget_tokens: budget };
       }
+      if (finalMaxTokens <= budget) {
+        finalMaxTokens = isOpusMax ? 4096 : (budget + 4096);
+      }
+    }
+
+    // Upstream Opus Max gateway strictly enforces a maximum output token ceiling of 4096 across all models.
+    // Developer clients (such as Claude Desktop Developer Mode, Claude Code CLI, Cursor, Windsurf, Aider)
+    // pass max_tokens: 8192 or 64000 by default. Safely clamp to 4096 to prevent upstream 400 rejection.
+    if (isOpusMax && finalMaxTokens > 4096) {
+      finalMaxTokens = 4096;
     }
 
     const requestBody: Record<string, any> = {
@@ -271,7 +292,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     }
 
     if (isThinkingEnabled) {
-      requestBody.thinking = payload.thinking;
+      requestBody.thinking = effectiveThinking;
     } else {
       if (payload.temperature !== undefined) requestBody.temperature = payload.temperature;
       if (payload.top_p !== undefined) requestBody.top_p = payload.top_p;

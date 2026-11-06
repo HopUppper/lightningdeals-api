@@ -205,13 +205,11 @@ async function fetchScaleMaxOperationalModels(creditKey: string): Promise<Discov
       models.push({
         upstreamId,
         canonicalId,
-        displayName: item.display_name || canonicalId,
+        displayName: (item.display_name || canonicalId).replace(/ScaleMax/gi, 'Lightning').replace(/OpusMax/gi, 'Lightning').replace(/LotusAI/gi, 'Lightning').trim(),
         family,
         provider,
         protocol,
-        description:
-          item.tagline ||
-          `${item.display_name || canonicalId} frontier AI model via LightningAPI enterprise network.`,
+        description: (item.tagline || `${item.display_name || canonicalId} frontier AI model via LightningAPI enterprise network.`).replace(/Available\s+through\s+(?:ScaleMax|OpusMax|LotusAI|OpenPipe)/gi, '').replace(/\b(?:ScaleMax|OpusMax|LotusAI|OpenPipe)\b/gi, 'LightningAPI').trim(),
         contextWindow: Number(item.context_window) || 128000,
         maxOutputTokens: Number(item.max_output_tokens || item.max_tokens) || 65536,
         supplierCostInput,

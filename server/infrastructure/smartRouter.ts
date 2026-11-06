@@ -104,23 +104,22 @@ async function getCachedVendorProvider(query: { slug?: string; id?: string; isPr
 
 /**
  * Determines adaptive timeout in milliseconds based on model modality and family.
- * Standard interactive calls are bounded to 8,500ms to guarantee end-to-end response < 10 seconds.
  */
 export function determineAdaptiveTimeoutMs(model: string, isStreaming = false, hasThinking = false): number {
   const m = (model || '').toLowerCase();
 
   // Thinking/Reasoning models require extended reasoning budgets
   if (hasThinking || m.includes('thinking') || m.includes('o1') || m.includes('o3') || m.includes('r1')) {
-    return 120000; // 2 minutes max for thinking models
+    return 180000; // 3 minutes max for thinking models
   }
 
   // Large frontier models on streaming
   if (isStreaming) {
-    return 60000; // 60 seconds
+    return 120000; // 2 minutes for streaming
   }
 
-  // Standard interactive requests: strictly capped to 8,500ms so full roundtrip is guaranteed <10 seconds
-  return 8500; // 8.5 seconds
+  // Standard interactive requests
+  return 60000; // 60 seconds
 }
 
 /**
@@ -278,6 +277,22 @@ export async function resolveIntelligentRoute(params: {
 
   // 3. Resolve Target Provider based on customer key billing architecture
   let targetProvider: any = null;
+
+  // Strict 5-Hour Rolling Plan Isolation:
+  // Rolling plan keys (claude_max_rolling / window) strictly only work with OpusMax 5-hour rolling Claude models.
+  // If a model is provisioned via ScaleMax or non-rolling providers, reject with 403 Forbidden!
+  const isRollingClaudeKey = billingArchitecture === 'claude_max_rolling' || keyRecord?.billingType === 'window';
+  if (isRollingClaudeKey && (modelRecord?.providerSlug === 'scalemax' || (modelRecord?.provider && modelRecord.provider.toLowerCase().includes('scalemax')))) {
+    return {
+      success: false,
+      error: {
+        status: 403,
+        type: 'permission_error',
+        code: 'model_not_in_rolling_plan',
+        message: `Model '${requestedModel}' is not included in the 5-Hour Rolling Plan. The 5-Hour Rolling Plan key only provides access to 5-Hour Rolling Claude models.`,
+      },
+    };
+  }
 
   // Strict Billing Architecture Provider Routing:
   // - API Credit keys (claude_openai_credits / credit) route strictly to ScaleMax
